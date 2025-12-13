@@ -86,6 +86,9 @@ export default function ResumeBuilderPage() {
   const [resume, setResume] = useState<GeneratedResumeJson>(defaultResume);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showExpanded, setShowExpanded] = useState(false);
+  const uploadInputRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!draftId) return;
@@ -106,6 +109,7 @@ export default function ResumeBuilderPage() {
             skills: Array.isArray(payload.skills) && payload.skills.length > 0 ? payload.skills : defaultResume.skills,
             experience:
               Array.isArray(payload.experience) && payload.experience.length > 0 ? payload.experience : defaultResume.experience,
+            contact: payload.contact || defaultResume.contact,
           });
         }
       } catch (e: any) {
@@ -118,6 +122,18 @@ export default function ResumeBuilderPage() {
       cancelled = true;
     };
   }, [backend, draftId]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const name = `${(user?.user_metadata as any)?.first_name || ''} ${(user?.user_metadata as any)?.last_name || ''}`.trim();
+        if (name) {
+          setResume((prev) => ({ ...prev, contact: { ...(prev.contact || {}), name } }));
+        }
+      } catch {}
+    })();
+  }, []);
 
   const experienceList = useMemo(
     () => (resume.experience && resume.experience.length > 0 ? resume.experience : defaultResume.experience),
@@ -135,6 +151,32 @@ export default function ResumeBuilderPage() {
         : defaultResume.targetRole.industry || [],
     [resume.targetRole.industry]
   );
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    setLoadError(null);
+    try {
+      const headers = await authHeaders();
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${backend}/api/rex/uploads`, { method: 'POST', headers, body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Upload failed');
+      const text = data?.text || '';
+      if (!text) {
+        setLoadError('Could not extract text from file.');
+      } else {
+        setResume((prev) => ({
+          ...prev,
+          summary: prev.summary || text.slice(0, 500),
+        }));
+      }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="bg-[#020617] text-slate-100 font-sans antialiased">
@@ -170,6 +212,21 @@ export default function ResumeBuilderPage() {
             )}
             {loading && <div className="text-xs text-slate-400">Loading draft…</div>}
             {loadError && <div className="text-xs text-red-300">{loadError}</div>}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => uploadInputRef.current?.click()}
+                className="text-xs px-3 py-1 rounded-full border border-slate-700 bg-slate-900/70 hover:border-sky-500 transition disabled:opacity-50"
+                disabled={uploading}
+              >
+                {uploading ? 'Uploading…' : 'Upload resume'}
+              </button>
+              <button
+                onClick={() => setShowExpanded(true)}
+                className="text-xs px-3 py-1 rounded-full border border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500 transition"
+              >
+                Expand preview
+              </button>
+            </div>
           </div>
 
           <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">Resume Builder</h1>
@@ -455,6 +512,12 @@ export default function ResumeBuilderPage() {
                     <FaCopy className="text-xs" />
                     Copy text
                   </button>
+                  <button
+                    className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
+                    onClick={() => setShowExpanded(true)}
+                  >
+                    Expand
+                  </button>
                 </div>
               </div>
 
@@ -464,81 +527,125 @@ export default function ResumeBuilderPage() {
                 style={{ maxHeight: '900px' }}
               >
                 <div className="mb-6 pb-4 border-b-2 border-slate-300">
-                  <h1 className="text-3xl font-bold text-slate-900 mb-1">Brandon Omoregie</h1>
-                  <p className="text-sm text-slate-700 font-medium mb-2">Head of Sales · GTM Strategy · B2B SaaS</p>
+                  <h1 className="text-3xl font-bold text-slate-900 mb-1">{resume.contact?.name || 'Your Name Here'}</h1>
+                  <p className="text-sm text-slate-700 font-medium mb-2">
+                    {(resume.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
+                  </p>
                   <div className="flex items-center gap-3 text-xs text-slate-600">
-                    <span>San Francisco, CA</span>
+                    <span>{resume.contact?.email || 'you@email.com'}</span>
                     <span>·</span>
-                    <span>brandon@email.com</span>
-                    <span>·</span>
-                    <span>linkedin.com/in/brandon</span>
+                    <span>{resume.contact?.linkedin || 'linkedin.com/in/username'}</span>
                   </div>
                 </div>
 
                 <div className="mb-6">
                   <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SUMMARY</h2>
-                  <p className="text-sm text-slate-700 leading-relaxed">
-                    Results-driven sales leader with 8+ years building and scaling high-performing GTM teams in B2B SaaS.
-                    Proven track record of driving 40%+ ARR growth through strategic outbound motions and data-driven
-                    playbooks. Seeking Head of Sales role to leverage expertise in pipeline architecture and team
-                    development.
-                  </p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{resume.summary}</p>
                 </div>
 
                 <div className="mb-6">
                   <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-3">EXPERIENCE</h2>
 
-                  <div className="mb-4">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-sm font-bold text-slate-900">Head of Sales</h3>
-                      <span className="text-xs text-slate-600">2021 – Present</span>
+                  {experienceList.map((exp, idx) => (
+                    <div className="mb-4" key={`${exp.company}-${idx}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-sm font-bold text-slate-900">{exp.title}</h3>
+                        <span className="text-xs text-slate-600">{exp.dates || ''}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 font-medium mb-2">{exp.company}</p>
+                      {exp.whyHiredSummary && <p className="text-xs text-slate-700 leading-relaxed mb-2">{exp.whyHiredSummary}</p>}
+                      {!!exp.bullets?.length && (
+                        <ul className="space-y-1.5 ml-4">
+                          {exp.bullets.map((b, i) => (
+                            <li key={i} className="text-xs text-slate-700 leading-relaxed list-disc">
+                              {b}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-700 font-medium mb-2">Nimbus Data</p>
-                    <ul className="space-y-1.5 ml-4">
-                      <li className="text-xs text-slate-700 leading-relaxed list-disc">
-                        Increased ARR by 42% in 12 months by leading a 5-person outbound team and implementing data-driven
-                        playbooks
-                      </li>
-                      <li className="text-xs text-slate-700 leading-relaxed list-disc">
-                        Reduced sales cycle from 90 to 45 days by implementing MEDDIC qualification framework across the entire
-                        team
-                      </li>
-                      <li className="text-xs text-slate-700 leading-relaxed list-disc">
-                        Built and scaled outbound motion from 0 to $2.4M pipeline in 6 months through strategic SDR hiring
-                        and enablement
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mb-4">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-sm font-bold text-slate-900">VP of Sales</h3>
-                      <span className="text-xs text-slate-600">2018 – 2021</span>
-                    </div>
-                    <p className="text-sm text-slate-700 font-medium mb-2">CloudSync Technologies</p>
-                    <ul className="space-y-1.5 ml-4">
-                      <li className="text-xs text-slate-700 leading-relaxed list-disc">
-                        Scaled sales team from 3 to 15 reps while maintaining 85%+ quota attainment across the organization
-                      </li>
-                      <li className="text-xs text-slate-700 leading-relaxed list-disc">
-                        Drove $8M to $24M ARR growth over 3 years through strategic enterprise account expansion
-                      </li>
-                    </ul>
-                  </div>
+                  ))}
                 </div>
 
                 <div>
                   <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SKILLS</h2>
-                  <p className="text-xs text-slate-700 leading-relaxed">
-                    GTM Strategy · Pipeline Management · Outbound Playbooks · MEDDIC · Team Building · SaaS Sales ·
-                    Enterprise Sales · Salesforce
-                  </p>
+                  <p className="text-xs text-slate-700 leading-relaxed">{resume.skills.join(' · ')}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {showExpanded && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">Expanded Resume Preview</h3>
+              <button onClick={() => setShowExpanded(false)} className="text-slate-300 hover:text-white text-sm">
+                Close
+              </button>
+            </div>
+            <div className="bg-slate-50 text-slate-900 rounded-xl p-8 space-y-4">
+              <div className="mb-4 pb-3 border-b border-slate-200">
+                <h1 className="text-3xl font-bold mb-1">{resume.contact?.name || 'Your Name Here'}</h1>
+                <p className="text-sm text-slate-700 font-medium mb-2">
+                  {(resume.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-slate-700">
+                  <span>{resume.contact?.email || 'you@email.com'}</span>
+                  <span>·</span>
+                  <span>{resume.contact?.linkedin || 'linkedin.com/in/username'}</span>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Summary</h2>
+                <p className="text-sm leading-relaxed">{resume.summary}</p>
+              </div>
+              <div>
+                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Experience</h2>
+                <div className="space-y-3">
+                  {experienceList.map((exp, idx) => (
+                    <div key={`${exp.company}-${idx}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-sm font-bold">{exp.title}</h3>
+                        <span className="text-xs text-slate-700">{exp.dates || ''}</span>
+                      </div>
+                      <p className="text-sm font-medium mb-1">{exp.company}</p>
+                      {exp.whyHiredSummary && <p className="text-xs mb-2">{exp.whyHiredSummary}</p>}
+                      {!!exp.bullets?.length && (
+                        <ul className="space-y-1.5 ml-4">
+                          {exp.bullets.map((b, i) => (
+                            <li key={i} className="text-xs list-disc">
+                              {b}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Skills</h2>
+                <p className="text-xs leading-relaxed">{resume.skills.join(' · ')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <input
+        type="file"
+        ref={uploadInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleUpload(file);
+          e.target.value = '';
+        }}
+        accept=".pdf,.doc,.docx,.txt"
+        className="hidden"
+      />
     </div>
   );
 }
