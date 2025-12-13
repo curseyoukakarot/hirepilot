@@ -9,10 +9,12 @@ import SettingsApiKeys from './SettingsApiKeys';
 import SettingsSalesAgent from './SettingsSalesAgent';
 import SettingsCredits from './SettingsCredits';
 import { supabase } from '../lib/supabaseClient';
+import { useAppMode } from '../lib/appMode';
 
 export default function Settings() {
   const location = useLocation();
   const navigate = useNavigate();
+  const appMode = useAppMode();
   const [activeTab, setActiveTab] = useState(() => {
     // Get the active tab from the URL path
     const path = location.pathname.split('/').pop();
@@ -40,6 +42,10 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       const role = user?.user_metadata?.role || user?.user_metadata?.account_type;
       let filtered = [...baseTabs];
+      // Hide Team Settings entirely for job seekers
+      if (appMode === 'job_seeker') {
+        filtered = filtered.filter(t => t.id !== 'team');
+      }
       // Determine if this user is a guest collaborator on any job
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
       let derivedDisplayName = '';
