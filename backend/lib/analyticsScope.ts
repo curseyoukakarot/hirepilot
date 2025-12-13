@@ -10,7 +10,8 @@ type RawTeamSettings = {
 };
 
 const DEFAULT_ANALYTICS_SETTINGS: RawTeamSettings = {
-  share_analytics: false,
+  // Default to sharing enabled globally unless a team admin explicitly disables it.
+  share_analytics: true,
   analytics_admin_view_enabled: false,
   analytics_admin_view_user_id: null,
   analytics_team_pool: false
@@ -60,7 +61,9 @@ export async function resolveAnalyticsScope(viewerId?: string | null): Promise<A
   const role = String(viewer.role || '').toLowerCase();
   const isAdmin = ADMIN_ROLE_SET.has(role);
 
-  if (!isAdmin && !settings.share_analytics) {
+  // Only team admins can disable analytics sharing for their team.
+  // Non-admin viewers should never be blocked by share_analytics toggles.
+  if (isAdmin && viewer.team_id && settings.share_analytics === false) {
     return { allowed: false, code: 'analytics_sharing_disabled' };
   }
 
