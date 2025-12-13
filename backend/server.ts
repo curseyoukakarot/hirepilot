@@ -89,6 +89,7 @@ import featureEventsRouter from './src/routes/events.feature';
 import resumeDraftsRouter from './src/routes/resumeDrafts';
 import rexUploadsRouter from './src/routes/rexUploads';
 import resumePdfRouter from './src/routes/resumePdf';
+import onboardingRouter from './src/routes/onboarding';
 import zapierActionsRouter from './src/routes/zapierActions';
 import debugRuntimeRouter from './src/routes/debugRuntime';
 import opportunityPipelineRouter from './src/routes/opportunityPipeline';
@@ -488,6 +489,7 @@ app.use('/api/jobs', requireAuthFlag, async (req, res, next) => {
 app.use('/api/jobs/resume-drafts', resumeDraftsRouter);
 app.use('/api/rex/uploads', rexUploadsRouter);
 app.use('/api/jobs/resume', resumePdfRouter);
+app.use('/api/jobs/onboarding', onboardingRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);

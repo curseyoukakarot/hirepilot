@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type StepKey =
+export type StepKey =
   | 'resume_generated'
   | 'target_role_set'
   | 'rex_chat_activated'
@@ -9,7 +9,7 @@ type StepKey =
   | 'email_connected'
   | 'chrome_extension_installed';
 
-const STEP_CREDITS: Record<StepKey, number> = {
+export const STEP_CREDITS: Record<StepKey, number> = {
   resume_generated: 20,
   target_role_set: 10,
   rex_chat_activated: 10,
@@ -108,5 +108,29 @@ async function fetchTotals(userId: string): Promise<{ completed: number; credits
   const credits = (creditsRows as any)?.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0) || 0;
 
   return { completed, credits };
+}
+
+export async function fetchOnboardingProgress(userId: string) {
+  const { data: rows, error } = await supabase
+    .from('job_seeker_onboarding_progress')
+    .select('step_key, completed_at, metadata')
+    .eq('user_id', userId);
+  if (error) throw error;
+
+  const steps = (rows || []).map((row) => ({
+    step_key: row.step_key as StepKey,
+    completed_at: row.completed_at,
+    metadata: row.metadata || {},
+    credits: STEP_CREDITS[row.step_key as StepKey] || 0,
+  }));
+
+  const totals = await fetchTotals(userId);
+
+  return {
+    steps,
+    total_completed: totals.completed,
+    total_credits_awarded: totals.credits,
+    total_steps: Object.keys(STEP_CREDITS).length,
+  };
 }
 

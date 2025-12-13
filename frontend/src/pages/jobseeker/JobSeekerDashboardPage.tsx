@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FaRocket,
   FaBell,
@@ -11,6 +11,9 @@ import {
   FaFileLines,
   FaChartLine,
 } from 'react-icons/fa6';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useOnboardingProgress } from '../../hooks/useOnboardingProgress';
 
 const placeholders = [
   'Find senior React dev roles at startups',
@@ -21,6 +24,13 @@ const placeholders = [
 
 export default function JobSeekerDashboardPage() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const navigate = useNavigate();
+  const { progress, loading, completedKeys } = useOnboardingProgress();
+
+  const completionPct = useMemo(() => {
+    if (!progress?.total_steps) return 0;
+    return Math.round((progress.total_completed / progress.total_steps) * 100);
+  }, [progress]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -181,6 +191,38 @@ export default function JobSeekerDashboardPage() {
 
           {/* Right column */}
           <div className="space-y-8">
+          {/* Onboarding progress */}
+          <motion.section
+            whileHover={{ y: -2 }}
+            className="bg-gradient-to-br from-indigo-500/10 via-violet-500/10 to-blue-500/5 rounded-xl p-6 border border-white/5 shadow-lg shadow-indigo-500/10"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-indigo-100/70">Job search setup</div>
+                <h2 className="text-xl font-semibold text-white mt-1">Onboarding wizard</h2>
+                <p className="text-sm text-zinc-200/80">
+                  {progress?.total_completed ?? 0} of {progress?.total_steps ?? 7} steps complete
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/onboarding')}
+                className="px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/10 text-sm font-medium"
+              >
+                Continue
+              </button>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-2 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 transition-all duration-500"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-3 text-xs text-zinc-200/80">
+              <span>Credits earned: {progress?.total_credits_awarded ?? 0} / 100</span>
+              <span>{completionPct}%</span>
+            </div>
+          </motion.section>
+
             {/* Upcoming Interviews */}
             <section className="bg-[#1a1a1a] rounded-xl p-6 border border-[#262626]">
               <h2 className="text-xl font-semibold text-white mb-6">Upcoming Interviews</h2>

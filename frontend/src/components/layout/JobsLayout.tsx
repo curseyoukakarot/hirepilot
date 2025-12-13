@@ -1,6 +1,7 @@
 import React from 'react';
 import { JobsNavbar } from './JobsNavbar';
 import { JobsSidebar } from './JobsSidebar';
+import { OnboardingBanner } from '../jobseeker/OnboardingBanner';
 
 export function JobsLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
@@ -91,7 +92,10 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
           isOpenMobile={open}
           onCloseMobile={() => setOpen(false)}
         />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <OnboardingBanner />
+          {children}
+        </main>
       </div>
     </div>
   );
