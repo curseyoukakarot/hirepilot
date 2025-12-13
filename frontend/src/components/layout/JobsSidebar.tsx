@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 type NavItem = {
   label: string;
@@ -20,60 +21,55 @@ export function JobsSidebar({
   onCloseMobile,
 }: JobsSidebarProps) {
   const SidebarBody = (
-    <aside className="flex min-h-screen w-60 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="px-4 pt-4">
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
-          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">REX</div>
-          <div className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Job Seeker Command Center
-          </div>
-          <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-            Outreach-first workflow. No spam. Just leverage.
-          </div>
+    <aside className="flex min-h-screen w-64 flex-col bg-[#050915] border-r border-slate-800/60">
+      <div className="px-4 pt-6">
+        <div className="rounded-xl border border-slate-800/80 bg-gradient-to-br from-slate-900/80 to-slate-900/40 p-4 shadow-lg shadow-black/30">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">REX</div>
+          <div className="mt-1 text-sm font-semibold text-slate-100">Job Seeker Command Center</div>
+          <div className="mt-2 text-xs text-slate-400">Outreach-first workflow. No spam. Just leverage.</div>
         </div>
       </div>
-      <nav className="mt-4 flex-1 px-2">
-        <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-          Navigation
-        </div>
-        <ul className="space-y-1">
+      <nav className="mt-5 flex-1 px-3">
+        <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Navigation</div>
+        <ul className="space-y-2">
           {items.map((item) => {
             const active = currentPath === item.href;
             return (
               <li key={item.href}>
-                <a
+                <motion.a
                   href={item.href}
+                  whileHover={{ x: 2 }}
                   className={[
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition border',
                     active
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-900',
+                      ? 'border-slate-700 bg-slate-800/70 text-slate-50 shadow-[0_10px_40px_-25px_rgba(0,0,0,0.8)]'
+                      : 'border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-900/60',
                   ].join(' ')}
                 >
                   <span
                     className={[
-                      'flex h-8 w-8 items-center justify-center rounded-lg border',
+                      'flex h-9 w-9 items-center justify-center rounded-lg border transition',
                       active
-                        ? 'border-white/10 bg-white/10 dark:border-zinc-200/40 dark:bg-zinc-900'
-                        : 'border-zinc-200 bg-white group-hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:group-hover:bg-zinc-900',
+                        ? 'border-slate-600 bg-slate-700/60 text-slate-50'
+                        : 'border-slate-800 bg-slate-900 text-slate-400 group-hover:text-slate-100',
                     ].join(' ')}
                   >
                     {item.icon}
                   </span>
                   <span className="font-medium">{item.label}</span>
-                </a>
+                </motion.a>
               </li>
             );
           })}
         </ul>
       </nav>
-      <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="border-t border-slate-800/70 p-4">
         <button
           type="button"
-          className="flex w-full items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+          className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition"
         >
           <span className="font-medium">Need help?</span>
-          <span className="text-zinc-500 dark:text-zinc-400">Ask REX →</span>
+          <span className="text-slate-400">Ask REX →</span>
         </button>
       </div>
     </aside>
