@@ -16,6 +16,7 @@ export default function JobPrepChatPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isThinking = streaming || uploading;
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -50,7 +51,7 @@ export default function JobPrepChatPage() {
     })();
   }, []);
 
-  const statusDotClass = streaming || uploading ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500';
+  const statusDotClass = isThinking ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500';
 
   const dynamicThinking = useMemo(() => {
     if (uploading) return 'Analyzing attached file...';
@@ -267,7 +268,7 @@ export default function JobPrepChatPage() {
                 </div>
               ))}
 
-              {(streaming || uploading) && (
+              {isThinking && (
                 <div className="flex justify-start">
                   <div className="max-w-[80%]">
                     <div className="flex items-start gap-3">
@@ -356,44 +357,7 @@ export default function JobPrepChatPage() {
               </div>
             </div>
 
-            {isThinking && (
-              <div id="step-list" className="space-y-3 mb-4">
-                <h4 className="font-medium text-slate-300">Processing steps</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center">
-                      <FaCheck className="text-slate-900 text-xs" />
-                    </div>
-                    <span className="text-slate-300">Analyze your request</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-sky-400 animate-spin">
-                      <div className="w-2 h-2 bg-slate-900 rounded-full ml-1 mt-1" />
-                    </div>
-                    <span className="text-slate-200">Pull in resume / profile context</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-slate-600" />
-                    <span className="text-slate-500">Draft and refine response</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isThinking && (
-              <div id="stop-section" className="mb-4">
-                <button
-                  onClick={handleStop}
-                  className="w-full rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:border-rose-500 hover:text-rose-300 py-2 px-4 transition-colors"
-                >
-                  <i className="fa-solid fa-stop mr-2" />
-                  Stop generating
-                </button>
-                <p className="text-slate-500 text-xs mt-2 text-center">
-                  Stopping keeps partial drafts visible in the thread.
-                </p>
-              </div>
-            )}
+            {/* thinking/steps UI removed; dynamic indicator handled above */}
 
             <div className="mt-auto">
               <h4 className="font-medium text-slate-300 mb-2">Recent actions</h4>
