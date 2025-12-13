@@ -57,7 +57,12 @@ function Campaigns() {
   }, []);
 
   const handleCreateCampaign = () => {
-    navigate('/campaigns/new/job-description');
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (host.startsWith('jobs.')) {
+      navigate('/campaigns/wizard');
+    } else {
+      navigate('/campaigns/new/job-description');
+    }
   };
   const handleNewPersona = () => {
     navigate('/agent/advanced/personas');

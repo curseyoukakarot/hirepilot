@@ -23,6 +23,7 @@ import AgentModeCenter from '../agent/AgentModeCenter';
 import Analytics from '../../screens/Analytics';
 import Settings from '../../screens/Settings';
 import BillingScreen from '../../screens/BillingScreen';
+import HiringManagerWizardPage from './HiringManagerWizardPage';
 import { supabase } from '../../lib/supabaseClient';
 
 function LoadingFallback() {
@@ -203,6 +204,7 @@ export default function JobSeekerRoutes() {
             <Route path="/prep/rex-chat" element={<JobPrepChatPage />} />
             <Route path="/messages" element={<MessagingCenter />} />
             <Route path="/campaigns/new/*" element={<Navigate to="/campaigns" replace />} />
+            <Route path="/campaigns/wizard" element={<HiringManagerWizardPage />} />
             <Route path="/agent-mode" element={<AgentModeCenter />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings/*" element={<Settings />} />
