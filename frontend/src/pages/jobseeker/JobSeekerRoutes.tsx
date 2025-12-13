@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, Outlet } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, Outlet, useParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import JobSeekerAppShell from '../../components/jobseeker/JobSeekerAppShell';
 import JobSeekerDashboardPage from './JobSeekerDashboardPage';
@@ -89,6 +89,16 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   return <Outlet />;
 }
 
+function JobIdRedirect() {
+  const { id } = useParams();
+  const target = id ? `/jobs/${id}` : '/jobs';
+  return <Navigate to={target} replace />;
+}
+
+function JobListRedirect() {
+  return <Navigate to="/jobs" replace />;
+}
+
 export default function JobSeekerRoutes() {
   useEffect(() => {
     try {
@@ -117,8 +127,8 @@ export default function JobSeekerRoutes() {
           <Route path="/onboarding" element={<OnboardingPage />} />
 
           {/* Normalize singular /job paths to plural routes */}
-          <Route path="/job/:id" element={<Navigate to="/jobs/:id" replace />} />
-          <Route path="/job" element={<Navigate to="/jobs" replace />} />
+          <Route path="/job/:id" element={<JobIdRedirect />} />
+          <Route path="/job" element={<JobListRedirect />} />
 
           {/* Job routes explicitly protected and mounted before any catch-alls */}
           <Route
