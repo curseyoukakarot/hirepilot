@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   FaBriefcase,
   FaFileLines,
@@ -14,6 +14,13 @@ import {
 } from 'react-icons/fa6';
 
 export default function PrepPage() {
+  const navigate = useNavigate();
+
+  const goToRexAnalyze = () => {
+    const prompt =
+      "REX, will you take a look at my resume and analyze it? Give me feedback on the format, keywords, and anything I should optimize. Then grade it out of 100. If I haven't attached a resume yet, ask me to upload it.";
+    navigate(`/prep/rex-chat?prefill=${encodeURIComponent(prompt)}`);
+  };
   return (
     <div id="prep-page" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 text-slate-100">
       {/* Header Section */}
@@ -37,13 +44,13 @@ export default function PrepPage() {
           <FaFileLines />
           <span>Resume Wizard</span>
         </Link>
-        <Link
-          to="/prep/resume-parser"
+        <button
+          onClick={goToRexAnalyze}
           className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-500 hover:text-sky-100 hover:bg-slate-900 transition"
         >
           <FaChartLine />
           <span>Resume Parser</span>
-        </Link>
+        </button>
         <Link
           to="/prep/landing-page"
           className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-500 hover:text-sky-100 hover:bg-slate-900 transition"
@@ -117,7 +124,7 @@ export default function PrepPage() {
             </Link>
           </div>
 
-          {/* Resume Parser Card */}
+          {/* Resume Parser Card wired to REX chat */}
           <div
             id="resume-parser-card"
             className="relative overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-6"
@@ -129,33 +136,23 @@ export default function PrepPage() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-white">Resume Parser &amp; Score</h3>
-                  <p className="text-sm text-slate-400">Analyze and optimize</p>
+                  <p className="text-sm text-slate-400">Analyze and optimize with REX</p>
                 </div>
               </div>
             </div>
 
             <p className="text-slate-300 mb-4">
-              Upload your resume for instant analysis. Get actionable feedback on formatting, keywords, and content
-              optimization.
+              Ask REX to review your resume, give format/keyword feedback, and grade it out of 100. If no resume is
+              attached, REX will prompt you to upload it.
             </p>
 
-            <div className="rounded-lg bg-slate-800/50 p-3 mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-white">Sample Score</span>
-                <span className="text-lg font-bold text-emerald-400">87/100</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div className="bg-emerald-400 h-2 rounded-full" style={{ width: '87%' }} />
-              </div>
-            </div>
-
-            <Link
-              to="/prep/resume-parser"
+            <button
+              onClick={goToRexAnalyze}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-600 transition"
             >
               <FaUpload />
-              <span>Analyze Resume</span>
-            </Link>
+              <span>Analyze with REX</span>
+            </button>
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { FaArrowLeft, FaArrowUp, FaCheck, FaWandMagicSparkles, FaPaperclip, FaCircle } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { chatStream, createConversation, fetchMessages, listConversations, postMessage, type ChatPart } from '../../lib/rexApi';
@@ -72,6 +73,15 @@ export default function JobPrepChatPage() {
   }, []);
 
   const statusDotClass = isThinking ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500';
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const prefill = searchParams.get('prefill');
+    if (prefill) {
+      setInput(prefill);
+      setStatusLabel('Ready—attach your resume and hit Send to analyze.');
+    }
+  }, [searchParams]);
 
   const dynamicThinking = useMemo(() => {
     if (uploading) return 'Analyzing attached file...';
