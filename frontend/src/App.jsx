@@ -339,6 +339,11 @@ function InnerApp() {
   const mode = useAppMode();
   const location = useLocation();
 
+  // Ensure onboarding route works even if hit from the wrong domain
+  if (location.pathname === '/onboarding' && mode !== 'job_seeker') {
+    return <Navigate to="https://jobs.thehirepilot.com/onboarding" replace />;
+  }
+
   if (mode === 'job_seeker') {
     return <JobSeekerRoutes />;
   }
