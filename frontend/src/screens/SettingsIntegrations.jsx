@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import ApolloApiKeyModal from '../components/ApolloApiKeyModal';
 import ZapierWizardModal from '../components/settings/integrations/ZapierWizardModal.jsx';
 import { usePlan } from '../context/PlanContext';
+import { useAppMode } from '../lib/appMode';
 
 // Backend base: prefer env, otherwise production API domain with localhost fallback
 const BACKEND = (
@@ -238,6 +239,7 @@ export function ZapierModalFrame({ onClose, apiKey }) {
 
 export default function SettingsIntegrations() {
   const { isFree } = usePlan();
+  const appMode = useAppMode();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
@@ -819,49 +821,51 @@ export default function SettingsIntegrations() {
           )}
         </div>
 
-        {/* Sourcing & Enrichment */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
-          <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, sourcing:!s.sourcing}))}>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                <i className="fa-solid fa-search text-purple-600"></i>
+        {/* Sourcing & Enrichment (hidden on jobs.thehirepilot.com) */}
+        {appMode !== 'job_seeker' && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+            <div className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" onClick={()=>setOpen(s=>({...s, sourcing:!s.sourcing}))}>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                  <i className="fa-solid fa-search text-purple-600"></i>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sourcing & Enrichment</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">2 integrations</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sourcing & Enrichment</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">2 integrations</p>
-              </div>
+              <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.sourcing ? 'rotate-180' : ''}`}></i>
             </div>
-            <i className={`fa-solid fa-chevron-down text-gray-400 transition-transform duration-300 ${open.sourcing ? 'rotate-180' : ''}`}></i>
+            {open.sourcing && (
+              <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card
+                    iconSrc="/apollo-logo-v2.png"
+                    name="Apollo"
+                    status={apolloConnected ? 'Connected' : 'Not Connected'}
+                    onConnect={()=>requirePaid(()=>setShowApolloModal(true),'Apollo integration')}
+                    onDisconnect={()=>setShowApolloModal(true)}
+                    connectLabel={apolloConnected ? 'Manage' : 'Connect'}
+                  />
+                  <Card
+                    iconSrc="/hunter.png"
+                    name="Hunter.io"
+                    status={hunterConnected ? 'Connected' : 'Pending'}
+                    onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Hunter.io integration')}
+                    connectLabel={hunterConnected ? 'Manage' : 'Connect'}
+                  />
+                  <Card
+                    iconSrc="/skrapp.png"
+                    name="Skrapp"
+                    status={skrappConnected ? 'Connected' : 'Pending'}
+                    onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Skrapp integration')}
+                    connectLabel={skrappConnected ? 'Manage' : 'Connect'}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          {open.sourcing && (
-            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card
-                  iconSrc="/apollo-logo-v2.png"
-                  name="Apollo"
-                  status={apolloConnected ? 'Connected' : 'Not Connected'}
-                  onConnect={()=>requirePaid(()=>setShowApolloModal(true),'Apollo integration')}
-                  onDisconnect={()=>setShowApolloModal(true)}
-                  connectLabel={apolloConnected ? 'Manage' : 'Connect'}
-                />
-                <Card
-                  iconSrc="/hunter.png"
-                  name="Hunter.io"
-                  status={hunterConnected ? 'Connected' : 'Pending'}
-                  onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Hunter.io integration')}
-                  connectLabel={hunterConnected ? 'Manage' : 'Connect'}
-                />
-                <Card
-                  iconSrc="/skrapp.png"
-                  name="Skrapp"
-                  status={skrappConnected ? 'Connected' : 'Pending'}
-                  onConnect={()=>requirePaid(()=>setShowEnrichmentModal(true),'Skrapp integration')}
-                  connectLabel={skrappConnected ? 'Manage' : 'Connect'}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Automations (Zapier modal enabled) */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
@@ -892,7 +896,9 @@ export default function SettingsIntegrations() {
                   onConnect={()=>requirePaid(()=> (zapierApiKey ? setShowZapier(true) : setShowZapierWizard(true)),'Zapier integration')}
                 />
                 <Card iconClass="fa-brands fa-slack text-purple-600" name="Connect REX to Slack" status={slackConnected ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(connectSlack,'REX Slack integration')} onDisconnect={disconnectSlack} connectLabel={slackConnected ? 'Connected' : 'Connect to Slack'} />
-                <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowStripeModal(true),'Stripe Billing')} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
+                {appMode !== 'job_seeker' && (
+                  <Card iconClass="fa-brands fa-stripe-s text-indigo-600" name="Stripe Billing" status={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Connected' : 'Not Connected'} onConnect={()=>requirePaid(()=>setShowStripeModal(true),'Stripe Billing')} onDisconnect={()=>setShowStripeModal(true)} connectLabel={(stripeConnected.hasKeys || stripeConnected.accountId) ? 'Manage' : 'Connect'} />
+                )}
               </div>
             </div>
           )}
