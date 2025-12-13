@@ -338,6 +338,15 @@ export default function App() {
 function InnerApp() {
   const mode = useAppMode();
   const location = useLocation();
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  // Onboarding: only serve on jobs domain; otherwise redirect to jobs
+  if (location.pathname === '/onboarding') {
+    if (hostname.startsWith('jobs.')) {
+      return <JobSeekerRoutes />;
+    }
+    return <Navigate to="https://jobs.thehirepilot.com/onboarding" replace />;
+  }
 
   if (mode === 'job_seeker') {
     return <JobSeekerRoutes />;
