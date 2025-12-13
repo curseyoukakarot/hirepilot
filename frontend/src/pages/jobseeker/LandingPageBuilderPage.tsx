@@ -14,30 +14,339 @@ import { Link } from 'react-router-dom';
 type Tone = 'Confident' | 'Warm' | 'Direct' | 'Story-driven';
 type SectionKey = 'about' | 'experience' | 'caseStudies' | 'testimonials' | 'contact';
 
-const initialHtml = `<section class="hero">
-  <h1>Your Name Here</h1>
-  <p>Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR.</p>
-  <p>Head of Sales · GTM Strategy · Remote</p>
-  <a class="cta" href="#" target="_blank" rel="noreferrer">Schedule time with me</a>
+const initialHtml = `<section class="hp-page">
+  <header class="hp-hero">
+    <div class="hp-hero__inner">
+      <div class="hp-badge">HirePilot Jobs • Personal Landing Page</div>
+
+      <h1 class="hp-h1">Your Name Here</h1>
+
+      <p class="hp-sub">
+        Revenue leader helping B2B SaaS teams scale from <strong>$1M → $20M ARR</strong>.
+      </p>
+
+      <div class="hp-meta">
+        <span class="hp-chip">Head of Sales</span>
+        <span class="hp-dot">•</span>
+        <span class="hp-chip">Tone: Confident</span>
+      </div>
+
+      <div class="hp-actions">
+        <a class="hp-btn hp-btn--primary" href="#" target="_blank" rel="noreferrer">
+          Schedule time with me
+          <span class="hp-arrow">→</span>
+        </a>
+        <a class="hp-btn hp-btn--ghost" href="mailto:you@example.com">
+          Email me
+        </a>
+      </div>
+
+      <div class="hp-divider"></div>
+
+      <div class="hp-mini">
+        <div class="hp-mini__item">
+          <div class="hp-mini__label">Email</div>
+          <div class="hp-mini__value">you@example.com</div>
+        </div>
+        <div class="hp-mini__item">
+          <div class="hp-mini__label">Schedule</div>
+          <div class="hp-mini__value">Add your Calendly link</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="hp-main">
+    <section class="hp-card">
+      <h2 class="hp-h2">About</h2>
+      <p class="hp-p">
+        Short 1–2 sentence summary of who you are and what you do.
+      </p>
+    </section>
+
+    <section class="hp-card">
+      <h2 class="hp-h2">Selected Experience</h2>
+      <ul class="hp-list">
+        <li class="hp-li">
+          <span class="hp-li__title">Head of Sales</span>
+          <span class="hp-li__meta">Nimbus Data • 2021–Present</span>
+        </li>
+        <li class="hp-li">
+          <span class="hp-li__title">VP of Sales</span>
+          <span class="hp-li__meta">CloudSync Technologies • 2018–2021</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="hp-card">
+      <h2 class="hp-h2">Contact</h2>
+      <p class="hp-p">
+        Prefer email? Reach me at <a class="hp-link" href="mailto:you@example.com">you@example.com</a>.
+        <br />
+        Want to talk? <a class="hp-link" href="#" target="_blank" rel="noreferrer">Schedule time here</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer class="hp-footer">
+    <div class="hp-footer__inner">
+      <span>© <span id="hpYear"></span> Your Name Here</span>
+      <span class="hp-footer__dot">•</span>
+      <span>Powered by HirePilot Jobs</span>
+    </div>
+  </footer>
 </section>
 
-<section class="about">
-  <h2>About</h2>
-  <p>Short paragraph introducing your background, focus, and what you're looking for.</p>
-</section>
+<style>
+  :root{
+    --bg: #070A0F;
+    --panel: rgba(255,255,255,0.06);
+    --panel2: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.10);
+    --text: rgba(255,255,255,0.92);
+    --muted: rgba(255,255,255,0.66);
+    --muted2: rgba(255,255,255,0.52);
+    --accent: #7C5CFF;
+    --accent2: #22C55E;
+    --shadow: 0 20px 80px rgba(0,0,0,0.45);
+    --radius: 18px;
+    --radius2: 14px;
+    --max: 980px;
+  }
 
-<section class="experience">
-  <h2>Selected Experience</h2>
-  <ul>
-    <li>Head of Sales – Nimbus Data (2021–Present)</li>
-    <li>VP of Sales – CloudSync Technologies (2018–2021)</li>
-  </ul>
-</section>
+  .hp-page{
+    background:
+      radial-gradient(900px 600px at 20% 10%, rgba(124,92,255,0.25), transparent 60%),
+      radial-gradient(800px 500px at 80% 25%, rgba(34,197,94,0.18), transparent 65%),
+      radial-gradient(700px 500px at 50% 100%, rgba(255,255,255,0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    min-height: 100vh;
+    padding: 28px 18px 18px;
+  }
 
-<section class="contact">
-  <h2>Contact</h2>
-  <p>Email: you@example.com · LinkedIn: /in/your-handle</p>
-</section>`;
+  .hp-hero__inner,
+  .hp-main,
+  .hp-footer__inner{
+    max-width: var(--max);
+    margin: 0 auto;
+  }
+
+  .hp-hero{
+    position: relative;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+    border-radius: calc(var(--radius) + 6px);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .hp-hero__inner{
+    padding: 34px 28px 18px;
+  }
+
+  .hp-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    padding: 8px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.2px;
+    margin-bottom: 18px;
+  }
+
+  .hp-h1{
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.08;
+    margin: 0 0 10px;
+    letter-spacing: -0.02em;
+  }
+
+  .hp-sub{
+    margin: 0 0 14px;
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 60ch;
+  }
+
+  .hp-meta{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 20px;
+  }
+
+  .hp-chip{
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    padding: 7px 10px;
+    border-radius: 999px;
+  }
+  .hp-dot{ color: rgba(255,255,255,0.35); }
+
+  .hp-actions{
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .hp-btn{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+  }
+  .hp-btn:hover{ transform: translateY(-1px); }
+  .hp-btn--primary{
+    background: linear-gradient(135deg, rgba(124,92,255,0.95), rgba(124,92,255,0.75));
+    border-color: rgba(124,92,255,0.75);
+    color: white;
+  }
+  .hp-btn--ghost{
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .hp-arrow{ opacity: .9; }
+
+  .hp-divider{
+    height: 1px;
+    width: 100%;
+    background: rgba(255,255,255,0.10);
+    margin: 10px 0 8px;
+  }
+
+  .hp-mini{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px 0 14px;
+  }
+  @media (min-width: 560px){
+    .hp-mini{ grid-template-columns: 1fr 1fr; }
+  }
+
+  .hp-mini__item{
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px;
+    padding: 12px 12px;
+  }
+  .hp-mini__label{
+    font-size: 11px;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .hp-mini__value{
+    font-size: 13px;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .hp-main{
+    margin-top: 18px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .hp-card{
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    border-radius: var(--radius);
+    padding: 18px 18px;
+  }
+
+  .hp-h2{
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.72);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+  }
+
+  .hp-p{
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .hp-list{
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  .hp-li{
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px;
+    padding: 12px 12px;
+  }
+  .hp-li__title{
+    display: block;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+    font-size: 14px;
+  }
+  .hp-li__meta{
+    display: block;
+    color: var(--muted2);
+    font-size: 13px;
+  }
+
+  .hp-link{
+    color: rgba(124,92,255,0.95);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(124,92,255,0.35);
+  }
+  .hp-link:hover{
+    border-bottom-color: rgba(124,92,255,0.75);
+  }
+
+  .hp-footer{
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+  }
+  .hp-footer__inner{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+  }
+  .hp-footer__dot{ color: rgba(255,255,255,0.25); }
+</style>
+
+<script>
+  document.getElementById("hpYear").textContent = new Date().getFullYear();
+</script>`;
 
 const generatedHtml = initialHtml;
 
