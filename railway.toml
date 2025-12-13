@@ -1,4 +1,10 @@
 [build]
+# Force Railway to use the backend Dockerfile (Playwright base image with all deps)
+builder = "dockerfile"
+context = "."
+dockerfilePath = "backend/Dockerfile"
+
+[build]
 builder = "dockerfile"
 
 [deploy]
