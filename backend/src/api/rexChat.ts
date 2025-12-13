@@ -259,6 +259,11 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'enroll_campaign_in_sequence_by_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, sequence_name:{type:'string'}, start_time_local:{type:'string'}, timezone:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','sequence_name'] } } },
       // Create a sequence from a template + delays then enroll
       { type:'function', function:{ name:'create_sequence_from_template_and_enroll', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, delays_business_days:{type:'array', items:{ type:'number' }}, timezone:{type:'string'}, start_time_local:{type:'string'}, provider:{type:'string'} }, required:['userId','campaign_id','template_name','delays_business_days'] } } },
+      // Resume / LinkedIn intelligence tools
+      { type:'function', function:{ name:'resume_intelligence', parameters:{ type:'object', properties:{ mode:{type:'string', enum:['analyze','rewrite','coach','builder_generate']}, resume_text:{type:'string'}, linkedin_text:{type:'string'}, target_role:{type:'string'}, target_title:{type:'string'}, user_context:{type:'string'} }, required:['mode','resume_text'] } } },
+      { type:'function', function:{ name:'resume_scoring', parameters:{ type:'object', properties:{ resume_text:{type:'string'}, target_role:{type:'string'} }, required:['resume_text'] } } },
+      { type:'function', function:{ name:'linkedin_intelligence', parameters:{ type:'object', properties:{ mode:{type:'string', enum:['analyze','rewrite']}, linkedin_text:{type:'string'}, resume_text:{type:'string'}, target_role:{type:'string'} }, required:['mode','linkedin_text'] } } },
+      { type:'function', function:{ name:'resume_to_outreach', parameters:{ type:'object', properties:{ resume_json:{type:'object'}, target_role:{type:'string'}, company_context:{type:'string'} }, required:['resume_json'] } } },
       {
         type:'function',
         function:{
@@ -326,7 +331,7 @@ export default async function rexChat(req: Request, res: Response) {
 
     const contextMessage = {
       role: 'system',
-      content: `You are REX, a recruiting agent.
+      content: `You are REX, a recruiting and career agent.
 If the user asks to source leads or create a campaign with a target title/location/count and does NOT clearly specify the lead source, first ask ONE concise clarifying question: "Which lead source should I use: Apollo (fast, verified emails) or LinkedIn (connection workflow)?" and wait for their answer before calling any tools.
 If the user specifies the source, immediately call the tool 'source_leads' with { userId, campaignId: 'latest', source: '<apollo|linkedin>', filters: { title: <normalized title>, location: <city, state>, count: <N> } }.
 If the user doesn’t answer the clarifying question, default to Apollo after one follow-up.
@@ -347,6 +352,15 @@ If the user requests a recurring persona sourcing schedule that automatically en
 3) Cadence + timing (daily vs weekly, ask for day/time if weekly; capture HH:MM in user's stated timezone or default to America/Chicago then convert to UTC).
 4) Volume + safety: leads per run, whether to send immediately or delay (collect delay in hours → minutes), and optional daily send cap.
 Once you have these answers, call 'create_persona_auto_track' with the gathered values (convert hours to minutes, ensure cadence/day/time are populated). After the tool succeeds, confirm the schedule back to the user with persona, campaign, cadence, leads/run, delay, and daily cap.
+RESUME / LINKEDIN HELP:
+- If the user asks for resume or LinkedIn help, or uploads a resume/profile, use the resume tools:
+  - resume_intelligence (modes: analyze|rewrite|coach|builder_generate)
+  - resume_scoring
+  - linkedin_intelligence
+  - resume_to_outreach
+- Default to resume_intelligence mode=analyze for first pass; use rewrite when asked for a rewrite; use coach when they want strategy; use builder_generate only when asked for builder-prefill JSON.
+- When files are attached, summarize key signals first, then choose the right mode.
+Tone: first-person, hiring-manager aware, outcome-focused, no ATS keyword stuffing. Coaching first, rewriting when requested.
 CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
     } as any;
 
