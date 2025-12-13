@@ -57,68 +57,61 @@ export default function JobSeekerDashboardPage() {
           setProfileName(derived || 'there');
         } catch {}
 
-        // Opportunities count and recent jobs
+        // Opportunities + recent jobs (owned by user)
         let opportunities = 0;
         let recent: any[] = [];
+        let jobIds: string[] = [];
         try {
-          const { count } = await supabase
+          const { data: jobs } = await supabase
             .from('job_requisitions')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id);
-          opportunities = count || 0;
-
-          const { data: recents } = await supabase
-            .from('job_requisitions')
-            .select('id,title,location,company,status,updated_at')
+            .select('id,title,location,status,updated_at')
             .eq('user_id', user.id)
-            .order('updated_at', { ascending: false })
-            .limit(5);
-          recent = recents || [];
+            .order('updated_at', { ascending: false });
+          const list = jobs || [];
+          opportunities = list.length;
+          jobIds = list.map((j) => j.id);
+          recent = list.slice(0, 5);
         } catch {}
 
-        // Outreach count from candidate_jobs
+        // Outreach count from candidate_jobs for these job_ids
         let outreach = 0;
-        try {
-          const { count } = await supabase
-            .from('candidate_jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id);
-          outreach = count || 0;
-        } catch {}
+        if (jobIds.length) {
+          try {
+            const { count } = await supabase
+              .from('candidate_jobs')
+              .select('id', { count: 'exact', head: true })
+              .in('job_id', jobIds);
+            outreach = count || 0;
+          } catch {}
+        }
 
-        // Interviews and upcoming list
+        // Interviews and upcoming list for these job_ids
         let interviews = 0;
         const upcomingList: any[] = [];
-        try {
-          const { count, data: interviewCands } = await supabase
-            .from('candidate_jobs')
-            .select('id,job_id,status,updated_at', { count: 'exact' })
-            .eq('user_id', user.id)
-            .ilike('status', '%interview%')
-            .limit(5);
-          interviews = count || 0;
-          const jobIds = Array.from(new Set((interviewCands || []).map((c) => c.job_id).filter(Boolean)));
-          let jobMap: Record<string, any> = {};
-          if (jobIds.length) {
-            const { data: jobRows } = await supabase
-              .from('job_requisitions')
-              .select('id,title,company,location,updated_at')
-              .in('id', jobIds);
-            jobMap = (jobRows || []).reduce((acc, j) => {
+        if (jobIds.length) {
+          try {
+            const { count, data: interviewCands } = await supabase
+              .from('candidate_jobs')
+              .select('id,job_id,status,updated_at', { count: 'exact' })
+              .in('job_id', jobIds)
+              .ilike('status', '%interview%')
+              .limit(10);
+            interviews = count || 0;
+            const jobMap = recent.reduce((acc, j) => {
               acc[j.id] = j;
               return acc;
             }, {} as Record<string, any>);
-          }
-          (interviewCands || []).forEach((c) => {
-            const job = jobMap[c.job_id] || {};
-            upcomingList.push({
-              id: c.id,
-              job_title: job.title || 'Interview',
-              company: job.company || job.location || '—',
-              when: job.updated_at ? new Date(job.updated_at).toLocaleDateString() : '',
+            (interviewCands || []).forEach((c) => {
+              const job = jobMap[c.job_id] || {};
+              upcomingList.push({
+                id: c.id,
+                job_title: job.title || 'Interview',
+                company: job.location || '—',
+                when: job.updated_at ? new Date(job.updated_at).toLocaleDateString() : '',
+              });
             });
-          });
-        } catch {}
+          } catch {}
+        }
 
         setStats({ opportunities, outreach, interviews });
         setUpcoming(upcomingList);
