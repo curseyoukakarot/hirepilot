@@ -401,6 +401,12 @@ export default function ResumeBuilderPage() {
     setResume((prev) => ({ ...prev, skills: parsed }));
   };
 
+  const updateContact = (key: 'name' | 'email' | 'linkedin', value: string) => {
+    const next = { ...(preview.contact || {}), [key]: value };
+    updateSection({ contact: next });
+    setResume((prev) => ({ ...prev, contact: next }));
+  };
+
   const generateSummary = async () => {
     setSummaryLoading(true);
     setLoadError(null);
@@ -654,6 +660,39 @@ export default function ResumeBuilderPage() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Your name</label>
+                    <input
+                      type="text"
+                      value={preview.contact?.name || ''}
+                      onChange={(e) => updateContact('name', e.target.value)}
+                      placeholder="Your name"
+                      className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={preview.contact?.email || ''}
+                      onChange={(e) => updateContact('email', e.target.value)}
+                      placeholder="you@email.com"
+                      className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">LinkedIn</label>
+                    <input
+                      type="text"
+                      value={preview.contact?.linkedin || ''}
+                      onChange={(e) => updateContact('linkedin', e.target.value)}
+                      placeholder="linkedin.com/in/username"
+                      className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
