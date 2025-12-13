@@ -80,6 +80,15 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
 }
 
 export default function JobSeekerRoutes() {
+  useEffect(() => {
+    try {
+      console.log('[JOBSEEKER ROUTES MOUNT]', {
+        host: typeof window !== 'undefined' ? window.location.hostname : '',
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
+      });
+    } catch {}
+  }, []);
+
   return (
     <>
       <Toaster
@@ -95,9 +104,6 @@ export default function JobSeekerRoutes() {
           <Route path="/signup" element={<JobSeekerSignup />} />
           {/* Allow onboarding to render even if not authenticated */}
           <Route path="/onboarding" element={<OnboardingPage />} />
-          {/* Allow job routes to render before auth guard decides, to avoid catch-all redirect */}
-          <Route path="/jobs" element={<JobRequisitions />} />
-          <Route path="/jobs/:id" element={<JobRequisitionPage />} />
           <Route
             element={
               <JobSeekerProtected>
@@ -105,6 +111,8 @@ export default function JobSeekerRoutes() {
               </JobSeekerProtected>
             }
           >
+            <Route path="/jobs" element={<JobRequisitions />} />
+            <Route path="/jobs/:id" element={<JobRequisitionPage />} />
             <Route path="/dashboard" element={<JobSeekerDashboardPage />} />
             <Route path="/leads" element={<LeadManagement />} />
             <Route path="/campaigns" element={<Campaigns />} />
