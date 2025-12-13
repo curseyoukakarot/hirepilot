@@ -25,6 +25,19 @@ export default function JobPrepChatPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isThinking = streaming || uploading;
 
+  const recentActions = useMemo(() => {
+    const actions = messages
+      .filter((m) => m.role === 'assistant' && m.content && m.content.trim().length > 0)
+      .slice(-5)
+      .map((m) => {
+        const text = m.content.trim();
+        const firstSentence = text.split('\n').find((l) => l.trim().length > 0) || text;
+        return firstSentence.slice(0, 140);
+      })
+      .reverse();
+    return actions.length ? actions.slice(0, 3) : [];
+  }, [messages]);
+
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -382,20 +395,18 @@ export default function JobPrepChatPage() {
 
             <div className="mt-auto">
               <h4 className="font-medium text-slate-300 mb-2">Recent actions</h4>
-              <ul className="space-y-1 text-slate-400">
-                <li className="flex items-center gap-2">
-                  <FaCircle className="text-xs text-emerald-400" />
-                  Rewrote resume summary for Head of Sales
-                </li>
-                <li className="flex items-center gap-2">
-                  <FaCircle className="text-xs text-emerald-400" />
-                  Generated 3 new experience bullets for Nimbus Data
-                </li>
-                <li className="flex items-center gap-2">
-                  <FaCircle className="text-xs text-slate-600" />
-                  Tightened LinkedIn About section
-                </li>
-              </ul>
+              {recentActions.length === 0 ? (
+                <p className="text-slate-500 text-xs">No actions yet.</p>
+              ) : (
+                <ul className="space-y-1 text-slate-400">
+                  {recentActions.map((action, idx) => (
+                    <li key={`${action}-${idx}`} className="flex items-center gap-2">
+                      <FaCircle className={`text-xs ${idx === 0 ? 'text-emerald-400' : 'text-sky-400'}`} />
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
