@@ -202,6 +202,7 @@ export default function JobSeekerRoutes() {
             <Route path="/prep/landing-page" element={<LandingPageBuilderPage />} />
             <Route path="/prep/rex-chat" element={<JobPrepChatPage />} />
             <Route path="/messages" element={<MessagingCenter />} />
+            <Route path="/campaigns/new/*" element={<Navigate to="/campaigns" replace />} />
             <Route path="/agent-mode" element={<AgentModeCenter />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings/*" element={<Settings />} />
