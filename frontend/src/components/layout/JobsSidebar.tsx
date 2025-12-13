@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 import { motion } from 'framer-motion';
 
 type NavItem = {
@@ -20,6 +22,18 @@ export function JobsSidebar({
   isOpenMobile = false,
   onCloseMobile,
 }: JobsSidebarProps) {
+  const navigate = useNavigate();
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('signout error', e);
+    } finally {
+      navigate('/login');
+    }
+  }, [navigate]);
+
   const SidebarBody = (
     <aside className="flex min-h-screen w-64 flex-col bg-[#050915] border-r border-slate-800/60">
       <div className="px-4 pt-6">
@@ -63,13 +77,13 @@ export function JobsSidebar({
           })}
         </ul>
       </nav>
-      <div className="border-t border-slate-800/70 p-4">
+      <div className="border-t border-slate-800/70 p-4 space-y-3">
         <button
           type="button"
-          className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition"
+          className="w-full rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 transition"
+          onClick={handleSignOut}
         >
-          <span className="font-medium">Need help?</span>
-          <span className="text-slate-400">Ask REX →</span>
+          Sign out
         </button>
       </div>
     </aside>
