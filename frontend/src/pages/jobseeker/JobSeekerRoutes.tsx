@@ -45,6 +45,7 @@ function LoadingFallback() {
 function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -60,6 +61,19 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
         });
         if (!isMounted) return;
         setSession(data.session);
+        if (data.session?.user?.id) {
+          try {
+            const { data: profile } = await supabase
+              .from('users')
+              .select('account_type, plan, role')
+              .eq('id', data.session.user.id)
+              .maybeSingle();
+            const roleVal = profile?.account_type || profile?.plan || profile?.role || data.session.user.user_metadata?.account_type || data.session.user.user_metadata?.role;
+            setUserRole(roleVal || null);
+          } catch {
+            setUserRole(null);
+          }
+        }
       } catch {
         if (!isMounted) return;
         setSession(null);
@@ -71,6 +85,19 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
       if (!isMounted) return;
       setSession(newSession);
       setLoading(false);
+      if (newSession?.user?.id) {
+        try {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('account_type, plan, role')
+            .eq('id', newSession.user.id)
+            .maybeSingle();
+          const roleVal = profile?.account_type || profile?.plan || profile?.role || newSession.user.user_metadata?.account_type || newSession.user.user_metadata?.role;
+          setUserRole(roleVal || null);
+        } catch {
+          setUserRole(null);
+        }
+      }
     });
     return () => {
       isMounted = false;
@@ -84,6 +111,13 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     const from = `${location.pathname}${location.search}`;
     return <Navigate to="/login" replace state={{ from }} />;
   }
+
+  const isFree = String(userRole || '').toLowerCase() === 'free';
+  const path = location.pathname;
+  if (isFree && (path.startsWith('/prep') || path.startsWith('/agent-mode'))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (children) return <>{children}</>;
   // Fallback to outlet if used as a wrapper route element
   return <Outlet />;

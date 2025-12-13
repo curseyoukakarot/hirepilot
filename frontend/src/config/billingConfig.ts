@@ -26,37 +26,37 @@ export const BILLING_CONFIG: BillingConfig = {
       }
     },
     pro: {
-      name: 'Pro',
-      credits: 300,
+      name: 'Job Seeker Pro',
+      credits: 350,
       features: [
         'AI resume + landing builder',
         'Job prep chat with saved context',
         'Export-ready PDF + share links'
       ],
       priceIds: {
-        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_JS_PRO_MONTHLY || '',
-        annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_PRO_ANNUAL || ''
+        monthly: 'price_1SdxZPAMuJmulDbpvRJ2PokY',
+        annual: 'price_1SdxbFAMuJmulDbpLU7huKqS'
       },
       prices: {
-        monthly: 19,
-        annual: 190
+        monthly: 39,
+        annual: 399
       }
     },
     elite: {
-      name: 'Elite',
-      credits: 800,
+      name: 'Job Seeker Elite',
+      credits: 1000,
       features: [
         'Everything in Pro',
         'Unlimited AI iterations',
         'Priority support & concierge prep'
       ],
       priceIds: {
-        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_JS_ELITE_MONTHLY || '',
-        annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_ELITE_ANNUAL || ''
+        monthly: 'price_1Sdxa4AMuJmulDbpVHGZM9BT',
+        annual: 'price_1SdxcjAMuJmulDbp1AdpVtW0'
       },
       prices: {
-        monthly: 39,
-        annual: 390
+        monthly: 59,
+        annual: 549
       }
     }
   }
