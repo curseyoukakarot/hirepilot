@@ -83,12 +83,22 @@ router.post('/pdf', requireAuth, async (req: Request, res: Response) => {
     await browser.close();
 
     // upload to supabase storage
+    const bucket = process.env.SUPABASE_RESUME_PDF_BUCKET || 'resume-pdfs';
+    try {
+      const { data: bucketInfo } = await (supabase as any).storage.getBucket(bucket);
+      if (!bucketInfo) {
+        await (supabase as any).storage.createBucket(bucket, { public: true });
+      }
+    } catch (err) {
+      // proceed to upload attempt; createBucket may fail if already exists
+    }
+
     const fileName = `resume_pdf_${Date.now()}.pdf`;
     const { data: uploaded, error } = await (supabase as any).storage
-      .from('resume-pdfs')
+      .from(bucket)
       .upload(`user/${userId}/${fileName}`, pdfBuffer, { contentType: 'application/pdf', upsert: false });
     if (error) throw error;
-    const { data: pub } = (supabase as any).storage.from('resume-pdfs').getPublicUrl(uploaded.path);
+    const { data: pub } = (supabase as any).storage.from(bucket).getPublicUrl(uploaded.path);
 
     // Optionally store on draft
     if (draft_id) {
