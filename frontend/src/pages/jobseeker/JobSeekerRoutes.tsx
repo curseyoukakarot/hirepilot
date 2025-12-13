@@ -62,21 +62,14 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
         if (!isMounted) return;
         setSession(data.session);
         if (data.session?.user?.id) {
-          try {
-            const { data: profile } = await supabase
-              .from('users')
-              .select('account_type, plan, role')
-              .eq('id', data.session.user.id)
-              .maybeSingle();
-            const roleVal = profile?.account_type || profile?.plan || profile?.role || data.session.user.user_metadata?.account_type || data.session.user.user_metadata?.role;
-            setUserRole(roleVal || null);
-          } catch {
-            setUserRole(null);
-          }
+          const meta = data.session.user.user_metadata || {};
+          const roleVal = meta.account_type || meta.plan || meta.role;
+          setUserRole(roleVal || null);
         }
       } catch {
         if (!isMounted) return;
         setSession(null);
+        setUserRole(null);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -87,17 +80,9 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
         setSession(newSession);
         setLoading(false);
         if (newSession?.user?.id) {
-          try {
-            const { data: profile } = await supabase
-              .from('users')
-              .select('account_type, plan, role')
-              .eq('id', newSession.user.id)
-              .maybeSingle();
-            const roleVal = profile?.account_type || profile?.plan || profile?.role || newSession.user.user_metadata?.account_type || newSession.user.user_metadata?.role;
-            setUserRole(roleVal || null);
-          } catch {
-            setUserRole(null);
-          }
+          const meta = newSession.user.user_metadata || {};
+          const roleVal = meta.account_type || meta.plan || meta.role;
+          setUserRole(roleVal || null);
         }
       })();
     });
@@ -114,7 +99,8 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace state={{ from }} />;
   }
 
-  const isFree = String(userRole || '').toLowerCase() === 'free';
+  const roleLower = String(userRole || '').toLowerCase();
+  const isFree = roleLower === 'free' || roleLower === 'job_seeker_free';
   const path = location.pathname;
   if (isFree && (path.startsWith('/prep') || path.startsWith('/agent-mode'))) {
     return <Navigate to="/dashboard" replace />;
