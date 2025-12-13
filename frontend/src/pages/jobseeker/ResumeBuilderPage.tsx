@@ -109,6 +109,7 @@ export default function ResumeBuilderPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<string>((defaultResume.targetRole.industry || [])[0] || 'B2B');
   const [customIndustryOpen, setCustomIndustryOpen] = useState<boolean>(false);
   const [customIndustryText, setCustomIndustryText] = useState<string>('');
+  const [parsingUpload, setParsingUpload] = useState<boolean>(false);
 
   useEffect(() => {
     if (!draftId) return;
@@ -123,19 +124,7 @@ export default function ResumeBuilderPage() {
         if (!res.ok) throw new Error(data?.error || 'Failed to load draft');
         const payload = (data?.draft?.generated_resume_json || null) as GeneratedResumeJson | null;
         if (payload && !cancelled) {
-          const next = {
-            targetRole: payload.targetRole || defaultResume.targetRole,
-            summary: payload.summary || defaultResume.summary,
-            skills: Array.isArray(payload.skills) && payload.skills.length > 0 ? payload.skills : defaultResume.skills,
-            experience:
-              Array.isArray(payload.experience) && payload.experience.length > 0 ? payload.experience : defaultResume.experience,
-            contact: payload.contact || defaultResume.contact,
-          };
-          setResume(next);
-          setDraft(next);
-          setTargetTitle(next.targetRole.primaryTitle || defaultResume.targetRole.primaryTitle || 'Head of Sales');
-          setSummaryText(next.summary || '');
-          setSkillsText((next.skills || []).join(', '));
+          applyResumeJson(payload);
         }
       } catch (e: any) {
         if (!cancelled) setLoadError(e?.message || 'Failed to load draft');
@@ -210,6 +199,72 @@ export default function ResumeBuilderPage() {
     [preview.targetRole.industry]
   );
 
+  const applyResumeJson = (payload: GeneratedResumeJson) => {
+    const next = {
+      targetRole: payload.targetRole || defaultResume.targetRole,
+      summary: payload.summary || defaultResume.summary,
+      skills: Array.isArray(payload.skills) && payload.skills.length > 0 ? payload.skills : defaultResume.skills,
+      experience:
+        Array.isArray(payload.experience) && payload.experience.length > 0 ? payload.experience : defaultResume.experience,
+      contact: payload.contact || defaultResume.contact,
+    };
+    setResume(next);
+    setDraft(next);
+    setTargetTitle(next.targetRole.primaryTitle || defaultResume.targetRole.primaryTitle || 'Head of Sales');
+    setSummaryText(next.summary || '');
+    setSkillsText((next.skills || []).join(', '));
+    const industryFromPreview = (next.targetRole.industry || [])[0] || (defaultResume.targetRole.industry || [])[0] || 'B2B';
+    setSelectedIndustry(industryFromPreview);
+    // Seed bullet selections
+    const selections: Record<number, { text: string; selected: boolean }[]> = {};
+    (next.experience || []).forEach((exp, idx) => {
+      if (exp.bullets?.length) {
+        selections[idx] = exp.bullets.map((b) => ({ text: b, selected: true }));
+      }
+    });
+    setBulletSelections(selections);
+  };
+
+  const parseJsonFromReply = (raw: any): GeneratedResumeJson | null => {
+    try {
+      if (typeof raw === 'string') {
+        const stripped = raw.trim().replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/m, '$1');
+        return JSON.parse(stripped);
+      }
+      if (raw?.text && typeof raw.text === 'string') {
+        return JSON.parse(raw.text);
+      }
+      if (raw && typeof raw === 'object') return raw as GeneratedResumeJson;
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  const generateStructuredResumeFromText = async (text: string): Promise<GeneratedResumeJson | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('Sign in required');
+      const headers = await authHeaders();
+      const prompt = `Parse this resume into JSON with fields: targetRole.primaryTitle, targetRole.focus (array), targetRole.industry (array), summary, skills (array), experience (array of {company,title,location,dates,whyHiredSummary,bullets}). Return JSON only.\n\nResume:\n${text}`;
+      const res = await fetch(`${backend}/api/rex/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user.id,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to parse resume');
+      const parsed = parseJsonFromReply(data?.reply?.content);
+      return parsed;
+    } catch (e) {
+      console.error('parse resume failed', e);
+      return null;
+    }
+  };
+
   const handleUpload = async (file: File) => {
     setUploading(true);
     setLoadError(null);
@@ -224,15 +279,22 @@ export default function ResumeBuilderPage() {
       if (!text) {
         setLoadError('Could not extract text from file.');
       } else {
-        setResume((prev) => ({
-          ...prev,
-          summary: prev.summary || text.slice(0, 500),
-        }));
+        setParsingUpload(true);
+        const parsed = await generateStructuredResumeFromText(text);
+        if (parsed) {
+          applyResumeJson(parsed);
+        } else {
+          setResume((prev) => ({
+            ...prev,
+            summary: prev.summary || text.slice(0, 500),
+          }));
+        }
       }
     } catch (e: any) {
       setLoadError(e?.message || 'Upload failed');
     } finally {
       setUploading(false);
+      setParsingUpload(false);
     }
   };
 
