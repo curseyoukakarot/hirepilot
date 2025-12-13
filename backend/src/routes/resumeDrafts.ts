@@ -251,6 +251,13 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
     if (error) throw new Error(error.message || 'save_failed');
 
     res.json({ draftId: id, generated: parsed });
+
+    // Onboarding: resume generated
+    try {
+      await completeOnboardingStep(userId, 'resume_generated', { draft_id: id });
+    } catch (err) {
+      console.error('onboarding resume_generated failed', err);
+    }
   } catch (e: any) {
     try {
       await supabase

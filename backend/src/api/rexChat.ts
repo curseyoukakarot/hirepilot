@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabase';
 import fetch from 'node-fetch';
+import { completeOnboardingStep } from '../lib/onboarding';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -593,6 +594,13 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
         }
       }
     } catch {}
+
+    // Onboarding: first chat message triggers activation
+    try {
+      await completeOnboardingStep(userId, 'rex_chat_activated', {});
+    } catch (e) {
+      console.error('onboarding rex_chat_activated failed', e);
+    }
 
     return res.status(200).json({ reply: assistantMessage });
   } catch (err: any) {
