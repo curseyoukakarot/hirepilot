@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaArrowLeft, FaArrowUp, FaCheck, FaWandMagicSparkles, FaPaperclip } from 'react-icons/fa6';
+import { FaArrowLeft, FaArrowUp, FaCheck, FaWandMagicSparkles, FaPaperclip, FaCircle } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { chatStream, createConversation, fetchMessages, listConversations, postMessage, type ChatPart } from '../../lib/rexApi';
 
