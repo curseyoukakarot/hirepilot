@@ -134,7 +134,8 @@ export default function JobSeekerDashboardPage() {
       try {
         sessionStorage.setItem('rexPrompt', value);
       } catch {}
-      window.location.href = '/rex-chat?source=dashboard';
+      const encoded = encodeURIComponent(value);
+      window.location.href = `/prep/rex-chat?prefill=${encoded}`;
     }
   };
 
