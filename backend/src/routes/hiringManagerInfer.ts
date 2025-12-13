@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import { openai } from '../../lib/llm';
 
 const router = express.Router();
 
@@ -24,9 +25,8 @@ const sizeToSeniority = (size?: string) => {
   return ['Director', 'VP'];
 };
 
-const inferTitles = (body: InferPayload): TitleResult[] => {
+const inferTitlesHeuristic = (body: InferPayload): TitleResult[] => {
   const desc = (body.job_description || '').toLowerCase();
-  const industry = (body.industry || '').toLowerCase();
   const size = body.company_size;
   const seniorities = sizeToSeniority(size);
 
@@ -64,13 +64,42 @@ const inferTitles = (body: InferPayload): TitleResult[] => {
   return titles.slice(0, 3);
 };
 
+async function inferTitlesLLM(body: InferPayload): Promise<TitleResult[]> {
+  const system = `You are a career outreach assistant. Given a job description and context (company size, industry, company name), return 1-3 likely hiring manager titles who would own the role. Titles must be ownership-level (Head/Director/VP/C-level), not IC. Prefer concise titles. Include a confidence label (High/Medium/Low) and a one-line reasoning. Respond as JSON: { "titles": [ { "title": "...", "confidence": "High|Medium|Low", "reasoning": "..." } ] }`;
+  const user = `Job description:\n${body.job_description || 'N/A'}\n\nCompany: ${body.company_name || 'N/A'}\nCompany size: ${body.company_size || 'N/A'}\nIndustry: ${body.industry || 'N/A'}`;
+
+  const resp = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0.2,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+
+  const content = resp.choices?.[0]?.message?.content || '{}';
+  const parsed = JSON.parse(content);
+  const titles = Array.isArray(parsed?.titles) ? parsed.titles : [];
+  return (titles as TitleResult[]).slice(0, 3);
+}
+
 router.post('/jobs/hiring-manager-infer', requireAuth, async (req: Request, res: Response) => {
   try {
     const payload = (req.body || {}) as InferPayload;
     if (!payload.job_description) {
       return res.status(400).json({ error: 'job_description required' });
     }
-    const titles = inferTitles(payload);
+    let titles: TitleResult[] = [];
+    try {
+      titles = await inferTitlesLLM(payload);
+    } catch (llmErr) {
+      console.warn('hiring-manager-infer LLM failed, using heuristic', llmErr);
+      titles = inferTitlesHeuristic(payload);
+    }
+    if (!titles || !titles.length) {
+      titles = inferTitlesHeuristic(payload);
+    }
     const role_category = titles[0]?.title || 'Hiring Manager';
     const seniority_guess = sizeToSeniority(payload.company_size)[0] || 'Director';
     res.json({ titles, role_category, seniority_guess });
