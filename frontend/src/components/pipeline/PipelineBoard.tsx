@@ -17,9 +17,10 @@ interface PipelineBoardProps {
   pipelineIdOverride?: string | null;
   refreshKey?: number;
   showHeader?: boolean;
+  seedCandidateName?: string;
 }
 
-export default function PipelineBoard({ jobId, pipelineIdOverride = null, refreshKey = 0, showHeader = true }: PipelineBoardProps) {
+export default function PipelineBoard({ jobId, pipelineIdOverride = null, refreshKey = 0, showHeader = true, seedCandidateName }: PipelineBoardProps) {
   const [stages, setStages] = useState<Stage[]>([]);
   const [candidatesByStage, setCandidatesByStage] = useState<Record<string, CandidateItem[]>>({});
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateItem | null>(null);
@@ -62,7 +63,20 @@ export default function PipelineBoard({ jobId, pipelineIdOverride = null, refres
         const sj = await sRes.json();
         const nextStages: Stage[] = Array.isArray(sj?.stages) ? sj.stages : (sj?.pipeline?.stages || []);
         setStages(nextStages);
-        setCandidatesByStage(sj?.candidates || {});
+        let nextCandidates: Record<string, CandidateItem[]> = sj?.candidates || {};
+        if (seedCandidateName && nextStages.length) {
+          const firstStageId = String(nextStages[0].id);
+          const seedId = 'seed-self';
+          const existing = (nextCandidates[firstStageId] || []).some((c) => String(c.candidate_id) === seedId);
+          if (!existing) {
+            const seeded = [{ id: seedId, candidate_id: seedId, name: seedCandidateName }];
+            nextCandidates = {
+              ...nextCandidates,
+              [firstStageId]: seeded.concat(nextCandidates[firstStageId] || []),
+            };
+          }
+        }
+        setCandidatesByStage(nextCandidates);
       } finally {
         setLoading(false);
       }

@@ -9,6 +9,7 @@ import DfyDashboard from './DfyDashboard';
 import AddGuestModal from '../components/AddGuestModal';
 import UpgradeModal from '../components/UpgradeModal';
 import ShareJobModal from '../components/ShareJobModal';
+import { useAppMode } from '../lib/appMode';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
@@ -35,6 +36,8 @@ export default function JobRequisitionPage() {
   const [noteText, setNoteText] = useState('');
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const appMode = useAppMode();
+  const isJobSeeker = appMode === 'job_seeker';
 
   const displayName = (u) => {
     if (!u) return 'Unknown';
@@ -482,10 +485,12 @@ export default function JobRequisitionPage() {
                   ))}
                 </div>
 
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" onClick={() => setShareOpen(true)}>
-                  <i className="fas fa-share-alt mr-2"></i>
-                  Share
-                </button>
+                  {!isJobSeeker && (
+                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" onClick={() => setShareOpen(true)}>
+                      <i className="fas fa-share-alt mr-2"></i>
+                      Share
+                    </button>
+                  )}
 
                 <button className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700" onClick={() => window.location.assign('/rex-chat')}>
                   <i className="fas fa-robot mr-2"></i>
@@ -522,24 +527,28 @@ export default function JobRequisitionPage() {
               >
                 Overview
               </button>
-              <button
-                className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'team' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('team')}
-              >
-                Team
-              </button>
+              {!isJobSeeker && (
+                <button
+                  className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'team' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setActiveTab('team')}
+                >
+                  Team
+                </button>
+              )}
               <button
                 className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'candidates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setActiveTab('candidates')}
               >
                 Candidates
               </button>
-              <button
-                className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'activity' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('activity')}
-              >
-                Activity
-              </button>
+              {!isJobSeeker && (
+                <button
+                  className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'activity' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setActiveTab('activity')}
+                >
+                  Activity
+                </button>
+              )}
               <button
                 className={`tab-btn py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dfy' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setActiveTab('dfy')}
@@ -633,29 +642,31 @@ export default function JobRequisitionPage() {
               <div className="space-y-6">
                 <JobDetailsCard job={job} />
 
-                {/* Assigned Team */}
-                <div id="assigned-team" className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Team</h3>
-                  <div className="space-y-3">
-                    {team.length === 0 && <p className="text-sm text-gray-500">No collaborators</p>}
-                    {team.map((t, idx) => (
-                      <div key={idx} className="flex items-center space-x-3">
-                        <Avatar user={t.users} email={t.email} size={8} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{collaboratorDisplayName(t)}</p>
-                          <p className="text-xs text-gray-500">{t.role}</p>
+                {/* Assigned Team (hidden for job seekers) */}
+                {!isJobSeeker && (
+                  <div id="assigned-team" className="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Team</h3>
+                    <div className="space-y-3">
+                      {team.length === 0 && <p className="text-sm text-gray-500">No collaborators</p>}
+                      {team.map((t, idx) => (
+                        <div key={idx} className="flex items-center space-x-3">
+                          <Avatar user={t.users} email={t.email} size={8} />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{collaboratorDisplayName(t)}</p>
+                            <p className="text-xs text-gray-500">{t.role}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
             </div>
           </div>
 
           {/* Team Tab */}
-          <div id="team-tab" className={activeTab === 'team' ? 'tab-content' : 'tab-content hidden'}>
+          <div id="team-tab" className={!isJobSeeker && activeTab === 'team' ? 'tab-content' : 'tab-content hidden'}>
             <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
@@ -784,12 +795,12 @@ export default function JobRequisitionPage() {
           {/* Candidates Tab => Pipeline Board (full-width) */}
           <div id="candidates-tab" className={activeTab === 'candidates' ? 'tab-content' : 'tab-content hidden'}>
             <div className="px-0 py-0">
-              <PipelineBoard jobId={id} />
+              <PipelineBoard jobId={id} seedCandidateName={isJobSeeker ? (displayName(currentUser) || 'You') : undefined} />
             </div>
           </div>
 
           {/* Activity Tab */}
-          <div id="activity-tab" className={activeTab === 'activity' ? 'tab-content' : 'tab-content hidden'}>
+          <div id="activity-tab" className={!isJobSeeker && activeTab === 'activity' ? 'tab-content' : 'tab-content hidden'}>
             <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
