@@ -36,6 +36,7 @@ router.post('/pdf', requireAuth, async (req: Request, res: Response) => {
           line-height: 1.25;
           color: #111827;
         }
+        .name { font-size: 18pt; font-weight: 700; margin-bottom: 6pt; }
         .contact-email { font-size: 12pt; font-weight: 600; margin-bottom: 2pt; }
         .contact-linkedin { font-size: 10pt; margin-bottom: 10pt; }
         .section-title{
@@ -52,8 +53,13 @@ router.post('/pdf', requireAuth, async (req: Request, res: Response) => {
         li { margin: 0 0 2pt 0; }
       </style>
       <div class="resume-page">
+        <div class="name">\${(data.contact && data.contact.name) || ''}</div>
         <div class="contact-email">\${(data.contact && data.contact.email) || ''}</div>
         <div class="contact-linkedin">\${(data.contact && data.contact.linkedin) || ''}</div>
+        \${data.summary ? \`
+          <div class="section-title">Summary</div>
+          <div>\${data.summary}</div>
+        \` : ''}
         \${(data.skills && data.skills.length) ? \`
           <div class="section-title">Skills</div>
           <div>\${data.skills.join(' • ')}</div>\` : ''}
