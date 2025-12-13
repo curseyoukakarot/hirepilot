@@ -72,7 +72,10 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (loading) return <LoadingFallback />;
-  if (!authed) return <Navigate to="/login" replace />;
+  if (!authed) {
+    // Preserve where the user was trying to go
+    return <Navigate to="/login" replace state={{ from: (typeof window !== 'undefined') ? window.location.pathname + window.location.search : undefined }} />;
+  }
   return <>{children}</>;
 }
 
@@ -92,6 +95,9 @@ export default function JobSeekerRoutes() {
           <Route path="/signup" element={<JobSeekerSignup />} />
           {/* Allow onboarding to render even if not authenticated */}
           <Route path="/onboarding" element={<OnboardingPage />} />
+          {/* Allow job routes to render before auth guard decides, to avoid catch-all redirect */}
+          <Route path="/jobs" element={<JobRequisitions />} />
+          <Route path="/jobs/:id" element={<JobRequisitionPage />} />
           <Route
             element={
               <JobSeekerProtected>
@@ -101,8 +107,6 @@ export default function JobSeekerRoutes() {
           >
             <Route path="/dashboard" element={<JobSeekerDashboardPage />} />
             <Route path="/leads" element={<LeadManagement />} />
-            <Route path="/jobs" element={<JobRequisitions />} />
-            <Route path="/jobs/:id" element={<JobRequisitionPage />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/prep" element={<PrepPage />} />
             <Route path="/prep/resume/wizard" element={<ResumeWizardPage />} />
