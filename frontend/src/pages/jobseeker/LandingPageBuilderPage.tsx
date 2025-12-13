@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -8,6 +8,7 @@ import {
   FaRotateLeft,
   FaWandMagicSparkles,
   FaArrowUpRightFromSquare,
+  FaRotateRight,
 } from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
 
@@ -383,7 +384,8 @@ export default function LandingPageBuilderPage() {
     contact: true,
   });
   const [htmlContent, setHtmlContent] = useState(initialHtml);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isPublished, setIsPublished] = useState(false);
+  const [idea, setIdea] = useState<string>('');
 
   const handleToneToggle = (tone: Tone) => {
     setTones((prev) => {
@@ -412,6 +414,24 @@ export default function LandingPageBuilderPage() {
 
   const toneActive = (tone: Tone) => tones.includes(tone);
   const sectionActive = (key: SectionKey) => sections[key];
+
+  useEffect(() => {
+    regenerateIdea();
+  }, [name, role, heroFocus, heroSubtext, tones, calendly]);
+
+  const regenerateIdea = () => {
+    const parts = [
+      name || 'Your Name Here',
+      role || 'Your role',
+      heroFocus || 'Your focus statement',
+      heroSubtext || 'Your summary',
+      tones.length ? `Tone: ${tones.join(', ')}` : '',
+      calendly ? `Schedule: ${calendly}` : '',
+    ]
+      .filter(Boolean)
+      .join(' • ');
+    setIdea(`Highlight ${parts}. Keep it concise and outcome-driven; include 2–3 bullets with metrics where possible.`);
+  };
 
   const openPreviewTab = () => {
     const html = htmlContent || buildHtml();
@@ -475,26 +495,6 @@ export default function LandingPageBuilderPage() {
     return [hero, about, experience, caseStudies, testimonials, contact].filter(Boolean).join('\n\n');
   };
 
-  const previewClasses = useMemo(
-    () =>
-      theme === 'dark'
-        ? {
-            wrapper: 'bg-slate-950',
-            h1: 'text-slate-50',
-            h2: 'text-slate-100',
-            pPrimary: 'text-slate-300',
-            p: 'text-slate-400',
-          }
-        : {
-            wrapper: 'bg-slate-50',
-            h1: 'text-slate-900',
-            h2: 'text-slate-900',
-            pPrimary: 'text-slate-700',
-            p: 'text-slate-700',
-          },
-    [theme]
-  );
-
   return (
     <div className="bg-[#020617] text-slate-100 font-sans">
       <div id="main-wrapper" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
@@ -527,9 +527,21 @@ export default function LandingPageBuilderPage() {
                 <FaLink className="text-xs text-slate-400" />
                 <span className="text-xs text-slate-300 font-mono">jobs.thehirepilot.com/p/your-page</span>
               </div>
-              <span className="text-[10px] font-medium text-amber-400 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-                Status: Draft
+              <span
+                className={`text-[10px] font-medium px-2 py-1 rounded-full border ${
+                  isPublished
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                }`}
+              >
+                Status: {isPublished ? 'Published' : 'Draft'}
               </span>
+              <button
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
+                onClick={() => setIsPublished(true)}
+              >
+                Publish
+              </button>
             </div>
           </div>
         </header>
@@ -682,48 +694,31 @@ export default function LandingPageBuilderPage() {
               id="rex-suggestions-card"
               className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 space-y-3"
             >
-              <div>
-                <h3 className="text-sm font-semibold text-slate-100 mb-1">REX content ideas</h3>
-                <p className="text-[11px] text-slate-500">Use these as starting points for your hero copy and case studies.</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-100 mb-1">REX content ideas</h3>
+                  <p className="text-[11px] text-slate-500">Based on your Page setup fields.</p>
+                </div>
+                <button
+                  className="p-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-800 transition"
+                  onClick={regenerateIdea}
+                  title="Refresh suggestions"
+                >
+                  <FaRotateRight className="text-xs" />
+                </button>
               </div>
 
-              <div className="space-y-3">
-                <div className="rounded-lg bg-slate-900/50 border border-slate-800/50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-slate-300">Hero example</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-                    "I'm Brandon Omoregie, a revenue leader who's helped 12+ B2B SaaS companies scale from $1M to $20M+ ARR.
-                    I specialize in building high-performing sales teams, optimizing GTM strategies, and creating repeatable
-                    growth systems."
-                  </p>
-                  <button
-                    className="insert-hero-btn text-[10px] font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                    onClick={handleInsertHero}
-                  >
-                    <FaArrowRight className="text-[9px]" />
-                    <span>Insert into hero fields</span>
-                  </button>
-                </div>
-
-                <div className="rounded-lg bg-slate-900/50 border border-slate-800/50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-slate-300">Case study structure</span>
-                  </div>
-                  <ul className="text-[11px] text-slate-400 space-y-1 mb-3 pl-4 list-disc">
-                    <li>Challenge</li>
-                    <li>Strategy</li>
-                    <li>Execution</li>
-                    <li>Outcome (with metrics)</li>
-                  </ul>
-                  <button
-                    className="insert-case-btn text-[10px] font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                    onClick={handleInsertCase}
-                  >
-                    <FaArrowRight className="text-[9px]" />
-                    <span>Insert sample case study into HTML</span>
-                  </button>
-                </div>
+              <div className="rounded-lg bg-slate-900/50 border border-slate-800/50 p-3">
+                <p className="text-[11px] text-slate-300 leading-relaxed mb-3">{idea || 'We will generate a suggestion based on your inputs.'}</p>
+                <button
+                  className="insert-hero-btn text-[10px] font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                  onClick={() => {
+                    setHeroSubtext(idea || heroSubtext);
+                  }}
+                >
+                  <FaArrowRight className="text-[9px]" />
+                  <span>Use this in About</span>
+                </button>
               </div>
             </div>
           </div>
@@ -771,26 +766,16 @@ export default function LandingPageBuilderPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-100">Live preview</span>
-              <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950/50 border border-slate-800">
-                <button
-                  onClick={openPreviewTab}
-                  className="px-2 py-1 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
-                  title="Open preview in new tab"
-                >
+              <button
+                onClick={openPreviewTab}
+                className="px-3 py-2 rounded text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition"
+                title="Open preview in new tab"
+              >
+                <div className="flex items-center gap-2">
                   <FaArrowUpRightFromSquare />
-                </button>
-                {(['dark', 'light'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className={`theme-toggle px-3 py-1 rounded text-xs font-medium transition-all ${
-                      theme === t ? 'bg-slate-800 text-slate-200' : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {t === 'dark' ? 'Dark' : 'Light'}
-                  </button>
-                ))}
-              </div>
+                  <span>Open in new tab</span>
+                </div>
+              </button>
             </div>
 
             <div id="preview-frame" className="relative flex-1 rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
