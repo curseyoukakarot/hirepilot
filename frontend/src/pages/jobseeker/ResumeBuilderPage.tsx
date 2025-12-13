@@ -106,6 +106,9 @@ export default function ResumeBuilderPage() {
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
   const [viewBullets, setViewBullets] = useState<Record<number, boolean>>({});
   const [bulletSelections, setBulletSelections] = useState<Record<number, { text: string; selected: boolean }[]>>({});
+  const [selectedIndustry, setSelectedIndustry] = useState<string>((defaultResume.targetRole.industry || [])[0] || 'B2B');
+  const [customIndustryOpen, setCustomIndustryOpen] = useState<boolean>(false);
+  const [customIndustryText, setCustomIndustryText] = useState<string>('');
 
   useEffect(() => {
     if (!draftId) return;
@@ -160,6 +163,11 @@ export default function ResumeBuilderPage() {
   useEffect(() => {
     setTargetTitle(preview.targetRole.primaryTitle || defaultResume.targetRole.primaryTitle || 'Head of Sales');
   }, [preview.targetRole.primaryTitle]);
+
+  useEffect(() => {
+    const industryFromPreview = (preview.targetRole.industry || [])[0] || (defaultResume.targetRole.industry || [])[0] || 'B2B';
+    setSelectedIndustry(industryFromPreview);
+  }, [preview.targetRole.industry]);
 
   useEffect(() => {
     const expList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
@@ -366,6 +374,21 @@ export default function ResumeBuilderPage() {
     }
   };
 
+  const setIndustrySelection = (industry: string) => {
+    setSelectedIndustry(industry);
+    const next = { ...(preview.targetRole || {}), industry: [industry] };
+    updateSection({ targetRole: next });
+    setResume((prev) => ({ ...prev, targetRole: next }));
+  };
+
+  const addCustomIndustry = () => {
+    const value = customIndustryText.trim();
+    if (!value) return;
+    setCustomIndustryOpen(false);
+    setCustomIndustryText('');
+    setIndustrySelection(value);
+  };
+
   const applyTargetTitle = () => {
     const next = { ...(preview.targetRole || {}), primaryTitle: targetTitle || preview.targetRole.primaryTitle };
     updateSection({ targetRole: next });
@@ -522,19 +545,52 @@ export default function ResumeBuilderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Industry</label>
                   <div className="flex flex-wrap gap-2">
-                    {industries.map((industry, idx) => (
-                      <button
-                        key={`${industry}-${idx}`}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          idx === 0
-                            ? 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
-                            : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
-                        }`}
-                      >
-                        {industry}
-                      </button>
-                    ))}
+                    {['B2B', 'SMB', 'SaaS', 'Energy', 'Healthcare', 'Insurance', 'Custom'].map((industry) => {
+                      const active = selectedIndustry === industry;
+                      const isCustom = industry === 'Custom';
+                      return (
+                        <button
+                          key={industry}
+                          onClick={() => {
+                            if (isCustom) {
+                              setCustomIndustryOpen(true);
+                            } else {
+                              setCustomIndustryOpen(false);
+                              setIndustrySelection(industry);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            active
+                              ? 'bg-indigo-500/30 border border-indigo-500/60 text-indigo-100'
+                              : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          {industry}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {customIndustryOpen && (
+                    <div className="mt-3 p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-2">
+                      <p className="text-xs text-slate-300">Add your industry</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customIndustryText}
+                          onChange={(e) => setCustomIndustryText(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                          placeholder="e.g., Climate Tech"
+                        />
+                        <button
+                          className="px-3 py-2 rounded-lg bg-indigo-500 text-white text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-60"
+                          onClick={addCustomIndustry}
+                          disabled={!customIndustryText.trim()}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
