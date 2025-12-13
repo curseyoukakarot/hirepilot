@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  FaRocket,
-  FaBell,
   FaBriefcase,
   FaEye,
   FaComments,
@@ -41,7 +39,10 @@ export default function JobSeekerDashboardPage() {
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
+        if (!user?.id) return;
+
+        // Profile name
+        try {
           const { data: profile } = await supabase
             .from('users')
             .select('first_name,last_name,full_name,email')
@@ -54,49 +55,74 @@ export default function JobSeekerDashboardPage() {
           ].filter(Boolean);
           const derived = (profile?.full_name || meta.full_name || parts.join(' ') || user.email || '').trim();
           setProfileName(derived || 'there');
-        }
-      } catch {}
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const base = import.meta.env.VITE_BACKEND_URL || '';
-
-        // Opportunities (job req count)
-        let opportunities = 0;
-        try {
-          const resp = await fetch(`${base}/api/jobs`, { headers: { Authorization: `Bearer ${token}` } });
-          const js = await resp.json();
-          opportunities = Array.isArray(js?.jobs) ? js.jobs.length : (Array.isArray(js) ? js.length : 0);
-          setRecentJobs(Array.isArray(js?.jobs) ? js.jobs.slice(0, 3) : []);
         } catch {}
 
-        // Outreach count — using candidate_jobs as proxy for outreach
+        // Opportunities count and recent jobs
+        let opportunities = 0;
+        let recent: any[] = [];
+        try {
+          const { count } = await supabase
+            .from('job_requisitions')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+          opportunities = count || 0;
+
+          const { data: recents } = await supabase
+            .from('job_requisitions')
+            .select('id,title,location,company,status,updated_at')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false })
+            .limit(5);
+          recent = recents || [];
+        } catch {}
+
+        // Outreach count from candidate_jobs
         let outreach = 0;
         try {
-          const resp = await fetch(`${base}/api/pipelines/candidates/count`, { headers: { Authorization: `Bearer ${token}` } });
-          const js = await resp.json();
-          outreach = js?.count || 0;
+          const { count } = await supabase
+            .from('candidate_jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+          outreach = count || 0;
         } catch {}
 
-        // Interviews count + upcoming
+        // Interviews and upcoming list
         let interviews = 0;
         const upcomingList: any[] = [];
         try {
-          const resp = await fetch(`${base}/api/pipelines/interviews`, { headers: { Authorization: `Bearer ${token}` } });
-          const js = await resp.json();
-          interviews = js?.count || 0;
-          if (Array.isArray(js?.items)) {
-            upcomingList.push(...js.items.slice(0, 5));
+          const { count, data: interviewCands } = await supabase
+            .from('candidate_jobs')
+            .select('id,job_id,status,updated_at', { count: 'exact' })
+            .eq('user_id', user.id)
+            .ilike('status', '%interview%')
+            .limit(5);
+          interviews = count || 0;
+          const jobIds = Array.from(new Set((interviewCands || []).map((c) => c.job_id).filter(Boolean)));
+          let jobMap: Record<string, any> = {};
+          if (jobIds.length) {
+            const { data: jobRows } = await supabase
+              .from('job_requisitions')
+              .select('id,title,company,location,updated_at')
+              .in('id', jobIds);
+            jobMap = (jobRows || []).reduce((acc, j) => {
+              acc[j.id] = j;
+              return acc;
+            }, {} as Record<string, any>);
           }
+          (interviewCands || []).forEach((c) => {
+            const job = jobMap[c.job_id] || {};
+            upcomingList.push({
+              id: c.id,
+              job_title: job.title || 'Interview',
+              company: job.company || job.location || '—',
+              when: job.updated_at ? new Date(job.updated_at).toLocaleDateString() : '',
+            });
+          });
         } catch {}
 
         setStats({ opportunities, outreach, interviews });
         setUpcoming(upcomingList);
+        setRecentJobs(recent);
       } catch {}
     })();
   }, []);
@@ -132,7 +158,7 @@ export default function JobSeekerDashboardPage() {
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-400">Today</div>
-              <div className="text-lg font-semibold text-white">December 12, 2024</div>
+              <div className="text-lg font-semibold text-white">{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</div>
             </div>
           </div>
         </section>
