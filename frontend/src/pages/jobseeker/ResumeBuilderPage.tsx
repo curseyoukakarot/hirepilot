@@ -70,11 +70,12 @@ const defaultResume: GeneratedResumeJson = {
   ],
 };
 
-async function authHeaders() {
+async function authHeaders(opts?: { includeJson?: boolean }) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
+  if (opts?.includeJson !== false) headers['Content-Type'] = 'application/json';
   if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
   return headers;
 }
@@ -269,7 +270,7 @@ export default function ResumeBuilderPage() {
     setUploading(true);
     setLoadError(null);
     try {
-      const headers = await authHeaders();
+      const headers = await authHeaders({ includeJson: false });
       const form = new FormData();
       form.append('file', file);
       const res = await fetch(`${backend}/api/rex/uploads`, { method: 'POST', headers, body: form });
