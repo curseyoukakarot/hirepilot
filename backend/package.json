@@ -38,6 +38,7 @@
         "build:clean": "rm -rf dist .tsbuildinfo && tsc --incremental",
         "start": "TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register server.ts",
         "_postinstall_disabled": "npm run build:ultra-fast",
+        "postinstall": "playwright install chromium",
         "backfill-credits": "ts-node scripts/backfillUserCredits.ts",
         "backfill-activate-campaigns": "ts-node scripts/backfillActivateCampaigns.ts",
         "_postinstall_note": "Playwright browsers installed via Dockerfile",
