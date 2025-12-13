@@ -1,75 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FaArrowLeft,
-  FaArrowUp,
-  FaBriefcase,
-  FaChartLine,
-  FaCheck,
-  FaCircle,
-  FaComments,
-  FaGlobe,
-  FaWandMagicSparkles,
-} from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
+import { FaArrowLeft, FaArrowUp, FaCheck, FaWandMagicSparkles, FaPaperclip } from 'react-icons/fa6';
+import { supabase } from '../../lib/supabaseClient';
+import { chatStream, createConversation, fetchMessages, listConversations, postMessage, type ChatPart } from '../../lib/rexApi';
 
-type MessageRole = 'user' | 'assistant';
-type Message = {
-  id: string;
-  role: MessageRole;
-  content: string;
-  timestamp: string;
-};
-
-const seededMessages: Message[] = [
-  {
-    id: 'u1',
-    role: 'user',
-    content: 'Can you rewrite my resume summary for a Head of Sales role?',
-    timestamp: '2:34 PM',
-  },
-  {
-    id: 'a1',
-    role: 'assistant',
-    content:
-      "Here's a rewritten summary tailored for Head of Sales positions in B2B SaaS:\n\nResults-driven sales executive with 8+ years leading high-performing teams in B2B SaaS environments. Proven track record of scaling revenue from $2M to $15M+ while building remote-first sales organizations. Expert in enterprise deal cycles, strategic partnerships, and implementing data-driven sales processes that consistently exceed targets by 20-30%.",
-    timestamp: '2:34 PM',
-  },
-  {
-    id: 'u2',
-    role: 'user',
-    content: 'Now give me 3 bullets for my Nimbus Data experience.',
-    timestamp: '2:36 PM',
-  },
-  {
-    id: 'a2',
-    role: 'assistant',
-    content:
-      'Here are 3 strong bullets for your Nimbus Data experience:\n\n• Scaled enterprise sales team from 5 to 15 reps, driving 340% revenue growth ($3M to $13.2M ARR) over 18 months\n• Implemented Salesforce automation and lead scoring system, reducing sales cycle by 25% and improving conversion rates by 35%\n• Secured 3 enterprise deals worth $2M+ each by developing strategic partnerships with Fortune 500 technology integrators',
-    timestamp: '2:37 PM',
-  },
-];
-
-const cannedResponses = [
-  "Here's a revised version that better highlights your leadership experience and quantifiable results in B2B SaaS environments.",
-  "I've crafted three compelling bullets that emphasize your strategic impact and measurable outcomes at Nimbus Data.",
-  "Here's a tightened LinkedIn About section that positions you as a results-driven sales leader in the B2B SaaS space.",
-  "I've drafted a personalized outreach email that highlights your relevant experience and creates a compelling reason to connect.",
-];
+type Attachment = { name: string; text: string; url?: string };
 
 export default function JobPrepChatPage() {
-  const [messages, setMessages] = useState<Message[]>(seededMessages);
+  const [messages, setMessages] = useState<ChatPart[]>([]);
   const [input, setInput] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
-  const thinkingTimer = useRef<number | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [statusLabel, setStatusLabel] = useState<string>('Idle · Ready for your next question');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const statusLabel = useMemo(() => {
-    return isThinking ? 'Running...' : 'Idle · Ready for your next question';
-  }, [isThinking]);
-
-  const statusDotClass = isThinking ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500';
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -79,58 +25,109 @@ export default function JobPrepChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isThinking]);
+  }, [messages, streaming]);
 
   useEffect(() => {
-    return () => {
-      if (thinkingTimer.current) {
-        window.clearTimeout(thinkingTimer.current);
+    (async () => {
+      try {
+        const list = await listConversations();
+        if (list.length) {
+          setConversationId(list[0].id);
+          const msgs = await fetchMessages(list[0].id);
+          setMessages(
+            msgs.map((m) => ({
+              role: m.role === 'user' ? 'user' : 'assistant',
+              content: typeof m.content === 'string' ? m.content : m.content?.text || JSON.stringify(m.content),
+            }))
+          );
+        } else {
+          const conv = await createConversation('Job Prep Chat');
+          setConversationId(conv.id);
+        }
+      } catch (e) {
+        console.error('Load conversation failed', e);
       }
-    };
+    })();
   }, []);
 
-  const addMessage = (role: MessageRole, content: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `${role}-${Date.now()}`,
-        role,
-        content,
-        timestamp: nowTime(),
-      },
-    ]);
-  };
+  const statusDotClass = streaming || uploading ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500';
 
-  const startThinking = () => {
-    setIsThinking(true);
-  };
+  const dynamicThinking = useMemo(() => {
+    if (uploading) return 'Analyzing attached file...';
+    if (streaming) {
+      return attachments.length ? 'Analyzing your file and crafting a response...' : 'Thinking about your request...';
+    }
+    return statusLabel;
+  }, [streaming, uploading, attachments.length, statusLabel]);
 
-  const finishThinking = (response?: string) => {
-    setIsThinking(false);
-    if (response) {
-      addMessage('assistant', response);
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/rex/uploads`, {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'upload_failed');
+      setAttachments((prev) => [...prev, { name: data.name || file.name, text: data.text || '', url: data.url || undefined }]);
+      setStatusLabel('File attached · Ready to send');
+    } catch (e: any) {
+      setStatusLabel(e?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isThinking) return;
-    addMessage('user', trimmed);
+    if (!trimmed || streaming) return;
+    const attachText = attachments
+      .map((a) => `\n\n[Attached: ${a.name}]\n${a.text || '(no text extracted)'}`)
+      .join('');
+    const userContent = trimmed + attachText;
+    const nextMessages = [...messages, { role: 'user' as const, content: userContent }, { role: 'assistant' as const, content: '' }];
+    setMessages(nextMessages);
     setInput('');
-    startThinking();
-    // simulate response
-    thinkingTimer.current = window.setTimeout(() => {
-      const resp = cannedResponses[Math.floor(Math.random() * cannedResponses.length)];
-      finishThinking(resp);
-    }, 1600);
-  };
+    setStatusLabel(attachments.length ? 'Analyzing your attachment...' : 'Thinking through your question...');
+    setStreaming(true);
 
-  const handleStop = () => {
-    if (!isThinking) return;
-    if (thinkingTimer.current) {
-      window.clearTimeout(thinkingTimer.current);
+    try {
+      let convId = conversationId;
+      if (!convId) {
+        const conv = await createConversation(trimmed.slice(0, 100));
+        convId = conv.id;
+        setConversationId(conv.id);
+      }
+
+      await postMessage(convId!, 'user', { text: userContent, attachments });
+
+      let acc = '';
+      for await (const chunk of chatStream(nextMessages)) {
+        let text = '';
+        try {
+          const obj = JSON.parse(chunk);
+          text = obj?.reply?.content || obj?.content || '';
+        } catch {
+          text = chunk;
+        }
+        if (!text) continue;
+        acc += text;
+        setMessages((prev) => prev.map((m, idx) => (idx === prev.length - 1 ? { ...m, content: acc } : m)));
+      }
+      setStatusLabel('Idle · Ready for your next question');
+      await postMessage(convId!, 'assistant', { text: acc });
+    } catch (e: any) {
+      setStatusLabel(e?.message || 'Chat failed');
+    } finally {
+      setStreaming(false);
+      setAttachments([]);
     }
-    finishThinking("Generation stopped. Here's a partial draft you can edit.");
   };
 
   const handleQuickPrompt = (text: string) => {
@@ -249,8 +246,8 @@ export default function JobPrepChatPage() {
           {/* Center Column - Chat */}
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 flex flex-col h-full relative">
             <div id="messages-area" className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {messages.map((m, idx) => (
+                <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={m.role === 'user' ? 'max-w-[70%]' : 'max-w-[80%]'}>
                     {m.role === 'assistant' ? (
                       <div className="flex items-start gap-3">
@@ -266,16 +263,11 @@ export default function JobPrepChatPage() {
                         {m.content}
                       </div>
                     )}
-                    <div
-                      className={`text-xs text-slate-500 mt-1 ${m.role === 'user' ? 'text-right' : 'ml-11'}`}
-                    >
-                      {m.timestamp}
-                    </div>
                   </div>
                 </div>
               ))}
 
-              {isThinking && (
+              {(streaming || uploading) && (
                 <div className="flex justify-start">
                   <div className="max-w-[80%]">
                     <div className="flex items-start gap-3">
@@ -288,7 +280,7 @@ export default function JobPrepChatPage() {
                           <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:120ms]" />
                           <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:240ms]" />
                         </div>
-                        <p className="text-sm text-slate-400">Analyzing attached resume...</p>
+                        <p className="text-sm text-slate-400">{dynamicThinking}</p>
                         <div className="mt-2 h-1 w-full rounded-full bg-slate-700">
                           <div className="h-full w-1/2 rounded-full bg-sky-500 transition-all" />
                         </div>
@@ -304,6 +296,13 @@ export default function JobPrepChatPage() {
             {/* Input Bar */}
             <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
               <div className="rounded-2xl border border-slate-700 bg-slate-950/90 px-3 py-2 flex items-end gap-2">
+                <button
+                  className="text-slate-400 hover:text-slate-200 p-2"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <FaPaperclip />
+                </button>
                 <textarea
                   rows={1}
                   value={input}
@@ -323,10 +322,27 @@ export default function JobPrepChatPage() {
                 <button
                   onClick={handleSend}
                   className="bg-sky-500 hover:bg-sky-400 text-slate-50 rounded-full w-10 h-10 flex items-center justify-center transition-colors"
+                  disabled={streaming || uploading}
                 >
                   <FaArrowUp />
                 </button>
               </div>
+              {attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+                  {attachments.map((a) => (
+                    <span key={a.name} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700">
+                      <FaPaperclip className="text-[10px]" />
+                      {a.name}
+                      <button
+                        className="text-slate-400 hover:text-slate-200"
+                        onClick={() => setAttachments((prev) => prev.filter((x) => x.name !== a.name))}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -336,7 +352,7 @@ export default function JobPrepChatPage() {
               <h3 className="font-medium text-slate-200">REX status</h3>
               <div id="status-indicator" className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${statusDotClass}`} />
-                <span className={isThinking ? 'text-emerald-400' : 'text-slate-400'}>{statusLabel}</span>
+                <span className={streaming || uploading ? 'text-emerald-400' : 'text-slate-400'}>{dynamicThinking}</span>
               </div>
             </div>
 
@@ -399,6 +415,18 @@ export default function JobPrepChatPage() {
           </div>
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.txt"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadFile(file);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }
