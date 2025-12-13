@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { FaGoogle, FaMicrosoft } from 'react-icons/fa6';
 
 export default function JobSeekerLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,10 @@ export default function JobSeekerLogin() {
     if (e) setEmail(e);
   }, []);
 
-  const resolveRedirect = () => '/dashboard';
+  const resolveRedirect = () => {
+    const from = (location.state as any)?.from;
+    return from && typeof from === 'string' ? from : '/dashboard';
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,7 +45,8 @@ export default function JobSeekerLogin() {
           throw fallbackErr;
         }
       }
-      navigate(resolveRedirect(), { replace: true });
+      const dest = resolveRedirect();
+      setTimeout(() => navigate(dest, { replace: true }), 0);
     } catch (err: any) {
       setError(err?.message || 'Unable to sign in.');
     } finally {

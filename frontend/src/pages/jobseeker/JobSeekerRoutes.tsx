@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import JobSeekerAppShell from '../../components/jobseeker/JobSeekerAppShell';
 import JobSeekerDashboardPage from './JobSeekerDashboardPage';
@@ -44,7 +44,8 @@ function LoadingFallback() {
 
 function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const location = useLocation();
 
   useEffect(() => {
     let isMounted = true;
@@ -58,25 +59,34 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
           user: data?.session?.user?.id,
         });
         if (!isMounted) return;
-        setAuthed(!!data.session);
+        setSession(data.session);
       } catch {
         if (!isMounted) return;
-        setAuthed(false);
+        setSession(null);
       } finally {
         if (isMounted) setLoading(false);
       }
     })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!isMounted) return;
+      setSession(newSession);
+      setLoading(false);
+    });
     return () => {
       isMounted = false;
+      sub?.subscription?.unsubscribe?.();
     };
   }, []);
 
   if (loading) return <LoadingFallback />;
-  if (!authed) {
+  if (!session) {
     // Preserve where the user was trying to go
-    return <Navigate to="/login" replace state={{ from: (typeof window !== 'undefined') ? window.location.pathname + window.location.search : undefined }} />;
+    const from = `${location.pathname}${location.search}`;
+    return <Navigate to="/login" replace state={{ from }} />;
   }
-  return <>{children}</>;
+  if (children) return <>{children}</>;
+  // Fallback to outlet if used as a wrapper route element
+  return <Outlet />;
 }
 
 export default function JobSeekerRoutes() {
@@ -100,10 +110,35 @@ export default function JobSeekerRoutes() {
       />
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Public */}
           <Route path="/login" element={<JobSeekerLogin />} />
           <Route path="/signup" element={<JobSeekerSignup />} />
           {/* Allow onboarding to render even if not authenticated */}
           <Route path="/onboarding" element={<OnboardingPage />} />
+
+          {/* Job routes explicitly protected and mounted before any catch-alls */}
+          <Route
+            path="/jobs/:id"
+            element={
+              <JobSeekerProtected>
+                <JobSeekerAppShell>
+                  <JobRequisitionPage />
+                </JobSeekerAppShell>
+              </JobSeekerProtected>
+            }
+          />
+          <Route
+            path="/jobs"
+            element={
+              <JobSeekerProtected>
+                <JobSeekerAppShell>
+                  <JobRequisitions />
+                </JobSeekerAppShell>
+              </JobSeekerProtected>
+            }
+          />
+
+          {/* Other protected routes via shell */}
           <Route
             element={
               <JobSeekerProtected>
@@ -111,8 +146,6 @@ export default function JobSeekerRoutes() {
               </JobSeekerProtected>
             }
           >
-            <Route path="/jobs" element={<JobRequisitions />} />
-            <Route path="/jobs/:id" element={<JobRequisitionPage />} />
             <Route path="/dashboard" element={<JobSeekerDashboardPage />} />
             <Route path="/leads" element={<LeadManagement />} />
             <Route path="/campaigns" element={<Campaigns />} />
