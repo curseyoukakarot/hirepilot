@@ -85,6 +85,7 @@ import UseCasesFractionalExecutives from './screens/UseCasesFractionalExecutives
 import UseCasesConsultants from './screens/UseCasesConsultants';
 import OnboardingModals from './components/OnboardingModals';
 import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
+import OnboardingAppPage from './pages/OnboardingAppPage';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -346,15 +347,12 @@ function InnerApp() {
     mode,
   });
 
-  // Onboarding: only serve on jobs domain; otherwise redirect to jobs
+  // Onboarding route handling
   if (location.pathname === '/onboarding') {
     if (hostname.startsWith('jobs.')) {
       return <JobSeekerRoutes />;
     }
-    if (typeof window !== 'undefined') {
-      window.location.replace('https://jobs.thehirepilot.com/onboarding');
-    }
-    return null;
+    return <OnboardingAppPage />;
   }
 
   if (mode === 'job_seeker') {
