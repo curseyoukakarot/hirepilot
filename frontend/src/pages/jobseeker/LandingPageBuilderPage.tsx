@@ -388,6 +388,7 @@ export default function LandingPageBuilderPage() {
   const [idea, setIdea] = useState<string>('');
   const [slug, setSlug] = useState('your-page');
   const [slugSaved, setSlugSaved] = useState(false);
+  const [htmlSaved, setHtmlSaved] = useState(false);
 
   const handleToneToggle = (tone: Tone) => {
     setTones((prev) => {
@@ -426,6 +427,11 @@ export default function LandingPageBuilderPage() {
     setSlug(cleaned);
     setSlugSaved(true);
     setTimeout(() => setSlugSaved(false), 1500);
+  };
+
+  const handleSaveHtml = () => {
+    setHtmlSaved(true);
+    setTimeout(() => setHtmlSaved(false), 1200);
   };
 
   const regenerateIdea = () => {
@@ -767,6 +773,21 @@ export default function LandingPageBuilderPage() {
             </div>
 
             <div className="relative flex-1 rounded-xl bg-slate-950/80 border border-slate-800 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 bg-slate-900/70 border-b border-slate-800">
+              <div className="text-xs font-medium text-slate-300 flex items-center gap-2">
+                <FaCode className="text-slate-500" />
+                <span>HTML template</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {htmlSaved && <span className="text-[10px] text-emerald-400">Saved</span>}
+                <button
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
+                  onClick={handleSaveHtml}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
               <div className="absolute left-0 top-0 bottom-0 w-10 bg-slate-900/50 border-r border-slate-800 flex flex-col items-center pt-3 text-[10px] text-slate-600 font-mono space-y-3">
                 {Array.from({ length: 10 }).map((_, idx) => (
                   <span key={idx}>{idx + 1}</span>
