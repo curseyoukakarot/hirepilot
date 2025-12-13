@@ -710,7 +710,10 @@ export default function AdminUserManagement() {
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
-                <option value="free">Free</option>
+                <option value="free">Free (Recruiter)</option>
+                <option value="job_seeker_free">Job Seeker Free</option>
+                <option value="job_seeker_pro">Job Seeker Pro</option>
+                <option value="job_seeker_elite">Job Seeker Elite</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setShowInvite(false)}>Cancel</button>
@@ -736,7 +739,10 @@ export default function AdminUserManagement() {
                 <option value="viewer">Viewer</option>
                 <option value="super_admin">Super Admin</option>
                 <option value="RecruitPro">RecruitPro</option>
-                <option value="free">Free</option>
+                <option value="free">Free (Recruiter)</option>
+                <option value="job_seeker_free">Job Seeker Free</option>
+                <option value="job_seeker_pro">Job Seeker Pro</option>
+                <option value="job_seeker_elite">Job Seeker Elite</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setEditUser(null)}>Cancel</button>
