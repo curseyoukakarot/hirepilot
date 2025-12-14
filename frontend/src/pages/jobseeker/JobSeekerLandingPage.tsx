@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fa';
 import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
 import PublicFooter from '../../components/PublicFooter';
+import { motion } from 'framer-motion';
 
 const primary = '#3b82f6';
 
@@ -60,6 +61,14 @@ function FeatureCard({
 export default function JobSeekerLandingPage() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
+  const fadeUp = {
+    initial: { opacity: 0, y: 16 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.4, ease: 'easeOut' },
+  };
+  const stagger = {
+    animate: { transition: { staggerChildren: 0.08 } },
+  };
 
   const rexPrompts = useMemo(
     () => [
@@ -150,35 +159,47 @@ export default function JobSeekerLandingPage() {
       {/* Method */}
       <section id="method" className="py-20 bg-gray-900">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">The HirePilot Jobs method</h2>
-            <p className="text-xl text-gray-300">This is the playbook recruiters use — now you have it.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <Pill num={1} color="#3b82f6" label="Position" description="Resume + LinkedIn rewrite that positions you as the perfect candidate" />
-            <Pill num={2} color="#22c55e" label="Package" description="Personal landing page that showcases your value proposition" />
-            <Pill num={3} color="#a855f7" label="Prospect" description="Direct outreach scripts that get hiring managers to respond" />
-          </div>
+          <motion.div {...fadeUp} className="text-center mb-16 space-y-3">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">The HirePilot Jobs method</h2>
+            <p className="text-lg sm:text-xl text-gray-300">This is the playbook recruiters use — now you have it.</p>
+          </motion.div>
+          <motion.div {...stagger} className="grid md:grid-cols-3 gap-6 md:gap-8">
+            <motion.div {...fadeUp}>
+              <Pill num={1} color="#3b82f6" label="Position" description="Resume + LinkedIn rewrite that positions you as the perfect candidate" />
+            </motion.div>
+            <motion.div {...fadeUp}>
+              <Pill num={2} color="#22c55e" label="Package" description="Personal landing page that showcases your value proposition" />
+            </motion.div>
+            <motion.div {...fadeUp}>
+              <Pill num={3} color="#a855f7" label="Prospect" description="Direct outreach scripts that get hiring managers to respond" />
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Walkthrough */}
       <section id="walkthrough" className="py-20 bg-gray-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Your 5-step journey to job success</h2>
-            <p className="text-xl text-gray-300">Simple, guided, and effective</p>
-          </div>
-          <div className="grid md:grid-cols-5 gap-6">
-            <FeatureCard icon={<FaUpload />} title="Upload resume" description="Get instant rewrite" />
-            <FeatureCard icon={<FaBullseye />} title="Set target role" description="Define your goals" />
-            <FeatureCard icon={<FaLightbulb />} title="Generate angles" description="Outreach strategies" />
-            <FeatureCard icon={<FaGlobe />} title="Build landing page" description="Professional showcase" />
-            <FeatureCard icon={<FaRobot />} title="Chat with REX" description="Refine everything" />
-          </div>
-          <div className="text-center mt-8">
+          <motion.div {...fadeUp} className="text-center mb-16 space-y-3">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">Your 5-step journey to job success</h2>
+            <p className="text-lg sm:text-xl text-gray-300">Simple, guided, and effective</p>
+          </motion.div>
+          <motion.div {...stagger} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            {[ 
+              { icon: <FaUpload />, title: 'Upload resume', description: 'Get instant rewrite' },
+              { icon: <FaBullseye />, title: 'Set target role', description: 'Define your goals' },
+              { icon: <FaLightbulb />, title: 'Generate angles', description: 'Outreach strategies' },
+              { icon: <FaGlobe />, title: 'Build landing page', description: 'Professional showcase' },
+              { icon: <FaRobot />, title: 'Chat with REX', description: 'Refine everything' },
+            ].map((card, idx) => (
+              <motion.div key={card.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.05 * idx }}>
+                <FeatureCard icon={card.icon} title={card.title} description={card.description} />
+              </motion.div>
+            ))}
+          </motion.div>
+          <motion.div {...fadeUp} className="text-center mt-8">
             <p className="text-lg font-semibold text-green-400">🎁 Bonus credits for completing setup</p>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -186,7 +207,7 @@ export default function JobSeekerLandingPage() {
       <section id="rex-demo" className="py-16 bg-[#020617] text-slate-100">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
           {/* Header bar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <motion.div {...fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2">
               <div className="px-3 py-1 w-fit rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
                 REX · Job Prep Assistant
@@ -215,9 +236,9 @@ export default function JobSeekerLandingPage() {
                 </select>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
+          <motion.div {...fadeUp} className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
             {/* Left panel */}
             <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
               <div className="space-y-2">
@@ -450,83 +471,86 @@ export default function JobSeekerLandingPage() {
                 </ul>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features grid */}
       <section id="features" className="py-20 bg-gray-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">What can REX help with?</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <FeatureCard icon={<FaRegFileAlt />} title="Resume rewrite" description="Transform your resume into a compelling story that hiring managers can't ignore." />
-            <FeatureCard icon={<FaLinkedin />} title="LinkedIn rewrite" description="Optimize your LinkedIn profile to attract recruiters and showcase your value." />
-            <FeatureCard icon={<FaEnvelope />} title="Outreach scripts" description="Craft personalized messages that get hiring managers to respond and engage." />
-            <FeatureCard icon={<FaCrosshairs />} title="Hiring manager targeting" description="Find the right people to contact and learn how to approach them effectively." />
-            <FeatureCard icon={<FaComments />} title="Interview prep" description="Practice answers, learn company insights, and prepare for any interview scenario." />
-            <FeatureCard icon={<FaHandshake />} title="Negotiation coaching" description="Get the salary and benefits you deserve with proven negotiation strategies." />
-          </div>
+          <motion.div {...fadeUp} className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">What can REX help with?</h2>
+          </motion.div>
+          <motion.div {...stagger} className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+            {[
+              { icon: <FaRegFileAlt />, title: 'Resume rewrite', description: "Transform your resume into a compelling story that hiring managers can't ignore." },
+              { icon: <FaLinkedin />, title: 'LinkedIn rewrite', description: 'Optimize your LinkedIn profile to attract recruiters and showcase your value.' },
+              { icon: <FaEnvelope />, title: 'Outreach scripts', description: 'Craft personalized messages that get hiring managers to respond and engage.' },
+              { icon: <FaCrosshairs />, title: 'Hiring manager targeting', description: 'Find the right people to contact and learn how to approach them effectively.' },
+              { icon: <FaComments />, title: 'Interview prep', description: 'Practice answers, learn company insights, and prepare for any interview scenario.' },
+              { icon: <FaHandshake />, title: 'Negotiation coaching', description: 'Get the salary and benefits you deserve with proven negotiation strategies.' },
+            ].map((card, idx) => (
+              <motion.div key={card.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.04 * idx }}>
+                <FeatureCard icon={card.icon} title={card.title} description={card.description} />
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* Credibility */}
       <section id="credibility" className="py-16 bg-gray-900">
         <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div>
-              <FaUserTie className="text-[#3b82f6] text-3xl mb-4 mx-auto" />
-              <h4 className="font-semibold text-white mb-2">Built from real recruiter workflows</h4>
-            </div>
-            <div>
-              <FaRocket className="text-[#3b82f6] text-3xl mb-4 mx-auto" />
-              <h4 className="font-semibold text-white mb-2">Designed for direct outreach</h4>
-            </div>
-            <div>
-              <FaStar className="text-[#3b82f6] text-3xl mb-4 mx-auto" />
-              <h4 className="font-semibold text-white mb-2">"Finally something that doesn't just spam job boards."</h4>
-            </div>
-          </div>
+          <motion.div {...stagger} className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {[
+              { icon: <FaUserTie className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: 'Built from real recruiter workflows' },
+              { icon: <FaRocket className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: 'Designed for direct outreach' },
+              { icon: <FaStar className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: `"Finally something that doesn't just spam job boards."` },
+            ].map((item, idx) => (
+              <motion.div key={item.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.04 * idx }}>
+                {item.icon}
+                <h4 className="font-semibold text-white">{item.title}</h4>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* FAQ */}
       <section id="faq" className="py-20 bg-gray-900">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <h2 className="text-4xl font-bold text-white text-center mb-16">Frequently asked questions</h2>
-          <div className="space-y-8">
-            <div className="border-b border-gray-700 pb-6">
-              <h4 className="text-lg font-semibold text-white mb-2">Do you auto-apply to jobs?</h4>
-              <p className="text-gray-300">
-                No. We don&apos;t believe in it. HirePilot Jobs focuses on direct outreach to hiring managers, not mass applications.
-              </p>
-            </div>
-            <div className="border-b border-gray-700 pb-6">
-              <h4 className="text-lg font-semibold text-white mb-2">What makes this different?</h4>
-              <p className="text-gray-300">
-                Direct outreach playbook + REX coaching. We teach you the strategies recruiters use to connect candidates with opportunities.
-              </p>
-            </div>
-            <div className="border-b border-gray-700 pb-6">
-              <h4 className="text-lg font-semibold text-white mb-2">Do I need a resume already?</h4>
-              <p className="text-gray-300">
-                You can upload anything - even a basic resume or LinkedIn profile. REX will help you transform it into something powerful.
-              </p>
-            </div>
-            <div className="border-b border-gray-700 pb-6">
-              <h4 className="text-lg font-semibold text-white mb-2">Is this for executives or entry-level?</h4>
-              <p className="text-gray-300">
-                Both! Our targeting-based approach works for any level. REX adapts strategies based on your experience and goals.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-2">Does it work with LinkedIn?</h4>
-              <p className="text-gray-300">
-                Yes, we have a LinkedIn extension that helps you research prospects and send personalized outreach directly.
-              </p>
-            </div>
-          </div>
+          <motion.h2 {...fadeUp} className="text-3xl sm:text-4xl font-bold text-white text-center mb-14">
+            Frequently asked questions
+          </motion.h2>
+          <motion.div {...stagger} className="space-y-8">
+            {[
+              {
+                q: 'Do you auto-apply to jobs?',
+                a: "No. We don't believe in it. HirePilot Jobs focuses on direct outreach to hiring managers, not mass applications.",
+              },
+              {
+                q: 'What makes this different?',
+                a: 'Direct outreach playbook + REX coaching. We teach you the strategies recruiters use to connect candidates with opportunities.',
+              },
+              {
+                q: 'Do I need a resume already?',
+                a: 'You can upload anything - even a basic resume or LinkedIn profile. REX will help you transform it into something powerful.',
+              },
+              {
+                q: 'Is this for executives or entry-level?',
+                a: 'Both! Our targeting-based approach works for any level. REX adapts strategies based on your experience and goals.',
+              },
+              {
+                q: 'Does it work with LinkedIn?',
+                a: 'Yes, we have a LinkedIn extension that helps you research prospects and send personalized outreach directly.',
+              },
+            ].map((item, idx) => (
+              <motion.div key={item.q} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.05 * idx }} className="border-b border-gray-700 pb-6">
+                <h4 className="text-lg font-semibold text-white mb-2">{item.q}</h4>
+                <p className="text-gray-300">{item.a}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
