@@ -184,31 +184,30 @@ export default function JobPrepChatPage() {
     <div className="bg-[#0b1220] text-slate-100 font-sans min-h-[calc(100vh-72px)]">
       <div className="w-full px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-4 h-[calc(100vh-72px)]">
         {/* Header Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <Link to="/prep" className="text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center">
               <FaArrowLeft className="mr-2" />
               Back to Prep
             </Link>
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="px-3 py-1 w-fit rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs sm:text-sm">
                 REX · Job Prep Assistant
               </div>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-100">Ask REX anything about your job search</h1>
+              <div className="space-y-1">
+                <h1 className="text-lg sm:text-xl font-semibold text-slate-100 leading-snug">Ask REX anything about your job search</h1>
                 <p className="text-sm text-slate-400">
-                  Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your
-                  targets.
+                  Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
                 </p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-sm">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs sm:text-sm">
               Target: Head of Sales · B2B SaaS
             </div>
-            <div className="text-xs text-slate-500 flex items-center gap-2">
-              <span>Mode:</span>
+            <div className="text-xs text-slate-500 flex items-center gap-1">
+              <span className="hidden sm:inline">Mode:</span>
               <select className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300">
                 <option>General</option>
                 <option>Resume</option>
