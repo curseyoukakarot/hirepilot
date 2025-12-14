@@ -161,6 +161,21 @@ export default function JobPrepChatPage() {
     }
   };
 
+  const handleResetConversation = async () => {
+    setStreaming(false);
+    setUploading(false);
+    setAttachments([]);
+    setMessages([]);
+    setInput('');
+    setStatusLabel('Idle · Ready for your next question');
+    try {
+      const conv = await createConversation('Job Prep Chat');
+      setConversationId(conv.id);
+    } catch (e) {
+      console.error('reset conversation failed', e);
+    }
+  };
+
   const handleQuickPrompt = (text: string) => {
     setInput(text);
   };
@@ -202,6 +217,14 @@ export default function JobPrepChatPage() {
                 <option>Interview</option>
               </select>
             </div>
+            <button
+              className="text-xs px-3 py-1 rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800"
+              onClick={handleResetConversation}
+              disabled={streaming || uploading}
+              title="Reset conversation and clear messages"
+            >
+              Reset chat
+            </button>
           </div>
         </div>
 
