@@ -187,26 +187,17 @@ export default function JobSeekerLandingPage() {
         <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
           {/* Header bar */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                className="text-slate-400 hover:text-slate-200 transition-colors text-sm"
-                onClick={() => navigate('/prep')}
-              >
-                <i className="fa-solid fa-arrow-left mr-2" />
-                Back to Prep
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
-                  REX · Job Prep Assistant
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-100">Ask REX anything about your job search</h2>
-                  <p className="text-sm text-slate-400">
-                    Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
-                  </p>
-                </div>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
+              REX · Job Prep Assistant
             </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-100">Ask REX anything about your job search</h2>
+              <p className="text-sm text-slate-400">
+                Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
+              </p>
+            </div>
+          </div>
             <div className="flex items-center gap-3">
               <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-sm">
                 Target: Head of Sales · B2B SaaS
@@ -216,7 +207,7 @@ export default function JobSeekerLandingPage() {
                 <select
                   className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300 text-xs"
                   value="General"
-                  onChange={() => {}}
+                  disabled
                 >
                   {['General', 'Resume', 'LinkedIn', 'Outreach', 'Interview'].map((m) => (
                     <option key={m}>{m}</option>
@@ -226,7 +217,7 @@ export default function JobSeekerLandingPage() {
             </div>
           </div>
 
-          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)]">
+          <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
             {/* Left panel */}
             <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
               <div className="space-y-2">
