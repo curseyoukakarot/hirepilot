@@ -314,40 +314,42 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       });
     }
 
-    const mappedLeads = (apolloLeads || []).map((l: any) => ({
-      campaign_id: campaign?.id,
-      user_id: userId,
-      name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.email || 'Unknown',
-      email: l.email || null,
-      title: l.title || null,
-      company: l.company || company_name || null,
-      linkedin_url: l.linkedinUrl || null,
-      source: 'apollo',
-    }));
+    const leadsPayload = (apolloLeads || [])
+      .filter((l: any) => !!l.email)
+      .map((l: any) => ({
+        user_id: userId,
+        name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.email || 'Unknown',
+        email: l.email,
+        title: l.title || null,
+        company: l.company || company_name || null,
+        linkedin_url: l.linkedinUrl || null,
+        campaign_id: campaign?.id,
+        source: 'apollo',
+      }));
+
+    if (!leadsPayload.length) {
+      log('no leads with email to insert - aborting', { sourced: apolloLeads.length });
+      return res.status(422).json({
+        error: 'No leads with emails returned for this search',
+        code: 'NO_EMAILED_LEADS',
+        sourced: apolloLeads.length,
+        suggestions: [
+          'Try broader titles (VP/Director/Head).',
+          'Use company or industry, not both.',
+          'Add company size for better enrichment matches.',
+        ],
+        phase: usedPhase,
+      });
+    }
 
     let insertedCount = 0;
-    if (mappedLeads.length) {
-      const leadsPayload = mappedLeads
-        .filter((m) => !!m.email)
-        .map((m) => ({
-          user_id: userId,
-          name: m.name,
-          email: m.email,
-          title: m.title,
-          company: m.company,
-          linkedin_url: m.linkedin_url,
-          campaign_id: campaign?.id,
-          source: 'apollo',
-        }));
-
-      const { data: insertedLeads, error: leadsErr } = await supabaseDb.from('leads').insert(leadsPayload).select('id');
-      if (leadsErr) {
-        log('insert leads failed', { leadsErr });
-        return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED' });
-      }
-      insertedCount = insertedLeads?.length ?? 0;
-      log('inserted leads', { count: insertedCount });
+    const { data: insertedLeads, error: leadsErr } = await supabaseDb.from('leads').insert(leadsPayload).select('id');
+    if (leadsErr) {
+      log('insert leads failed', { leadsErr });
+      return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED' });
     }
+    insertedCount = insertedLeads?.length ?? 0;
+    log('inserted leads', { count: insertedCount });
 
     // Mark campaign active
     await supabaseDb.from('campaigns').update({ status: 'active' }).eq('id', campaign?.id);
@@ -359,8 +361,8 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         await sendEmail(
           userRow.email,
           'Your hiring manager campaign launched',
-          `We found ${mappedLeads.length} leads for your hiring manager outreach campaign.`,
-          `<p>We found <strong>${mappedLeads.length}</strong> leads for your hiring manager outreach campaign targeting ${company_name || 'this role'}.</p>`
+          `We found ${insertedCount} leads for your hiring manager outreach campaign.`,
+          `<p>We found <strong>${insertedCount}</strong> leads for your hiring manager outreach campaign targeting ${company_name || 'this role'}.</p>`
         );
       }
     } catch (e) {
@@ -371,7 +373,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       campaign,
       jobReq,
       leads_sourced: apolloLeads.length,
-      leads_inserted: insertedCount || mappedLeads.length,
+      leads_inserted: insertedCount,
       titles_used: titles.map((t) => t.title),
       status: 'active',
       phase_used: usedPhase,
