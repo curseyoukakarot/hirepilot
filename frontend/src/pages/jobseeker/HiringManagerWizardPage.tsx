@@ -32,6 +32,9 @@ export default function HiringManagerWizardPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<WizardState>(initialState);
   const [loading, setLoading] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [showLaunchModal, setShowLaunchModal] = useState(false);
+  const [launchProgress, setLaunchProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // persist locally
@@ -110,8 +113,14 @@ export default function HiringManagerWizardPage() {
   };
 
   const handleLaunch = async () => {
+    let timer: any;
     try {
-      setLoading(true);
+      setLaunching(true);
+      setShowLaunchModal(true);
+      setLaunchProgress(10);
+      timer = window.setInterval(() => {
+        setLaunchProgress((p) => Math.min(92, p + Math.random() * 8 + 4));
+      }, 320);
       setError(null);
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
@@ -133,12 +142,18 @@ export default function HiringManagerWizardPage() {
         throw new Error(t || 'Launch failed');
       }
       const js = await res.json();
+      setLaunchProgress(100);
       toast.success(`Campaign launched. Leads added: ${js?.leads_added ?? 0}`);
-      navigate('/campaigns');
+      setTimeout(() => {
+        setShowLaunchModal(false);
+        navigate('/campaigns');
+      }, 450);
     } catch (e: any) {
       setError(e?.message || 'Failed to launch');
+      setShowLaunchModal(false);
     } finally {
-      setLoading(false);
+      if (timer) window.clearInterval(timer);
+      setLaunching(false);
     }
   };
 
@@ -426,9 +441,9 @@ export default function HiringManagerWizardPage() {
                 </button>
               </div>
               <button
-                className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60"
-                onClick={handleLaunch}
-                disabled={!state.leadSource || state.selectedTitles.length === 0}
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                  onClick={handleLaunch}
+                  disabled={!state.leadSource || state.selectedTitles.length === 0 || launching}
               >
                 Launch hiring manager outreach
               </button>
@@ -439,6 +454,29 @@ export default function HiringManagerWizardPage() {
           </div>
         )}
       </main>
+
+      {showLaunchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-indigo-700 flex items-center justify-center">
+                <i className="fas fa-rocket text-white" />
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-white">Launching campaign…</h4>
+                <p className="text-sm text-gray-400">Sourcing hiring managers and creating your campaign.</p>
+              </div>
+            </div>
+            <div className="w-full h-3 rounded-full bg-gray-800 overflow-hidden border border-gray-700">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-400 via-indigo-500 to-blue-400 transition-all duration-200"
+                style={{ width: `${Math.min(launchProgress, 100)}%` }}
+              />
+            </div>
+            <div className="text-right text-xs text-gray-400 mt-2">{Math.round(Math.min(launchProgress, 100))}%</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
