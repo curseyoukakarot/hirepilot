@@ -41,6 +41,13 @@ export default function JobSeekerDashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user?.id) return;
 
+        const deriveCompany = (title?: string | null) => {
+          if (!title) return '';
+          const parts = title.split(':');
+          if (parts.length > 1) return parts.slice(1).join(':').trim();
+          return '';
+        };
+
         // Profile name
         try {
           const { data: profile } = await supabase
@@ -70,7 +77,10 @@ export default function JobSeekerDashboardPage() {
           const list = jobs || [];
           opportunities = list.length;
           jobIds = list.map((j) => j.id);
-          recent = list.slice(0, 5);
+          recent = list.slice(0, 5).map((j) => ({
+            ...j,
+            derived_company: deriveCompany(j.title),
+          }));
         } catch {}
 
         // Outreach count from candidate_jobs for these job_ids
@@ -106,7 +116,7 @@ export default function JobSeekerDashboardPage() {
               upcomingList.push({
                 id: c.id,
                 job_title: job.title || 'Interview',
-                company: job.location || '—',
+                company: job.derived_company || job.location || '—',
                 when: job.updated_at ? new Date(job.updated_at).toLocaleDateString() : '',
               });
             });
@@ -227,6 +237,7 @@ export default function JobSeekerDashboardPage() {
                 {(recentJobs || []).map((job, idx) => {
                   const letter = String(job.title || 'J').charAt(0).toUpperCase();
                   const status = job.status || 'Offer';
+                  const companyLine = [job.derived_company || '', job.location || ''].filter(Boolean).join(' • ');
                   return (
                     <div key={job.id || idx} className="flex items-center space-x-4 p-4 bg-[#262626] rounded-lg">
                       <div className={`w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center`}>
@@ -234,7 +245,7 @@ export default function JobSeekerDashboardPage() {
                       </div>
                       <div className="flex-1">
                         <h3 className="text-white font-medium">{job.title || 'Job'}</h3>
-                        <p className="text-gray-400 text-sm">{job.company || job.location || '—'}</p>
+                        <p className="text-gray-400 text-sm">{companyLine || '—'}</p>
                       </div>
                       <div className="text-right">
                         <span className="text-green-400 text-sm">{status}</span>
