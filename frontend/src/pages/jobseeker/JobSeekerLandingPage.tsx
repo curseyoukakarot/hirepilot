@@ -62,9 +62,16 @@ export default function JobSeekerLandingPage() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const fadeUp = {
-    initial: { opacity: 0, y: 16 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.4, ease: 'easeOut' },
+    initial: { opacity: 0, y: 26 },
+    whileInView: { opacity: 1, y: 0 },
+    transition: { duration: 0.55, ease: 'easeOut' },
+    viewport: { once: true, amount: 0.35 },
+  };
+  const pop = {
+    initial: { opacity: 0, y: 20, scale: 0.97 },
+    whileInView: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.5, ease: 'easeOut' },
+    viewport: { once: true, amount: 0.3 },
   };
   const stagger = {
     animate: { transition: { staggerChildren: 0.08 } },
@@ -164,13 +171,13 @@ export default function JobSeekerLandingPage() {
             <p className="text-lg sm:text-xl text-gray-300">This is the playbook recruiters use — now you have it.</p>
           </motion.div>
           <motion.div {...stagger} className="grid md:grid-cols-3 gap-6 md:gap-8">
-            <motion.div {...fadeUp}>
+            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
               <Pill num={1} color="#3b82f6" label="Position" description="Resume + LinkedIn rewrite that positions you as the perfect candidate" />
             </motion.div>
-            <motion.div {...fadeUp}>
+            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
               <Pill num={2} color="#22c55e" label="Package" description="Personal landing page that showcases your value proposition" />
             </motion.div>
-            <motion.div {...fadeUp}>
+            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
               <Pill num={3} color="#a855f7" label="Prospect" description="Direct outreach scripts that get hiring managers to respond" />
             </motion.div>
           </motion.div>
@@ -192,7 +199,7 @@ export default function JobSeekerLandingPage() {
               { icon: <FaGlobe />, title: 'Build landing page', description: 'Professional showcase' },
               { icon: <FaRobot />, title: 'Chat with REX', description: 'Refine everything' },
             ].map((card, idx) => (
-              <motion.div key={card.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.05 * idx }}>
+              <motion.div key={card.title} {...pop} transition={{ ...pop.transition, delay: 0.05 * idx }} whileHover={{ y: -4, scale: 1.02 }}>
                 <FeatureCard icon={card.icon} title={card.title} description={card.description} />
               </motion.div>
             ))}
@@ -238,7 +245,7 @@ export default function JobSeekerLandingPage() {
             </div>
           </motion.div>
 
-          <motion.div {...fadeUp} className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
+          <motion.div {...pop} className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
             {/* Left panel */}
             <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
               <div className="space-y-2">
@@ -490,7 +497,7 @@ export default function JobSeekerLandingPage() {
               { icon: <FaComments />, title: 'Interview prep', description: 'Practice answers, learn company insights, and prepare for any interview scenario.' },
               { icon: <FaHandshake />, title: 'Negotiation coaching', description: 'Get the salary and benefits you deserve with proven negotiation strategies.' },
             ].map((card, idx) => (
-              <motion.div key={card.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.04 * idx }}>
+              <motion.div key={card.title} {...pop} transition={{ ...pop.transition, delay: 0.04 * idx }} whileHover={{ y: -4, scale: 1.02 }}>
                 <FeatureCard icon={card.icon} title={card.title} description={card.description} />
               </motion.div>
             ))}
@@ -507,7 +514,7 @@ export default function JobSeekerLandingPage() {
               { icon: <FaRocket className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: 'Designed for direct outreach' },
               { icon: <FaStar className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: `"Finally something that doesn't just spam job boards."` },
             ].map((item, idx) => (
-              <motion.div key={item.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.04 * idx }}>
+              <motion.div key={item.title} {...pop} transition={{ ...pop.transition, delay: 0.04 * idx }} whileHover={{ y: -4, scale: 1.01 }}>
                 {item.icon}
                 <h4 className="font-semibold text-white">{item.title}</h4>
               </motion.div>
