@@ -5,6 +5,7 @@ import { OnboardingBanner } from '../jobseeker/OnboardingBanner';
 
 export function JobsLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
 
   const items = React.useMemo(
     () => [
@@ -119,8 +120,10 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
           currentPath={currentPath}
           isOpenMobile={open}
           onCloseMobile={() => setOpen(false)}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((v) => !v)}
         />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+        <main className={["min-w-0 flex-1 px-4 py-6 md:px-6 transition-all", collapsed ? "md:ml-0" : ""].join(" ")}>
           <OnboardingBanner />
           {children}
         </main>
