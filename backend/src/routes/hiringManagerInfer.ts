@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { openai } from '../../lib/llm';
 import { supabaseDb } from '../../lib/supabase';
@@ -116,13 +117,42 @@ router.post('/jobs/hiring-manager-infer', requireAuth, async (req: Request, res:
 
 router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res: Response) => {
   try {
+    const launchId = crypto.randomUUID();
+    const log = (msg: string, extra?: any) => {
+      try {
+        console.log(`[HM_LAUNCH ${launchId}] ${msg}`, extra ?? '');
+      } catch {}
+    };
+    const maskKey = (k?: string | null) => {
+      if (!k) return null;
+      if (k.length <= 8) return '****';
+      return `${k.slice(0, 4)}…${k.slice(-4)}`;
+    };
+
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
-    const { job_description, company_name, company_size, industry, titles: inferredTitles, selected_titles, campaign_title } = (req.body || {}) as InferPayload & { campaign_title?: string };
+    const {
+      job_description,
+      company_name,
+      company_size,
+      industry,
+      titles: inferredTitles,
+      selected_titles,
+      campaign_title,
+      leadSource,
+    } = (req.body || {}) as InferPayload & { campaign_title?: string; leadSource?: string };
     if (!job_description) return res.status(400).json({ error: 'job_description required' });
     const titles = (selected_titles && selected_titles.length ? selected_titles : inferredTitles) || [];
     if (!titles.length) return res.status(400).json({ error: 'titles required' });
+    if (leadSource && leadSource !== 'apollo') {
+      return res.status(400).json({
+        error: 'Unsupported lead source for automated sourcing. Use Apollo for now.',
+        code: 'UNSUPPORTED_LEAD_SOURCE',
+      });
+    }
+
+    log('start', { userId, company: company_name, leadSource: leadSource || 'apollo' });
 
     // Create job req
     const jobIns = await supabaseDb
@@ -138,6 +168,10 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       .select()
       .single();
     const jobReq = jobIns.data;
+    if (jobIns.error) {
+      log('job requisition insert failed', { error: jobIns.error });
+      return res.status(500).json({ error: 'Failed to create job requisition', code: 'JOB_REQ_CREATE_FAILED' });
+    }
 
     // Create campaign in classic campaigns table
     const campIns = await supabaseDb
@@ -158,6 +192,10 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       .select()
       .single();
     const campaign = campIns.data;
+    if (campIns.error || !campaign) {
+      log('campaign insert failed', { error: campIns.error });
+      return res.status(500).json({ error: 'Failed to create campaign', code: 'CAMPAIGN_CREATE_FAILED' });
+    }
 
     // Resolve Apollo API key
     const { data: settings } = await supabaseDb
@@ -168,19 +206,57 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
     const personalKey = settings?.apollo_api_key;
     const superAdminKey = process.env.SUPER_ADMIN_APOLLO_API_KEY;
     const platformKey = process.env.HIREPILOT_APOLLO_API_KEY;
+    log('apollo key resolved', {
+      personal: maskKey(personalKey),
+      superAdmin: maskKey(superAdminKey),
+      platform: maskKey(platformKey),
+    });
     const apiKey = personalKey || superAdminKey || platformKey;
-    if (!apiKey) return res.status(401).json({ error: 'No valid Apollo API key found' });
+    if (!apiKey) {
+      log('missing apollo key - aborting');
+      return res.status(400).json({
+        error: 'Missing Apollo API key',
+        hint: 'Add your Apollo key in Integrations, or contact support to enable platform key.',
+        code: 'APOLLO_KEY_MISSING',
+      });
+    }
 
     // Apollo search & enrich
     const personTitles = titles.map((t) => t.title).slice(0, 3);
     const qKeywords = [company_name, industry].filter(Boolean).join(' ');
-    const { leads: apolloLeads } = await searchAndEnrichPeople({
-      api_key: apiKey,
-      person_titles: personTitles,
-      q_keywords: qKeywords || undefined,
-      page: 1,
-      per_page: 50,
-    } as any);
+    let apolloLeads: any[] = [];
+    try {
+      log('calling searchAndEnrichPeople', { titles: personTitles, company: company_name, industry, qKeywords });
+      const { leads } = (await searchAndEnrichPeople({
+        api_key: apiKey,
+        person_titles: personTitles,
+        q_keywords: qKeywords || undefined,
+        page: 1,
+        per_page: 50,
+      } as any)) as any;
+      apolloLeads = leads || [];
+      log('searchAndEnrichPeople returned', { count: apolloLeads.length });
+    } catch (err: any) {
+      log('searchAndEnrichPeople threw', { message: err?.message });
+      return res.status(502).json({
+        error: 'Lead sourcing failed',
+        code: 'LEAD_SOURCING_FAILED',
+        detail: err?.message || 'Unknown error',
+      });
+    }
+
+    if (!apolloLeads || apolloLeads.length === 0) {
+      log('no leads returned - aborting');
+      return res.status(422).json({
+        error: 'No hiring manager leads found for this job',
+        code: 'NO_LEADS_FOUND',
+        suggestions: [
+          'Try broadening titles (VP/Director/Head).',
+          'Remove company filter or confirm company name spelling.',
+          'Use Apollo instead of Sales Navigator for initial sourcing.',
+        ],
+      });
+    }
 
     const mappedLeads = (apolloLeads || []).map((l: any) => ({
       campaign_id: campaign?.id,
@@ -194,24 +270,31 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
     }));
 
     if (mappedLeads.length) {
-      await supabaseDb.from('campaign_leads').insert(mappedLeads.map((m) => ({ ...m, campaign_id: campaign?.id })));
-      await supabaseDb
-        .from('leads')
-        .insert(
-          mappedLeads
-            .filter((m) => !!m.email)
-            .map((m) => ({
-              user_id: userId,
-              name: m.name,
-              email: m.email,
-              title: m.title,
-              company: m.company,
-              linkedin_url: m.linkedin_url,
-              campaign_id: campaign?.id,
-              source: 'apollo',
-            }))
-        )
-        .catch(() => {});
+      const { error: campaignLeadsErr } = await supabaseDb.from('campaign_leads').insert(mappedLeads.map((m) => ({ ...m, campaign_id: campaign?.id })));
+      if (campaignLeadsErr) {
+        log('insert campaign_leads failed', { campaignLeadsErr });
+        return res.status(500).json({ error: 'Failed to attach leads to campaign', code: 'CAMPAIGN_LEADS_INSERT_FAILED' });
+      }
+
+      const leadsPayload = mappedLeads
+        .filter((m) => !!m.email)
+        .map((m) => ({
+          user_id: userId,
+          name: m.name,
+          email: m.email,
+          title: m.title,
+          company: m.company,
+          linkedin_url: m.linkedin_url,
+          campaign_id: campaign?.id,
+          source: 'apollo',
+        }));
+
+      const { data: insertedLeads, error: leadsErr } = await supabaseDb.from('leads').insert(leadsPayload).select('id');
+      if (leadsErr) {
+        log('insert leads failed', { leadsErr });
+        return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED' });
+      }
+      log('inserted leads', { count: insertedLeads?.length ?? 0 });
     }
 
     // Mark campaign active
@@ -235,8 +318,10 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
     return res.json({
       campaign,
       jobReq,
-      leads_added: mappedLeads.length,
+      leads_sourced: apolloLeads.length,
+      leads_inserted: mappedLeads.length,
       titles_used: personTitles,
+      status: 'active',
     });
   } catch (e: any) {
     console.error('hiring-manager-launch error', e);

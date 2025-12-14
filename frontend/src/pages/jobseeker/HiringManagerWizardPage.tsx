@@ -135,15 +135,30 @@ export default function HiringManagerWizardPage() {
           industry: state.industry,
           selected_titles: state.selectedTitles,
           campaign_title: state.company ? `HM Outreach: ${state.company}` : 'Hiring Manager Outreach',
+          leadSource: state.leadSource || 'apollo',
         }),
       });
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'Launch failed');
+        let detail = 'Launch failed';
+        try {
+          const errJson = await res.json();
+          if (errJson?.code === 'APOLLO_KEY_MISSING') {
+            detail = 'Connect your Apollo API key in Integrations to launch.';
+          } else if (errJson?.code === 'NO_LEADS_FOUND') {
+            detail =
+              errJson?.suggestions?.join(' ') ||
+              'No leads found. Try broader titles (VP/Director/Head) or remove strict company filter.';
+          } else if (errJson?.error) {
+            detail = errJson.error;
+          }
+        } catch {
+          detail = await res.text();
+        }
+        throw new Error(detail || 'Launch failed');
       }
       const js = await res.json();
       setLaunchProgress(100);
-      toast.success(`Campaign launched. Leads added: ${js?.leads_added ?? 0}`);
+      toast.success(`Campaign launched. Leads added: ${js?.leads_inserted ?? js?.leads_sourced ?? 0}`);
       setTimeout(() => {
         setShowLaunchModal(false);
         navigate('/campaigns');
