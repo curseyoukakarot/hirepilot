@@ -10,7 +10,7 @@ import {
   FaChartLine,
 } from 'react-icons/fa6';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useOnboardingProgress } from '../../hooks/useOnboardingProgress';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -24,16 +24,26 @@ const placeholders = [
 export default function JobSeekerDashboardPage() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const { progress, loading, completedKeys } = useOnboardingProgress();
   const [profileName, setProfileName] = useState('there');
   const [stats, setStats] = useState({ opportunities: 0, outreach: 0, interviews: 0 });
   const [upcoming, setUpcoming] = useState<any[]>([]);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [blockedModal, setBlockedModal] = useState<string | null>(null);
 
   const completionPct = useMemo(() => {
     if (!progress?.total_steps) return 0;
     return Math.round((progress.total_completed / progress.total_steps) * 100);
   }, [progress]);
+
+  useEffect(() => {
+    const state = (location.state || {}) as any;
+    if (state?.blocked) {
+      setBlockedModal(state.blocked);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     (async () => {
@@ -339,6 +349,32 @@ export default function JobSeekerDashboardPage() {
           </div>
         </div>
       </main>
+      {blockedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="bg-[#121826] text-white rounded-2xl border border-slate-700 max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold mb-2">Upgrade to access this feature</h3>
+            <p className="text-slate-300 text-sm mb-4">
+              {blockedModal === 'prep'
+                ? 'Prep tools are available on paid plans. Upgrade to unlock resume builder, landing page, and more.'
+                : 'This feature is available on paid plans. Upgrade to continue.'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-2 text-sm rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800"
+                onClick={() => setBlockedModal(null)}
+              >
+                Close
+              </button>
+              <button
+                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => navigate('/pricing')}
+              >
+                View pricing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

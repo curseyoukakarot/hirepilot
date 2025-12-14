@@ -110,7 +110,8 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     const blockingPrep = path.startsWith('/prep') && !isRexChat;
     const blockingAgent = path.startsWith('/agent-mode');
     if (blockingPrep || blockingAgent) {
-      return <Navigate to="/dashboard" replace />;
+      const blocked = blockingPrep ? 'prep' : 'agent';
+      return <Navigate to="/dashboard" replace state={{ blocked }} />;
     }
   }
 
