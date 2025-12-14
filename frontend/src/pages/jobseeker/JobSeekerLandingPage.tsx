@@ -20,7 +20,7 @@ import {
   FaStar,
 } from 'react-icons/fa';
 import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
-import PublicFooter from '../../components/PublicFooter';
+import PublicFooterJobs from '../../components/PublicFooterJobs';
 import { motion } from 'framer-motion';
 
 const primary = '#3b82f6';
@@ -584,7 +584,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <PublicFooter />
+      <PublicFooterJobs />
     </div>
   );
 }
