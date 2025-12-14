@@ -145,12 +145,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
     if (!job_description) return res.status(400).json({ error: 'job_description required' });
     const titles = (selected_titles && selected_titles.length ? selected_titles : inferredTitles) || [];
     if (!titles.length) return res.status(400).json({ error: 'titles required' });
-    if (leadSource && leadSource !== 'apollo') {
-      return res.status(400).json({
-        error: 'Unsupported lead source for automated sourcing. Use Apollo for now.',
-        code: 'UNSUPPORTED_LEAD_SOURCE',
-      });
-    }
+    const leadSourceVal = (leadSource || 'apollo').toLowerCase();
 
     log('start', { userId, company: company_name, leadSource: leadSource || 'apollo' });
 
@@ -221,6 +216,21 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         error: 'Failed to create campaign',
         code: 'CAMPAIGN_CREATE_FAILED',
         detail: campIns.error?.message,
+      });
+    }
+
+    // If Sales Navigator is selected, create job + campaign and return without sourcing (extension will import)
+    if (leadSourceVal === 'sales_navigator') {
+      return res.json({
+        campaign,
+        jobReq,
+        leads_sourced: 0,
+        leads_inserted: 0,
+        titles_used: titles.map((t) => t.title),
+        status: campaign?.status || 'draft',
+        phase_used: 0,
+        lead_source: 'sales_navigator',
+        message: 'Campaign created. Use the Chrome extension to scrape Sales Navigator results into this campaign.',
       });
     }
 

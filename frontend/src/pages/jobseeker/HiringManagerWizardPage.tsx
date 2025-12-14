@@ -13,6 +13,8 @@ type WizardState = {
   inferredTitles: TitleChip[];
   selectedTitles: TitleChip[];
   leadSource: 'apollo' | 'sales_navigator' | null;
+  salesNavUrl?: string;
+  salesNavPages?: number;
 };
 
 const initialState: WizardState = {
@@ -136,6 +138,8 @@ export default function HiringManagerWizardPage() {
           selected_titles: state.selectedTitles,
           campaign_title: state.company ? `HM Outreach: ${state.company}` : 'Hiring Manager Outreach',
           leadSource: state.leadSource || 'apollo',
+          sales_nav_url: state.salesNavUrl || '',
+          sales_nav_pages: state.salesNavPages || 1,
         }),
       });
       if (!res.ok) {
@@ -383,12 +387,43 @@ export default function HiringManagerWizardPage() {
                 title="Sales Navigator"
                 bullets={[
                   'Requires a LinkedIn Sales Navigator subscription',
-                  'Requires the HirePilot Chrome Extension',
+                'Requires the HirePilot Chrome Extension',
                 ]}
                 active={state.leadSource === 'sales_navigator'}
                 onSelect={() => setState((p) => ({ ...p, leadSource: 'sales_navigator' }))}
               />
             </div>
+          {state.leadSource === 'sales_navigator' && (
+            <div className="mt-6 space-y-4 bg-gray-900 border border-gray-700 rounded-lg p-4">
+              <h4 className="text-white font-semibold">Sales Navigator import</h4>
+              <p className="text-sm text-gray-400">
+                Paste your Sales Navigator search URL and choose how many pages to scrape with the HirePilot Chrome extension. After launching, use the extension to import leads into this campaign.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">Sales Navigator search URL</label>
+                <input
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500"
+                  placeholder="https://www.linkedin.com/sales/search/people?query=..."
+                  value={state.salesNavUrl || ''}
+                  onChange={(e) => setState((p) => ({ ...p, salesNavUrl: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">Pages to scrape (approx 25 leads/page)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="w-32 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100"
+                  value={state.salesNavPages || 1}
+                  onChange={(e) => setState((p) => ({ ...p, salesNavPages: Number(e.target.value) || 1 }))}
+                />
+              </div>
+              <div className="text-xs text-gray-400">
+                Tip: Keep filters broad (title + industry/company size). Run the extension after launch to pull selected pages into this campaign.
+              </div>
+            </div>
+          )}
             <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-4">
               <p className="text-sm text-amber-300">
                 <i className="fas fa-exclamation-triangle mr-2"></i>
@@ -435,9 +470,15 @@ export default function HiringManagerWizardPage() {
               </div>
               <div className="border border-gray-700 rounded-lg p-4">
                 <h4 className="text-white font-semibold mb-2">Lead source</h4>
-                <p className="text-gray-300">
-                  {state.leadSource === 'apollo' ? 'Apollo' : state.leadSource === 'sales_navigator' ? 'Sales Navigator' : 'Not selected'}
-                </p>
+                <div className="text-gray-300 space-y-1">
+                  <p>{state.leadSource === 'apollo' ? 'Apollo' : state.leadSource === 'sales_navigator' ? 'Sales Navigator' : 'Not selected'}</p>
+                  {state.leadSource === 'sales_navigator' && (
+                    <div className="text-sm text-gray-400">
+                      <div>Search URL: {state.salesNavUrl || '—'}</div>
+                      <div>Pages to scrape: {state.salesNavPages || 1}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex justify-between pt-2">
