@@ -208,7 +208,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         user_id: userId,
         title: campaign_title || `HM Outreach: ${company_name || 'Unnamed company'}`,
         description: job_description,
-        status: 'ready',
+        status: 'draft',
         job_id: jobReq?.id || jobReqId || null,
       })
       .select()
