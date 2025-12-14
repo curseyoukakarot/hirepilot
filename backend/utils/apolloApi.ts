@@ -377,8 +377,8 @@ export async function enrichBatch(apiKey: string, ids: string[]): Promise<Enrich
   if (!ids.length) return [];
 
   try {
-    // Construct URL with required parameters
-    const url = `${APOLLO_API_URL}/people/bulk_match?api_key=${apiKey}&reveal_personal_emails=true`;
+    // Construct URL with required parameters (API key via header, not query)
+    const url = `${APOLLO_API_URL}/people/bulk_match?reveal_personal_emails=true`;
 
     // Construct body with correct field name
     const body = {
@@ -387,12 +387,12 @@ export async function enrichBatch(apiKey: string, ids: string[]): Promise<Enrich
 
     console.log('[Apollo] Enriching batch:', { 
       count: ids.length,
-      requestUrl: url.replace(apiKey, '***'),
+      requestUrl: url,
       requestBody: body
     });
 
     const response = await axios.post(url, body, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
       timeout: 10000
     });
 
