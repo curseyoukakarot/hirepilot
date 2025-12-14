@@ -22,6 +22,8 @@ export default function Analytics() {
   const chartInstancesRef = useRef({});
   const navigate = useNavigate();
   const [modalData, setModalData] = useState(null);
+  const isJobsHost = typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.');
+  const [searchParams] = useSearchParams();
 
 
   const widgetTypeMap = useMemo(() => ({
@@ -88,7 +90,7 @@ export default function Analytics() {
   useEffect(() => {
     const open = searchParams.get('open');
     const tab = searchParams.get('tab') || undefined;
-    if (tab && (['deals','jobs','outreach','rex'].includes(tab))) {
+    if (!isJobsHost && tab && (['deals','jobs','outreach','rex'].includes(tab))) {
       setActiveTab(tab);
       setModalType(tab);
     }
@@ -98,12 +100,18 @@ export default function Analytics() {
       if (!tab) {
         // derive tab from widget name using widgetData
         const found = Object.entries(widgetData).find(([k, arr]) => (arr || []).some((it) => it.name === open));
-        if (found) setActiveTab(found[0]);
+        if (found && !isJobsHost) setActiveTab(found[0]);
       }
       setIsModalOpen(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, isJobsHost]);
+
+  useEffect(() => {
+    if (isJobsHost && activeTab !== 'overview') {
+      setActiveTab('overview');
+    }
+  }, [isJobsHost, activeTab]);
 
   const openModal = async (title) => {
     setModalTitle(title);
@@ -1398,55 +1406,59 @@ export default function Analytics() {
                 <input type="text" placeholder="Search widgets..." className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400" />
                 <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400 dark:text-gray-500"></i>
                         </div>
-              <button onClick={() => navigate('/dashboards')} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
-                <i className="fa-solid fa-plus mr-2"></i>Create Custom
-              </button>
+              {!isJobsHost && (
+                <button onClick={() => navigate('/dashboards')} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                  <i className="fa-solid fa-plus mr-2"></i>Create Custom
+                </button>
+              )}
           </div>
           </div>
         </header>
 
         <div id="content-area" className="flex-1 overflow-y-auto p-6">
-          <div id="tabs-container" className="mb-8">
-            <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-800">
-              <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'overview' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
-                onClick={() => setActiveTab('overview')}
-                data-tab="overview"
-              >
-                <i className="fa-solid fa-chart-line mr-2"></i>Overview
-              </button>
-              <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
-                onClick={() => setActiveTab('deals')}
-                data-tab="deals"
-              >
-                <i className="fa-solid fa-dollar-sign mr-2"></i>Deals
-              </button>
-              <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'jobs' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
-                onClick={() => setActiveTab('jobs')}
-                data-tab="jobs"
-              >
-                <i className="fa-solid fa-briefcase mr-2"></i>Jobs
-              </button>
-              <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'outreach' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
-                onClick={() => setActiveTab('outreach')}
-                data-tab="outreach"
-              >
-                <i className="fa-solid fa-paper-plane mr-2"></i>Outreach
-              </button>
-              <button
-                className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'rex' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-purple-600 dark:text-purple-400 hover:text-purple-700 border-transparent hover:border-purple-300 dark:hover:border-purple-700'}`}
-                onClick={() => setActiveTab('rex')}
-                data-tab="rex"
-              >
-                <i className="fa-solid fa-robot mr-2"></i>REX Templates
-              </button>
-            </nav>
-            </div>
+          {!isJobsHost && (
+            <div id="tabs-container" className="mb-8">
+              <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-800">
+                <button
+                  className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'overview' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
+                  onClick={() => setActiveTab('overview')}
+                  data-tab="overview"
+                >
+                  <i className="fa-solid fa-chart-line mr-2"></i>Overview
+                </button>
+                <button
+                  className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'deals' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
+                  onClick={() => setActiveTab('deals')}
+                  data-tab="deals"
+                >
+                  <i className="fa-solid fa-dollar-sign mr-2"></i>Deals
+                </button>
+                <button
+                  className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'jobs' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover:border-gray-700'}`}
+                  onClick={() => setActiveTab('jobs')}
+                  data-tab="jobs"
+                >
+                  <i className="fa-solid fa-briefcase mr-2"></i>Jobs
+                </button>
+                <button
+                  className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'outreach' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-transparent hover:border-gray-300 dark:hover-border-gray-700'}`}
+                  onClick={() => setActiveTab('outreach')}
+                  data-tab="outreach"
+                >
+                  <i className="fa-solid fa-paper-plane mr-2"></i>Outreach
+                </button>
+                <button
+                  className={`pb-4 px-1 font-semibold text-sm border-b-2 ${activeTab === 'rex' ? 'text-purple-700 dark:text-purple-400 border-purple-600' : 'text-purple-600 dark:text-purple-400 hover:text-purple-700 border-transparent hover-border-purple-300 dark:hover-border-purple-700'}`}
+                  onClick={() => setActiveTab('rex')}
+                  data-tab="rex"
+                >
+                  <i className="fa-solid fa-robot mr-2"></i>REX Templates
+                </button>
+              </nav>
+              </div>
+          )}
 
-          {activeTab === 'overview' ? (
+          {(isJobsHost || activeTab === 'overview') ? (
             <React.Suspense fallback={<div className="text-sm text-gray-500">Loading overview…</div>}>
               <Overview />
             </React.Suspense>

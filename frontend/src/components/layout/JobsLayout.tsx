@@ -66,6 +66,15 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
         ),
       },
       {
+        label: 'Analytics',
+        href: '/analytics',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6" />
+          </svg>
+        ),
+      },
+      {
         label: 'Messages',
         href: '/messages',
         icon: (
