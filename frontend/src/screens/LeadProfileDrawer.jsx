@@ -56,6 +56,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [showMetadata, setShowMetadata] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const resumeInputRef = useRef(null);
+  const isJobSeekerHost = typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.');
 
   // TODO: Re-enable Playwright once stable
   const USE_PLAYWRIGHT_AUTOMATION = false;
@@ -1831,22 +1832,26 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       )}
                     </div>
                   )}
-                  <button
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center whitespace-nowrap shrink-0"
-                    onClick={handleConvertToClient}
-                  >
-                    <i className="fa-solid fa-building mr-2"></i>
-                    Convert to Client
-                  </button>
-                  {entityType !== 'candidate' && (
-                    <button
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center whitespace-nowrap shrink-0"
-                      onClick={handleConvertToCandidate}
-                      disabled={isConverting}
-                    >
-                      <i className="fa-solid fa-user-plus mr-2"></i>
-                      {isConverting ? 'Converting...' : 'Convert to Candidate'}
-                    </button>
+                  {!isJobSeekerHost && (
+                    <>
+                      <button
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center whitespace-nowrap shrink-0"
+                        onClick={handleConvertToClient}
+                      >
+                        <i className="fa-solid fa-building mr-2"></i>
+                        Convert to Client
+                      </button>
+                      {entityType !== 'candidate' && (
+                        <button
+                          className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center whitespace-nowrap shrink-0"
+                          onClick={handleConvertToCandidate}
+                          disabled={isConverting}
+                        >
+                          <i className="fa-solid fa-user-plus mr-2"></i>
+                          {isConverting ? 'Converting...' : 'Convert to Candidate'}
+                        </button>
+                      )}
+                    </>
                   )}
                   <button
                     className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap shrink-0 ${
