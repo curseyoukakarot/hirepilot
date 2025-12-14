@@ -154,24 +154,54 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
 
     log('start', { userId, company: company_name, leadSource: leadSource || 'apollo' });
 
-    // Create job req
-    const jobIns = await supabaseDb
+    // Create job req (use RPC to avoid trigger/RLS surprises)
+    let jobReqId: string | null = null;
+    try {
+      const rpcRes = await supabaseDb.rpc('create_job_with_pipeline', {
+        job_title: campaign_title || titles[0]?.title || 'Hiring Manager Outreach',
+        job_user: userId,
+        job_department: null,
+      });
+      if (rpcRes.error || !rpcRes.data) {
+        log('job requisition rpc failed', { error: rpcRes.error });
+        return res.status(500).json({
+          error: 'Failed to create job requisition',
+          code: 'JOB_REQ_CREATE_FAILED',
+          detail: rpcRes.error?.message,
+        });
+      }
+      jobReqId = rpcRes.data as string;
+      log('job requisition created via RPC', { jobReqId });
+    } catch (err: any) {
+      log('job requisition rpc threw', { message: err?.message });
+      return res.status(500).json({
+        error: 'Failed to create job requisition',
+        code: 'JOB_REQ_CREATE_FAILED',
+        detail: err?.message,
+      });
+    }
+
+    // Update job with description/company/industry/status
+    const jobUpdate = await supabaseDb
       .from('job_requisitions')
-      .insert({
-        user_id: userId,
-        title: campaign_title || titles[0]?.title || 'Hiring Manager Outreach',
+      .update({
         description: job_description,
         status: 'draft',
         company: company_name || null,
         industry: industry || null,
       })
+      .eq('id', jobReqId)
       .select()
-      .single();
-    const jobReq = jobIns.data;
-    if (jobIns.error) {
-      log('job requisition insert failed', { error: jobIns.error });
-      return res.status(500).json({ error: 'Failed to create job requisition', code: 'JOB_REQ_CREATE_FAILED' });
+      .maybeSingle();
+    if (jobUpdate.error) {
+      log('job requisition update failed', { error: jobUpdate.error });
+      return res.status(500).json({
+        error: 'Failed to update job requisition',
+        code: 'JOB_REQ_UPDATE_FAILED',
+        detail: jobUpdate.error?.message,
+      });
     }
+    const jobReq = jobUpdate.data;
 
     // Create campaign in classic campaigns table
     const campIns = await supabaseDb
