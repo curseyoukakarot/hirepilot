@@ -1615,6 +1615,7 @@ function LeadManagement() {
             )}
             Enrich
           </button>
+        {!(typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.')) && (
           <button
             className={`border px-4 py-2 rounded-lg hover:bg-green-50 text-green-700 border-green-500 disabled:opacity-50 ${selectedLeadIds.length < 2 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length < 2}
@@ -1622,6 +1623,7 @@ function LeadManagement() {
           >
             Convert to Candidate
           </button>
+        )}
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-50 text-indigo-700 border-indigo-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={selectedLeadIds.length === 0}
@@ -1898,12 +1900,14 @@ function LeadManagement() {
                             >
                               <FaEnvelope className="mr-3" /> Message
                             </button>
-                            <button
-                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              onClick={(e) => { e.stopPropagation(); handleIndividualConvert(lead); }}
-                            >
-                              <FaUserPlus className="mr-3" /> Convert to Candidate
-                            </button>
+                            {!(typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.')) && (
+                              <button
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                onClick={(e) => { e.stopPropagation(); handleIndividualConvert(lead); }}
+                              >
+                                <FaUserPlus className="mr-3" /> Convert to Candidate
+                              </button>
+                            )}
                             <button
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               onClick={(e) => { e.stopPropagation(); handleAttachSingleLead(lead.id); }}
