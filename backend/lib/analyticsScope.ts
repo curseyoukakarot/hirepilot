@@ -59,11 +59,11 @@ export async function resolveAnalyticsScope(viewerId?: string | null): Promise<A
 
   const settings = await fetchTeamSettings(viewer.team_id || null);
   const role = String(viewer.role || '').toLowerCase();
+  const isSuperAdmin = role === 'super_admin' || role === 'superadmin';
   const isAdmin = ADMIN_ROLE_SET.has(role);
 
-  // Only team admins can disable analytics sharing for their team.
-  // Non-admin viewers should never be blocked by share_analytics toggles.
-  if (isAdmin && viewer.team_id && settings.share_analytics === false) {
+  // Super admins can always view analytics regardless of share_analytics.
+  if (!isSuperAdmin && settings.share_analytics === false) {
     return { allowed: false, code: 'analytics_sharing_disabled' };
   }
 
