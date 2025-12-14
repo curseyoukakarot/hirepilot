@@ -247,32 +247,61 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       });
     }
 
-    // Apollo search & enrich
-    const personTitles = titles.map((t) => t.title).slice(0, 3);
-    const qKeywords = [company_name, industry].filter(Boolean).join(' ');
+    // Helper to broaden titles a bit for later phases
+    const baseRole = (() => {
+      const first = titles[0]?.title || '';
+      const m = first.match(/of\s+(.+)/i);
+      if (m?.[1]) return m[1].trim();
+      const parts = first.split(' ');
+      return parts.slice(1).join(' ').trim() || parts.join(' ').trim();
+    })();
+    const broadenedTitles = Array.from(
+      new Set([
+        ...titles.map((t) => t.title),
+        baseRole ? `VP of ${baseRole}` : 'VP',
+        baseRole ? `Director of ${baseRole}` : 'Director',
+        baseRole ? `Head of ${baseRole}` : 'Head of Department',
+      ])
+    );
+
+    type Phase = 1 | 2 | 3;
+    const searchPhases: { phase: Phase; titles: string[]; qKeywords?: string }[] = [
+      { phase: 1, titles: titles.map((t) => t.title).slice(0, 3), qKeywords: [company_name, industry].filter(Boolean).join(' ') || undefined },
+      { phase: 2, titles: broadenedTitles.slice(0, 5), qKeywords: industry || undefined },
+      { phase: 3, titles: broadenedTitles.slice(0, 7), qKeywords: undefined },
+    ];
+
     let apolloLeads: any[] = [];
-    try {
-      log('calling searchAndEnrichPeople', { titles: personTitles, company: company_name, industry, qKeywords });
-      const { leads } = (await searchAndEnrichPeople({
-        api_key: apiKey,
-        person_titles: personTitles,
-        q_keywords: qKeywords || undefined,
-        page: 1,
-        per_page: 50,
-      } as any)) as any;
-      apolloLeads = leads || [];
-      log('searchAndEnrichPeople returned', { count: apolloLeads.length });
-    } catch (err: any) {
-      log('searchAndEnrichPeople threw', { message: err?.message });
-      return res.status(502).json({
-        error: 'Lead sourcing failed',
-        code: 'LEAD_SOURCING_FAILED',
-        detail: err?.message || 'Unknown error',
-      });
+    let usedPhase: Phase = 1;
+    for (const cfg of searchPhases) {
+      try {
+        log('calling searchAndEnrichPeople', { phase: cfg.phase, titles: cfg.titles, qKeywords: cfg.qKeywords });
+        const { leads } = (await searchAndEnrichPeople({
+          api_key: apiKey,
+          person_titles: cfg.titles,
+          q_keywords: cfg.qKeywords,
+          page: 1,
+          per_page: 50,
+        } as any)) as any;
+        apolloLeads = leads || [];
+        usedPhase = cfg.phase;
+        log('searchAndEnrichPeople returned', { phase: cfg.phase, count: apolloLeads.length });
+        if (apolloLeads.length === 0) continue;
+        // If we get anything, stop widening. If we want larger volumes, we could keep widening; for now stop at first non-empty.
+        break;
+      } catch (err: any) {
+        log('searchAndEnrichPeople threw', { phase: cfg.phase, message: err?.message });
+        return res.status(502).json({
+          error: 'Lead sourcing failed',
+          code: 'LEAD_SOURCING_FAILED',
+          detail: err?.message || 'Unknown error',
+          phase: cfg.phase,
+        });
+      }
     }
 
     if (!apolloLeads || apolloLeads.length === 0) {
-      log('no leads returned - aborting');
+      log('no leads returned after widening - aborting');
       return res.status(422).json({
         error: 'No hiring manager leads found for this job',
         code: 'NO_LEADS_FOUND',
@@ -281,6 +310,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
           'Remove company filter or confirm company name spelling.',
           'Use Apollo instead of Sales Navigator for initial sourcing.',
         ],
+        phase: usedPhase,
       });
     }
 
@@ -348,6 +378,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       leads_inserted: mappedLeads.length,
       titles_used: personTitles,
       status: 'active',
+      phase_used: usedPhase,
     });
   } catch (e: any) {
     console.error('hiring-manager-launch error', e);
