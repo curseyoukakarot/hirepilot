@@ -229,7 +229,7 @@ export default function JobPrepChatPage() {
         </div>
 
         {/* Main Layout Grid */}
-        <div className="grid flex-1 gap-4 lg:grid-cols-[320px_minmax(0,1.7fr)_340px] w-full">
+        <div className="grid flex-1 gap-4 lg:grid-cols-[320px_minmax(0,2.4fr)_340px] w-full">
           {/* Left Column */}
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
             <div className="space-y-2">
