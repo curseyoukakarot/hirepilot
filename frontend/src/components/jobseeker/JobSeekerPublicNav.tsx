@@ -9,6 +9,7 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
   const navigate = useNavigate();
   const isDark = variant === 'dark';
   const baseLink = isDark ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900';
+  const [open, setOpen] = React.useState(false);
 
   const smoothScroll = (id: string) => {
     if (typeof window === 'undefined') return;
@@ -43,15 +44,41 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
             <button className={baseLink} onClick={() => smoothScroll('rex-demo')}>Try REX</button>
             <button className={baseLink} onClick={() => navigate('/login')}>Sign in</button>
           </nav>
-          <div className="flex items-center space-x-4 text-sm">
+          <div className="flex items-center space-x-3 text-sm">
             <button
-              className={isDark ? 'bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors' : 'bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors'}
+              className={isDark ? 'bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors hidden md:inline-flex' : 'bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors hidden md:inline-flex'}
               onClick={() => navigate('/signup')}
             >
               Get Started
             </button>
+            <button
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-700 text-gray-200 hover:bg-gray-800 transition"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="Toggle navigation"
+            >
+              <span className="sr-only">Toggle navigation</span>
+              <div className="space-y-1">
+                <span className="block h-0.5 w-5 bg-current"></span>
+                <span className="block h-0.5 w-5 bg-current"></span>
+                <span className="block h-0.5 w-5 bg-current"></span>
+              </div>
+            </button>
           </div>
         </div>
+        {open && (
+          <div className="md:hidden pb-4 space-y-3 text-sm">
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { smoothScroll('method'); setOpen(false); }}>How it works</button>
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/pricing'); setOpen(false); }}>Pricing</button>
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { smoothScroll('rex-demo'); setOpen(false); }}>Try REX</button>
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/login'); setOpen(false); }}>Sign in</button>
+            <button
+              className={isDark ? 'w-full text-left bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors' : 'w-full text-left bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors'}
+              onClick={() => { navigate('/signup'); setOpen(false); }}
+            >
+              Get Started
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
