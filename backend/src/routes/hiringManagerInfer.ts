@@ -314,42 +314,43 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       });
     }
 
-    const leadsPayload = (apolloLeads || [])
-      .filter((l: any) => !!l.email)
-      .map((l: any) => ({
-        user_id: userId,
-        name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.email || 'Unknown',
-        email: l.email,
-        title: l.title || null,
-        company: l.company || company_name || null,
-        linkedin_url: l.linkedinUrl || null,
-        campaign_id: campaign?.id,
-        source: 'apollo',
-      }));
-
-    if (!leadsPayload.length) {
-      log('no leads with email to insert - aborting', { sourced: apolloLeads.length });
-      return res.status(422).json({
-        error: 'No leads with emails returned for this search',
-        code: 'NO_EMAILED_LEADS',
-        sourced: apolloLeads.length,
-        suggestions: [
-          'Try broader titles (VP/Director/Head).',
-          'Use company or industry, not both.',
-          'Add company size for better enrichment matches.',
-        ],
-        phase: usedPhase,
-      });
-    }
+    const leadsPayloadAll = (apolloLeads || []).map((l: any) => ({
+      user_id: userId,
+      name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.email || 'Unknown',
+      email: l.email || null,
+      title: l.title || null,
+      company: l.company || company_name || null,
+      linkedin_url: l.linkedinUrl || null,
+      campaign_id: campaign?.id,
+      source: 'apollo',
+    }));
 
     let insertedCount = 0;
-    const { data: insertedLeads, error: leadsErr } = await supabaseDb.from('leads').insert(leadsPayload).select('id');
-    if (leadsErr) {
-      log('insert leads failed', { leadsErr });
-      return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED' });
+    let insertError = null as any;
+    let insertedLeads = null as any;
+    try {
+      const ins = await supabaseDb.from('leads').insert(leadsPayloadAll).select('id');
+      insertedLeads = ins.data;
+      insertError = ins.error;
+    } catch (err: any) {
+      insertError = err;
+    }
+    if (insertError) {
+      // Fallback: try only those with email if the table requires email
+      log('insert leads failed, attempting email-only fallback', { insertError });
+      const emailOnly = leadsPayloadAll.filter((m) => !!m.email);
+      if (!emailOnly.length) {
+        return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED', detail: insertError?.message });
+      }
+      const ins2 = await supabaseDb.from('leads').insert(emailOnly).select('id');
+      if (ins2.error) {
+        log('fallback insert leads failed', { leadsErr: ins2.error });
+        return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED', detail: ins2.error?.message });
+      }
+      insertedLeads = ins2.data;
     }
     insertedCount = insertedLeads?.length ?? 0;
-    log('inserted leads', { count: insertedCount });
+    log('inserted leads', { count: insertedCount, payloadCount: leadsPayloadAll.length });
 
     // Mark campaign active
     await supabaseDb.from('campaigns').update({ status: 'active' }).eq('id', campaign?.id);
