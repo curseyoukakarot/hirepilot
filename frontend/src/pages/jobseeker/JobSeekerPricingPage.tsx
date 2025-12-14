@@ -301,7 +301,6 @@ export default function JobSeekerPricingPage() {
                     ['Landing Page Builder', false, true, true],
                     ['Resume Scoring', false, true, true],
                     ['Templates', false, false, true],
-                    ['Custom Domain', false, false, true],
                     ['Agent Mode', false, false, true],
                   ].map(([feature, free, pro, elite]) => (
                     <tr key={feature as string} className="bg-opacity-50">
