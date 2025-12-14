@@ -71,11 +71,11 @@ export default function JobSeekerPricingPage() {
 
   const priceLabel = (plan: 'pro' | 'elite') => {
     if (interval === 'monthly') return plan === 'pro' ? '$39' : '$59';
-    return plan === 'pro' ? '$399' : '$549';
+    return plan === 'pro' ? '$33.33' : '$46';
   };
 
   const annualSubtext = (plan: 'pro' | 'elite') =>
-    plan === 'pro' ? 'Annual: $33.33/mo ($399/yr)' : 'Annual: $46/mo ($549/yr)';
+    plan === 'pro' ? 'Per month, billed annually ($399/yr)' : 'Per month, billed annually ($549/yr)';
 
   return (
     <div className="bg-gray-950 text-gray-100 font-inter min-h-screen">
@@ -182,9 +182,9 @@ export default function JobSeekerPricingPage() {
                   <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Pro</h3>
                   <div className="mb-4">
                     <span className="text-4xl font-bold text-white">{priceLabel('pro')}</span>
-                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
+                    <span className="text-gray-400"> / month</span>
                     <div className="text-sm text-gray-400 mt-1">
-                      {interval === 'annual' ? annualSubtext('pro') : 'or $399/year (save ~$69)'}
+                      {interval === 'annual' ? annualSubtext('pro') : 'or $33.33/mo billed annually ($399/yr)'}
                     </div>
                   </div>
                   <p className="text-gray-400 mb-8">Everything in Free — plus professional positioning tools.</p>
@@ -233,9 +233,9 @@ export default function JobSeekerPricingPage() {
                   <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Elite</h3>
                   <div className="mb-4">
                     <span className="text-4xl font-bold text-white">{priceLabel('elite')}</span>
-                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
+                    <span className="text-gray-400"> / month</span>
                     <div className="text-sm text-gray-400 mt-1">
-                      {interval === 'annual' ? annualSubtext('elite') : 'or $549/year (save ~$159)'}
+                      {interval === 'annual' ? annualSubtext('elite') : 'or $46/mo billed annually ($549/yr)'}
                     </div>
                   </div>
                   <p className="text-gray-300 mb-8">The full recruiter-grade job search system.</p>
