@@ -372,7 +372,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       jobReq,
       leads_sourced: apolloLeads.length,
       leads_inserted: insertedCount || mappedLeads.length,
-      titles_used: personTitles,
+      titles_used: titles.map((t) => t.title),
       status: 'active',
       phase_used: usedPhase,
     });
