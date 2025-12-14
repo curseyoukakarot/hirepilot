@@ -186,24 +186,24 @@ export default function JobSeekerLandingPage() {
       <section id="rex-demo" className="py-16 bg-[#020617] text-slate-100">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
           {/* Header bar */}
-          <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
-              REX · Job Prep Assistant
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2">
+              <div className="px-3 py-1 w-fit rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
+                REX · Job Prep Assistant
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-100 leading-snug">Ask REX anything about your job search</h2>
+                <p className="text-sm text-slate-400">
+                  Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-slate-100">Ask REX anything about your job search</h2>
-              <p className="text-sm text-slate-400">
-                Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
-              </p>
-            </div>
-          </div>
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-sm">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs sm:text-sm">
                 Target: Head of Sales · B2B SaaS
               </div>
               <div className="text-xs text-slate-500 flex items-center gap-1">
-                Mode:
+                <span className="hidden sm:inline">Mode:</span>
                 <select
                   className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300 text-xs"
                   value="General"
