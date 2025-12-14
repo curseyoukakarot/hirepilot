@@ -37,38 +37,36 @@ export default function JobSeekerPricingPage() {
     async (planId: 'pro' | 'elite') => {
       try {
         setLoadingPlan(planId);
-        const { data: sessionData } = await supabase.auth.getSession();
-        const session = sessionData?.session;
-        if (!session) {
-          navigate(`/signup?plan=${planId}&interval=${interval}`);
-          return;
-        }
         const priceId = priceIds[planId]?.[interval];
         if (!priceId) {
           throw new Error(`Missing priceId for ${planId}/${interval}`);
         }
         const backendPlanId = planIdMap[planId] || planId;
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/billing/checkout`, {
+        const successUrl = `${window.location.origin}/signup?plan=${planId}&interval=${interval}&checkout=success`;
+        const cancelUrl = `${window.location.origin}/pricing?canceled=true`;
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/public-checkout/session`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
           },
           credentials: 'include',
-          body: JSON.stringify({ planId: backendPlanId, interval, priceId }),
+          body: JSON.stringify({
+            planId: backendPlanId,
+            interval,
+            price_id: priceId,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            plan_type: 'job_seeker',
+          }),
         });
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || 'Checkout failed');
         }
-        const { url, sessionId } = await response.json();
-        if (url) {
-          window.location.href = url;
-        } else {
-          // fallback; redirect to billing page to complete
-          navigate('/billing');
-        }
+        const { url } = await response.json();
+        if (!url) throw new Error('Checkout session missing URL');
+        window.location.href = url;
       } catch (e) {
         console.error('checkout error', e);
         alert(e?.message || 'Checkout failed');
@@ -76,7 +74,7 @@ export default function JobSeekerPricingPage() {
         setLoadingPlan(null);
       }
     },
-    [interval, navigate, planIdMap, priceIds]
+    [interval, planIdMap, priceIds]
   );
 
   const priceLabel = (plan: 'pro' | 'elite') => {

@@ -113,6 +113,7 @@ import slackConnect from './src/api/slack/connect';
 import slackCallback from './src/api/slack/callback';
 import slackDisconnect from './src/api/slack/disconnect';
 import slackTestPost from './src/api/slack/testPost';
+import publicCheckoutRouter from './src/routes/publicCheckout';
 import bodyParser from 'body-parser';
 import slackEventsHandler from './api/slack-events';
 import slackSlash from './src/api/slack/slash';
@@ -658,6 +659,7 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   // Boot new sniper jobs worker
   void sniperJobsWorker;
   // Affiliates + payouts APIs (require auth)
+  app.use('/api/public-checkout', publicCheckoutRouter);
   app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
   app.use('/api/admin/affiliates', requireAuthFlag, affiliatesAdminRouter);
   app.use('/api/payouts', requireAuthFlag, payoutsRouter);
