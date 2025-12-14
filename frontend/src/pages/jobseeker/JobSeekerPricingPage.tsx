@@ -8,7 +8,7 @@ type Interval = 'monthly' | 'annual';
 
 export default function JobSeekerPricingPage() {
   const navigate = useNavigate();
-  const [interval, setInterval] = useState<Interval>('annual');
+  const [interval, setInterval] = useState<Interval>('monthly');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const jobSeekerPlans = useMemo(() => BILLING_CONFIG.job_seeker, []);
 
