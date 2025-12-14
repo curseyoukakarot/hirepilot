@@ -312,7 +312,7 @@ export default function JobPrepChatPage() {
           </div>
 
           {/* Center Column - Chat */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 flex flex-col h-full relative">
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 flex flex-col h-[calc(100vh-220px)] min-h-[520px] overflow-hidden relative">
             <div id="messages-area" className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
               {messages.map((m, idx) => (
                 <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -375,6 +375,12 @@ export default function JobPrepChatPage() {
                   rows={1}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onInput={(e) => {
+                    const target = e.currentTarget;
+                    target.style.height = 'auto';
+                    const next = Math.min(target.scrollHeight, 200);
+                    target.style.height = `${next}px`;
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -382,7 +388,7 @@ export default function JobPrepChatPage() {
                     }
                   }}
                   placeholder="Ask REX to improve your resume, LinkedIn, or outreach copy..."
-                  className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 resize-none outline-none"
+                  className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 resize-none outline-none min-h-[44px] max-h-48 overflow-y-auto"
                 />
                 <button className="text-slate-400 hover:text-slate-200 p-2">
                   <FaWandMagicSparkles />
