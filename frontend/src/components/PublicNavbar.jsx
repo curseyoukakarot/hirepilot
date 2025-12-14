@@ -96,6 +96,7 @@ export default function PublicNavbar() {
                   <a href="/use-cases/recruiting-agencies" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Recruiting Agencies</a>
                   <a href="/use-cases/fractional-executives" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Fractional Executives</a>
                   <a href="/use-cases/consultants" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Consultants</a>
+                  <a href="https://jobs.thehirepilot.com/" className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white rounded-md">Job Seekers</a>
                 </div>
               )}
             </div>
@@ -150,6 +151,7 @@ export default function PublicNavbar() {
                 <a href="/use-cases/recruiting-agencies" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Recruiting Agencies</a>
                 <a href="/use-cases/fractional-executives" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Fractional Executives</a>
                 <a href="/use-cases/consultants" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Consultants</a>
+                <a href="https://jobs.thehirepilot.com/" className="text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Job Seekers</a>
               </div>
             )}
             <a href="https://app.thehirepilot.com/login" className="text-lg text-gray-700 hover:text-blue-600" onClick={() => setOpen(false)}>Sign in</a>

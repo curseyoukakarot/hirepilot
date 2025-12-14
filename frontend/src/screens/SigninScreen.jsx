@@ -316,6 +316,10 @@ const handleMicrosoftSignin = async () => {
             <span>Affiliate Partners: </span>
             <a href="/partners/login" className="text-indigo-400 hover:text-indigo-300 underline">Sign in here</a>
           </div>
+        <div className="mt-2 text-center text-sm text-gray-400">
+          <span>Job Seeker? </span>
+          <a href="https://jobs.thehirepilot.com/login" className="text-indigo-400 hover:text-indigo-300 underline">Login here</a>
+        </div>
         </div>
       </div>
 

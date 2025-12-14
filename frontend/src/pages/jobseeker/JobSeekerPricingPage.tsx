@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { BILLING_CONFIG } from '../../config/billingConfig';
 import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
+import PublicFooter from '../../components/PublicFooter';
 
 type Interval = 'monthly' | 'annual';
 
@@ -353,50 +354,7 @@ export default function JobSeekerPricingPage() {
         </section>
       </main>
 
-      <footer id="footer" className="bg-gray-900 text-gray-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-rocket text-white text-sm" />
-                </div>
-                <span className="text-xl font-bold text-white">HirePilot</span>
-              </div>
-              <p className="text-gray-400">
-                Transform your job search with AI-powered tools and recruiter-grade strategies.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white mb-4">Product</h3>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#pricing-cards" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Integrations</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white mb-4">Support</h3>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#feature-comparison" className="hover:text-white transition-colors">Status</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white mb-4">Company</h3>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#pricing-hero" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#pricing-hero" className="hover:text-white transition-colors">Careers</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-            <p>© 2024 HirePilot. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
