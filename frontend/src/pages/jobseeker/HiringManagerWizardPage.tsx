@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 type TitleChip = { title: string; confidence: 'High' | 'Medium' | 'Low'; reasoning?: string };
 type WizardState = {
@@ -131,6 +132,8 @@ export default function HiringManagerWizardPage() {
         const t = await res.text();
         throw new Error(t || 'Launch failed');
       }
+      const js = await res.json();
+      toast.success(`Campaign launched. Leads added: ${js?.leads_added ?? 0}`);
       navigate('/campaigns');
     } catch (e: any) {
       setError(e?.message || 'Failed to launch');

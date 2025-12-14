@@ -38,6 +38,16 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
         ),
       },
       {
+        label: 'Leads',
+        href: '/leads',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M16 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />
+            <path strokeLinecap="round" d="M6 20a6 6 0 0 1 12 0" />
+          </svg>
+        ),
+      },
+      {
         label: 'Campaigns',
         href: '/campaigns',
         icon: (
