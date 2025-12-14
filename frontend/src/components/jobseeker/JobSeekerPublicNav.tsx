@@ -10,6 +10,20 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
   const isDark = variant === 'dark';
   const baseLink = isDark ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900';
 
+  const smoothScroll = (id: string) => {
+    if (typeof window === 'undefined') return;
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate(`/#${id}`);
+      setTimeout(() => {
+        const target = document.getElementById(id);
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+    }
+  };
+
   return (
     <header className={isDark ? 'bg-gray-900 border-b border-gray-800' : 'bg-white border-b border-slate-200'}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,9 +38,9 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
             </span>
           </div>
           <nav className="hidden md:flex items-center space-x-8 text-sm">
-            <button className={baseLink} onClick={() => navigate('/#method')}>How it works</button>
+            <button className={baseLink} onClick={() => smoothScroll('method')}>How it works</button>
             <button className={baseLink} onClick={() => navigate('/pricing')}>Pricing</button>
-            <button className={baseLink} onClick={() => navigate('/prep/rex-chat')}>Try REX</button>
+            <button className={baseLink} onClick={() => smoothScroll('rex-demo')}>Try REX</button>
             <button className={baseLink} onClick={() => navigate('/login')}>Sign in</button>
           </nav>
           <div className="flex items-center space-x-4 text-sm">

@@ -182,7 +182,7 @@ export default function JobSeekerLandingPage() {
       </section>
 
       {/* REX preview (revamped) */}
-      <section id="rex-preview" className="py-16 bg-[#020617] text-slate-100">
+      <section id="rex-demo" className="py-16 bg-[#020617] text-slate-100">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
           {/* Header bar */}
           <div className="flex items-center justify-between">
