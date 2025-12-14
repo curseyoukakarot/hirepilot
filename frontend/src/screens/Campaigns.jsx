@@ -17,6 +17,9 @@ function Campaigns() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showTemplates, setShowTemplates] = useState(null);
   const [showMeta, setShowMeta] = useState(null); // campaign id for meta modal
+  const [showPersonaModal, setShowPersonaModal] = useState(false);
+  const [personaText, setPersonaText] = useState('');
+  const [personaCampaign, setPersonaCampaign] = useState(null);
 
   // Paid role-gated visibility for Persona quick start
   const paidRoles = ['members','admin','recruitpro','team_admin','super_admin'];
@@ -117,6 +120,31 @@ function Campaigns() {
         variant: 'destructive'
       });
     }
+  };
+
+  const openPersonaModal = (campaign) => {
+    setPersonaCampaign(campaign);
+    setPersonaText('');
+    setShowPersonaModal(true);
+  };
+
+  const submitPersona = (e) => {
+    e?.preventDefault?.();
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    const prefill = personaText?.trim() || '';
+    const rexPath = host.startsWith('jobs.')
+      ? '/prep/rex-chat'
+      : '/rex-chat';
+    setShowPersonaModal(false);
+    if (prefill) {
+      navigate(`${rexPath}?prefill=${encodeURIComponent(prefill)}`);
+    } else {
+      navigate(rexPath);
+    }
+    toast({
+      title: 'Searching for similar leads',
+      description: 'Opening REX to run a persona-based search and add leads to your Leads page.',
+    });
   };
 
   const handleCampaignClick = (campaign) => {
@@ -243,6 +271,13 @@ function Campaigns() {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge(campaign.status)}`}>{campaign.status}</span>
                   <div className="flex gap-2">
                     <button
+                      onClick={(e) => { e.stopPropagation(); openPersonaModal(campaign); }}
+                      className="px-2 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200"
+                      title="Find similar leads"
+                    >
+                      Find Similar Leads
+                    </button>
+                    <button
                       onClick={e => { e.stopPropagation(); setShowMeta(campaign.id); }}
                       className="p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
                       title="Campaign Settings"
@@ -360,6 +395,39 @@ function Campaigns() {
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {showPersonaModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              onClick={() => setShowPersonaModal(false)}
+              title="Close"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-4 dark:text-gray-100">Find Similar Leads</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+              Describe the persona you want REX to find. We’ll open REX Chat on the job seeker side and add the results to your Leads.
+            </p>
+            <form onSubmit={submitPersona} className="space-y-4">
+              <textarea
+                className="w-full border rounded-lg p-3 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                rows={4}
+                placeholder="e.g., VPs of Product at mid-market healthcare SaaS companies in the US"
+                value={personaText}
+                onChange={(e) => setPersonaText(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium"
+              >
+                Send to REX
+              </button>
+            </form>
           </div>
         </div>
       )}
