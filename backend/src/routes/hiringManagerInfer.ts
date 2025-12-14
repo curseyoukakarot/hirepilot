@@ -5,6 +5,7 @@ import { openai } from '../../lib/llm';
 import { supabaseDb } from '../../lib/supabase';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { sendEmail } from '../services/sendgrid';
+import { notifySlack } from '../../lib/slack';
 
 const router = express.Router();
 
@@ -221,6 +222,22 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
 
     // If Sales Navigator is selected, create job + campaign and return without sourcing (extension will import)
     if (leadSourceVal === 'sales_navigator') {
+      const slackMsg = `📈 Sales Nav HM campaign created: ${campaign?.title || 'Campaign'} • User ${userId} • URL: ${req.body?.sales_nav_url || 'n/a'} • Pages: ${req.body?.sales_nav_pages || 1}`;
+      try { await notifySlack(slackMsg); } catch (e) { log('slack notify failed', { e }); }
+      // Send email
+      try {
+        const { data: userRow } = await supabaseDb.from('users').select('email').eq('id', userId).maybeSingle();
+        if (userRow?.email) {
+          await sendEmail(
+            userRow.email,
+            'Your Sales Navigator campaign is ready',
+            `We created your Sales Navigator hiring manager campaign. Paste your Sales Navigator URL into the HirePilot Chrome extension and scrape up to ${req.body?.sales_nav_pages || 1} pages to import leads.`,
+            `<p>Your Sales Navigator campaign is ready.</p><p><strong>Next steps:</strong></p><ol><li>Open the HirePilot Chrome extension.</li><li>Paste your Sales Navigator search URL.</li><li>Choose up to ${req.body?.sales_nav_pages || 1} pages to scrape.</li><li>Import leads into this campaign: ${campaign?.title || 'Campaign'}.</li></ol>`
+          );
+        }
+      } catch (e) {
+        log('sales nav email failed', { e });
+      }
       return res.json({
         campaign,
         jobReq,
@@ -231,6 +248,8 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         phase_used: 0,
         lead_source: 'sales_navigator',
         message: 'Campaign created. Use the Chrome extension to scrape Sales Navigator results into this campaign.',
+        sales_nav_url: req.body?.sales_nav_url || '',
+        sales_nav_pages: req.body?.sales_nav_pages || 1,
       });
     }
 
@@ -379,6 +398,14 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       }
     } catch (e) {
       console.warn('launch email failed', e);
+    }
+
+    // Slack notification
+    try {
+      const slackMsg = `🚀 HM campaign launched: ${campaign?.title || 'Campaign'} • Leads inserted: ${insertedCount} • Phase ${usedPhase} • User ${userId}`;
+      await notifySlack(slackMsg);
+    } catch (e) {
+      log('slack notify failed', { e });
     }
 
     return res.json({
