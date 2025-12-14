@@ -29,7 +29,12 @@ export default function PublicFooterJobs() {
             </div>
             <p className="text-gray-400">AI-powered recruiting platform that helps you hire better, faster.</p>
             <div className="mt-6 flex gap-4">
-              <a className="text-gray-400 hover:text-white cursor-pointer" href="https://www.linkedin.com/company/hirepilot" target="_blank" rel="noreferrer">
+              <a
+                className="text-gray-400 hover:text-white cursor-pointer"
+                href="https://www.linkedin.com/company/thehirepilot/"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <i className="fa-brands fa-linkedin text-xl" />
               </a>
             </div>
