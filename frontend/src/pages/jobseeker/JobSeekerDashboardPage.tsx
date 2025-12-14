@@ -195,6 +195,7 @@ export default function JobSeekerDashboardPage() {
                   <span className="text-violet-400 font-mono font-semibold">$</span>
                   <span className="text-lg font-semibold text-white">REX</span>
                 </div>
+                <p className="text-sm text-gray-400">Tell REX what you need help with.</p>
               </div>
 
               <div className="relative">
