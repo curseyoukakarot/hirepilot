@@ -187,6 +187,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       .update({
         description: job_description,
         status: 'draft',
+        company: company_name || null,
       })
       .eq('id', jobReqId)
       .select()

@@ -69,9 +69,9 @@ export default function JobSeekerDashboardPage() {
         let recent: any[] = [];
         let jobIds: string[] = [];
         try {
-          const { data: jobs } = await supabase
+        const { data: jobs } = await supabase
             .from('job_requisitions')
-            .select('id,title,location,status,updated_at')
+            .select('id,title,location,status,updated_at,company')
             .eq('user_id', user.id)
             .order('updated_at', { ascending: false });
           const list = jobs || [];
@@ -79,7 +79,7 @@ export default function JobSeekerDashboardPage() {
           jobIds = list.map((j) => j.id);
           recent = list.slice(0, 5).map((j) => ({
             ...j,
-            derived_company: deriveCompany(j.title),
+            derived_company: j.company || deriveCompany(j.title),
           }));
         } catch {}
 
@@ -116,7 +116,7 @@ export default function JobSeekerDashboardPage() {
               upcomingList.push({
                 id: c.id,
                 job_title: job.title || 'Interview',
-                company: job.derived_company || job.location || '—',
+                company: job.derived_company || job.company || job.location || '—',
                 when: job.updated_at ? new Date(job.updated_at).toLocaleDateString() : '',
               });
             });
@@ -237,7 +237,7 @@ export default function JobSeekerDashboardPage() {
                 {(recentJobs || []).map((job, idx) => {
                   const letter = String(job.title || 'J').charAt(0).toUpperCase();
                   const status = job.status || 'Offer';
-                  const companyLine = [job.derived_company || '', job.location || ''].filter(Boolean).join(' • ');
+                  const companyLine = [job.company || job.derived_company || '', job.location || ''].filter(Boolean).join(' • ');
                   return (
                     <div key={job.id || idx} className="flex items-center space-x-4 p-4 bg-[#262626] rounded-lg">
                       <div className={`w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center`}>
