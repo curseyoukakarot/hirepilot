@@ -34,8 +34,8 @@ export const BILLING_CONFIG: BillingConfig = {
         'Export-ready PDF + share links'
       ],
       priceIds: {
-        monthly: 'price_1SdxZPAMuJmulDbpvRJ2PokY',
-        annual: 'price_1SdxbFAMuJmulDbpLU7huKqS'
+        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_JS_PRO_MONTHLY || '',
+        annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_PRO_ANNUAL || ''
       },
       prices: {
         monthly: 39,
@@ -51,8 +51,8 @@ export const BILLING_CONFIG: BillingConfig = {
         'Priority support & concierge prep'
       ],
       priceIds: {
-        monthly: 'price_1Sdxa4AMuJmulDbpVHGZM9BT',
-        annual: 'price_1SdxcjAMuJmulDbp1AdpVtW0'
+        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_JS_ELITE_MONTHLY || '',
+        annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_ELITE_ANNUAL || ''
       },
       prices: {
         monthly: 59,

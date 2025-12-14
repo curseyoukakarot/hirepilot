@@ -25,6 +25,14 @@ export default function JobSeekerPricingPage() {
     navigate('/signup');
   }, [navigate]);
 
+  const planIdMap: Record<'pro' | 'elite', string> = useMemo(
+    () => ({
+      pro: 'job_seeker_pro',
+      elite: 'job_seeker_elite',
+    }),
+    []
+  );
+
   const handleUpgrade = useCallback(
     async (planId: 'pro' | 'elite') => {
       try {
@@ -39,6 +47,7 @@ export default function JobSeekerPricingPage() {
         if (!priceId) {
           throw new Error(`Missing priceId for ${planId}/${interval}`);
         }
+        const backendPlanId = planIdMap[planId] || planId;
         const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/billing/checkout`, {
           method: 'POST',
           headers: {
@@ -47,7 +56,7 @@ export default function JobSeekerPricingPage() {
             Authorization: `Bearer ${session.access_token}`,
           },
           credentials: 'include',
-          body: JSON.stringify({ planId, interval, priceId }),
+          body: JSON.stringify({ planId: backendPlanId, interval, priceId }),
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -67,7 +76,7 @@ export default function JobSeekerPricingPage() {
         setLoadingPlan(null);
       }
     },
-    [interval, navigate, priceIds]
+    [interval, navigate, planIdMap, priceIds]
   );
 
   const priceLabel = (plan: 'pro' | 'elite') => {

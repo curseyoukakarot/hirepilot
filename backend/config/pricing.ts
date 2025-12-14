@@ -32,6 +32,21 @@ function resolvePriceId(planKey: 'STARTER' | 'PRO' | 'TEAM', interval: 'MONTHLY'
   return '';
 }
 
+function resolveJobSeekerPriceId(planKey: 'JS_PRO' | 'JS_ELITE', interval: 'MONTHLY' | 'ANNUAL'): string {
+  const candidates = [
+    `VITE_STRIPE_PRICE_ID_${planKey}_${interval}`,
+    `STRIPE_PRICE_ID_${planKey}_${interval}`,
+    `${planKey}_${interval}_STRIPE_PRICE_ID`,
+    `PRICE_ID_${planKey}_${interval}`,
+    `STRIPE_${planKey}_${interval}`,
+  ];
+  for (const key of candidates) {
+    const val = (process.env as Record<string, string | undefined>)[key];
+    if (val && val.trim().length > 0) return val.trim();
+  }
+  return '';
+}
+
 export const PRICING_CONFIG: PricingConfig = {
   free: {
     name: 'Free',
@@ -105,6 +120,41 @@ export const PRICING_CONFIG: PricingConfig = {
     prices: {
       monthly: 199,
       annual: 1910 // ~20% discount
+    }
+  }
+  ,
+  job_seeker_pro: {
+    name: 'Job Seeker Pro',
+    credits: 350,
+    features: [
+      'AI resume + landing builder',
+      'Job prep chat with saved context',
+      'Export-ready PDF + share links'
+    ],
+    priceIds: {
+      monthly: resolveJobSeekerPriceId('JS_PRO', 'MONTHLY'),
+      annual: resolveJobSeekerPriceId('JS_PRO', 'ANNUAL')
+    },
+    prices: {
+      monthly: 39,
+      annual: 399
+    }
+  },
+  job_seeker_elite: {
+    name: 'Job Seeker Elite',
+    credits: 1000,
+    features: [
+      'Everything in Pro',
+      'Unlimited AI iterations',
+      'Priority support & concierge prep'
+    ],
+    priceIds: {
+      monthly: resolveJobSeekerPriceId('JS_ELITE', 'MONTHLY'),
+      annual: resolveJobSeekerPriceId('JS_ELITE', 'ANNUAL')
+    },
+    prices: {
+      monthly: 59,
+      annual: 549
     }
   }
 };
