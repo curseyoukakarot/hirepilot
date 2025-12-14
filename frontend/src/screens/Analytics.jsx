@@ -86,7 +86,6 @@ export default function Analytics() {
     return () => window.removeEventListener('keydown', onEsc);
   }, []);
 
-  const [searchParams] = useSearchParams();
   useEffect(() => {
     const open = searchParams.get('open');
     const tab = searchParams.get('tab') || undefined;
