@@ -209,20 +209,18 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         title: campaign_title || `HM Outreach: ${company_name || 'Unnamed company'}`,
         description: job_description,
         status: 'ready',
-        job_id: jobReq?.id || null,
-        keywords: JSON.stringify({
-          titles: titles.map((t) => t.title),
-          company: company_name,
-          industry,
-          company_size,
-        }),
+        job_id: jobReq?.id || jobReqId || null,
       })
       .select()
       .single();
     const campaign = campIns.data;
     if (campIns.error || !campaign) {
       log('campaign insert failed', { error: campIns.error });
-      return res.status(500).json({ error: 'Failed to create campaign', code: 'CAMPAIGN_CREATE_FAILED' });
+      return res.status(500).json({
+        error: 'Failed to create campaign',
+        code: 'CAMPAIGN_CREATE_FAILED',
+        detail: campIns.error?.message,
+      });
     }
 
     // Resolve Apollo API key
