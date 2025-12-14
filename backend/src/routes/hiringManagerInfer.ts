@@ -325,13 +325,8 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       source: 'apollo',
     }));
 
+    let insertedCount = 0;
     if (mappedLeads.length) {
-      const { error: campaignLeadsErr } = await supabaseDb.from('campaign_leads').insert(mappedLeads.map((m) => ({ ...m, campaign_id: campaign?.id })));
-      if (campaignLeadsErr) {
-        log('insert campaign_leads failed', { campaignLeadsErr });
-        return res.status(500).json({ error: 'Failed to attach leads to campaign', code: 'CAMPAIGN_LEADS_INSERT_FAILED' });
-      }
-
       const leadsPayload = mappedLeads
         .filter((m) => !!m.email)
         .map((m) => ({
@@ -350,7 +345,8 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
         log('insert leads failed', { leadsErr });
         return res.status(500).json({ error: 'Failed to insert leads', code: 'LEADS_INSERT_FAILED' });
       }
-      log('inserted leads', { count: insertedLeads?.length ?? 0 });
+      insertedCount = insertedLeads?.length ?? 0;
+      log('inserted leads', { count: insertedCount });
     }
 
     // Mark campaign active
@@ -375,7 +371,7 @@ router.post('/jobs/hiring-manager-launch', requireAuth, async (req: Request, res
       campaign,
       jobReq,
       leads_sourced: apolloLeads.length,
-      leads_inserted: mappedLeads.length,
+      leads_inserted: insertedCount || mappedLeads.length,
       titles_used: personTitles,
       status: 'active',
       phase_used: usedPhase,
