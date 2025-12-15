@@ -2,6 +2,7 @@ import React from 'react';
 import { JobsNavbar } from './JobsNavbar';
 import { JobsSidebar } from './JobsSidebar';
 import { OnboardingBanner } from '../jobseeker/OnboardingBanner';
+import { FaRobot } from 'react-icons/fa6';
 
 export function JobsLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
@@ -61,9 +62,7 @@ export function JobsLayout({ children }: { children: React.ReactNode }) {
         label: 'REX Chat',
         href: '/prep/rex-chat',
         icon: (
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />
-          </svg>
+          <FaRobot className="h-4 w-4" />
         ),
       },
       {
