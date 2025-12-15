@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
-import { fetchOnboardingProgress, STEP_CREDITS, StepKey, completeOnboardingStep } from '../lib/onboarding';
+import { fetchOnboardingProgress, STEP_CREDITS, StepKey, completeOnboardingStep, reconcileOnboardingCredits } from '../lib/onboarding';
 
 const router = express.Router();
 
@@ -45,6 +45,18 @@ router.post('/complete', requireAuth, async (req: Request, res: Response) => {
   } catch (e: any) {
     console.error('onboarding complete error', e);
     res.status(500).json({ error: e?.message || 'complete_error' });
+  }
+});
+
+router.post('/reconcile', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const result = await reconcileOnboardingCredits(userId);
+    res.json(result);
+  } catch (e: any) {
+    console.error('onboarding reconcile error', e);
+    res.status(500).json({ error: e?.message || 'reconcile_error' });
   }
 });
 

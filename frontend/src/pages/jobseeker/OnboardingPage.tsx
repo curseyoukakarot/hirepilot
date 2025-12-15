@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { FaBolt, FaArrowRight, FaCircleCheck, FaClock, FaGift, FaShieldCat } from 'react-icons/fa6';
 import { useOnboardingProgress, OnboardingStepKey } from '../../hooks/useOnboardingProgress';
 import { supabase } from '../../lib/supabaseClient';
+import { toast } from 'react-hot-toast';
 
 type StepContent = {
   key: OnboardingStepKey;
@@ -119,6 +120,28 @@ export default function OnboardingPage() {
     navigate(step.href);
   };
 
+  const handleRefreshCredits = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const base = import.meta.env.VITE_BACKEND_URL || '';
+      const res = await fetch(`${base}/api/jobs/onboarding/reconcile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error(`reconcile_failed_${res.status}`);
+      const js = await res.json();
+      toast.success(`Credits refreshed. Total: ${js.total_credits_awarded || 0}`);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to refresh credits');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0b1220] text-zinc-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -147,7 +170,15 @@ export default function OnboardingPage() {
           <div className="mt-6">
             <div className="flex items-center justify-between text-sm text-zinc-300 mb-2">
               <span>{progress?.total_completed ?? 0} of {progress?.total_steps ?? STEP_CONTENT.length} complete</span>
-              <span>{completionPct}%</span>
+              <div className="flex items-center gap-2">
+                <span>{completionPct}%</span>
+                <button
+                  onClick={handleRefreshCredits}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
+                >
+                  Refresh credits
+                </button>
+              </div>
             </div>
             <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
               <div

@@ -153,6 +153,54 @@ export async function fetchOnboardingProgress(userId: string) {
   };
 }
 
+/**
+ * Backfill credit ledger for already-completed onboarding steps.
+ * Useful when progress rows exist but credits/ledger didn't get written.
+ */
+export async function reconcileOnboardingCredits(userId: string) {
+  const { data: steps, error } = await supabase
+    .from('job_seeker_onboarding_progress')
+    .select('step_key, metadata')
+    .eq('user_id', userId);
+  if (error) throw error;
+
+  let awarded = 0;
+  for (const row of steps || []) {
+    const step = row.step_key as StepKey;
+    const amount = STEP_CREDITS[step] || 0;
+    if (!amount) continue;
+    // check if ledger already has this step
+    const { data: ledgerRows, error: ledgerErr } = await supabase
+      .from('credit_ledger')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('reason', 'onboarding_step')
+      .eq('ref_key', step);
+    if (ledgerErr) throw ledgerErr;
+    if (ledgerRows && ledgerRows.length > 0) continue;
+
+    // insert ledger + increment credits
+    const { error: insertErr } = await supabase.from('credit_ledger').insert({
+      user_id: userId,
+      amount,
+      reason: 'onboarding_step',
+      ref_key: step,
+      metadata: row.metadata || {},
+    });
+    if (insertErr && !String(insertErr.message || '').toLowerCase().includes('duplicate')) {
+      throw insertErr;
+    }
+    try {
+      await supabase.rpc('increment_user_credits', { target_user_id: userId, credit_delta: amount });
+    } catch (e) {
+      // non-blocking
+    }
+    awarded += amount;
+  }
+  const totals = await fetchTotals(userId);
+  return { awarded, total_credits_awarded: totals.credits, total_completed: totals.completed, total_steps: Object.keys(STEP_CREDITS).length };
+}
+
 async function fetchUserEmail(userId: string): Promise<{ email: string | null }> {
   try {
     const { data, error } = await supabase.auth.admin.getUserById(userId);
