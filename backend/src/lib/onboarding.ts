@@ -114,19 +114,34 @@ export async function completeOnboardingStep(
 }
 
 async function fetchTotals(userId: string): Promise<{ completed: number; credits: number }> {
-  const [{ data: completedRows }, { data: creditsRows }] = await Promise.all([
-    supabase.from('job_seeker_onboarding_progress').select('step_key', { count: 'exact' }).eq('user_id', userId),
-    supabase
+  // Count completed steps
+  const { data: completedRows, error: completedErr } = await supabase
+    .from('job_seeker_onboarding_progress')
+    .select('step_key', { count: 'exact' })
+    .eq('user_id', userId);
+  if (completedErr) throw completedErr;
+  const completed = (completedRows as any)?.length || 0;
+
+  // Try to pull credits from credit_ledger; if table missing, fall back to summing step credits
+  try {
+    const { data: creditsRows, error: creditsErr } = await supabase
       .from('credit_ledger')
       .select('amount')
       .eq('user_id', userId)
-      .eq('reason', 'onboarding_step'),
-  ]);
-
-  const completed = (completedRows as any)?.length || 0;
-  const credits = (creditsRows as any)?.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0) || 0;
-
-  return { completed, credits };
+      .eq('reason', 'onboarding_step');
+    if (creditsErr) throw creditsErr;
+    const credits =
+      (creditsRows as any)?.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0) || 0;
+    return { completed, credits };
+  } catch (e: any) {
+    // If the credit_ledger table does not exist, compute credits from completed steps directly
+    if (String(e?.message || '').includes('relation "public.credit_ledger" does not exist')) {
+      const stepKeys = (completedRows as any)?.map((r: any) => r.step_key as StepKey) || [];
+      const credits = stepKeys.reduce((sum: number, key: StepKey) => sum + (STEP_CREDITS[key] || 0), 0);
+      return { completed, credits };
+    }
+    throw e;
+  }
 }
 
 export async function fetchOnboardingProgress(userId: string) {
