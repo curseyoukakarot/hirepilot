@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -385,6 +385,24 @@ export default function LandingPageBuilderPage() {
   });
   const [htmlContent, setHtmlContent] = useState(initialHtml);
   const [isPublished, setIsPublished] = useState(false);
+  const markPublished = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const backend = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${backend}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'landing_page_published', metadata: { source: 'landing_page_builder' } }),
+      });
+    } catch (e) {
+      console.warn('onboarding landing_page_published failed (non-blocking)', e);
+    }
+  }, []);
   const [idea, setIdea] = useState<string>('');
   const [slug, setSlug] = useState('your-page');
   const [slugSaved, setSlugSaved] = useState(false);
@@ -554,7 +572,10 @@ export default function LandingPageBuilderPage() {
               </span>
               <button
                 className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
-                onClick={() => setIsPublished(true)}
+                onClick={async () => {
+                  setIsPublished(true);
+                  await markPublished();
+                }}
               >
                 Publish
               </button>
