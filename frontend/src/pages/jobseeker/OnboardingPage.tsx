@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaBolt, FaArrowRight, FaCircleCheck, FaClock, FaGift, FaShieldCat } from 'react-icons/fa6';
 import { useOnboardingProgress, OnboardingStepKey } from '../../hooks/useOnboardingProgress';
+import { supabase } from '../../lib/supabaseClient';
 
 type StepContent = {
   key: OnboardingStepKey;
@@ -68,7 +69,7 @@ const STEP_CONTENT: StepContent[] = [
     title: 'Install Chrome Extension',
     description: 'Get inline REX prompts on LinkedIn and job boards.',
     actionLabel: 'Install extension',
-    href: 'https://chrome.google.com/webstore/detail/hirepilot/placeholder',
+    href: 'https://thehirepilot.com/chromeextension',
     external: true,
     accent: 'from-slate-500/20 to-slate-700/10',
   },
@@ -77,6 +78,25 @@ const STEP_CONTENT: StepContent[] = [
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { progress, completedKeys, loading, refresh } = useOnboardingProgress({ autoToast: true });
+  const markStep = async (step: OnboardingStepKey, metadata: Record<string, any> = {}) => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const base = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${base}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step, metadata }),
+      });
+      await refresh();
+    } catch (e) {
+      console.warn('onboarding mark step failed', e);
+    }
+  };
 
   const completionPct = useMemo(() => {
     if (!progress) return 0;
@@ -89,6 +109,9 @@ export default function OnboardingPage() {
   }, [completedKeys]);
 
   const handleAction = (step: StepContent) => {
+    if (step.key === 'chrome_extension_installed') {
+      markStep('chrome_extension_installed', { source: 'onboarding_cta' });
+    }
     if (step.external) {
       window.open(step.href, '_blank', 'noopener');
       return;
