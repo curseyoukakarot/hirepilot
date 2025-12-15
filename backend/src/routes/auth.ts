@@ -45,15 +45,24 @@ router.post('/signup', async (req, res) => {
     // Fallback to anon signUp if admin call is unauthorized (handles environments where service key is blocked)
     if (error && String(error.message || '').toLowerCase().includes('unauthorized')) {
       try {
+        const anonKey =
+          process.env.SUPABASE_ANON_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!anonKey) {
+          throw new Error('Missing SUPABASE_ANON_KEY for fallback signup');
+        }
+        const appUrl =
+          process.env.APP_URL ||
+          (process.env.FRONTEND_URL || 'https://app.thehirepilot.com');
         const anonClient = createClient(
           process.env.SUPABASE_URL as string,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+          anonKey
         );
         const { data, error: signUpErr } = await anonClient.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: undefined,
+            emailRedirectTo: `${appUrl.replace(/\/$/, '')}/auth/callback`,
             data: payload.user_metadata,
           },
         });
