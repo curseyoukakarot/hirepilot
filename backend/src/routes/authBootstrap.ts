@@ -27,22 +27,7 @@ router.post('/', requireAuthUnified, async (req, res) => {
     const defaultAccountType = defaultRole;
     const defaultPrimaryApp = app;
 
-    // Read current state for debugging
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id, role, plan, primary_app, account_type')
-      .eq('id', userId)
-      .maybeSingle();
-
-    console.log('[auth bootstrap] start', {
-      userId,
-      app,
-      host: req.headers.host,
-      origin: req.headers.origin,
-      existingUser,
-    });
-
-    // Determine existing state
+    // Read current state for debugging and reuse
     const { data: existingUser } = await supabase
       .from('users')
       .select('id, role, plan, primary_app, account_type')
