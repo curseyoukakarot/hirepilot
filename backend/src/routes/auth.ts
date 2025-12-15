@@ -33,17 +33,22 @@ router.post('/signup', async (req, res) => {
     let created: any = null;
     let error: any = null;
 
-    // Primary path: service-role admin createUser
+    // Primary path: service-role admin createUser (explicit service client for safety)
     try {
-      const result = await supabase.auth.admin.createUser(payload as any);
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+      const serviceClient = createClient(process.env.SUPABASE_URL as string, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const result = await serviceClient.auth.admin.createUser(payload as any);
       created = result.data;
       error = result.error;
     } catch (e: any) {
       error = e;
     }
 
-    // Fallback to anon signUp if admin call is unauthorized (handles environments where service key is blocked)
-    if (error && String(error.message || '').toLowerCase().includes('unauthorized')) {
+    // Fallback to anon signUp if admin call failed (handles environments where service key is blocked/missing)
+    if (error) {
       try {
         const anonKey =
           process.env.SUPABASE_ANON_KEY ||
@@ -67,8 +72,7 @@ router.post('/signup', async (req, res) => {
           },
         });
         if (signUpErr) {
-          res.status(400).json({ error: signUpErr.message });
-          return;
+          throw signUpErr;
         }
         created = { user: data.user };
         error = null;
@@ -78,7 +82,8 @@ router.post('/signup', async (req, res) => {
     }
 
     if (error) {
-      res.status(400).json({ error: error.message || 'Signup failed' });
+      console.error('[auth/signup] error', error);
+      res.status(401).json({ error: error.message || 'Signup failed' });
       return;
     }
 
