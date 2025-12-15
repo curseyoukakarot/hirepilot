@@ -340,12 +340,48 @@ function InnerApp() {
   const mode = useAppMode();
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        const meta = data?.session?.user?.user_metadata || {};
+        const roleVal = meta.account_type || meta.plan || meta.role || null;
+        setRole(roleVal);
+      } catch {
+        if (!mounted) return;
+        setRole(null);
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const meta = session?.user?.user_metadata || {};
+      const roleVal = meta.account_type || meta.plan || meta.role || null;
+      setRole(roleVal);
+    });
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   console.log('[MODE DEBUG]', {
     hostname,
     path: location.pathname,
     mode,
+    role,
   });
+
+  const roleLower = String(role || '').toLowerCase();
+  if (roleLower.startsWith('job_seeker_') && !hostname.startsWith('jobs.')) {
+    // If a job seeker hits the recruiter app, send them to jobs app
+    const dest = `https://jobs.thehirepilot.com/login?from=${encodeURIComponent(window.location.href)}`;
+    window.location.href = dest;
+    return null;
+  }
 
   // Onboarding route handling
   if (location.pathname === '/onboarding') {

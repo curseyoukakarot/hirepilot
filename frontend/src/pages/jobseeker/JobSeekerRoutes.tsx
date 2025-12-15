@@ -103,6 +103,13 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   }
 
   const roleLower = String(userRole || '').toLowerCase();
+  const isJobSeekerRole = roleLower.startsWith('job_seeker_');
+  if (!isJobSeekerRole) {
+    // Hard-redirect to recruiter app if the role is not a job-seeker role
+    const dest = `https://app.thehirepilot.com/login?from=${encodeURIComponent(window.location.href)}`;
+    window.location.href = dest;
+    return null;
+  }
   const isFree = roleLower === 'free' || roleLower === 'job_seeker_free';
   const path = location.pathname;
   const isRexChat = path.startsWith('/prep/rex-chat') || path.startsWith('/prep/rexchat');

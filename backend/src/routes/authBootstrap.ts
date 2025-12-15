@@ -74,7 +74,16 @@ router.post('/', requireAuthUnified, async (req, res) => {
       updatedUser,
     });
 
-    res.json({ ok: true, app, role, updatedUser, existingUser });
+    res.json({
+      ok: true,
+      app,
+      role: updatedUser?.role || role,
+      plan: updatedUser?.plan,
+      primary_app: updatedUser?.primary_app || app,
+      account_type: updatedUser?.account_type,
+      updatedUser,
+      existingUser,
+    });
   } catch (e: any) {
     console.error('[auth bootstrap] error', e);
     res.status(500).json({ error: e?.message || 'Failed to bootstrap user' });
