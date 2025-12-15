@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
@@ -29,9 +30,46 @@ router.post('/signup', async (req, res) => {
     };
     if (password) payload.password = password;
 
-    const { data: created, error } = await supabase.auth.admin.createUser(payload as any);
+    let created: any = null;
+    let error: any = null;
+
+    // Primary path: service-role admin createUser
+    try {
+      const result = await supabase.auth.admin.createUser(payload as any);
+      created = result.data;
+      error = result.error;
+    } catch (e: any) {
+      error = e;
+    }
+
+    // Fallback to anon signUp if admin call is unauthorized (handles environments where service key is blocked)
+    if (error && String(error.message || '').toLowerCase().includes('unauthorized')) {
+      try {
+        const anonClient = createClient(
+          process.env.SUPABASE_URL as string,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+        );
+        const { data, error: signUpErr } = await anonClient.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: undefined,
+            data: payload.user_metadata,
+          },
+        });
+        if (signUpErr) {
+          res.status(400).json({ error: signUpErr.message });
+          return;
+        }
+        created = { user: data.user };
+        error = null;
+      } catch (fallbackErr: any) {
+        error = fallbackErr;
+      }
+    }
+
     if (error) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message || 'Signup failed' });
       return;
     }
 
