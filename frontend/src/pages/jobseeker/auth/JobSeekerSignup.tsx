@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
-import { FaGoogle, FaMicrosoft } from 'react-icons/fa6';
 import { BILLING_CONFIG } from '../../../config/billingConfig';
 
 export default function JobSeekerSignup() {
@@ -18,7 +17,6 @@ export default function JobSeekerSignup() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [oauthLoading, setOauthLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const onChange = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -140,7 +138,7 @@ export default function JobSeekerSignup() {
               last_name: lastName,
               company,
               linkedin_url: linkedin,
-              account_type: 'job_seeker',
+              account_type: 'job_seeker_free',
               signup_app: 'job_seeker',
               intended_user_type: 'job_seeker_free',
             },
@@ -177,8 +175,8 @@ export default function JobSeekerSignup() {
             last_name: lastName,
             company,
             linkedin_url: linkedin,
-            plan: 'free',
-            account_type: 'job_seeker',
+            plan: 'job_seeker_free',
+            account_type: 'job_seeker_free',
           }),
         });
       } catch (createErr: any) {
@@ -200,30 +198,6 @@ export default function JobSeekerSignup() {
     }
   };
 
-  const handleGoogle = async () => {
-    setOauthLoading(true);
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: 'https://jobs.thehirepilot.com/auth/callback' },
-      });
-    } finally {
-      setOauthLoading(false);
-    }
-  };
-
-  const handleMicrosoft = async () => {
-    setOauthLoading(true);
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: { redirectTo: 'https://jobs.thehirepilot.com/auth/callback' },
-      });
-    } finally {
-      setOauthLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12">
       <div className="w-full max-w-2xl bg-slate-900/70 border border-slate-800 rounded-2xl p-8 shadow-xl">
@@ -231,31 +205,6 @@ export default function JobSeekerSignup() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Job Seeker</p>
           <h1 className="text-3xl font-semibold text-white">Create your Job Seeker account</h1>
           <p className="text-slate-400 text-sm">Build resumes, prep for interviews, and track applications.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={oauthLoading || checkoutLoading}
-            className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-750 transition"
-          >
-            <FaGoogle /> {(oauthLoading || checkoutLoading) ? 'Redirecting…' : 'Sign up with Google'}
-          </button>
-          <button
-            type="button"
-            onClick={handleMicrosoft}
-            disabled={oauthLoading || checkoutLoading}
-            className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-750 transition"
-          >
-            <FaMicrosoft className="text-blue-400" /> {(oauthLoading || checkoutLoading) ? 'Redirecting…' : 'Sign up with Outlook/365'}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 text-slate-500 text-xs mb-6">
-          <div className="flex-1 h-px bg-slate-800" />
-          <span>Email</span>
-          <div className="flex-1 h-px bg-slate-800" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
