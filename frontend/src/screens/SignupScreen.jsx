@@ -51,9 +51,39 @@ export default function SignupScreen() {
       }, { requireAuth: false });
       userId = created?.user?.id;
     } catch (err) {
-      console.error('Backend signup error:', err);
-      setError(err.message || 'Signup failed');
-      return;
+      // Fallback: client-side Supabase signup (handles cases where backend service-role is misconfigured)
+      console.error('Backend signup error (will fallback):', err);
+      try {
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              company,
+              linkedin_url: linkedinUrl,
+              signup_app: 'recruiter',
+              intended_user_type: 'free_recruiter',
+            }
+          }
+        });
+        if (signUpErr) throw signUpErr;
+        userId = data?.user?.id;
+
+        // If email confirmations are enabled, there will be no session yet.
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess?.session) {
+          toast.success('Account created. Check your email to confirm and then sign in.');
+          navigate(`/login?email=${encodeURIComponent(email)}`);
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Client signup fallback error:', fallbackErr);
+        setError(fallbackErr?.message || err?.message || 'Signup failed');
+        return;
+      }
     }
 
     if (!userId) {
