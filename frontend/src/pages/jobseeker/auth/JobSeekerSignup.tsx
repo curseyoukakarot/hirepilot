@@ -83,7 +83,14 @@ export default function JobSeekerSignup() {
     try {
       await supabase
         .from('users')
-        .update({ account_type: 'job_seeker' } as any)
+        .update(
+          {
+            role: 'job_seeker_free',
+            plan: 'job_seeker_free',
+            account_type: 'job_seeker_free',
+            primary_app: 'job_seeker',
+          } as any
+        )
         .eq('id', userId);
     } catch {
       // non-blocking
@@ -112,7 +119,7 @@ export default function JobSeekerSignup() {
           metadata: {
             company,
             linkedin_url: linkedin,
-            account_type: 'job_seeker',
+            account_type: 'job_seeker_free',
             signup_app: 'job_seeker',
             intended_user_type: 'job_seeker_free',
           },

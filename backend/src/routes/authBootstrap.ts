@@ -34,10 +34,22 @@ router.post('/', requireAuthUnified, async (req, res) => {
       .eq('id', userId)
       .maybeSingle();
 
-    const nextRole = existingUser?.role || defaultRole;
-    const nextPlan = existingUser?.plan || defaultPlan;
-    const nextPrimaryApp = existingUser?.primary_app || defaultPrimaryApp;
-    const nextAccountType = existingUser?.account_type || defaultAccountType;
+    const existingRole = String(existingUser?.role || '').toLowerCase();
+    const existingAccountType = String(existingUser?.account_type || '').toLowerCase();
+    const isJobSeekerRole = existingRole.startsWith('job_seeker_');
+    const isRecruiterRole = ['free', 'member', 'admin', 'team_admin', 'recruitpro', 'super_admin'].includes(existingRole);
+
+    // If the request is clearly from jobs app, but DB has recruiter defaults or legacy "job_seeker" account_type,
+    // force canonical job seeker role fields.
+    const shouldForceJobSeeker =
+      app === 'job_seeker' &&
+      (!isJobSeekerRole || existingAccountType === 'job_seeker' || existingUser?.primary_app === null) &&
+      (isRecruiterRole || existingRole === '' || existingAccountType === 'job_seeker');
+
+    const nextRole = shouldForceJobSeeker ? 'job_seeker_free' : (existingUser?.role || defaultRole);
+    const nextPlan = shouldForceJobSeeker ? 'job_seeker_free' : (existingUser?.plan || defaultPlan);
+    const nextPrimaryApp = shouldForceJobSeeker ? 'job_seeker' : (existingUser?.primary_app || defaultPrimaryApp);
+    const nextAccountType = shouldForceJobSeeker ? 'job_seeker_free' : (existingUser?.account_type || defaultAccountType);
 
     // Upsert canonical user row with defaults if missing
     await supabase
