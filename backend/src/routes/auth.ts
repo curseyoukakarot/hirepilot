@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
 import { freeForeverQueue } from '../../jobs/freeForeverCadence';
@@ -37,15 +37,7 @@ router.post('/signup', async (req, res) => {
 
     // Primary path: service-role admin createUser (explicit service client for safety)
     try {
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceKey) {
-        console.error('[auth/signup] MISSING SUPABASE_SERVICE_ROLE_KEY');
-        return res.status(500).json({ error: 'Server misconfiguration: missing service key' });
-      }
-      const serviceClient = createClient(process.env.SUPABASE_URL as string, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-      const result = await serviceClient.auth.admin.createUser(payload as any);
+      const result = await supabaseAdmin.auth.admin.createUser(payload as any);
       created = result.data;
       error = result.error;
     } catch (e: any) {
