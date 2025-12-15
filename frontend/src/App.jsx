@@ -86,6 +86,7 @@ import UseCasesConsultants from './screens/UseCasesConsultants';
 import OnboardingModals from './components/OnboardingModals';
 import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
 import OnboardingAppPage from './pages/OnboardingAppPage';
+import AuthCallback from './pages/AuthCallback';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -659,6 +660,7 @@ function InnerApp() {
               <Route path="/join" element={<JoinInvite />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/campaigns" element={<Campaigns />} />

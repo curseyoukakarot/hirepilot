@@ -25,6 +25,7 @@ import Settings from '../../screens/Settings';
 import BillingScreen from '../../screens/BillingScreen';
 import HiringManagerWizardPage from './HiringManagerWizardPage';
 import { supabase } from '../../lib/supabaseClient';
+import AuthCallback from '../AuthCallback';
 
 function LoadingFallback() {
   return (
@@ -163,6 +164,7 @@ export default function JobSeekerRoutes() {
           <Route path="/pricing" element={<JobSeekerPricingPage />} />
           <Route path="/login" element={<JobSeekerLogin />} />
           <Route path="/signup" element={<JobSeekerSignup />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           {/* Allow onboarding to render even if not authenticated */}
           <Route path="/onboarding" element={<OnboardingPage />} />
 
