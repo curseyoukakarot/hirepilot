@@ -46,7 +46,11 @@ router.post('/signup', async (req, res) => {
 
     // Fallback to anon signUp if admin call failed (handles environments where service key is blocked/missing)
     if (error) {
-      console.error('[auth/signup] Admin createUser failed', error?.message || error);
+      console.error('[auth/signup] Admin createUser failed', {
+        message: error?.message || error,
+        status: error?.status,
+        name: error?.name,
+      });
       try {
         const anonKey =
           process.env.SUPABASE_ANON_KEY ||
@@ -75,14 +79,23 @@ router.post('/signup', async (req, res) => {
         created = { user: data.user };
         error = null;
       } catch (fallbackErr: any) {
-        console.error('[auth/signup] Anon fallback failed', fallbackErr?.message || fallbackErr);
+        console.error('[auth/signup] Anon fallback failed', {
+          message: fallbackErr?.message || fallbackErr,
+          status: fallbackErr?.status,
+          name: fallbackErr?.name,
+        });
         error = fallbackErr;
       }
     }
 
     if (error) {
-      console.error('[auth/signup] error', error);
-      res.status(401).json({ error: error.message || 'Signup failed' });
+      console.error('[auth/signup] final error', {
+        message: error?.message || error,
+        status: error?.status,
+        name: error?.name,
+      });
+      const status = error?.status === 401 ? 401 : 500;
+      res.status(status).json({ error: error?.message || 'Signup failed' });
       return;
     }
 
