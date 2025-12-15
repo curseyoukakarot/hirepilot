@@ -14,6 +14,10 @@ type StepContent = {
   href: string;
   external?: boolean;
   accent: string;
+  credits: number;
+  whatToDo: string[];
+  where: string;
+  why: string;
 };
 
 const STEP_CONTENT: StepContent[] = [
@@ -23,6 +27,14 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Upload your resume or LinkedIn PDF and let REX rewrite it.',
     actionLabel: 'Open Resume Wizard',
     href: '/prep/resume/wizard',
+    credits: 20,
+    whatToDo: [
+      'Upload your resume or LinkedIn PDF',
+      'Let REX rewrite it using recruiter logic',
+      'Download or refine inside Resume Builder',
+    ],
+    where: 'Resume Wizard or Resume Builder',
+    why: 'Your resume becomes the source of truth for outreach, landing pages, and interview prep.',
     accent: 'from-violet-500/20 to-blue-500/10',
   },
   {
@@ -31,6 +43,13 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Lock in title, industry, and focus so REX can tailor outputs.',
     actionLabel: 'Set target role',
     href: '/prep/rex-chat?prefill=Help me define my target role, industry, and focus for my job search.',
+    credits: 10,
+    whatToDo: [
+      'Set your target role, industry, and focus',
+      'Save your job target',
+    ],
+    where: 'REX Chat or Resume Builder',
+    why: 'REX uses this target to tailor resume language, outreach angles, and hiring manager targeting.',
     accent: 'from-blue-500/20 to-cyan-500/10',
   },
   {
@@ -39,6 +58,13 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Send your first question to REX and unlock real-time coaching.',
     actionLabel: 'Start chatting',
     href: '/prep/rex-chat',
+    credits: 10,
+    whatToDo: [
+      'Ask REX your first question',
+      'Try resume feedback, LinkedIn improvements, interview prep, or outreach help',
+    ],
+    where: 'REX Chat',
+    why: 'REX adapts to you—the more you use it, the smarter your job search becomes.',
     accent: 'from-emerald-500/20 to-teal-500/10',
   },
   {
@@ -47,6 +73,13 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Have REX craft outreach angles and messaging for your search.',
     actionLabel: 'Generate angles',
     href: '/prep/rex-chat?prefill=Help me generate outreach angles for my target role.',
+    credits: 15,
+    whatToDo: [
+      'Ask REX to generate outreach angles or messages',
+      'Use them to contact hiring managers or recruiters directly',
+    ],
+    where: 'REX Chat (prefilled prompt)',
+    why: 'This is how top candidates bypass crowded job boards and get real replies.',
     accent: 'from-amber-500/20 to-orange-500/10',
   },
   {
@@ -55,6 +88,13 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Ship your personal landing page and share it with recruiters.',
     actionLabel: 'Open landing builder',
     href: '/prep/landing-page',
+    credits: 15,
+    whatToDo: [
+      'Build your personal landing page',
+      'Publish it when ready',
+    ],
+    where: 'Landing Page Builder',
+    why: 'Hiring managers love clean, focused profiles—especially when shared via direct outreach.',
     accent: 'from-pink-500/20 to-rose-500/10',
   },
   {
@@ -63,6 +103,12 @@ const STEP_CONTENT: StepContent[] = [
     description: 'Connect your inbox so REX can personalize follow-ups.',
     actionLabel: 'Connect email',
     href: '/settings/integrations',
+    credits: 15,
+    whatToDo: [
+      'Connect Gmail, Outlook, or SendGrid',
+    ],
+    where: 'Settings → Integrations',
+    why: 'Outreach works best when it comes from you, not a generic system.',
     accent: 'from-sky-500/20 to-indigo-500/10',
   },
   {
@@ -72,6 +118,13 @@ const STEP_CONTENT: StepContent[] = [
     actionLabel: 'Install extension',
     href: 'https://thehirepilot.com/chromeextension',
     external: true,
+    credits: 15,
+    whatToDo: [
+      'Install the HirePilot Chrome Extension',
+      'Sign in to activate it',
+    ],
+    where: 'Chrome Extension page',
+    why: 'Unlocks real-time LinkedIn research and faster outreach workflows.',
     accent: 'from-slate-500/20 to-slate-700/10',
   },
 ];
@@ -180,18 +233,18 @@ export default function OnboardingPage() {
           </div>
 
           <div className="mt-6">
-            <div className="flex items-center justify-between text-sm text-zinc-300 mb-2">
-              <span>{progress?.total_completed ?? 0} of {progress?.total_steps ?? STEP_CONTENT.length} complete</span>
-              <div className="flex items-center gap-2">
-                <span>{completionPct}%</span>
-                <button
-                  onClick={handleRefreshCredits}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
-                >
-                  Refresh credits
-                </button>
+              <div className="flex items-center justify-between text-sm text-zinc-300 mb-2">
+                <span>{progress?.total_completed ?? 0} of {progress?.total_steps ?? STEP_CONTENT.length} complete</span>
+                <div className="flex items-center gap-2">
+                  <span>{completionPct}%</span>
+                  <button
+                    onClick={handleRefreshCredits}
+                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
+                  >
+                    Refresh credits
+                  </button>
+                </div>
               </div>
-            </div>
             <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
               <div
                 className="h-2 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 transition-all duration-500"
@@ -208,7 +261,7 @@ export default function OnboardingPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {STEP_CONTENT.map((step, idx) => {
               const completed = completedKeys.has(step.key);
               return (
@@ -216,7 +269,7 @@ export default function OnboardingPage() {
                   key={step.key}
                   whileHover={{ y: -2 }}
                   transition={{ duration: 0.2 }}
-                  className={`rounded-2xl border border-white/5 bg-gradient-to-br ${step.accent} p-5 shadow-lg shadow-black/20`}
+                  className={`rounded-2xl border border-white/5 bg-gradient-to-br ${step.accent} p-5 shadow-lg shadow-black/20 backdrop-blur-sm`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-1">
@@ -230,7 +283,7 @@ export default function OnboardingPage() {
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-sm uppercase tracking-wide text-white/70">Step {idx + 1}</span>
                         <span className="text-xs bg-white/10 text-white px-2 py-1 rounded-full border border-white/10">
-                          +{progress?.steps.find((s) => s.key === step.key)?.credits ?? 0} credits
+                          +{step.credits} credits
                         </span>
                         {completed && (
                           <span className="text-xs text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
@@ -240,6 +293,29 @@ export default function OnboardingPage() {
                       </div>
                       <h3 className="text-lg font-semibold text-white mt-1">{step.title}</h3>
                       <p className="text-sm text-zinc-200/80 mt-1">{step.description}</p>
+
+                      <div className="mt-4 bg-white/5 border border-white/10 rounded-xl p-3">
+                        <h4 className="text-xs font-semibold text-indigo-200 mb-2 uppercase tracking-wide">What to do</h4>
+                        <ul className="space-y-1 text-sm text-zinc-200/90">
+                          {step.whatToDo.map((item) => (
+                            <li key={item} className="flex items-start gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 mt-1" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2 text-xs text-zinc-300">
+                        <span className="text-white/70">Where:</span>
+                        <span className="font-medium text-indigo-200">{step.where}</span>
+                      </div>
+
+                      <div className="mt-3 p-3 rounded-lg border border-indigo-400/20 bg-indigo-500/10 text-sm text-zinc-200">
+                        <span className="font-semibold text-indigo-100">Why this matters: </span>
+                        {step.why}
+                      </div>
+
                       <div className="mt-4 flex items-center gap-3">
                         <button
                           onClick={() => handleAction(step)}
@@ -254,7 +330,7 @@ export default function OnboardingPage() {
                         </button>
                         {!completed && (
                           <span className="text-xs text-indigo-100/80 flex items-center gap-1">
-                            <FaBolt className="text-indigo-200" /> Earn +{progress?.steps.find((s) => s.key === step.key)?.credits ?? 0}
+                            <FaBolt className="text-indigo-200" /> Earn +{step.credits}
                           </span>
                         )}
                       </div>
