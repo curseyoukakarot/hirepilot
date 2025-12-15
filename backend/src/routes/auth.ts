@@ -34,6 +34,8 @@ router.post('/signup', async (req, res) => {
 
     let created: any = null;
     let error: any = null;
+    let adminError: any = null;
+    let fallbackError: any = null;
 
     // Primary path: service-role admin createUser (explicit service client for safety)
     try {
@@ -42,6 +44,7 @@ router.post('/signup', async (req, res) => {
       error = result.error;
     } catch (e: any) {
       error = e;
+      adminError = e;
     }
 
     // Fallback to anon signUp if admin call failed (handles environments where service key is blocked/missing)
@@ -85,6 +88,7 @@ router.post('/signup', async (req, res) => {
           name: fallbackErr?.name,
         });
         error = fallbackErr;
+        fallbackError = fallbackErr;
       }
     }
 
@@ -95,7 +99,11 @@ router.post('/signup', async (req, res) => {
         name: error?.name,
       });
       const status = error?.status === 401 ? 401 : 500;
-      res.status(status).json({ error: error?.message || 'Signup failed' });
+      res.status(status).json({
+        error: error?.message || 'Signup failed',
+        adminError: adminError ? { message: adminError?.message, status: adminError?.status, name: adminError?.name } : undefined,
+        fallbackError: fallbackError ? { message: fallbackError?.message, status: fallbackError?.status, name: fallbackError?.name } : undefined,
+      });
       return;
     }
 
