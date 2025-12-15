@@ -164,6 +164,32 @@ export async function reconcileOnboardingCredits(userId: string) {
     .eq('user_id', userId);
   if (error) throw error;
 
+  // If credit_ledger table is missing (older schema), fail gracefully
+  const ledgerExists = async () => {
+    try {
+      const { error: checkErr } = await supabase.from('credit_ledger').select('id').limit(1);
+      if (checkErr && String(checkErr.message || '').includes('relation "public.credit_ledger" does not exist')) {
+        return false;
+      }
+      return true;
+    } catch (e: any) {
+      if (String(e?.message || '').includes('relation "public.credit_ledger" does not exist')) return false;
+      throw e;
+    }
+  };
+
+  const hasLedger = await ledgerExists();
+  if (!hasLedger) {
+    const totals = await fetchTotals(userId).catch(() => ({ completed: steps?.length || 0, credits: 0 }));
+    return {
+      awarded: 0,
+      total_credits_awarded: totals.credits,
+      total_completed: totals.completed,
+      total_steps: Object.keys(STEP_CREDITS).length,
+      note: 'credit_ledger table missing; no credits reconciled',
+    };
+  }
+
   let awarded = 0;
   for (const row of steps || []) {
     const step = row.step_key as StepKey;
