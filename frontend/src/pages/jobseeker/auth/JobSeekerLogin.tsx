@@ -57,9 +57,11 @@ export default function JobSeekerLogin() {
   const handleGoogle = async () => {
     setOauthLoading(true);
     try {
+      const redirect = new URL(window.location.origin + resolveRedirect());
+      redirect.searchParams.set('role', 'job_seeker');
       await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + resolveRedirect() },
+        options: { redirectTo: redirect.toString() },
       });
     } finally {
       setOauthLoading(false);
@@ -69,9 +71,11 @@ export default function JobSeekerLogin() {
   const handleMicrosoft = async () => {
     setOauthLoading(true);
     try {
+      const redirect = new URL(window.location.origin + resolveRedirect());
+      redirect.searchParams.set('role', 'job_seeker');
       await supabase.auth.signInWithOAuth({
         provider: 'azure',
-        options: { redirectTo: window.location.origin + resolveRedirect() },
+        options: { redirectTo: redirect.toString() },
       });
     } finally {
       setOauthLoading(false);
