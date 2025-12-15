@@ -177,39 +177,65 @@ export default function JobSeekerDashboardPage() {
           </div>
         </section>
 
-        {/* REX Quick Chat */}
+        {/* REX Quick Chat + Quick Actions */}
         <section className="mb-12">
-          <div className="max-w-2xl mx-auto">
-            <div className="rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 bg-gradient-to-br from-violet-500/10 to-blue-500/10 border border-violet-500/20">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-sm text-gray-400 font-medium">HirePilot AI Assistant</span>
-                <div className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-red-500 rounded-full" />
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-                  <div className="w-3 h-3 bg-green-500 rounded-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            <div className="lg:col-span-2">
+              <div className="rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 bg-gradient-to-br from-violet-500/10 to-blue-500/10 border border-violet-500/20 h-full">
+                <div className="flex items-center justify-between mb-6">
+                  <span className="text-sm text-gray-400 font-medium">HirePilot AI Assistant</span>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 bg-red-500 rounded-full" />
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                    <div className="w-3 h-3 bg-green-500 rounded-full" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="mb-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-violet-400 font-mono font-semibold">$</span>
-                  <span className="text-lg font-semibold text-white">REX</span>
+                <div className="mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-violet-400 font-mono font-semibold">$</span>
+                    <span className="text-lg font-semibold text-white">REX</span>
+                  </div>
+                  <p className="text-sm text-gray-400">Tell REX what you need help with.</p>
                 </div>
-                <p className="text-sm text-gray-400">Tell REX what you need help with.</p>
-              </div>
 
-              <div className="relative">
-                <input
-                  type="text"
-                  onKeyDown={handleKeyPress}
-                  placeholder={placeholders[placeholderIndex]}
-                  className="w-full bg-transparent border-none outline-none text-white text-lg placeholder-gray-500 py-3 pr-20"
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  <span className="text-xs text-gray-500 bg-[#1a1a1a] px-2 py-1 rounded">Press Enter to chat →</span>
+                <div className="relative">
+                  <input
+                    type="text"
+                    onKeyDown={handleKeyPress}
+                    placeholder={placeholders[placeholderIndex]}
+                    className="w-full bg-transparent border-none outline-none text-white text-lg placeholder-gray-500 py-3 pr-20"
+                  />
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                    <span className="text-xs text-gray-500 bg-[#1a1a1a] px-2 py-1 rounded">Press Enter to chat →</span>
+                  </div>
                 </div>
+                <div className="text-white text-lg animate-pulse">|</div>
               </div>
-              <div className="text-white text-lg animate-pulse">|</div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#262626] h-full">
+              <h2 className="text-xl font-semibold text-white mb-6">Quick Actions</h2>
+              <div className="space-y-3">
+                {[
+                  { icon: <FaMagnifyingGlass className="text-blue-400" />, label: 'Browse Jobs', href: '/jobs' },
+                  { icon: <FaUserPen className="text-green-400" />, label: 'Update Profile', href: '/prep/landing-page' },
+                  { icon: <FaFileLines className="text-violet-400" />, label: 'Upload Resume', href: '/prep' },
+                  { icon: <FaChartLine className="text-orange-400" />, label: 'View Analytics', href: '/analytics' },
+                ].map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => navigate(action.href)}
+                    className="w-full text-left p-3 bg-[#262626] hover:bg-[#404040] rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      {action.icon}
+                      <span className="text-white">{action.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -324,29 +350,6 @@ export default function JobSeekerDashboardPage() {
               </div>
             </section>
 
-            {/* Quick Actions */}
-            <section className="bg-[#1a1a1a] rounded-xl p-6 border border-[#262626]">
-              <h2 className="text-xl font-semibold text-white mb-6">Quick Actions</h2>
-              <div className="space-y-3">
-                {[
-                  { icon: <FaMagnifyingGlass className="text-blue-400" />, label: 'Browse Jobs', href: '/jobs' },
-                  { icon: <FaUserPen className="text-green-400" />, label: 'Update Profile', href: '/prep/landing-page' },
-                  { icon: <FaFileLines className="text-violet-400" />, label: 'Upload Resume', href: '/prep' },
-                  { icon: <FaChartLine className="text-orange-400" />, label: 'View Analytics', href: '/analytics' },
-                ].map((action) => (
-                  <button
-                    key={action.label}
-                    onClick={() => navigate(action.href)}
-                    className="w-full text-left p-3 bg-[#262626] hover:bg-[#404040] rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {action.icon}
-                      <span className="text-white">{action.label}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
           </div>
         </div>
       </main>
