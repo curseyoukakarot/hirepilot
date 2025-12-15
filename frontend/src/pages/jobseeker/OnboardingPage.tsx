@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaBolt, FaArrowRight, FaCircleCheck, FaClock, FaGift, FaShieldCat } from 'react-icons/fa6';
