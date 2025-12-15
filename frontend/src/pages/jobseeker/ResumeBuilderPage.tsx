@@ -131,6 +131,25 @@ export default function ResumeBuilderPage() {
     }
   }, []);
 
+  const markResumeDownloaded = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const backend = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${backend}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'resume_generated', metadata: { source: 'download_resume' } }),
+      });
+    } catch (e) {
+      console.warn('onboarding resume_generated (download) failed (non-blocking)', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (!draftId) return;
     let cancelled = false;
@@ -999,7 +1018,10 @@ export default function ResumeBuilderPage() {
                 <div className="flex items-center gap-2">
                 <button
                   className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
-                  onClick={() => downloadPdf(backend, draftId || undefined)}
+                  onClick={async () => {
+                    await downloadPdf(backend, draftId || undefined);
+                    await markResumeDownloaded();
+                  }}
                 >
                   <FaDownload className="text-xs" />
                   Download
