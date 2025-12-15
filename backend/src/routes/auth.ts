@@ -17,6 +17,8 @@ router.post('/signup', async (req, res) => {
       return;
     }
 
+    console.log('[auth/signup] Starting signup', { email });
+
     const payload: any = {
       email,
       email_confirm: true,
@@ -36,7 +38,10 @@ router.post('/signup', async (req, res) => {
     // Primary path: service-role admin createUser (explicit service client for safety)
     try {
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+      if (!serviceKey) {
+        console.error('[auth/signup] MISSING SUPABASE_SERVICE_ROLE_KEY');
+        return res.status(500).json({ error: 'Server misconfiguration: missing service key' });
+      }
       const serviceClient = createClient(process.env.SUPABASE_URL as string, serviceKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
@@ -49,6 +54,7 @@ router.post('/signup', async (req, res) => {
 
     // Fallback to anon signUp if admin call failed (handles environments where service key is blocked/missing)
     if (error) {
+      console.error('[auth/signup] Admin createUser failed', error?.message || error);
       try {
         const anonKey =
           process.env.SUPABASE_ANON_KEY ||
@@ -77,6 +83,7 @@ router.post('/signup', async (req, res) => {
         created = { user: data.user };
         error = null;
       } catch (fallbackErr: any) {
+        console.error('[auth/signup] Anon fallback failed', fallbackErr?.message || fallbackErr);
         error = fallbackErr;
       }
     }
