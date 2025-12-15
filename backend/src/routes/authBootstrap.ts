@@ -53,16 +53,6 @@ router.post('/', requireAuthUnified, async (req, res) => {
         { onConflict: 'id' }
       );
 
-    // Ensure auth metadata mirrors the app-side role
-    await supabase.auth.admin.updateUser({
-      id: userId,
-      user_metadata: {
-        role: nextRole,
-        account_type: nextAccountType,
-        primary_app: nextPrimaryApp,
-      },
-    });
-
     const { data: updatedUser } = await supabase
       .from('users')
       .select('id, role, plan, primary_app, account_type')
