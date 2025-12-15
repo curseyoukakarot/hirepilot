@@ -38,6 +38,16 @@ export function JobsSidebar({
     }
   }, [navigate]);
 
+  const handleNav = useCallback(
+    (href: string) => {
+      try {
+        onCloseMobile?.();
+      } catch {}
+      navigate(href);
+    },
+    [navigate, onCloseMobile]
+  );
+
   const SidebarBody = (
     <aside
       className={[
@@ -93,8 +103,9 @@ export function JobsSidebar({
             const active = currentPath === item.href;
             return (
               <li key={item.href}>
-                <motion.a
-                  href={item.href}
+                <motion.button
+                  type="button"
+                  onClick={() => handleNav(item.href)}
                   whileHover={{ x: collapsed ? 0 : 2 }}
                   className={[
                     'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition border',
@@ -115,7 +126,7 @@ export function JobsSidebar({
                     {item.icon}
                   </span>
                   {!collapsed && <span className="font-medium">{item.label}</span>}
-                </motion.a>
+                </motion.button>
               </li>
             );
           })}
