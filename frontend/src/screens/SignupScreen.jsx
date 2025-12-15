@@ -44,7 +44,9 @@ export default function SignupScreen() {
         last_name: lastName,
         metadata: {
           company,
-          linkedin_url: linkedinUrl
+        linkedin_url: linkedinUrl,
+        signup_app: 'recruiter',
+        intended_user_type: 'free_recruiter',
         }
       }, { requireAuth: false });
       userId = created?.user?.id;

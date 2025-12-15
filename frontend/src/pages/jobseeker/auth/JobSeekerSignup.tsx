@@ -113,6 +113,8 @@ export default function JobSeekerSignup() {
             company,
             linkedin_url: linkedin,
             account_type: 'job_seeker',
+            signup_app: 'job_seeker',
+            intended_user_type: 'job_seeker_free',
           },
         }),
       });
@@ -132,6 +134,8 @@ export default function JobSeekerSignup() {
               company,
               linkedin_url: linkedin,
               account_type: 'job_seeker',
+              signup_app: 'job_seeker',
+              intended_user_type: 'job_seeker_free',
             },
           },
         });
