@@ -143,7 +143,7 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     // Fetch opportunity + client
     const { data: opp } = await supabase.from('opportunities').select('id,title,value,client_id').eq('id', opportunity_id).maybeSingle();
     if (!opp) { res.status(404).json({ error: 'opportunity_not_found' }); return; }
-    const { data: client } = await supabase.from('clients').select('id,name').eq('id', opp.client_id).maybeSingle();
+    const { data: client } = await supabase.from('clients').select('id,name,stripe_customer_id').eq('id', opp.client_id).maybeSingle();
 
     // Calculate amount based on billing_type (sanitize inputs like "$5,000" or "20%")
     const parseNum = (v: any): number => {
@@ -184,11 +184,12 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
       .maybeSingle();
 
     const mode = (integ as any)?.stripe_mode || 'connect';
-    const useUserKeys = mode === 'keys' && (integ as any)?.stripe_secret_key;
+    const userSecretKey = String((integ as any)?.stripe_secret_key || '').trim();
+    const useUserKeys = mode === 'keys' && !!userSecretKey;
     const connectedId = (integ as any)?.stripe_connected_account_id || null;
 
     const stripe = useUserKeys
-      ? new Stripe((integ as any).stripe_secret_key, { apiVersion: '2022-11-15' })
+      ? new Stripe(userSecretKey, { apiVersion: '2022-11-15' })
       : platformStripe;
 
     // Ensure or reuse Stripe customer id for this client
@@ -212,7 +213,10 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
 
     const hosted = await createInvoiceWithItem({
       userId,
-      customerEmail: recipient_email,
+      stripeClient: stripe,
+      customerId: stripeCustomerId || undefined,
+      customerEmail: recipient_email || undefined,
+      customerName: client?.name || undefined,
       description: `${client?.name || 'Client'} • ${opp.title}`,
       amountCents: Math.max(0, Math.round(amount * 100)),
       meta: { opportunity_id: String(opportunity_id), billing_type: String(billing_type || '') },

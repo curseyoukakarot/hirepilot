@@ -32,19 +32,36 @@ export async function ensureCustomer(opts: { client: Stripe; account?: string; e
 
 export async function createInvoiceWithItem(opts: {
   userId: string;
-  customerEmail: string;
+  // Provide either `customerId` (preferred) or `customerEmail` (fallback lookup/create).
+  customerId?: string;
+  customerEmail?: string;
+  customerName?: string;
   description: string;
   amountCents: number;
   meta?: Record<string, string>;
   account?: string; // optional override when caller already resolved account
+  stripeClient?: Stripe; // optional override when caller already resolved Stripe client (e.g. per-user keys)
 }) {
-  const { client, account } = await getStripeClient(opts.userId);
-  const acct = opts.account || account;
+  let client: Stripe;
+  let acct: string | undefined = opts.account;
+  if (opts.stripeClient) {
+    client = opts.stripeClient;
+  } else {
+    const ctx = await getStripeClient(opts.userId);
+    client = ctx.client;
+    acct = acct ?? ctx.account;
+  }
 
-  const [customer] = await ensureCustomer({ client, account: acct, email: opts.customerEmail });
+  let customerId = opts.customerId;
+  if (!customerId) {
+    const email = String(opts.customerEmail || '').trim();
+    if (!email) throw new Error('Missing Stripe customer (provide customerId or customerEmail).');
+    const [customer] = await ensureCustomer({ client, account: acct, email, name: opts.customerName });
+    customerId = customer.id;
+  }
 
   const invoice = await client.invoices.create({
-    customer: customer.id,
+    customer: customerId,
     collection_method: 'send_invoice',
     days_until_due: 14,
     pending_invoice_items_behavior: 'include',
@@ -53,7 +70,7 @@ export async function createInvoiceWithItem(opts: {
   }, acct ? { stripeAccount: acct } : undefined);
 
   await client.invoiceItems.create({
-    customer: customer.id,
+    customer: customerId,
     invoice: invoice.id,
     currency: 'usd',
     unit_amount: opts.amountCents,

@@ -35,14 +35,18 @@ router.post('/save-keys', requireAuth as any, async (req: Request, res: Response
     const userId = (req as any).user?.id;
     const { secret_key, publishable_key, mode } = req.body || {};
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    if (!secret_key || !publishable_key) return res.status(400).json({ error: 'missing_keys' });
+    const sk = String(secret_key || '').trim();
+    const pk = String(publishable_key || '').trim();
+    if (!sk || !pk) return res.status(400).json({ error: 'missing_keys' });
+    if (!/^sk_(test|live)_/.test(sk)) return res.status(400).json({ error: 'invalid_secret_key' });
+    if (!/^pk_(test|live)_/.test(pk)) return res.status(400).json({ error: 'invalid_publishable_key' });
 
     const { error } = await supabase
       .from('user_integrations')
       .upsert({
         user_id: userId,
-        stripe_secret_key: secret_key,
-        stripe_publishable_key: publishable_key,
+        stripe_secret_key: sk,
+        stripe_publishable_key: pk,
         stripe_mode: mode === 'keys' ? 'keys' : 'connect',
       }, { onConflict: 'user_id' });
     if (error) throw error;
