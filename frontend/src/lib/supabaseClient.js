@@ -7,8 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const isJobsHost = typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.');
+const host =
+  typeof window !== 'undefined'
+    ? window.location.hostname
+    : (typeof process !== 'undefined' && process.env.HOSTNAME) || '';
+const isJobsHost = typeof window !== 'undefined' && host.startsWith('jobs.');
 const storageKey = isJobsHost ? 'hp_jobseeker_auth' : 'hirepilot-auth';
+const rootCookieDomain =
+  typeof window !== 'undefined' && host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -17,6 +23,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     storageKey,
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    flowType: 'pkce',
+    cookieOptions: {
+      domain: rootCookieDomain,
+      path: '/',
+      sameSite: 'lax',
+      secure: true,
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    },
   }
 });
 
