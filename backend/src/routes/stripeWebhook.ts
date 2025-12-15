@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { stripe } from '../services/stripe';
 import { supabaseAdmin } from '../services/supabase';
 import { DIY_BOUNTIES, DFY_PERCENT, DFY_MAX_MONTHS, mapStripePriceToPlanCode, DIY_LOCK_DAYS } from '../services/affiliateLogic';
+import { PRICING_CONFIG } from '../../config/pricing';
 
 const r = Router();
 
@@ -16,6 +17,40 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
   }
 
   // helpers
+  const resolveRoleFromPrice = (priceId?: string | null, planTypeMeta?: string | null) => {
+    if (!priceId) return null;
+    // Job seeker mapping first (based on PRICING_CONFIG keys)
+    const jobSeekerProIds = Object.values(PRICING_CONFIG.job_seeker_pro.priceIds || {}).filter(Boolean);
+    const jobSeekerEliteIds = Object.values(PRICING_CONFIG.job_seeker_elite.priceIds || {}).filter(Boolean);
+    if (jobSeekerProIds.includes(priceId)) return 'job_seeker_pro';
+    if (jobSeekerEliteIds.includes(priceId)) return 'job_seeker_elite';
+    // Recruiter side: use metadata if provided, else map to default recruiter
+    if (planTypeMeta && ['member', 'admin', 'team_admin', 'RecruitPro'].includes(planTypeMeta)) {
+      return planTypeMeta;
+    }
+    // Fallback: treat unknown recruiter plans as member
+    return 'member';
+  };
+
+  async function setUserRoleFromStripe(customerId: string | undefined, priceId: string | undefined, planTypeMeta?: string | null) {
+    if (!customerId || !priceId) return;
+    // Find user by stripe_customer_id on users table
+    const { data: userRow } = await supabaseAdmin.from('users').select('id, role, plan, account_type, primary_app, stripe_customer_id').eq('stripe_customer_id', customerId).maybeSingle();
+    if (!userRow?.id) return;
+    const nextRole = resolveRoleFromPrice(priceId, planTypeMeta);
+    if (!nextRole) return;
+    const primaryApp = nextRole.startsWith('job_seeker_') ? 'job_seeker' : 'recruiter';
+    await supabaseAdmin
+      .from('users')
+      .update({
+        role: nextRole,
+        plan: nextRole,
+        account_type: nextRole,
+        primary_app: primaryApp,
+      })
+      .eq('id', userRow.id);
+    return { userId: userRow.id, nextRole };
+  }
   async function upsertReferralFromMeta(meta: any, stripeCustomerId?: string) {
     const affiliateId = meta?.affiliate_id;
     const planType = meta?.plan_type as 'DIY'|'DFY'|undefined;
@@ -51,8 +86,16 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
       const session = event.data.object as any;
       const meta = session.metadata || {};
       const customerId = session.customer as string | undefined;
+      const priceId = (session?.line_items?.[0]?.price?.id) || session?.metadata?.price_id || session?.metadata?.price_code;
 
       const referralId = await upsertReferralFromMeta(meta, customerId);
+
+      // Map paid checkout to role/plan
+      try {
+        await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+      } catch (e) {
+        console.error('[stripe webhook] setUserRoleFromStripe error (checkout.session.completed)', e);
+      }
 
       // DIY one-time bounty (if purchase contains DIY price)
       const line = session?.display_items?.[0] ?? null; // legacy; handle subs below
@@ -79,8 +122,16 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
       const amountPaid = invoice.amount_paid; // cents
       const customerId = invoice.customer as string;
       const meta = invoice.metadata || {};
+      const priceId = invoice.lines?.data?.[0]?.price?.id;
 
       const referralId = await upsertReferralFromMeta(meta, customerId);
+
+      // Map recurring invoice to role/plan
+      try {
+        await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+      } catch (e) {
+        console.error('[stripe webhook] setUserRoleFromStripe error (invoice.paid)', e);
+      }
 
       // DFY recurring commission (10%, up to 6 months)
       if (meta.plan_type === 'DFY') {
