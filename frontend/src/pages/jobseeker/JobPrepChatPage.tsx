@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { FaArrowLeft, FaArrowUp, FaCheck, FaWandMagicSparkles, FaPaperclip, FaCircle } from 'react-icons/fa6';
@@ -25,6 +25,24 @@ export default function JobPrepChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isThinking = streaming || uploading;
+  const markTargetStep = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const backend = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${backend}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'target_role_set', metadata: { source: 'rex_chat_target' } }),
+      });
+    } catch (e) {
+      console.warn('onboarding target_role_set failed (non-blocking)', e);
+    }
+  }, []);
 
   const recentActions = useMemo(() => {
     const actions = messages
@@ -513,6 +531,7 @@ export default function JobPrepChatPage() {
                   setRole(tempRole.trim());
                   setIndustry(tempIndustry.trim());
                   setFocus(tempFocus.trim());
+                  markTargetStep();
                   setShowEditTarget(false);
                 }}
               >

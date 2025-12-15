@@ -29,7 +29,7 @@ const STEP_CONTENT: StepContent[] = [
     title: 'Define Target Role',
     description: 'Lock in title, industry, and focus so REX can tailor outputs.',
     actionLabel: 'Set target role',
-    href: '/prep/resume/builder',
+    href: '/prep/rex-chat?prefill=Help me define my target role, industry, and focus for my job search.',
     accent: 'from-blue-500/20 to-cyan-500/10',
   },
   {
