@@ -6,11 +6,15 @@ const router = Router();
 
 router.post('/', requireAuthUnified, async (req, res) => {
   try {
-    const app = (req.body?.app || '').toString();
-    if (!app || !['job_seeker', 'recruiter'].includes(app)) {
-      res.status(400).json({ error: 'Invalid app. Use job_seeker or recruiter' });
-      return;
-    }
+    const bodyApp = (req.body?.app || '').toString();
+    const host = (req.headers.host || '').toLowerCase();
+    const ref = (req.headers.referer || '').toLowerCase();
+    const origin = (req.headers.origin || '').toLowerCase();
+    const hostAppGuess = host.includes('jobs.') || ref.includes('jobs.') || origin.includes('jobs.')
+      ? 'job_seeker'
+      : 'recruiter';
+
+    const app = ['job_seeker', 'recruiter'].includes(bodyApp) ? bodyApp : hostAppGuess;
 
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) {
@@ -18,8 +22,10 @@ router.post('/', requireAuthUnified, async (req, res) => {
       return;
     }
 
-    const role = app === 'job_seeker' ? 'job_seeker_free' : 'free';
-    const plan = role;
+    const defaultRole = app === 'job_seeker' ? 'job_seeker_free' : 'free';
+    const defaultPlan = defaultRole;
+    const defaultAccountType = defaultRole;
+    const defaultPrimaryApp = app;
 
     // Read current state for debugging
     const { data: existingUser } = await supabase
@@ -36,16 +42,28 @@ router.post('/', requireAuthUnified, async (req, res) => {
       existingUser,
     });
 
-    // Upsert canonical user row
+    // Determine existing state
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, role, plan, primary_app, account_type')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const nextRole = existingUser?.role || defaultRole;
+    const nextPlan = existingUser?.plan || defaultPlan;
+    const nextPrimaryApp = existingUser?.primary_app || defaultPrimaryApp;
+    const nextAccountType = existingUser?.account_type || defaultAccountType;
+
+    // Upsert canonical user row with defaults if missing
     await supabase
       .from('users')
       .upsert(
         {
           id: userId,
-          role,
-          plan,
-          primary_app: app,
-          account_type: role,
+          role: nextRole,
+          plan: nextPlan,
+          primary_app: nextPrimaryApp,
+          account_type: nextAccountType,
         } as any,
         { onConflict: 'id' }
       );
@@ -54,9 +72,9 @@ router.post('/', requireAuthUnified, async (req, res) => {
     await supabase.auth.admin.updateUser({
       id: userId,
       user_metadata: {
-        role,
-        account_type: role,
-        primary_app: app,
+        role: nextRole,
+        account_type: nextAccountType,
+        primary_app: nextPrimaryApp,
       },
     });
 
@@ -77,10 +95,10 @@ router.post('/', requireAuthUnified, async (req, res) => {
     res.json({
       ok: true,
       app,
-      role: updatedUser?.role || role,
-      plan: updatedUser?.plan,
-      primary_app: updatedUser?.primary_app || app,
-      account_type: updatedUser?.account_type,
+      role: updatedUser?.role || nextRole,
+      plan: updatedUser?.plan || nextPlan,
+      primary_app: updatedUser?.primary_app || nextPrimaryApp,
+      account_type: updatedUser?.account_type || nextAccountType,
       updatedUser,
       existingUser,
     });
