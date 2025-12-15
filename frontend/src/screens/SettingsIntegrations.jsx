@@ -283,6 +283,24 @@ export default function SettingsIntegrations() {
   // Apollo modal
   const [showApolloModal, setShowApolloModal] = useState(false);
 
+  const markEmailConnected = useCallback(async (source) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch(`${BACKEND}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'email_connected', metadata: { source } }),
+      });
+    } catch (e) {
+      console.warn('onboarding email_connected failed (non-blocking)', e);
+    }
+  }, []);
+
   // Active connection count for header
   const activeConnections = useMemo(() => {
     const stripeIsConnected = !!(stripeConnected.hasKeys || stripeConnected.accountId);
@@ -453,7 +471,10 @@ export default function SettingsIntegrations() {
       if (!user) return;
       const resp = await fetch(`${BACKEND}/api/auth/google/init?user_id=${user.id}`);
       const js = await resp.json();
-      if (resp.ok && js.url) window.location.href = js.url; else toast.error(js.error || 'Failed to start Google OAuth');
+      if (resp.ok && js.url) {
+        await markEmailConnected('google_click');
+        window.location.href = js.url;
+      } else toast.error(js.error || 'Failed to start Google OAuth');
     } catch { toast.error('Failed to start Google OAuth'); }
   };
   const disconnectGoogle = async () => {
@@ -475,6 +496,7 @@ export default function SettingsIntegrations() {
     const scope = encodeURIComponent('openid profile email offline_access Mail.Send');
     const state = user.id;
     const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
+    await markEmailConnected('outlook_click');
     window.location.href = url;
   };
 
@@ -525,6 +547,7 @@ export default function SettingsIntegrations() {
       setAllowedSenders(normalized);
       if (normalized.length > 0) { setSelectedSender(normalized[0].email); setSendGridStep('chooseSender'); }
       else setValidationError('No verified senders found.');
+      await markEmailConnected('sendgrid_click');
     } finally { setSendGridLoading(false); }
   };
   // Open existing-senders modal for connected accounts
