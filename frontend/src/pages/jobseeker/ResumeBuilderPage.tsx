@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   FaArrowLeft,
@@ -112,6 +112,24 @@ export default function ResumeBuilderPage() {
   const [customIndustryOpen, setCustomIndustryOpen] = useState<boolean>(false);
   const [customIndustryText, setCustomIndustryText] = useState<string>('');
   const [parsingUpload, setParsingUpload] = useState<boolean>(false);
+  const markTargetRoleStep = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const backend = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${backend}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'target_role_set', metadata: { source: 'resume_builder' } }),
+      });
+    } catch (e) {
+      console.warn('onboarding target_role_set failed (non-blocking)', e);
+    }
+  }, []);
 
   useEffect(() => {
     if (!draftId) return;
@@ -449,6 +467,7 @@ export default function ResumeBuilderPage() {
     const next = { ...(preview.targetRole || {}), industry: [industry] };
     updateSection({ targetRole: next });
     setResume((prev) => ({ ...prev, targetRole: next }));
+    markTargetRoleStep();
   };
 
   const addCustomIndustry = () => {
@@ -463,6 +482,7 @@ export default function ResumeBuilderPage() {
     const next = { ...(preview.targetRole || {}), primaryTitle: targetTitle || preview.targetRole.primaryTitle };
     updateSection({ targetRole: next });
     setResume((prev) => ({ ...prev, targetRole: next }));
+    markTargetRoleStep();
   };
 
   const requestRoleStyle = async (style: string) => {

@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
-import { fetchOnboardingProgress, STEP_CREDITS, StepKey } from '../lib/onboarding';
+import { fetchOnboardingProgress, STEP_CREDITS, StepKey, completeOnboardingStep } from '../lib/onboarding';
 
 const router = express.Router();
 
@@ -29,6 +29,22 @@ router.get('/progress', requireAuth, async (req: Request, res: Response) => {
   } catch (e: any) {
     console.error('onboarding progress error', e);
     res.status(500).json({ error: e?.message || 'progress_error' });
+  }
+});
+
+router.post('/complete', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const { step, metadata } = req.body || {};
+    if (!step || !STEP_CREDITS[step as StepKey]) {
+      return res.status(400).json({ error: 'invalid_step' });
+    }
+    const completion = await completeOnboardingStep(userId, step as StepKey, metadata || {});
+    res.json(completion);
+  } catch (e: any) {
+    console.error('onboarding complete error', e);
+    res.status(500).json({ error: e?.message || 'complete_error' });
   }
 });
 
