@@ -49,7 +49,7 @@ export default function AuthCallback() {
       }
 
       const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.access_token) {
+        if (session?.access_token) {
           await bootstrap(session.access_token);
           redirect();
         }

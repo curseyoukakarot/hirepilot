@@ -50,7 +50,34 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const location = useLocation();
+
+  const fetchBootstrapRole = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) return null;
+      setBootstrapLoading(true);
+      const apiBase =
+        import.meta.env.VITE_BACKEND_URL ||
+        (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
+      const resp = await fetch(`${apiBase.replace(/\/$/, '')}/api/auth/bootstrap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const json = await resp.json().catch(() => ({}));
+      return json?.role || null;
+    } catch {
+      return null;
+    } finally {
+      setBootstrapLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -67,7 +94,10 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
         setSession(data.session);
         if (data.session?.user?.id) {
           const meta = data.session.user.user_metadata || {};
-          const roleVal = meta.account_type || meta.plan || meta.role;
+          let roleVal = meta.account_type || meta.plan || meta.role;
+          // Fetch authoritative role from bootstrap to avoid stale metadata
+          const bootstrapRole = await fetchBootstrapRole();
+          if (bootstrapRole) roleVal = bootstrapRole;
           setUserRole(roleVal || null);
         }
       } catch {
@@ -85,7 +115,9 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
         setLoading(false);
         if (newSession?.user?.id) {
           const meta = newSession.user.user_metadata || {};
-          const roleVal = meta.account_type || meta.plan || meta.role;
+          let roleVal = meta.account_type || meta.plan || meta.role;
+          const bootstrapRole = await fetchBootstrapRole();
+          if (bootstrapRole) roleVal = bootstrapRole;
           setUserRole(roleVal || null);
         }
       })();
@@ -96,7 +128,7 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (loading) return <LoadingFallback />;
+  if (loading || bootstrapLoading) return <LoadingFallback />;
   if (!session) {
     // Preserve where the user was trying to go
     const from = `${location.pathname}${location.search}`;
@@ -106,10 +138,9 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   const roleLower = String(userRole || '').toLowerCase();
   const isJobSeekerRole = roleLower.startsWith('job_seeker_');
   if (!isJobSeekerRole) {
-    // Hard-redirect to recruiter app if the role is not a job-seeker role
-    const dest = `https://app.thehirepilot.com/login?from=${encodeURIComponent(window.location.href)}`;
-    window.location.href = dest;
-    return null;
+    // If role is not a job seeker, keep user on local login with message
+    const from = `${location.pathname}${location.search}`;
+    return <Navigate to="/login" replace state={{ from }} />;
   }
   const isFree = roleLower === 'free' || roleLower === 'job_seeker_free';
   const path = location.pathname;
