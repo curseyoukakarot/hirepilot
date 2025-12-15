@@ -48,7 +48,7 @@ export function JobsNavbar({ logoSrc, onMenuClick }: JobsNavbarProps) {
               <path strokeLinecap="round" d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z" />
               <path strokeLinecap="round" d="M21 21l-4.3-4.3" />
             </svg>
-            <span className="text-zinc-500 dark:text-zinc-400">Search</span>
+            <span className="text-zinc-500 dark:text-zinc-400">Onboarding Wizard</span>
             <span className="ml-2 rounded border border-zinc-200 px-1.5 py-0.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               ⌘K
             </span>

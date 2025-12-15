@@ -5,6 +5,7 @@ import { FaBolt, FaArrowRight, FaCircleCheck, FaClock, FaGift, FaShieldCat } fro
 import { useOnboardingProgress, OnboardingStepKey } from '../../hooks/useOnboardingProgress';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { JobsLayout } from '../../components/layout/JobsLayout';
 
 type StepContent = {
   key: OnboardingStepKey;
@@ -208,8 +209,8 @@ export default function OnboardingPage() {
   }, [progress, autoReconciled]);
 
   return (
-    <div className="min-h-screen bg-[#0b1220] text-zinc-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <JobsLayout>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6 text-zinc-100">
         <header className="rounded-2xl border border-white/5 bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-blue-500/5 p-6 sm:p-8 shadow-2xl shadow-indigo-500/10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -376,6 +377,6 @@ export default function OnboardingPage() {
           </div>
         </motion.div>
       </div>
-    </div>
+    </JobsLayout>
   );
 }
