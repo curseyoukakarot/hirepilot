@@ -114,6 +114,7 @@ import slackCallback from './src/api/slack/callback';
 import slackDisconnect from './src/api/slack/disconnect';
 import slackTestPost from './src/api/slack/testPost';
 import publicCheckoutRouter from './src/routes/publicCheckout';
+import authBootstrapRouter from './src/routes/authBootstrap';
 import bodyParser from 'body-parser';
 import slackEventsHandler from './api/slack-events';
 import slackSlash from './src/api/slack/slash';
@@ -732,6 +733,7 @@ app.use('/api/payouts', requireAuthFlag, payoutsRouter);
 
 // Auth routes
 app.use('/api/auth', authRouter);
+  app.use('/api/auth/bootstrap', authBootstrapRouter);
 
 // LinkedIn Remote Session routes
 app.use('/linkedin/session', sessionRouter);
