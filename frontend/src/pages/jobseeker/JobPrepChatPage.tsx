@@ -25,6 +25,7 @@ export default function JobPrepChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isThinking = streaming || uploading;
+  const [outreachStepMarked, setOutreachStepMarked] = useState(false);
   const markTargetStep = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -43,6 +44,27 @@ export default function JobPrepChatPage() {
       console.warn('onboarding target_role_set failed (non-blocking)', e);
     }
   }, []);
+
+  const markOutreachStep = useCallback(async () => {
+    if (outreachStepMarked) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const backend = import.meta.env.VITE_BACKEND_URL || '';
+      await fetch(`${backend}/api/jobs/onboarding/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ step: 'outreach_angles_created', metadata: { source: 'rex_chat_outreach' } }),
+      });
+      setOutreachStepMarked(true);
+    } catch (e) {
+      console.warn('onboarding outreach_angles_created failed (non-blocking)', e);
+    }
+  }, [outreachStepMarked]);
 
   const recentActions = useMemo(() => {
     const actions = messages
@@ -171,6 +193,9 @@ export default function JobPrepChatPage() {
       }
       setStatusLabel('Idle · Ready for your next question');
       await postMessage(convId!, 'assistant', { text: acc });
+      if (!outreachStepMarked) {
+        await markOutreachStep();
+      }
     } catch (e: any) {
       setStatusLabel(e?.message || 'Chat failed');
     } finally {
