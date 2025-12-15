@@ -14,6 +14,18 @@ async function resolveAffiliateByCode(code?: string | null) {
   return data ? { id: data.id, code: data.referral_code } : null;
 }
 
+// Normalize recruiter plan types so webhook gets consistent roles
+function normalizeRecruiterPlanType(input: any): 'member' | 'admin' | 'team_admin' | 'RecruitPro' {
+  const v = String(input || '').trim();
+  const lower = v.toLowerCase();
+  if (lower === 'admin') return 'admin';
+  if (lower === 'team_admin' || lower === 'teamadmin' || lower === 'team admin') return 'team_admin';
+  if (lower === 'recruitpro' || lower === 'recruit_pro' || lower === 'recruit pro') return 'RecruitPro';
+  if (lower === 'member') return 'member';
+  // Safe default for recruiter paid upgrades
+  return 'member';
+}
+
 r.post('/session', async (req, res) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
@@ -27,8 +39,10 @@ r.post('/session', async (req, res) => {
     const refCode = (req as any).cookies?.hp_ref as string | undefined;
     const affiliate = await resolveAffiliateByCode(refCode);
 
+    const normalizedPlanType = normalizeRecruiterPlanType(plan_type);
+
     const metadata: Record<string, any> = {
-      plan_type: plan_type || 'DIY',
+      plan_type: normalizedPlanType,
       price_id,
     };
     if (userId) {
@@ -46,6 +60,9 @@ r.post('/session', async (req, res) => {
       cancel_url,
       allow_promotion_codes: true,
       metadata,
+      subscription_data: {
+        metadata,
+      },
       client_reference_id: userId,
     });
 
