@@ -21,6 +21,21 @@ router.post('/', requireAuthUnified, async (req, res) => {
     const role = app === 'job_seeker' ? 'job_seeker_free' : 'free';
     const plan = role;
 
+    // Read current state for debugging
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, role, plan, primary_app, account_type')
+      .eq('id', userId)
+      .maybeSingle();
+
+    console.log('[auth bootstrap] start', {
+      userId,
+      app,
+      host: req.headers.host,
+      origin: req.headers.origin,
+      existingUser,
+    });
+
     // Upsert canonical user row
     await supabase
       .from('users')
@@ -45,7 +60,21 @@ router.post('/', requireAuthUnified, async (req, res) => {
       },
     });
 
-    res.json({ ok: true, app, role });
+    const { data: updatedUser } = await supabase
+      .from('users')
+      .select('id, role, plan, primary_app, account_type')
+      .eq('id', userId)
+      .maybeSingle();
+
+    console.log('[auth bootstrap] done', {
+      userId,
+      app,
+      host: req.headers.host,
+      origin: req.headers.origin,
+      updatedUser,
+    });
+
+    res.json({ ok: true, app, role, updatedUser, existingUser });
   } catch (e: any) {
     console.error('[auth bootstrap] error', e);
     res.status(500).json({ error: e?.message || 'Failed to bootstrap user' });

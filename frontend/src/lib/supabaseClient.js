@@ -32,13 +32,21 @@ if (typeof window !== 'undefined' && isJobsHost) {
     import.meta.env.VITE_BACKEND_URL ||
     (window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceBootstrap = urlParams.get('forceBootstrap') === '1';
+
   supabase.auth.onAuthStateChange(async (_event, session) => {
     const token = session?.access_token;
     const userId = session?.user?.id;
     if (!token || !userId) return;
     const key = `hp_js_bootstrap_${userId}`;
-    if (sessionStorage.getItem(key) === 'done') return;
+    if (!forceBootstrap && sessionStorage.getItem(key) === 'done') return;
     try {
+      console.info('[bootstrap] calling from frontend', {
+        host: window.location.host,
+        path: window.location.pathname,
+        forceBootstrap,
+      });
       await fetch(`${apiBase.replace(/\/$/, '')}/api/auth/bootstrap`, {
         method: 'POST',
         headers: {
