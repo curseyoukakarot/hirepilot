@@ -142,6 +142,18 @@ export default function OnboardingPage() {
     }
   };
 
+  const [autoReconciled, setAutoReconciled] = React.useState(false);
+  useEffect(() => {
+    if (!progress || autoReconciled) return;
+    const expected = (progress.steps || []).reduce((sum, s) => sum + (s.credits || 0), 0) || 100;
+    const allDone = (progress.total_completed || 0) >= (progress.total_steps || 0);
+    const missing = (progress.total_credits_awarded || 0) < expected;
+    if (allDone && missing) {
+      setAutoReconciled(true);
+      handleRefreshCredits();
+    }
+  }, [progress, autoReconciled]);
+
   return (
     <div className="min-h-screen bg-[#0b1220] text-zinc-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
