@@ -132,13 +132,13 @@ export default function SignupScreen() {
   const handleGoogleSignup = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` }
+    options: { redirectTo: 'https://app.thehirepilot.com/auth/callback' }
     });
   };
   const handleMicrosoftSignup = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'azure',
-      options: { redirectTo: `${window.location.origin}/dashboard` }
+    options: { redirectTo: 'https://app.thehirepilot.com/auth/callback' }
     });
   };
 

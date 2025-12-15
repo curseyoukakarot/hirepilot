@@ -192,11 +192,9 @@ export default function JobSeekerSignup() {
   const handleGoogle = async () => {
     setOauthLoading(true);
     try {
-      const redirect = new URL(window.location.origin + resolveRedirect());
-      redirect.searchParams.set('role', 'job_seeker');
       await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: redirect.toString() },
+        options: { redirectTo: 'https://jobs.thehirepilot.com/auth/callback' },
       });
     } finally {
       setOauthLoading(false);
@@ -206,11 +204,9 @@ export default function JobSeekerSignup() {
   const handleMicrosoft = async () => {
     setOauthLoading(true);
     try {
-      const redirect = new URL(window.location.origin + resolveRedirect());
-      redirect.searchParams.set('role', 'job_seeker');
       await supabase.auth.signInWithOAuth({
         provider: 'azure',
-        options: { redirectTo: redirect.toString() },
+        options: { redirectTo: 'https://jobs.thehirepilot.com/auth/callback' },
       });
     } finally {
       setOauthLoading(false);

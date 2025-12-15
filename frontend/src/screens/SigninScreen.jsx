@@ -136,13 +136,12 @@ export default function SigninScreen() {
   };
 
 // OAuth sign-in handlers
-const resolveRedirect = () => (import.meta?.env?.VITE_APP_WEB_URL || import.meta?.env?.VITE_FRONTEND_URL || `${window.location.origin}/dashboard`);
 const handleGoogleSignin = async () => {
   try {
     setOauthLoading(true);
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: resolveRedirect() }
+      options: { redirectTo: 'https://app.thehirepilot.com/auth/callback' }
     });
   } finally {
     setOauthLoading(false);
@@ -153,7 +152,7 @@ const handleMicrosoftSignin = async () => {
     setOauthLoading(true);
     await supabase.auth.signInWithOAuth({
       provider: 'azure',
-      options: { redirectTo: resolveRedirect() }
+      options: { redirectTo: 'https://app.thehirepilot.com/auth/callback' }
     });
   } finally {
     setOauthLoading(false);
