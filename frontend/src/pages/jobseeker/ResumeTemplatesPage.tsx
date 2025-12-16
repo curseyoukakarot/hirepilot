@@ -14,6 +14,18 @@ type ResumeTemplate = {
   template_config: any;
 };
 
+function normalizeRolePlan(v: any) {
+  return String(v || '').toLowerCase().replace(/\s|-/g, '_');
+}
+
+function isEliteFromRolePlan(role?: any, plan?: any, accountType?: any) {
+  const r = normalizeRolePlan(role);
+  const p = normalizeRolePlan(plan);
+  const a = normalizeRolePlan(accountType);
+  if (['super_admin', 'admin', 'team_admin', 'team_admins'].includes(r)) return true;
+  return r === 'job_seeker_elite' || p === 'job_seeker_elite' || a === 'job_seeker_elite';
+}
+
 const MOCK_TEMPLATES: ResumeTemplate[] = [
   {
     id: 'a2a5a4f9-5d15-4b9b-b0d0-9bb8d2b0c002',
@@ -96,6 +108,70 @@ const pageCss = `
   .pill { border: 1px solid rgba(148,163,184,.18); }
 `;
 
+function MiniResumePreview({ template }: { template: ResumeTemplate }) {
+  const cfg = template.template_config || {};
+  const accent = String(cfg.accentColor || (template.slug === 'modern_timeline' ? '#10B981' : template.slug === 'executive_sidebar' ? '#4F46E5' : template.slug === 'brand_header_clean' ? '#7C3AED' : '#365F91'));
+  const layout = String(cfg.layout || (template.slug === 'executive_sidebar' ? 'twoColumn' : 'single'));
+  const isTwoCol = layout === 'twoColumn';
+  const isTimeline = template.slug === 'modern_timeline' || cfg.experienceStyle === 'timeline';
+  const isCompact = template.slug === 'compact_operator';
+  const isBrandHeader = template.slug === 'brand_header_clean' || cfg.headerStyle === 'brand';
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center p-3">
+      <div className="relative w-full h-full rounded-lg bg-white overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,.25)]">
+        {isBrandHeader && <div className="h-3 w-full" style={{ background: accent }} />}
+        <div className={`p-3 ${isCompact ? 'text-[7px]' : 'text-[8px]'} text-slate-800`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-extrabold tracking-tight text-[10px]">Eric Lopez</div>
+            <div className="text-[7px] text-slate-500">jobs.thehirepilot.com</div>
+          </div>
+          <div className="mt-1 text-[7px] text-slate-500">elo@hire.offrgroup.com · linkedin.com/in/elo</div>
+          <div className="mt-2 h-[1px] w-full bg-slate-200" />
+
+          <div className={isTwoCol ? 'mt-2 grid grid-cols-[1.6fr_1fr] gap-2' : 'mt-2'}>
+            <div>
+              <div className="font-bold uppercase tracking-[0.14em] text-[7px]" style={{ color: accent }}>
+                Summary
+              </div>
+              <div className="mt-1 text-slate-600">
+                Revenue leader scaling GTM teams. Strong pipeline systems + coaching.
+              </div>
+
+              <div className="mt-2 font-bold uppercase tracking-[0.14em] text-[7px]" style={{ color: accent }}>
+                Experience
+              </div>
+              <div className={`mt-1 ${isTimeline ? 'border-l-2 pl-2' : ''}`} style={isTimeline ? ({ borderColor: `${accent}55` } as any) : undefined}>
+                <div className="font-semibold text-slate-800">Head of Sales · Nimbus Data</div>
+                <div className="text-slate-500">2021–Present</div>
+                <ul className="mt-1 list-disc pl-4 text-slate-600 space-y-[2px]">
+                  <li>Scaled ARR $3M → $13M</li>
+                  <li>Built outbound motion + playbooks</li>
+                </ul>
+              </div>
+            </div>
+
+            {isTwoCol && (
+              <div className="border-l border-slate-200 pl-2">
+                <div className="font-bold uppercase tracking-[0.14em] text-[7px]" style={{ color: accent }}>
+                  Skills
+                </div>
+                <div className="mt-1 text-slate-600 leading-snug">
+                  GTM · Pipeline · Leadership · MEDDIC · Salesforce
+                </div>
+                <div className="mt-2 font-bold uppercase tracking-[0.14em] text-[7px]" style={{ color: accent }}>
+                  Focus
+                </div>
+                <div className="mt-1 text-slate-600">Enterprise · B2B SaaS</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ResumeTemplatesPage() {
   const navigate = useNavigate();
   const { role } = usePlan();
@@ -133,7 +209,15 @@ export default function ResumeTemplatesPage() {
           credentials: 'include',
         });
         const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) return;
+        if (!resp.ok) {
+          // Fallback: fetch canonical role/plan from backend (avoids Supabase RLS role read issues)
+          try {
+            const meResp = await fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+            const me = await meResp.json().catch(() => ({}));
+            if (meResp.ok && !cancelled) setServerElite(isEliteFromRolePlan(me?.role, me?.plan, me?.account_type));
+          } catch {}
+          return;
+        }
         if (!cancelled) {
           // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
           const serverTemplates = Array.isArray(json?.templates) ? (json.templates as ResumeTemplate[]) : [];
@@ -352,10 +436,8 @@ export default function ResumeTemplatesPage() {
                   data-name={t.name}
                 >
                   <div className="relative h-44 bg-slate-900/40">
-                    <div className="absolute inset-0 shimmer" style={{ animationDelay: `${idx * 180}ms` }}></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
-                      {t.preview_image_url ? 'Preview' : 'Preview Placeholder'}
-                    </div>
+                    {/* Live mini preview (no image assets required) */}
+                    <MiniResumePreview template={t} />
                     <div className="absolute top-3 left-3 flex gap-2">
                       {t.is_ats_safe ? (
                         <span className="pill rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">ATS-Safe</span>
@@ -440,8 +522,12 @@ export default function ResumeTemplatesPage() {
 
             <div className="grid gap-0 md:grid-cols-12">
               <div className="md:col-span-8 p-5">
-                <div className="soft-border rounded-xl bg-slate-900/30 h-[420px] grid place-items-center text-slate-400 text-sm">
-                  Large Preview Placeholder
+                <div className="soft-border rounded-xl bg-slate-900/30 h-[420px] overflow-hidden">
+                  {modalTemplate && (
+                    <div className="h-full w-full">
+                      <MiniResumePreview template={modalTemplate} />
+                    </div>
+                  )}
                 </div>
               </div>
               <aside className="md:col-span-4 p-5 soft-border border-l border-slate-700/30">

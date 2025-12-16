@@ -13,6 +13,17 @@ type LandingTheme = {
   theme_html: string;
 };
 
+function normalizeRolePlan(v: any) {
+  return String(v || '').toLowerCase().replace(/\s|-/g, '_');
+}
+function isEliteFromRolePlan(role?: any, plan?: any, accountType?: any) {
+  const r = normalizeRolePlan(role);
+  const p = normalizeRolePlan(plan);
+  const a = normalizeRolePlan(accountType);
+  if (['super_admin', 'admin', 'team_admin', 'team_admins'].includes(r)) return true;
+  return r === 'job_seeker_elite' || p === 'job_seeker_elite' || a === 'job_seeker_elite';
+}
+
 const MOCK_THEMES: LandingTheme[] = [
   { id: 'b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d003', name: 'Executive Serif', slug: 'executive_serif', tags: ['executive', 'modern'], preview_image_url: null, theme_config: {}, theme_html: '' },
   { id: 'b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d010', name: 'Bold Dark Neon', slug: 'bold_dark_neon', tags: ['dark', 'modern', 'sales'], preview_image_url: null, theme_config: {}, theme_html: '' },
@@ -52,6 +63,33 @@ const pageCss = `
   .pill { border: 1px solid rgba(148,163,184,.18); }
 `;
 
+function buildThemePreviewHtml(theme: LandingTheme) {
+  const wrapper = theme.theme_html || '';
+  const content = `
+    <div style="max-width:980px;margin:0 auto;">
+      <div style="border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(255,255,255,.04);padding:18px;">
+        <div style="font-size:12px;opacity:.7;margin-bottom:10px;">HirePilot Jobs • Landing Page</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px;">Eric Lopez</div>
+        <div style="opacity:.7;margin-bottom:12px;">Revenue leader • B2B SaaS • Head of Sales</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);">Book a call</div>
+          <div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);">Email me</div>
+        </div>
+        <div style="display:grid;gap:10px;">
+          <div style="height:10px;width:90%;border-radius:8px;background:rgba(255,255,255,.10)"></div>
+          <div style="height:10px;width:70%;border-radius:8px;background:rgba(255,255,255,.08)"></div>
+          <div style="height:10px;width:82%;border-radius:8px;background:rgba(255,255,255,.08)"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  const body = wrapper
+    ? (wrapper.includes('{{content}}') ? wrapper.replace('{{content}}', content) : `${wrapper}${content}`)
+    : `<div style="min-height:100vh;background:#070A0F;color:rgba(255,255,255,.92);font-family:ui-sans-serif,system-ui;padding:24px 16px;">${content}</div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0">${body}</body></html>`;
+}
+
 export default function LandingThemesPage() {
   const navigate = useNavigate();
   const { role } = usePlan();
@@ -85,7 +123,15 @@ export default function LandingThemesPage() {
           credentials: 'include',
         });
         const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) return;
+        if (!resp.ok) {
+          // Fallback: fetch canonical role/plan from backend (avoids Supabase RLS role read issues)
+          try {
+            const meResp = await fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+            const me = await meResp.json().catch(() => ({}));
+            if (meResp.ok && !cancelled) setServerElite(isEliteFromRolePlan(me?.role, me?.plan, me?.account_type));
+          } catch {}
+          return;
+        }
         if (!cancelled) {
           // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
           const serverThemes = Array.isArray(json?.themes) ? (json.themes as LandingTheme[]) : [];
@@ -314,8 +360,13 @@ export default function LandingThemesPage() {
               return (
                 <article key={t.id} className="themeCard card-hover soft-border rounded-2xl bg-white/5 overflow-hidden" data-name={t.name}>
                   <div className="relative h-44 bg-slate-900/40">
-                    <div className="absolute inset-0 shimmer" style={{ animationDelay: `${idx * 180}ms` }}></div>
-                    <div className="absolute inset-0 grid place-items-center text-slate-400 text-xs">Theme Preview</div>
+                    {/* Live-ish preview thumbnail */}
+                    <iframe
+                      title={`${t.name} preview`}
+                      className="absolute inset-0 h-full w-full"
+                      srcDoc={buildThemePreviewHtml(t)}
+                      sandbox="allow-same-origin"
+                    />
                     <div className="absolute top-3 left-3 flex gap-2">
                       <span className="pill rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-100">{pill1}</span>
                       <span className="pill rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-slate-200">{pill2}</span>
@@ -398,7 +449,16 @@ export default function LandingThemesPage() {
               </div>
 
               <div className="mt-4 soft-border rounded-xl bg-slate-900/30 h-[440px] grid place-items-center text-slate-400 text-sm">
-                Responsive Preview Placeholder ({tab})
+                {modalTheme ? (
+                  <iframe
+                    title={`${modalTheme.name} preview ${tab}`}
+                    className="h-full w-full"
+                    srcDoc={buildThemePreviewHtml(modalTheme)}
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <>Responsive Preview Placeholder ({tab})</>
+                )}
               </div>
 
               <div className="mt-4 text-xs text-slate-400">
