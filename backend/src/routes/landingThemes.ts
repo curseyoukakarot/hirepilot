@@ -10,20 +10,38 @@ function normalizeRolePlan(v: any) {
 
 async function resolveEliteFlag(userId: string, req: Request): Promise<boolean> {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .select('role, plan')
+      .select('role, plan, account_type')
       .eq('id', userId)
       .maybeSingle();
+    if (error) throw error;
+
     const role = normalizeRolePlan((data as any)?.role || (req as any)?.user?.role);
     const plan = normalizeRolePlan((data as any)?.plan || (req as any)?.user?.plan);
+    const accountType = normalizeRolePlan((data as any)?.account_type || (req as any)?.user?.account_type);
     if (['super_admin', 'admin', 'team_admin', 'team_admins'].includes(role)) return true;
-    return role === 'job_seeker_elite' || plan === 'job_seeker_elite';
+
+    const elite = role === 'job_seeker_elite' || plan === 'job_seeker_elite' || accountType === 'job_seeker_elite';
+
+    // Self-heal drift: if role indicates Elite but plan/account_type are still free, sync them.
+    if (role === 'job_seeker_elite' && (!elite || plan !== 'job_seeker_elite' || accountType !== 'job_seeker_elite')) {
+      try {
+        await supabase
+          .from('users')
+          .update({ plan: 'job_seeker_elite', account_type: 'job_seeker_elite' } as any)
+          .eq('id', userId);
+      } catch {}
+      return true;
+    }
+
+    return elite;
   } catch {
     const role = normalizeRolePlan((req as any)?.user?.role);
     const plan = normalizeRolePlan((req as any)?.user?.plan);
+    const accountType = normalizeRolePlan((req as any)?.user?.account_type);
     if (['super_admin', 'admin', 'team_admin', 'team_admins'].includes(role)) return true;
-    return role === 'job_seeker_elite' || plan === 'job_seeker_elite';
+    return role === 'job_seeker_elite' || plan === 'job_seeker_elite' || accountType === 'job_seeker_elite';
   }
 }
 
