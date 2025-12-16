@@ -184,6 +184,7 @@ export default function ResumeTemplatesPage() {
   const [serverElite, setServerElite] = useState<boolean | null>(null);
   const isElite = (serverElite ?? isEliteFromClient) === true;
   const [loading, setLoading] = useState(false);
+  const [eliteLoading, setEliteLoading] = useState(false);
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<{ ats: boolean; design: boolean; onepage: boolean }>({ ats: false, design: false, onepage: false });
@@ -201,34 +202,38 @@ export default function ResumeTemplatesPage() {
     (async () => {
       try {
         setLoading(true);
+        setEliteLoading(true);
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) return;
-        const resp = await fetch(`${backend}/api/resume-templates`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          // Fallback: fetch canonical role/plan from backend (avoids Supabase RLS role read issues)
-          try {
-            const meResp = await fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
-            const me = await meResp.json().catch(() => ({}));
-            if (meResp.ok && !cancelled) setServerElite(isEliteFromRolePlan(me?.role, me?.plan, me?.account_type));
-          } catch {}
-          return;
-        }
+        const [resp, meResp] = await Promise.all([
+          fetch(`${backend}/api/resume-templates`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }),
+          fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }),
+        ]);
+
+        const [json, me] = await Promise.all([
+          resp.json().catch(() => ({})),
+          meResp.json().catch(() => ({})),
+        ]);
+
         if (!cancelled) {
+          // Prefer authoritative Elite check from /api/user/me
+          const meElite = meResp.ok ? isEliteFromRolePlan(me?.role, me?.plan, me?.account_type) : null;
+          const apiElite = typeof json?.isElite === 'boolean' ? Boolean(json.isElite) : null;
+          setServerElite((meElite ?? apiElite) ?? null);
+
           // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
-          const serverTemplates = Array.isArray(json?.templates) ? (json.templates as ResumeTemplate[]) : [];
-          if (serverTemplates.length > 0) setTemplates(serverTemplates);
-          if (json?.selectedTemplateId) setSelectedTemplateId(json.selectedTemplateId);
-          setServerElite(Boolean(json?.isElite));
+          if (resp.ok) {
+            const serverTemplates = Array.isArray(json?.templates) ? (json.templates as ResumeTemplate[]) : [];
+            if (serverTemplates.length > 0) setTemplates(serverTemplates);
+            if (json?.selectedTemplateId) setSelectedTemplateId(json.selectedTemplateId);
+          }
         }
       } catch {
         // non-blocking (page still renders with empty state)
       } finally {
         if (!cancelled) setLoading(false);
+        if (!cancelled) setEliteLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -263,10 +268,6 @@ export default function ResumeTemplatesPage() {
 
   const applyTemplate = async (t: ResumeTemplate) => {
     setApplyError(null);
-    if (!isElite) {
-      setApplyError('Upgrade to Job Seeker Elite to unlock templates.');
-      return;
-    }
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -409,7 +410,7 @@ export default function ResumeTemplatesPage() {
                 <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-slate-300">
                   <span className="inline-flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${isElite ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                    {isElite ? 'Elite Unlocked' : 'Locked (upgrade to apply)'}
+                    {eliteLoading ? 'Checking access…' : (isElite ? 'Elite Unlocked' : 'Locked (upgrade to apply)')}
                   </span>
                 </div>
               </div>

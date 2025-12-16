@@ -102,6 +102,7 @@ export default function LandingThemesPage() {
   const [serverElite, setServerElite] = useState<boolean | null>(null);
   const isElite = (serverElite ?? isEliteFromClient) === true;
   const [loading, setLoading] = useState(false);
+  const [eliteLoading, setEliteLoading] = useState(false);
 
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
@@ -115,34 +116,36 @@ export default function LandingThemesPage() {
     (async () => {
       try {
         setLoading(true);
+        setEliteLoading(true);
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) return;
-        const resp = await fetch(`${backend}/api/landing-themes`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          // Fallback: fetch canonical role/plan from backend (avoids Supabase RLS role read issues)
-          try {
-            const meResp = await fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
-            const me = await meResp.json().catch(() => ({}));
-            if (meResp.ok && !cancelled) setServerElite(isEliteFromRolePlan(me?.role, me?.plan, me?.account_type));
-          } catch {}
-          return;
-        }
+        const [resp, meResp] = await Promise.all([
+          fetch(`${backend}/api/landing-themes`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }),
+          fetch(`${backend}/api/user/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }),
+        ]);
+
+        const [json, me] = await Promise.all([
+          resp.json().catch(() => ({})),
+          meResp.json().catch(() => ({})),
+        ]);
+
         if (!cancelled) {
-          // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
-          const serverThemes = Array.isArray(json?.themes) ? (json.themes as LandingTheme[]) : [];
-          if (serverThemes.length > 0) setThemes(serverThemes);
-          if (json?.selectedThemeId) setSelectedThemeId(json.selectedThemeId);
-          setServerElite(Boolean(json?.isElite));
+          const meElite = meResp.ok ? isEliteFromRolePlan(me?.role, me?.plan, me?.account_type) : null;
+          const apiElite = typeof json?.isElite === 'boolean' ? Boolean(json.isElite) : null;
+          setServerElite((meElite ?? apiElite) ?? null);
+
+          if (resp.ok) {
+            const serverThemes = Array.isArray(json?.themes) ? (json.themes as LandingTheme[]) : [];
+            if (serverThemes.length > 0) setThemes(serverThemes);
+            if (json?.selectedThemeId) setSelectedThemeId(json.selectedThemeId);
+          }
         }
       } catch {
         // non-blocking
       } finally {
         if (!cancelled) setLoading(false);
+        if (!cancelled) setEliteLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -190,10 +193,6 @@ export default function LandingThemesPage() {
 
   const applyTheme = async (t: LandingTheme) => {
     setApplyError(null);
-    if (!isElite) {
-      setApplyError('Upgrade to Job Seeker Elite to unlock themes.');
-      return;
-    }
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
