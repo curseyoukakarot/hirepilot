@@ -63,6 +63,7 @@ export default function LandingThemesPage() {
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>('b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d001');
   const [serverElite, setServerElite] = useState<boolean | null>(null);
   const isElite = (serverElite ?? isEliteFromClient) === true;
+  const [loading, setLoading] = useState(false);
 
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
@@ -75,6 +76,7 @@ export default function LandingThemesPage() {
     let cancelled = false;
     (async () => {
       try {
+        setLoading(true);
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) return;
@@ -85,12 +87,16 @@ export default function LandingThemesPage() {
         const json = await resp.json().catch(() => ({}));
         if (!resp.ok) return;
         if (!cancelled) {
-          setThemes(Array.isArray(json?.themes) ? json.themes : []);
-          setSelectedThemeId(json?.selectedThemeId || null);
+          // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
+          const serverThemes = Array.isArray(json?.themes) ? (json.themes as LandingTheme[]) : [];
+          if (serverThemes.length > 0) setThemes(serverThemes);
+          if (json?.selectedThemeId) setSelectedThemeId(json.selectedThemeId);
           setServerElite(Boolean(json?.isElite));
         }
       } catch {
         // non-blocking
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -295,6 +301,11 @@ export default function LandingThemesPage() {
 
         <section className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {!filtered.length && (
+              <div className="soft-border rounded-2xl bg-white/5 p-6 text-sm text-slate-300">
+                {loading ? 'Loading themes…' : 'No themes found yet. If this is a fresh environment, apply the Supabase migration to seed themes.'}
+              </div>
+            )}
             {filtered.map((t, idx) => {
               const isSelected = t.id === selectedThemeId;
               const tagsLc = (t.tags || []).map((x) => String(x).toLowerCase());

@@ -107,6 +107,7 @@ export default function ResumeTemplatesPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>('a2a5a4f9-5d15-4b9b-b0d0-9bb8d2b0c001');
   const [serverElite, setServerElite] = useState<boolean | null>(null);
   const isElite = (serverElite ?? isEliteFromClient) === true;
+  const [loading, setLoading] = useState(false);
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<{ ats: boolean; design: boolean; onepage: boolean }>({ ats: false, design: false, onepage: false });
@@ -123,6 +124,7 @@ export default function ResumeTemplatesPage() {
     let cancelled = false;
     (async () => {
       try {
+        setLoading(true);
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) return;
@@ -133,12 +135,16 @@ export default function ResumeTemplatesPage() {
         const json = await resp.json().catch(() => ({}));
         if (!resp.ok) return;
         if (!cancelled) {
-          setTemplates(Array.isArray(json?.templates) ? json.templates : []);
-          setSelectedTemplateId(json?.selectedTemplateId || null);
+          // Only replace mocks if server returns non-empty list (migrations may not be applied yet)
+          const serverTemplates = Array.isArray(json?.templates) ? (json.templates as ResumeTemplate[]) : [];
+          if (serverTemplates.length > 0) setTemplates(serverTemplates);
+          if (json?.selectedTemplateId) setSelectedTemplateId(json.selectedTemplateId);
           setServerElite(Boolean(json?.isElite));
         }
       } catch {
         // non-blocking (page still renders with empty state)
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -330,6 +336,11 @@ export default function ResumeTemplatesPage() {
         {/* Grid */}
         <section className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {!filtered.length && (
+              <div className="soft-border rounded-2xl bg-white/5 p-6 text-sm text-slate-300">
+                {loading ? 'Loading templates…' : 'No templates found yet. If this is a fresh environment, apply the Supabase migration to seed templates.'}
+              </div>
+            )}
             {filtered.map((t, idx) => {
               const tagsLc = (t.tags || []).map((x) => String(x).toLowerCase());
               const isDesign = tagsLc.includes('design');
