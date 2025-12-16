@@ -29,6 +29,7 @@ type GeneratedResumeJson = {
   summary: string;
   skills: string[];
   experience: GeneratedExperience[];
+  contact?: { name?: string; email?: string; linkedin?: string };
 };
 
 const defaultResume: GeneratedResumeJson = {
@@ -112,6 +113,8 @@ export default function ResumeBuilderPage() {
   const [customIndustryOpen, setCustomIndustryOpen] = useState<boolean>(false);
   const [customIndustryText, setCustomIndustryText] = useState<string>('');
   const [parsingUpload, setParsingUpload] = useState<boolean>(false);
+  const [selectedTemplateName, setSelectedTemplateName] = useState<string>('ATS-Safe Classic');
+  const [templateLoading, setTemplateLoading] = useState<boolean>(false);
   const markTargetRoleStep = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -175,6 +178,36 @@ export default function ResumeBuilderPage() {
       cancelled = true;
     };
   }, [backend, draftId]);
+
+  // Load current resume template selection (used for export already; here we just display it in the UI)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setTemplateLoading(true);
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const resp = await fetch(`${backend}/api/resume-templates`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) return;
+        const list = Array.isArray(json?.templates) ? json.templates : [];
+        const selectedId = json?.selectedTemplateId || null;
+        const selected = selectedId ? list.find((t: any) => t.id === selectedId) : list.find((t: any) => t.slug === 'ats_safe_classic');
+        if (!cancelled) setSelectedTemplateName(selected?.name || 'ATS-Safe Classic');
+      } catch {
+        // non-blocking
+      } finally {
+        if (!cancelled) setTemplateLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   useEffect(() => {
     (async () => {
@@ -1014,7 +1047,18 @@ export default function ResumeBuilderPage() {
           <div id="preview-panel" className="lg:sticky lg:top-6 h-fit">
             <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 flex flex-col gap-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <span className="text-sm font-medium text-slate-300">Preview: ATS Clean</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    Preview: {templateLoading ? 'Loading…' : selectedTemplateName}
+                  </span>
+                  <Link
+                    to="/prep/resume/templates"
+                    className="text-[11px] px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50 text-slate-300 hover:border-indigo-500 hover:text-indigo-200 transition"
+                    title="Choose a different template"
+                  >
+                    Change
+                  </Link>
+                </div>
                 <div className="flex items-center gap-2">
                 <button
                   className="px-3 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-900 transition-all flex items-center gap-2"
