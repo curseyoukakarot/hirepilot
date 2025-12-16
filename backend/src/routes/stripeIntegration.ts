@@ -19,10 +19,16 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
       .maybeSingle();
     if (error) throw error;
 
+    const platformKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
     res.json({
       has_keys: !!(data?.stripe_secret_key && data?.stripe_publishable_key),
       connected_account_id: data?.stripe_connected_account_id || null,
       mode: data?.stripe_mode || 'connect',
+      // Non-sensitive hints to debug key mismatches in production.
+      // We never return full keys; only last4.
+      secret_key_last4: data?.stripe_secret_key ? String(data.stripe_secret_key).slice(-4) : null,
+      publishable_key_last4: data?.stripe_publishable_key ? String(data.stripe_publishable_key).slice(-4) : null,
+      platform_secret_last4: platformKey ? platformKey.slice(-4) : null,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -134,6 +134,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 
 // POST /api/invoices/create
 router.post('/create', requireAuth, async (req: Request, res: Response) => {
+  const debug: any = {};
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -192,6 +193,14 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     const useUserKeys = !!userSecretKey;
     const connectedId = (integ as any)?.stripe_connected_account_id || null;
 
+    debug.stripe_mode = mode;
+    debug.has_user_secret_key = !!userSecretKey;
+    debug.user_secret_last4 = userSecretKey ? userSecretKey.slice(-4) : null;
+    const platformKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
+    debug.platform_secret_last4 = platformKey ? platformKey.slice(-4) : null;
+    debug.connected_account_present = !!connectedId;
+    debug.stripe_source = useUserKeys ? 'user_keys' : (connectedId ? 'connect_platform' : 'platform_env');
+
     const stripe = useUserKeys
       ? new Stripe(userSecretKey, { apiVersion: '2022-11-15' })
       : platformStripe;
@@ -245,7 +254,25 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     try { await createZapEvent({ event_type: EVENT_TYPES.invoice_created, user_id: userId, entity: 'invoice', entity_id: data.id, payload: { amount: data.amount, currency: 'usd' } }); } catch {}
     res.json({ invoice: data, hosted_invoice_url: (hosted as any)?.hosted_invoice_url || null });
   } catch (e: any) {
-    res.status(500).json({ error: e.message || 'Invoice creation failed' });
+    // Stripe tends to throw auth errors when an API key is invalid; don't echo secrets back.
+    const type = String(e?.type || e?.rawType || '');
+    const msg = String(e?.message || 'Invoice creation failed');
+    const isStripeAuth = type.toLowerCase().includes('authentication') || /invalid api key/i.test(msg);
+    if (isStripeAuth) {
+      res.status(500).json({
+        error: 'stripe_auth_error',
+        stripe: {
+          source: debug.stripe_source,
+          mode: debug.stripe_mode,
+          has_user_secret_key: debug.has_user_secret_key,
+          user_secret_last4: debug.user_secret_last4,
+          platform_secret_last4: debug.platform_secret_last4,
+          connected_account_present: debug.connected_account_present,
+        },
+      });
+      return;
+    }
+    res.status(500).json({ error: msg || 'Invoice creation failed' });
   }
 });
 
