@@ -402,20 +402,20 @@ export default function DealsPage() {
 
   const BillingSection = () => (
     <div className="w-full">
-      <div className="bg-white rounded-xl border p-6 mb-4 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-900/60 rounded-xl border dark:border-white/10 p-6 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative w-72">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-            <input className="w-full pl-8 pr-3 py-2 bg-white border rounded-lg text-sm" placeholder="Search invoices..." />
+            <input className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500" placeholder="Search invoices..." />
           </div>
-          <select className="border rounded-lg text-sm py-2 px-3">
+          <select className="border dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm py-2 px-3 text-gray-900 dark:text-gray-200">
             <option value="">All Statuses</option>
             <option>unbilled</option>
             <option>sent</option>
             <option>paid</option>
             <option>overdue</option>
           </select>
-          <select className="border rounded-lg text-sm py-2 px-3">
+          <select className="border dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm py-2 px-3 text-gray-900 dark:text-gray-200">
             <option value="">All Billing Types</option>
             <option>contingency</option>
             <option>retainer</option>
@@ -424,13 +424,13 @@ export default function DealsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg" onClick={()=>openInvoiceModal()}>Create Invoice</button>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg" onClick={()=>openInvoiceModal()}>Create Invoice</button>
         </div>
       </div>
-      <div className="bg-white border rounded-xl overflow-hidden">
+      <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+          <table className="w-full text-sm text-gray-900 dark:text-gray-100">
+            <thead className="bg-gray-50 dark:bg-gray-800/60 border-b dark:border-white/10">
               <tr>
                 <th className="p-4 w-12"><input type="checkbox" /></th>
                 <th className="p-4 text-left">Opportunity</th>
@@ -441,25 +441,29 @@ export default function DealsPage() {
                 <th className="p-4 text-left">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y dark:divide-white/10">
               {invLoading ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-gray-500 dark:text-gray-400">Loading…</td></tr>
               ) : invoices.length === 0 ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-500">No invoices</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-gray-500 dark:text-gray-400">No invoices</td></tr>
               ) : (
                 invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-gray-50">
+                  <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
                     <td className="p-4"><input type="checkbox" /></td>
                     <td className="p-4">{inv.opportunity_id?.slice(0,8)}</td>
                     <td className="p-4">{inv.client_id?.slice(0,8)}</td>
                     <td className="p-4 capitalize">{inv.billing_type || '—'}</td>
                     <td className="p-4">${(Number(inv.amount)||0).toLocaleString()}</td>
-                    <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{inv.status}</span></td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                        {inv.status}
+                      </span>
+                    </td>
                     <td className="p-4 space-x-3">
-                      <button className="text-blue-600" onClick={()=>openInvoiceModal(inv.opportunity_id, (inv.billing_type||'contingency'))}>Bill Now</button>
-                      <button className="text-blue-600">View</button>
-                      {inv.status!=='paid' && <button className="text-blue-600">Send Reminder</button>}
-                      <button className="text-red-600" onClick={async ()=>{
+                      <button className="text-blue-600 dark:text-sky-400 hover:underline" onClick={()=>openInvoiceModal(inv.opportunity_id, (inv.billing_type||'contingency'))}>Bill Now</button>
+                      <button className="text-blue-600 dark:text-sky-400 hover:underline">View</button>
+                      {inv.status!=='paid' && <button className="text-blue-600 dark:text-sky-400 hover:underline">Send Reminder</button>}
+                      <button className="text-red-600 dark:text-red-400 hover:underline" onClick={async ()=>{
                         const { data: { session } } = await supabase.auth.getSession();
                         const token = session?.access_token;
                         await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices/${inv.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -1144,10 +1148,10 @@ export default function DealsPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4 dark:text-gray-100">Deals</h1>
       <div className="flex items-center space-x-2 bg-gray-200 dark:bg-gray-800 rounded-full p-1 mb-6">
-        <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Clients</button>
-        <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Opportunities</button>
-        <button onClick={() => setActiveTab('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='billing'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Billing</button>
-        <button onClick={() => setActiveTab('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold ${activeTab==='revenue'?'bg-white dark:bg-gray-900 text-blue-600 shadow-sm':'text-gray-600 dark:text-gray-300'}`}>Revenue</button>
+        <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Clients</button>
+        <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Opportunities</button>
+        <button onClick={() => setActiveTab('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='billing'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Billing</button>
+        <button onClick={() => setActiveTab('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='revenue'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Revenue</button>
       </div>
       {loading ? (
         <div className="animate-pulse text-gray-500">Loading…</div>
