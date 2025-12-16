@@ -20,14 +20,20 @@ router.get('/status', requireAuth as any, async (req: Request, res: Response) =>
     if (error) throw error;
 
     const platformKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
+    const secretKey = data?.stripe_secret_key ? String(data.stripe_secret_key) : '';
+    const publishableKey = data?.stripe_publishable_key ? String(data.stripe_publishable_key) : '';
     res.json({
       has_keys: !!(data?.stripe_secret_key && data?.stripe_publishable_key),
       connected_account_id: data?.stripe_connected_account_id || null,
       mode: data?.stripe_mode || 'connect',
       // Non-sensitive hints to debug key mismatches in production.
       // We never return full keys; only last4.
-      secret_key_last4: data?.stripe_secret_key ? String(data.stripe_secret_key).slice(-4) : null,
-      publishable_key_last4: data?.stripe_publishable_key ? String(data.stripe_publishable_key).slice(-4) : null,
+      secret_key_last4: secretKey ? secretKey.slice(-4) : null,
+      publishable_key_last4: publishableKey ? publishableKey.slice(-4) : null,
+      secret_key_prefix: secretKey ? secretKey.slice(0, 7) : null, // e.g. "sk_live"
+      publishable_key_prefix: publishableKey ? publishableKey.slice(0, 7) : null, // e.g. "pk_live"
+      secret_key_length: secretKey ? secretKey.length : 0,
+      publishable_key_length: publishableKey ? publishableKey.length : 0,
       platform_secret_last4: platformKey ? platformKey.slice(-4) : null,
     });
   } catch (err: any) {
@@ -46,6 +52,16 @@ router.post('/save-keys', requireAuth as any, async (req: Request, res: Response
     if (!sk || !pk) return res.status(400).json({ error: 'missing_keys' });
     if (!/^sk_(test|live)_/.test(sk)) return res.status(400).json({ error: 'invalid_secret_key' });
     if (!/^pk_(test|live)_/.test(pk)) return res.status(400).json({ error: 'invalid_publishable_key' });
+    // Prevent accidentally saving masked/obfuscated values (common when copying from UI displays).
+    if (sk.includes('*') || sk.includes('•')) return res.status(400).json({ error: 'masked_secret_key' });
+    if (pk.includes('*') || pk.includes('•')) return res.status(400).json({ error: 'masked_publishable_key' });
+    // Basic sanity: keys should be long enough to be real.
+    if (sk.length < 20) return res.status(400).json({ error: 'secret_key_too_short' });
+    if (pk.length < 20) return res.status(400).json({ error: 'publishable_key_too_short' });
+    // Ensure both keys are from the same mode.
+    const skMode = sk.startsWith('sk_live_') ? 'live' : 'test';
+    const pkMode = pk.startsWith('pk_live_') ? 'live' : 'test';
+    if (skMode !== pkMode) return res.status(400).json({ error: 'key_mode_mismatch' });
 
     const { error } = await supabase
       .from('user_integrations')

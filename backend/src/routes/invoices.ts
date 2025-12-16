@@ -196,6 +196,8 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     debug.stripe_mode = mode;
     debug.has_user_secret_key = !!userSecretKey;
     debug.user_secret_last4 = userSecretKey ? userSecretKey.slice(-4) : null;
+    debug.user_secret_prefix = userSecretKey ? userSecretKey.slice(0, 7) : null;
+    debug.user_secret_length = userSecretKey ? userSecretKey.length : 0;
     const platformKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
     debug.platform_secret_last4 = platformKey ? platformKey.slice(-4) : null;
     debug.connected_account_present = !!connectedId;
@@ -266,6 +268,8 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
           mode: debug.stripe_mode,
           has_user_secret_key: debug.has_user_secret_key,
           user_secret_last4: debug.user_secret_last4,
+          user_secret_prefix: debug.user_secret_prefix,
+          user_secret_length: debug.user_secret_length,
           platform_secret_last4: debug.platform_secret_last4,
           connected_account_present: debug.connected_account_present,
         },
