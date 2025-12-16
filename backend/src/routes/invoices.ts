@@ -210,17 +210,52 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     // Ensure or reuse Stripe customer id for this client
     let stripeCustomerId = (client as any)?.stripe_customer_id || null;
     const createOrUpdateCustomer = async () => {
+      const stripeOpts = connectedId && !useUserKeys ? ({ stripeAccount: connectedId } as any) : undefined;
+      const isMissingCustomerErr = (err: any): boolean => {
+        const msg = String(err?.message || '');
+        const code = String(err?.code || err?.raw?.code || '');
+        return /no such customer/i.test(msg) || code === 'resource_missing';
+      };
+
+      // If we have a customer id, confirm it exists in the current Stripe context.
+      // (Customer IDs are scoped to the Stripe account; switching keys can invalidate stored IDs.)
+      if (stripeCustomerId) {
+        try {
+          await stripe.customers.retrieve(stripeCustomerId, stripeOpts);
+        } catch (e: any) {
+          if (isMissingCustomerErr(e)) {
+            stripeCustomerId = null;
+          } else {
+            throw e;
+          }
+        }
+      }
+
       if (!stripeCustomerId) {
         const customer = await stripe.customers.create({
           name: client?.name || undefined,
           email: recipient_email || undefined,
-        }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+        }, stripeOpts);
         stripeCustomerId = customer.id;
         await supabase.from('clients').update({ stripe_customer_id: stripeCustomerId }).eq('id', client?.id || '');
         return customer;
       } else if (recipient_email) {
         // Ensure email is present on existing customer for sendInvoice
-        await stripe.customers.update(stripeCustomerId, { email: recipient_email }, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
+        try {
+          await stripe.customers.update(stripeCustomerId, { email: recipient_email }, stripeOpts);
+        } catch (e: any) {
+          if (isMissingCustomerErr(e)) {
+            // Customer no longer exists in this Stripe context; recreate and persist.
+            const customer = await stripe.customers.create({
+              name: client?.name || undefined,
+              email: recipient_email || undefined,
+            }, stripeOpts);
+            stripeCustomerId = customer.id;
+            await supabase.from('clients').update({ stripe_customer_id: stripeCustomerId }).eq('id', client?.id || '');
+            return customer;
+          }
+          throw e;
+        }
       }
       return null as any;
     };
