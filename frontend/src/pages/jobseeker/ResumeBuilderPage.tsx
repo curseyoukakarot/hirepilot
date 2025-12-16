@@ -82,10 +82,20 @@ async function authHeaders(opts?: { includeJson?: boolean }) {
   return headers;
 }
 
+function getBackendBase() {
+  const env = String((import.meta as any)?.env?.VITE_BACKEND_URL || '').trim();
+  if (env) return env.replace(/\/$/, '');
+  try {
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    if (host.endsWith('thehirepilot.com')) return 'https://api.thehirepilot.com';
+  } catch {}
+  return 'http://localhost:8080';
+}
+
 export default function ResumeBuilderPage() {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get('draftId');
-  const backend = import.meta.env.VITE_BACKEND_URL || '';
+  const backend = getBackendBase();
 
   const { preview, updateSection, copyText, downloadPdf, setDraft } = useResumePreview(defaultResume);
   const [resume, setResume] = useState<GeneratedResumeJson>(defaultResume);
@@ -115,6 +125,8 @@ export default function ResumeBuilderPage() {
   const [parsingUpload, setParsingUpload] = useState<boolean>(false);
   const [selectedTemplateName, setSelectedTemplateName] = useState<string>('ATS-Safe Classic');
   const [templateLoading, setTemplateLoading] = useState<boolean>(false);
+  const [selectedTemplateConfig, setSelectedTemplateConfig] = useState<any>({});
+  const [selectedTemplateSlug, setSelectedTemplateSlug] = useState<string>('ats_safe_classic');
   const markTargetRoleStep = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -197,7 +209,11 @@ export default function ResumeBuilderPage() {
         const list = Array.isArray(json?.templates) ? json.templates : [];
         const selectedId = json?.selectedTemplateId || null;
         const selected = selectedId ? list.find((t: any) => t.id === selectedId) : list.find((t: any) => t.slug === 'ats_safe_classic');
-        if (!cancelled) setSelectedTemplateName(selected?.name || 'ATS-Safe Classic');
+        if (!cancelled) {
+          setSelectedTemplateName(selected?.name || 'ATS-Safe Classic');
+          setSelectedTemplateConfig(selected?.template_config || {});
+          setSelectedTemplateSlug(selected?.slug || 'ats_safe_classic');
+        }
       } catch {
         // non-blocking
       } finally {
@@ -208,6 +224,43 @@ export default function ResumeBuilderPage() {
       cancelled = true;
     };
   }, [backend]);
+
+  // Derive preview tokens from selected template_config (client-side preview only)
+  const previewTokens = useMemo(() => {
+    const cfg = selectedTemplateConfig || {};
+    const slug = selectedTemplateSlug || 'ats_safe_classic';
+    const accentColor =
+      typeof cfg?.accentColor === 'string' && cfg.accentColor
+        ? cfg.accentColor
+        : slug === 'modern_timeline'
+          ? '#10B981'
+          : slug === 'executive_sidebar'
+            ? '#4F46E5'
+            : slug === 'brand_header_clean'
+              ? '#7C3AED'
+              : '#365F91';
+    const layout =
+      typeof cfg?.layout === 'string' && cfg.layout
+        ? cfg.layout
+        : slug === 'executive_sidebar'
+          ? 'twoColumn'
+          : 'single';
+    const experienceStyle =
+      typeof cfg?.experienceStyle === 'string' && cfg.experienceStyle
+        ? cfg.experienceStyle
+        : slug === 'modern_timeline'
+          ? 'timeline'
+          : 'default';
+    const headerStyle =
+      typeof cfg?.headerStyle === 'string' && cfg.headerStyle
+        ? cfg.headerStyle
+        : slug === 'brand_header_clean'
+          ? 'brand'
+          : 'default';
+    const fontFamily = typeof cfg?.fontFamily === 'string' ? cfg.fontFamily : undefined;
+    const compact = slug === 'compact_operator' || (typeof cfg?.baseFontPt === 'number' && cfg.baseFontPt < 9);
+    return { accentColor, layout, experienceStyle, headerStyle, fontFamily, compact };
+  }, [selectedTemplateConfig, selectedTemplateSlug]);
 
   useEffect(() => {
     (async () => {
@@ -1086,57 +1139,114 @@ export default function ResumeBuilderPage() {
                 </div>
               </div>
 
-              <div
-                id="resume-preview"
-                className="mx-auto aspect-[8.5/11] w-full max-w-xl rounded-xl bg-slate-50 p-8 text-slate-900 shadow-2xl overflow-y-auto"
-                style={{ maxHeight: '900px' }}
-              >
-                <div className="mb-6 pb-4 border-b-2 border-slate-300">
-                  <h1 className="text-3xl font-bold text-slate-900 mb-1">{preview.contact?.name || 'Your Name Here'}</h1>
-                  <p className="text-sm text-slate-700 font-medium mb-2">
-                    {(preview.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
-                  </p>
-                  <div className="flex items-center gap-3 text-xs text-slate-600">
-                    <span>{preview.contact?.email || 'you@email.com'}</span>
-                    <span>·</span>
-                    <span>{preview.contact?.linkedin || 'linkedin.com/in/username'}</span>
+              {(() => {
+                const isTwoCol = previewTokens.layout === 'twoColumn';
+                const isTimeline = previewTokens.experienceStyle === 'timeline';
+                const isBrand = previewTokens.headerStyle === 'brand';
+                const baseText = previewTokens.compact ? 'text-[11px]' : 'text-xs';
+                const bodyText = previewTokens.compact ? 'text-[11px]' : 'text-xs';
+                const headingText = previewTokens.compact ? 'text-[10px]' : 'text-xs';
+                const accent = previewTokens.accentColor;
+                const fontFamily = previewTokens.fontFamily;
+
+                const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+                  <h2 className={`${headingText} font-bold tracking-wider uppercase mb-2`} style={{ color: accent }}>
+                    {children}
+                  </h2>
+                );
+
+                const SummarySection = () => (
+                  <div className="mb-6">
+                    <SectionTitle>Summary</SectionTitle>
+                    <p className={`${previewTokens.compact ? 'text-[12px]' : 'text-sm'} text-slate-700 leading-relaxed`}>{preview.summary}</p>
                   </div>
-                </div>
+                );
 
-                <div className="mb-6">
-                  <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SUMMARY</h2>
-                  <p className="text-sm text-slate-700 leading-relaxed">{preview.summary}</p>
-                </div>
+                const SkillsSection = () => (
+                  <div>
+                    <SectionTitle>Skills</SectionTitle>
+                    <p className={`${bodyText} text-slate-700 leading-relaxed`}>{preview.skills.join(' · ')}</p>
+                  </div>
+                );
 
-                <div className="mb-6">
-                  <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-3">EXPERIENCE</h2>
+                const ExperienceSection = () => (
+                  <div className="mb-6">
+                    <SectionTitle>Experience</SectionTitle>
+                    {experienceList.map((exp, idx) => {
+                      const timelineWrap = isTimeline ? 'border-l-2 pl-3' : '';
+                      const timelineStyle = isTimeline ? ({ borderColor: `${accent}55` } as React.CSSProperties) : undefined;
+                      return (
+                        <div className={`mb-4 ${timelineWrap}`} style={timelineStyle} key={`${exp.company}-${idx}`}>
+                          <div className="flex justify-between items-start mb-1 gap-3">
+                            <h3 className={`${previewTokens.compact ? 'text-[12px]' : 'text-sm'} font-bold text-slate-900`}>
+                              {exp.title}
+                            </h3>
+                            <span className={`${baseText} text-slate-600 whitespace-nowrap`}>{exp.dates || ''}</span>
+                          </div>
+                          <p className={`${previewTokens.compact ? 'text-[12px]' : 'text-sm'} text-slate-700 font-medium mb-2`}>
+                            {exp.company}
+                          </p>
+                          {exp.whyHiredSummary && <p className={`${bodyText} text-slate-700 leading-relaxed mb-2`}>{exp.whyHiredSummary}</p>}
+                          {!!exp.bullets?.length && (
+                            <ul className="space-y-1.5 ml-4">
+                              {exp.bullets.map((b, i) => (
+                                <li key={i} className={`${bodyText} text-slate-700 leading-relaxed list-disc`}>
+                                  {b}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
 
-                  {experienceList.map((exp, idx) => (
-                    <div className="mb-4" key={`${exp.company}-${idx}`}>
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="text-sm font-bold text-slate-900">{exp.title}</h3>
-                        <span className="text-xs text-slate-600">{exp.dates || ''}</span>
+                return (
+                  <div
+                    id="resume-preview"
+                    className="mx-auto aspect-[8.5/11] w-full max-w-xl rounded-xl bg-slate-50 text-slate-900 shadow-2xl overflow-y-auto"
+                    style={{
+                      maxHeight: '900px',
+                      fontFamily: fontFamily || undefined,
+                      padding: previewTokens.compact ? '1.5rem' : '2rem',
+                    }}
+                  >
+                    {isBrand && <div style={{ height: 10, background: accent, margin: '-2rem -2rem 1rem -2rem' }} />}
+                    <div className="mb-6 pb-4 border-b-2 border-slate-300">
+                      <h1 className={`${previewTokens.compact ? 'text-2xl' : 'text-3xl'} font-bold text-slate-900 mb-1`}>
+                        {preview.contact?.name || 'Your Name Here'}
+                      </h1>
+                      <p className={`${previewTokens.compact ? 'text-xs' : 'text-sm'} text-slate-700 font-medium mb-2`}>
+                        {(preview.targetRole.primaryTitle || 'Role')} · {(focusList[0] || 'Focus')} · {(industries[0] || 'Industry')}
+                      </p>
+                      <div className={`flex items-center gap-3 ${baseText} text-slate-600`}>
+                        <span>{preview.contact?.email || 'you@email.com'}</span>
+                        <span>·</span>
+                        <span>{preview.contact?.linkedin || 'linkedin.com/in/username'}</span>
                       </div>
-                      <p className="text-sm text-slate-700 font-medium mb-2">{exp.company}</p>
-                      {exp.whyHiredSummary && <p className="text-xs text-slate-700 leading-relaxed mb-2">{exp.whyHiredSummary}</p>}
-                      {!!exp.bullets?.length && (
-                        <ul className="space-y-1.5 ml-4">
-                          {exp.bullets.map((b, i) => (
-                            <li key={i} className="text-xs text-slate-700 leading-relaxed list-disc">
-                              {b}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
-                  ))}
-                </div>
 
-                <div>
-                  <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-2">SKILLS</h2>
-                  <p className="text-xs text-slate-700 leading-relaxed">{preview.skills.join(' · ')}</p>
-                </div>
-              </div>
+                    {isTwoCol ? (
+                      <div className="grid grid-cols-[1.65fr_1fr] gap-6">
+                        <div>
+                          <SummarySection />
+                          <ExperienceSection />
+                        </div>
+                        <aside className="border-l border-slate-200 pl-4">
+                          <SkillsSection />
+                        </aside>
+                      </div>
+                    ) : (
+                      <>
+                        <SummarySection />
+                        <ExperienceSection />
+                        <SkillsSection />
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1151,7 +1261,13 @@ export default function ResumeBuilderPage() {
                 Close
               </button>
             </div>
-            <div className="bg-slate-50 text-slate-900 rounded-xl p-8 space-y-4">
+            <div
+              className="bg-slate-50 text-slate-900 rounded-xl p-8 space-y-4"
+              style={{ fontFamily: previewTokens.fontFamily || undefined }}
+            >
+              {previewTokens.headerStyle === 'brand' && (
+                <div className="-mt-8 -mx-8 mb-4" style={{ height: 12, background: previewTokens.accentColor }} />
+              )}
               <div className="mb-4 pb-3 border-b border-slate-200">
                 <h1 className="text-3xl font-bold mb-1">{preview.contact?.name || 'Your Name Here'}</h1>
                 <p className="text-sm text-slate-700 font-medium mb-2">
@@ -1164,14 +1280,22 @@ export default function ResumeBuilderPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Summary</h2>
+                <h2 className="text-xs font-bold tracking-wider uppercase mb-2" style={{ color: previewTokens.accentColor }}>
+                  Summary
+                </h2>
                 <p className="text-sm leading-relaxed">{preview.summary}</p>
               </div>
               <div>
-                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Experience</h2>
+                <h2 className="text-xs font-bold tracking-wider uppercase mb-2" style={{ color: previewTokens.accentColor }}>
+                  Experience
+                </h2>
                 <div className="space-y-3">
                   {experienceList.map((exp, idx) => (
-                    <div key={`${exp.company}-${idx}`}>
+                    <div
+                      key={`${exp.company}-${idx}`}
+                      className={previewTokens.experienceStyle === 'timeline' ? 'border-l-2 pl-3' : ''}
+                      style={previewTokens.experienceStyle === 'timeline' ? ({ borderColor: `${previewTokens.accentColor}55` } as any) : undefined}
+                    >
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="text-sm font-bold">{exp.title}</h3>
                         <span className="text-xs text-slate-700">{exp.dates || ''}</span>
@@ -1192,7 +1316,9 @@ export default function ResumeBuilderPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xs font-bold tracking-wider text-slate-600 uppercase mb-2">Skills</h2>
+                <h2 className="text-xs font-bold tracking-wider uppercase mb-2" style={{ color: previewTokens.accentColor }}>
+                  Skills
+                </h2>
                 <p className="text-xs leading-relaxed">{preview.skills.join(' · ')}</p>
               </div>
             </div>
