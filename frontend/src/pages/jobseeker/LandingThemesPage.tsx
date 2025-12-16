@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePlan } from '../../context/PlanContext';
+import toast from 'react-hot-toast';
 
 type LandingTheme = {
   id: string;
@@ -222,9 +223,11 @@ export default function LandingThemesPage() {
         throw new Error(json?.error || 'Failed to apply theme');
       }
       setSelectedThemeId(t.id);
+      toast.success(`Applied "${t.name}". Your landing page will use this theme when you publish.`, { duration: 4500 });
       closeModal();
     } catch (e: any) {
       setApplyError(e?.message || 'Failed to apply theme');
+      toast.error(e?.message || 'Failed to apply theme');
     }
   };
 

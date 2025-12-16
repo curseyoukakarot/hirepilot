@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePlan } from '../../context/PlanContext';
+import toast from 'react-hot-toast';
 
 type ResumeTemplate = {
   id: string;
@@ -297,9 +298,11 @@ export default function ResumeTemplatesPage() {
         throw new Error(json?.error || 'Failed to apply template');
       }
       setSelectedTemplateId(t.id);
+      toast.success(`Applied "${t.name}". Your Resume Builder export will use this template.`, { duration: 4500 });
       closeModal();
     } catch (e: any) {
       setApplyError(e?.message || 'Failed to apply template');
+      toast.error(e?.message || 'Failed to apply template');
     }
   };
 
