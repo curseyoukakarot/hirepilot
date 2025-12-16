@@ -115,9 +115,11 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
           .eq('user_id', userId)
           .maybeSingle();
         const mode = (integ as any)?.stripe_mode || 'connect';
-        const useUserKeys = mode === 'keys' && (integ as any)?.stripe_secret_key;
+        const userSecretKey = String((integ as any)?.stripe_secret_key || '').trim();
+        // If a user-provided secret key exists, always prefer it to avoid falling back to a misconfigured platform key.
+        const useUserKeys = !!userSecretKey;
         const connectedId = (integ as any)?.stripe_connected_account_id || null;
-        const s = useUserKeys ? new Stripe((integ as any).stripe_secret_key, { apiVersion: '2022-11-15' }) : platformStripe;
+        const s = useUserKeys ? new Stripe(userSecretKey, { apiVersion: '2022-11-15' }) : platformStripe;
         await s.invoices.voidInvoice(row.stripe_invoice_id, connectedId && !useUserKeys ? { stripeAccount: connectedId } as any : undefined);
       }
     } catch (e) {
@@ -185,7 +187,9 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
 
     const mode = (integ as any)?.stripe_mode || 'connect';
     const userSecretKey = String((integ as any)?.stripe_secret_key || '').trim();
-    const useUserKeys = mode === 'keys' && !!userSecretKey;
+    // If a user-provided secret key exists, always prefer it to avoid falling back to a misconfigured platform key.
+    // (This also makes billing work even if the UI mode toggle is still set to "connect".)
+    const useUserKeys = !!userSecretKey;
     const connectedId = (integ as any)?.stripe_connected_account_id || null;
 
     const stripe = useUserKeys
