@@ -18,6 +18,16 @@ function normalizeRolePlan(v: any) {
   return String(v || '').toLowerCase().replace(/\s|-/g, '_');
 }
 
+function getBackendBase() {
+  const env = String((import.meta as any)?.env?.VITE_BACKEND_URL || '').trim();
+  if (env) return env.replace(/\/$/, '');
+  try {
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    if (host.endsWith('thehirepilot.com')) return 'https://api.thehirepilot.com';
+  } catch {}
+  return 'http://localhost:8080';
+}
+
 function isEliteFromRolePlan(role?: any, plan?: any, accountType?: any) {
   const r = normalizeRolePlan(role);
   const p = normalizeRolePlan(plan);
@@ -178,7 +188,7 @@ export default function ResumeTemplatesPage() {
   const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
   const isEliteFromClient = roleLc === 'job_seeker_elite' || ['super_admin', 'admin', 'team_admin', 'team_admins'].includes(roleLc);
 
-  const backend = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+  const backend = getBackendBase();
   const [templates, setTemplates] = useState<ResumeTemplate[]>(MOCK_TEMPLATES);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>('a2a5a4f9-5d15-4b9b-b0d0-9bb8d2b0c001');
   const [serverElite, setServerElite] = useState<boolean | null>(null);

@@ -24,6 +24,16 @@ function isEliteFromRolePlan(role?: any, plan?: any, accountType?: any) {
   return r === 'job_seeker_elite' || p === 'job_seeker_elite' || a === 'job_seeker_elite';
 }
 
+function getBackendBase() {
+  const env = String((import.meta as any)?.env?.VITE_BACKEND_URL || '').trim();
+  if (env) return env.replace(/\/$/, '');
+  try {
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    if (host.endsWith('thehirepilot.com')) return 'https://api.thehirepilot.com';
+  } catch {}
+  return 'http://localhost:8080';
+}
+
 const MOCK_THEMES: LandingTheme[] = [
   { id: 'b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d003', name: 'Executive Serif', slug: 'executive_serif', tags: ['executive', 'modern'], preview_image_url: null, theme_config: {}, theme_html: '' },
   { id: 'b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d010', name: 'Bold Dark Neon', slug: 'bold_dark_neon', tags: ['dark', 'modern', 'sales'], preview_image_url: null, theme_config: {}, theme_html: '' },
@@ -95,7 +105,7 @@ export default function LandingThemesPage() {
   const { role } = usePlan();
   const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
   const isEliteFromClient = roleLc === 'job_seeker_elite' || ['super_admin', 'admin', 'team_admin', 'team_admins'].includes(roleLc);
-  const backend = (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+  const backend = getBackendBase();
 
   const [themes, setThemes] = useState<LandingTheme[]>(MOCK_THEMES);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>('b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d001');
