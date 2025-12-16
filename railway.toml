@@ -4,9 +4,6 @@ builder = "dockerfile"
 context = "."
 dockerfilePath = "backend/Dockerfile"
 
-[build]
-builder = "dockerfile"
-
 [deploy]
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
