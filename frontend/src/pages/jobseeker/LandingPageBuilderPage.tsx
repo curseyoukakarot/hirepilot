@@ -11,6 +11,7 @@ import {
   FaRotateRight,
 } from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 
 type Tone = 'Confident' | 'Warm' | 'Direct' | 'Story-driven';
 type SectionKey = 'about' | 'experience' | 'caseStudies' | 'testimonials' | 'contact';
@@ -384,6 +385,8 @@ export default function LandingPageBuilderPage() {
     contact: true,
   });
   const [htmlContent, setHtmlContent] = useState(initialHtml);
+  const [selectedThemeName, setSelectedThemeName] = useState<string>('Minimal Clean');
+  const [themeWrapperHtml, setThemeWrapperHtml] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
   const markPublished = useCallback(async () => {
     try {
@@ -408,6 +411,44 @@ export default function LandingPageBuilderPage() {
   const [slugSaved, setSlugSaved] = useState(false);
   const [htmlSaved, setHtmlSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const wrapWithTheme = useCallback((content: string, wrapper: string | null) => {
+    const base = wrapper || '';
+    if (!base) return content;
+    // Theme wrappers are stored with a simple {{content}} placeholder
+    return base.includes('{{content}}') ? base.replace('{{content}}', content) : `${base}${content}`;
+  }, []);
+
+  const wrappedDoc = wrapWithTheme(htmlContent || initialHtml, themeWrapperHtml);
+
+  // Load currently selected theme (and wrapper HTML) so preview/publish reflect it
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const backend = import.meta.env.VITE_BACKEND_URL || '';
+        const resp = await fetch(`${backend}/api/landing-themes`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) return;
+        const themes = Array.isArray(json?.themes) ? json.themes : [];
+        const selectedId = json?.selectedThemeId || null;
+        const selected = selectedId ? themes.find((t: any) => t.id === selectedId) : themes.find((t: any) => t.slug === 'minimal_clean');
+        if (!cancelled) {
+          setSelectedThemeName(selected?.name || 'Minimal Clean');
+          setThemeWrapperHtml(selected?.theme_html || null);
+        }
+      } catch {
+        // non-blocking
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleToneToggle = (tone: Tone) => {
     setTones((prev) => {
@@ -473,7 +514,8 @@ export default function LandingPageBuilderPage() {
 
   const openPreviewTab = () => {
     const html = htmlContent || buildHtml();
-    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Landing Preview</title></head><body>${html}</body></html>`;
+    const themed = wrapWithTheme(html, themeWrapperHtml);
+    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Landing Preview • ${selectedThemeName}</title></head><body>${themed}</body></html>`;
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(fullDoc);
@@ -834,7 +876,7 @@ export default function LandingPageBuilderPage() {
             <div id="preview-frame" className="relative flex-1 rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
               <iframe
                 title="Landing preview"
-                srcDoc={htmlContent || initialHtml}
+                srcDoc={wrappedDoc}
                 className="w-full h-full border-0"
                 sandbox="allow-same-origin allow-popups allow-forms allow-scripts"
               />

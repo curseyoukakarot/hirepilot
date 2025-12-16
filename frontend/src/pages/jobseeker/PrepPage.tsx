@@ -122,6 +122,13 @@ export default function PrepPage() {
               <FaPlus />
               <span>Open Builder</span>
             </Link>
+            <Link
+              to="/prep/resume/templates"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm font-medium text-slate-200 hover:border-indigo-500 transition"
+            >
+              <FaStar />
+              <span>Browse Templates (Elite)</span>
+            </Link>
           </div>
 
           {/* Resume Parser Card wired to REX chat */}
@@ -216,6 +223,13 @@ export default function PrepPage() {
             >
               <FaRocket />
               <span>Create Site</span>
+            </Link>
+            <Link
+              to="/prep/landing/themes"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm font-medium text-slate-200 hover:border-indigo-500 transition"
+            >
+              <FaStar />
+              <span>Browse Themes (Elite)</span>
             </Link>
           </div>
         </div>

@@ -88,7 +88,11 @@ import activitiesRouter from './src/routes/activities';
 import featureEventsRouter from './src/routes/events.feature';
 import resumeDraftsRouter from './src/routes/resumeDrafts';
 import rexUploadsRouter from './src/routes/rexUploads';
-import resumePdfRouter from './src/routes/resumePdf';
+// NOTE: Keep as require() to avoid occasional TS module-resolution flake in some environments
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const resumePdfRouter = require('./src/routes/resumePdf').default;
+import resumeTemplatesRouter from './src/routes/resumeTemplates';
+import landingThemesRouter from './src/routes/landingThemes';
 import onboardingRouter from './src/routes/onboarding';
 import appOnboardingRouter from './src/routes/appOnboarding';
 import zapierActionsRouter from './src/routes/zapierActions';
@@ -493,6 +497,9 @@ app.use('/api/jobs', requireAuthFlag, async (req, res, next) => {
 app.use('/api/jobs/resume-drafts', resumeDraftsRouter);
 app.use('/api/rex/uploads', rexUploadsRouter);
 app.use('/api/jobs/resume', resumePdfRouter);
+// Job seeker Elite template/theme selectors (auth required; Elite enforced on select endpoints)
+app.use('/api/resume-templates', resumeTemplatesRouter);
+app.use('/api/landing-themes', landingThemesRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
   app.use('/api', apiRouter);

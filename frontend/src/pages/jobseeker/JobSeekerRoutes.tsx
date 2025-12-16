@@ -7,6 +7,8 @@ import PrepPage from './PrepPage';
 import ResumeBuilderPage from './ResumeBuilderPage';
 import ResumeParserPage from './ResumeParserPage';
 import LandingPageBuilderPage from './LandingPageBuilderPage';
+import ResumeTemplatesPage from './ResumeTemplatesPage';
+import LandingThemesPage from './LandingThemesPage';
 import JobPrepChatPage from './JobPrepChatPage';
 import ResumeWizardPage from './ResumeWizardPage';
 import OnboardingPage from './OnboardingPage';
@@ -237,11 +239,13 @@ export default function JobSeekerRoutes() {
             <Route path="/leads" element={<LeadManagement />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/prep" element={<PrepPage />} />
+            <Route path="/prep/resume/templates" element={<ResumeTemplatesPage />} />
             <Route path="/prep/resume/wizard" element={<ResumeWizardPage />} />
             <Route path="/prep/resume/builder" element={<ResumeBuilderPage />} />
             <Route path="/prep/resume-builder" element={<Navigate to="/prep/resume/builder" replace />} />
             <Route path="/prep/resume-parser" element={<ResumeParserPage />} />
             <Route path="/prep/landing-page" element={<LandingPageBuilderPage />} />
+            <Route path="/prep/landing/themes" element={<LandingThemesPage />} />
             <Route path="/prep/rex-chat" element={<JobPrepChatPage />} />
             <Route path="/messages" element={<MessagingCenter />} />
             <Route path="/campaigns/new/*" element={<Navigate to="/campaigns" replace />} />
