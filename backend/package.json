@@ -5,6 +5,7 @@
     "private": true,
     "scripts": {
         "dev": "ts-node-dev --respawn --transpile-only --require dotenv/config server.ts",
+        "worker:linkedin-remote-action": "TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register src/workers/linkedinRemoteAction.worker.ts",
         "worker:ingest": "ts-node workers/ingestPhantom.ts",
         "worker:enrich": "ts-node workers/enrichLeads.ts",
         "worker:email": "ts-node workers/emailQueueWorker.ts",
