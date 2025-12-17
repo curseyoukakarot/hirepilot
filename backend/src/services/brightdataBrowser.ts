@@ -22,7 +22,18 @@ export async function runLinkedInRemoteAction(
   context: { userId: string; leadId?: string; candidateId?: string }
 ): Promise<{ success: boolean; error?: string }> {
   if (!isBrightDataBrowserEnabled()) {
-    return { success: false, error: 'Bright Data Browser API is disabled' };
+    const hasToken = Boolean(brightDataBrowserConfig.apiToken);
+    const hasBaseUrl = Boolean(brightDataBrowserConfig.baseUrl);
+    console.warn('[BrightDataBrowser] Disabled/misconfigured', {
+      hasToken,
+      hasBaseUrl,
+      envEnabledFlag: String(process.env.BRIGHTDATA_BROWSER_ENABLED || ''),
+      baseUrlPreview: brightDataBrowserConfig.baseUrl ? String(brightDataBrowserConfig.baseUrl).slice(0, 32) : null
+    });
+    return {
+      success: false,
+      error: `Bright Data Browser API is disabled (hasToken=${hasToken}, hasBaseUrl=${hasBaseUrl})`
+    };
   }
 
   if (!cookies || !payload.linkedinUrl) {
