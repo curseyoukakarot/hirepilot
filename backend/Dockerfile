@@ -4,10 +4,10 @@ WORKDIR /app
 
 # Install deps first (better caching)
 COPY backend/package*.json ./backend/
-RUN cd backend && (npm ci || npm install) && npm install --no-save ts-node typescript
+RUN cd backend && npm ci --include=dev
 
 # Browsers are preinstalled in the Playwright base image; keep this to ensure versions are present
-RUN npx playwright install chromium
+RUN cd backend && npx playwright install chromium
 
 # Copy app
 COPY backend ./backend
