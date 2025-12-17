@@ -7,6 +7,7 @@ import { logLeadOutreachActivities } from '../services/activityLogger';
 import { supabaseDb } from '../../lib/supabase';
 import { LinkedInRemoteActionJob } from '../services/linkedinRemoteActions';
 import { fetchSniperSettings, formatDateKey, getDailyCounters, saveCounters, DayNumber } from '../services/sniperSettings';
+import { updateLinkedInRemoteActionLog } from '../services/linkedinRemoteActionLogs';
 
 const CREDIT_COST: Record<LinkedInRemoteActionType, number> = {
   connect_request: 3,
@@ -63,7 +64,7 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
 
     const settings = await fetchSniperSettings(data.accountId || null);
     const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone: settings.timezone || 'UTC' }));
-    const withinWindow = isWithinWorkingWindow(settings, tzNow);
+    const withinWindow = data.testRun ? true : isWithinWorkingWindow(settings, tzNow);
 
     if (!withinWindow) {
       const nextWindow = findNextWindowStart(settings, tzNow);
@@ -76,7 +77,7 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
 
     let counters: any = null;
     let dateKey = '';
-    if (data.accountId) {
+    if (!data.testRun && data.accountId) {
       dateKey = formatDateKey(new Date(), settings.timezone || 'UTC');
       counters = await getDailyCounters(data.accountId, dateKey);
       const limit = data.action === 'connect_request'
@@ -137,6 +138,14 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
         : 'Sent LinkedIn message (remote)';
     await recordLeadActivity(job.data, note);
 
+    if (data.testRun && data.testLogId) {
+      try {
+        await updateLinkedInRemoteActionLog(data.testLogId, { status: 'success', error: null, job_id: String(job.id) });
+      } catch (err) {
+        console.warn('[LinkedInRemoteAction] Failed to update test log (success)', err);
+      }
+    }
+
     console.log('[LinkedInRemoteAction] Job completed', { jobId: job.id });
     return { success: true };
   },
@@ -151,10 +160,31 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
 );
 
 if (require.main === module) {
+  console.log('[LinkedInRemoteAction] Worker started');
   console.log(
     `[LinkedInRemoteAction] Worker online (queue=${LINKEDIN_REMOTE_ACTION_QUEUE}, concurrency=${brightDataBrowserConfig.maxConcurrency || 2})`
   );
+  try {
+    connection.on('ready', () => console.log('[LinkedInRemoteAction] Redis connection ready'));
+    connection.on('error', (err: any) => console.error('[LinkedInRemoteAction] Redis connection error', err?.message || err));
+  } catch {}
 }
+
+// Write failure status for test runs
+linkedinRemoteActionWorker.on('failed', async (job, err) => {
+  try {
+    const data = (job as any)?.data as LinkedInRemoteActionJob | undefined;
+    if (data?.testRun && data?.testLogId) {
+      await updateLinkedInRemoteActionLog(data.testLogId, {
+        status: 'failed',
+        error: String(err?.message || err || 'Remote action failed'),
+        job_id: job?.id ? String(job.id) : null
+      });
+    }
+  } catch (e) {
+    console.warn('[LinkedInRemoteAction] Failed to update test log (failed)', e);
+  }
+});
 
 function parseMinutes(input: string) {
   const [h, m] = input.split(':').map(Number);

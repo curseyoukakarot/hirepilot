@@ -67,6 +67,7 @@ import sendLinkedInConnect from './api/linkedin/sendConnect';
 import recordLinkedInConnect from './api/linkedin/recordConnect';
 import n8nLinkedInConnect from './api/n8n/linkedinConnect';
 import linkedinRemoteActionHandler from './api/linkedin/remoteAction';
+import { linkedinRemoteActionTest, linkedinRemoteActionTestLatest } from './api/linkedin/remoteActionTest';
 import getUserCredits from './api/getUserCredits';
 import creditsPurchase from './api/creditsPurchase';
 import healthCheck from './api/health';
@@ -195,6 +196,8 @@ router.post('/linkedin/puppet-request', requireAuth, puppetLinkedInRequest);
 router.post('/linkedin/playwright-request', requireAuth, playwrightLinkedInRequest);
 router.get('/linkedin/daily-count', requireAuth, linkedinDailyCount);
 router.post('/linkedin/remote-action', requireAuthFlag, linkedinRemoteActionHandler);
+router.post('/linkedin/remote-action/test', requireAuthFlag, linkedinRemoteActionTest);
+router.get('/linkedin/remote-action/test/latest', requireAuthFlag, linkedinRemoteActionTestLatest);
 
 // n8n automation endpoints
 router.post('/linkedin/send-connect', requireAuth, sendLinkedInConnect);

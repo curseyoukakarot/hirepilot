@@ -112,6 +112,9 @@ BRIGHTDATA_BROWSER_API_TOKEN=bd_browser_xxxxxxxxxxxxxxxxx
 BRIGHTDATA_BROWSER_BASE_URL=https://brd.superproxy.io/browser/...
 BRIGHTDATA_BROWSER_COUNTRY=us
 BRIGHTDATA_BROWSER_MAX_CONCURRENCY=5
+
+# Allow the admin test harness endpoint in production (default false)
+ALLOW_REMOTE_ACTION_TESTS=false
 ```
 > Leave these unset to keep remote LinkedIn actions disabled. The Browser API uses user cookies, is gated by plan settings, and consumes remote-action credits.
 
@@ -148,6 +151,31 @@ COOKIE_ENCRYPTION_KEY=your_32_byte_encryption_key_here_123456
 2. Replace placeholder values with actual API keys
 3. Set `NODE_ENV=production` for production deployments
 4. Update `BACKEND_URL` and `FRONTEND_URL` to match your deployed URLs
+
+### Railway Worker Service (recommended)
+Remote LinkedIn actions run via BullMQ on Redis. In production, this is most reliable as a **separate Railway service** that runs only the worker process.
+
+- **Create a second Railway service** pointing to the same repo (e.g. `hirepilot-worker`)
+- **Copy backend env vars** needed for DB + Redis + Bright Data Browser
+- **Set Start Command (compiled dist)**:
+
+```
+node dist/src/workers/linkedinRemoteAction.worker.js
+```
+
+If you do not build to `dist/`, run the TS entry (not recommended for prod):
+
+```
+TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register src/workers/linkedinRemoteAction.worker.ts
+```
+
+Minimum envs the worker needs:
+- `REDIS_URL` (or `REDIS_TLS_URL`)
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- `COOKIE_ENCRYPTION_KEY`
+- `BRIGHTDATA_BROWSER_ENABLED=true`
+- `BRIGHTDATA_BROWSER_API_TOKEN`, `BRIGHTDATA_BROWSER_BASE_URL` (and optional `BRIGHTDATA_BROWSER_COUNTRY`, `BRIGHTDATA_BROWSER_MAX_CONCURRENCY`)
+
 
 ### LinkedIn Cookie Management:
 - **No global LinkedIn cookie needed** - each user stores their own encrypted cookie

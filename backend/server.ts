@@ -145,6 +145,7 @@ import { messageScheduler } from './workers/messageScheduler';
 import { registerLinkedInSessionRoutes } from './src/routes/linkedin.session.routes';
 import { sniperWorker } from './src/workers/sniper.worker';
 import { registerSniperRoutes } from './src/routes/sniper.routes';
+import { workersHealth } from './src/routes/health.workers';
 import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
 import rexConversationsRouter from './src/routes/rexConversations';
 import { rexTools as rexToolsRouter } from './src/routes/rex/tools';
@@ -507,6 +508,7 @@ app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
 app.get('/api/health/overview', appHealth);
 app.get('/api/health/auth', authHealth);
+app.get('/api/health/workers', requireAuthFlag, workersHealth);
 app.use('/api/user', userRouter);
 app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
