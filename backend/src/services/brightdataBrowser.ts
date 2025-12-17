@@ -52,6 +52,64 @@ async function clickFirst(driver: any, xpaths: string[], timeoutMs = 15_000): Pr
   return false;
 }
 
+function parseCookieHeader(cookieHeader: string): Array<{ name: string; value: string }> {
+  // cookieHeader is typically "a=b; c=d; e=f"
+  return (cookieHeader || '')
+    .split(';')
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const idx = pair.indexOf('=');
+      if (idx <= 0) return { name: '', value: '' };
+      const name = pair.slice(0, idx).trim();
+      let value = pair.slice(idx + 1).trim();
+      // LinkedIn sometimes stores JSESSIONID wrapped in quotes
+      if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+      return { name, value };
+    })
+    .filter((c) => c.name && c.value);
+}
+
+async function applyLinkedInCookies(driver: any, cookieHeader: string) {
+  const cookies = parseCookieHeader(cookieHeader);
+  if (!cookies.length) return;
+
+  // Must be on the target domain before adding cookies
+  await driver.get('https://www.linkedin.com/');
+  await driver.sleep(800);
+
+  for (const c of cookies) {
+    try {
+      // Selenium requires same-domain; setting domain explicitly can fail on some drivers,
+      // so we omit it and rely on current domain.
+      await driver.manage().addCookie({
+        name: c.name,
+        value: c.value,
+        path: '/',
+        secure: true
+      });
+    } catch {}
+  }
+
+  // Refresh to apply cookies
+  await driver.navigate().refresh();
+  await driver.sleep(800);
+}
+
+async function detectLoginGate(driver: any): Promise<boolean> {
+  try {
+    const url = String(await driver.getCurrentUrl());
+    const title = String(await driver.getTitle());
+    if (url.includes('/login') || url.includes('/checkpoint') || title.toLowerCase().includes('sign in')) return true;
+  } catch {}
+  try {
+    // Common login form fields
+    const els = await driver.findElements(By.css('input[name="session_key"], input[name="session_password"]'));
+    if (els && els.length) return true;
+  } catch {}
+  return false;
+}
+
 async function runViaSelenium(
   cookies: string,
   payload: LinkedInRemoteActionPayload,
@@ -62,13 +120,25 @@ async function runViaSelenium(
   try {
     console.log('[BrightDataBrowser:Selenium] Connected', { userId: context.userId, url: payload.linkedinUrl });
 
-    // Navigate first; cookie injection for LinkedIn via Selenium is non-trivial cross-domain,
-    // so we rely on the Bright Data browser session + cookies string used by their infra.
-    // (If auth fails, you'll see LinkedIn login gate.)
+    // Apply cookies so LinkedIn is authenticated
+    await applyLinkedInCookies(driver, cookies);
+
+    // Navigate to target profile
     await driver.get(payload.linkedinUrl);
 
     // Basic waits for page readiness
     await driver.sleep(1500);
+
+    if (await detectLoginGate(driver)) {
+      let url = '';
+      let title = '';
+      try { url = String(await driver.getCurrentUrl()); } catch {}
+      try { title = String(await driver.getTitle()); } catch {}
+      return {
+        success: false,
+        error: `LinkedIn session not authenticated (login/checkpoint detected). url=${url} title=${title}`
+      };
+    }
 
     if (payload.action === 'connect_request') {
       // Connect button, or More -> Connect
@@ -87,9 +157,9 @@ async function runViaSelenium(
             "//div[@role='menu']//span[normalize-space()='Connect']/ancestor::button[1]",
             "//div[@role='menu']//span[contains(.,'Connect')]/ancestor::button[1]"
           ]);
-          if (!inMenu) return { success: false, error: 'Could not find Connect action on profile' };
+          if (!inMenu) return { success: false, error: 'Could not find Connect action on profile (may be 1st-degree, follow-only, or restricted).' };
         } else {
-          return { success: false, error: 'Could not find Connect button' };
+          return { success: false, error: 'Could not find Connect button (may be 1st-degree, follow-only, or restricted).' };
         }
       }
 
