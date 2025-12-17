@@ -1,6 +1,17 @@
-import { supabaseDb } from '../../lib/supabase';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { decryptGCM } from '../../lib/crypto';
 import { decryptLegacyAesCookie } from '../../utils/encryption';
+
+// Create a dedicated service-role DB client for cookie lookups.
+// This avoids import ambiguity between multiple supabase helper modules across deploy setups.
+const SUPABASE_URL = String(process.env.SUPABASE_URL || '');
+const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+}
+const supabaseDb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
 type EncryptedPayload = {
   iv: string;
