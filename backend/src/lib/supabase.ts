@@ -7,6 +7,9 @@ export const supabase = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } }
 );
 
+// Back-compat alias used across src/ (service-role DB client)
+export const supabaseDb = supabase;
+
 // Dedicated admin client to avoid accidental helper injection
 export const supabaseAdmin = createClient(
   process.env.SUPABASE_URL as string,
