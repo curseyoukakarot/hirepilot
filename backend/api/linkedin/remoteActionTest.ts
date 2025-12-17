@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { ApiRequest } from '../../src/types/api';
+import type { ApiRequest } from '../../types/api';
 import { z } from 'zod';
 import { getLinkedinEngineMode, isCloudEngine } from '../../src/services/remoteActions';
 import { hasLinkedInCookie } from '../../src/services/linkedin/cookieService';
@@ -132,7 +132,10 @@ export async function linkedinRemoteActionTest(req: ApiRequest, res: Response) {
     return res.status(202).json({ status: 'queued', jobId, action, linkedinUrl, logId });
   } catch (err: any) {
     console.error('[LinkedInRemoteActionTest] Failed to queue test action', err);
-    return res.status(500).json({ error: 'server_error', message: 'Failed to queue remote action test' });
+    return res.status(500).json({
+      error: 'server_error',
+      message: err?.message || 'Failed to queue remote action test'
+    });
   }
 }
 

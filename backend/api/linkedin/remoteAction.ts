@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { ApiRequest } from '../../src/types/api';
+import type { ApiRequest } from '../../types/api';
 import { canUseRemoteLinkedInActions } from '../../src/services/remoteActions';
 import { hasLinkedInCookie } from '../../src/services/linkedin/cookieService';
 import { enqueueLinkedInRemoteAction } from '../../src/services/linkedinRemoteActions';
