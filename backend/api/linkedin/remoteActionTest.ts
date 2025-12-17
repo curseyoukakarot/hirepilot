@@ -125,10 +125,11 @@ export async function linkedinRemoteActionTest(req: ApiRequest, res: Response) {
         message: 'Set BRIGHTDATA_BROWSER_ENABLED=true to run remote action tests.'
       });
     }
-    if (!brightDataBrowserConfig.apiToken || !brightDataBrowserConfig.baseUrl || !isBrightDataBrowserEnabled()) {
+    if (!brightDataBrowserConfig.baseUrl || !isBrightDataBrowserEnabled()) {
       return res.status(409).json({
         error: 'brightdata_browser_not_configured',
-        message: 'BRIGHTDATA_BROWSER_API_TOKEN and BRIGHTDATA_BROWSER_BASE_URL must be configured.'
+        message:
+          'BRIGHTDATA_BROWSER_BASE_URL must be configured along with either BRIGHTDATA_BROWSER_API_TOKEN (REST) or BRIGHTDATA_BROWSER_USERNAME/BRIGHTDATA_BROWSER_PASSWORD (Selenium).'
       });
     }
 

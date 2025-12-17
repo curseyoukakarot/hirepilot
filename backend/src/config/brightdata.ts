@@ -23,11 +23,24 @@ if (!brightDataConfig.apiToken) {
 export const brightDataBrowserConfig = {
   apiToken: process.env.BRIGHTDATA_BROWSER_API_TOKEN || process.env.BRIGHTDATA_API_TOKEN,
   baseUrl: process.env.BRIGHTDATA_BROWSER_BASE_URL,
+  username: process.env.BRIGHTDATA_BROWSER_USERNAME,
+  password: process.env.BRIGHTDATA_BROWSER_PASSWORD,
   country: process.env.BRIGHTDATA_BROWSER_COUNTRY || 'us',
   maxConcurrency: Number(process.env.BRIGHTDATA_BROWSER_MAX_CONCURRENCY || 5)
 };
 
 export function isBrightDataBrowserEnabled() {
-  return Boolean(brightDataBrowserConfig.apiToken && brightDataBrowserConfig.baseUrl);
+  const baseUrl = String(brightDataBrowserConfig.baseUrl || '').trim();
+  if (!baseUrl) return false;
+
+  // CDP WebSocket endpoint (Playwright/Puppeteer) contains auth in URL, no token required
+  if (baseUrl.startsWith('wss://') || baseUrl.startsWith('ws://')) return true;
+
+  // Selenium/WebDriver endpoint uses username/password
+  const hasCreds = Boolean(String(brightDataBrowserConfig.username || '').trim() && String(brightDataBrowserConfig.password || '').trim());
+  if (hasCreds) return true;
+
+  // Browser API REST-like endpoint uses API token
+  return Boolean(String(brightDataBrowserConfig.apiToken || '').trim());
 }
 
