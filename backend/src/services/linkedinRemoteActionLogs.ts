@@ -1,4 +1,6 @@
-import { supabaseDb } from '../lib/supabase';
+// Use the canonical Supabase DB client used by the rest of the backend runtime.
+// This avoids edge cases where a different supabase module is loaded in production.
+import { supabaseDb } from '../../lib/supabase';
 
 export type LinkedInRemoteActionLogStatus = 'queued' | 'success' | 'failed';
 
