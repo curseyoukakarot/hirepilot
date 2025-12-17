@@ -62,7 +62,12 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
       candidateId: data.candidateId
     });
 
-    const settings = await fetchSniperSettings(data.accountId || null);
+    let settings: any;
+    try {
+      settings = await fetchSniperSettings(data.accountId || null);
+    } catch (err: any) {
+      throw new Error(`fetchSniperSettings failed: ${err?.message || String(err)}`);
+    }
     const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone: settings.timezone || 'UTC' }));
     const withinWindow = data.testRun ? true : isWithinWorkingWindow(settings, tzNow);
 
@@ -70,7 +75,11 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
       const nextWindow = findNextWindowStart(settings, tzNow);
       if (nextWindow) {
         const delayMs = nextWindow.getTime() - tzNow.getTime();
-        await deferJob(job, delayMs, 'outside_working_hours');
+        try {
+          await deferJob(job, delayMs, 'outside_working_hours');
+        } catch (err: any) {
+          throw new Error(`deferJob failed: ${err?.message || String(err)}`);
+        }
         return { delayed: true };
       }
     }
@@ -79,7 +88,11 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
     let dateKey = '';
     if (!data.testRun && data.accountId) {
       dateKey = formatDateKey(new Date(), settings.timezone || 'UTC');
-      counters = await getDailyCounters(data.accountId, dateKey);
+      try {
+        counters = await getDailyCounters(data.accountId, dateKey);
+      } catch (err: any) {
+        throw new Error(`getDailyCounters failed: ${err?.message || String(err)}`);
+      }
       const limit = data.action === 'connect_request'
         ? settings.sources.linkedin.connectionInvitesPerDay
         : settings.sources.linkedin.messagesPerDay;
@@ -90,37 +103,55 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
         const nextWindow = findNextWindowStart(settings, new Date(tzNow.getTime() + 60 * 1000));
         if (nextWindow) {
           const delayMs = nextWindow.getTime() - tzNow.getTime();
-          await deferJob(job, delayMs, 'daily_limit');
+          try {
+            await deferJob(job, delayMs, 'daily_limit');
+          } catch (err: any) {
+            throw new Error(`deferJob (daily_limit) failed: ${err?.message || String(err)}`);
+          }
           return { delayed: true };
         }
         throw new Error('Daily limit reached');
       }
     }
 
-    const cookies = await getLatestLinkedInCookieForUser(data.userId);
+    let cookies: string | null = null;
+    try {
+      cookies = await getLatestLinkedInCookieForUser(data.userId);
+    } catch (err: any) {
+      throw new Error(`getLatestLinkedInCookieForUser failed: ${err?.message || String(err)}`);
+    }
     if (!cookies) {
       throw new Error('No LinkedIn cookies on file. Ask user to refresh session.');
     }
 
-    const result = await runLinkedInRemoteAction(
-      cookies,
-      {
-        action: data.action,
-        linkedinUrl: data.linkedinUrl,
-        message: data.message
-      },
-      {
-        userId: data.userId,
-        leadId: data.leadId,
-        candidateId: data.candidateId
-      }
-    );
+    let result: any;
+    try {
+      result = await runLinkedInRemoteAction(
+        cookies,
+        {
+          action: data.action,
+          linkedinUrl: data.linkedinUrl,
+          message: data.message
+        },
+        {
+          userId: data.userId,
+          leadId: data.leadId,
+          candidateId: data.candidateId
+        }
+      );
+    } catch (err: any) {
+      throw new Error(`runLinkedInRemoteAction failed: ${err?.message || String(err)}`);
+    }
 
     if (!result.success) {
       throw new Error(result.error || 'Remote action failed');
     }
 
-    await deductCredits(data.userId, data.action);
+    try {
+      await deductCredits(data.userId, data.action);
+    } catch (err: any) {
+      console.warn('[LinkedInRemoteAction] Credit deduction threw (non-fatal)', err?.message || err);
+    }
 
     if (data.accountId && counters && dateKey) {
       const updatedCounters = { ...counters };
@@ -129,14 +160,22 @@ export const linkedinRemoteActionWorker = new Worker<LinkedInRemoteActionJob>(
       } else {
         updatedCounters.linkedin_messages_used += 1;
       }
-      await saveCounters(updatedCounters);
+      try {
+        await saveCounters(updatedCounters);
+      } catch (err: any) {
+        console.warn('[LinkedInRemoteAction] saveCounters failed (non-fatal)', err?.message || err);
+      }
     }
 
     const note =
       data.action === 'connect_request'
         ? 'Sent LinkedIn connection request (remote)'
         : 'Sent LinkedIn message (remote)';
-    await recordLeadActivity(job.data, note);
+    try {
+      await recordLeadActivity(job.data, note);
+    } catch (err: any) {
+      console.warn('[LinkedInRemoteAction] recordLeadActivity failed (non-fatal)', err?.message || err);
+    }
 
     if (data.testRun && data.testLogId) {
       try {
@@ -177,7 +216,7 @@ linkedinRemoteActionWorker.on('failed', async (job, err) => {
     if (data?.testRun && data?.testLogId) {
       await updateLinkedInRemoteActionLog(data.testLogId, {
         status: 'failed',
-        error: String(err?.message || err || 'Remote action failed'),
+        error: String(err?.stack || err?.message || err || 'Remote action failed'),
         job_id: job?.id ? String(job.id) : null
       });
     }
