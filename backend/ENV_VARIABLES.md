@@ -156,17 +156,18 @@ COOKIE_ENCRYPTION_KEY=your_32_byte_encryption_key_here_123456
 Remote LinkedIn actions run via BullMQ on Redis. In production, this is most reliable as a **separate Railway service** that runs only the worker process.
 
 - **Create a second Railway service** pointing to the same repo (e.g. `hirepilot-worker`)
+- **Set the Railway Root Directory to `backend/`** (so the Docker build context is the backend folder)
 - **Copy backend env vars** needed for DB + Redis + Bright Data Browser
-- **Set Start Command (compiled dist)**:
-
-```
-node dist/src/workers/linkedinRemoteAction.worker.js
-```
-
-If you do not build to `dist/`, run the TS entry (not recommended for prod):
+- **Set Start Command (ts-node runtime)** (recommended for current Dockerfile / fastest to unblock):
 
 ```
 TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register src/workers/linkedinRemoteAction.worker.ts
+```
+
+If you later add a build step that outputs `dist/`, you can switch to:
+
+```
+node dist/src/workers/linkedinRemoteAction.worker.js
 ```
 
 Minimum envs the worker needs:
