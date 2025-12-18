@@ -63,7 +63,7 @@ export default function DealsPage() {
   const [closeWonOpps, setCloseWonOpps] = useState<any[]>([]);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
-  const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>('contingency');
+  const [invoiceBillingType, setInvoiceBillingType] = useState<'contingency'|'retainer'|'down_payment'|'rpo'|'staffing'>('contingency');
   const [invoiceFields, setInvoiceFields] = useState<any>({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
   // Removed focus/selection refs per engineer's plan
   const [invoiceRecipient, setInvoiceRecipient] = useState('');
@@ -335,7 +335,7 @@ export default function DealsPage() {
     fetchRevenue();
   }, [access?.can_view_revenue]);
 
-  const openInvoiceModal = async (opportunityId?: string, billingType?: 'contingency'|'retainer'|'rpo'|'staffing') => {
+  const openInvoiceModal = async (opportunityId?: string, billingType?: 'contingency'|'retainer'|'down_payment'|'rpo'|'staffing') => {
     // Load minimal opportunities list for selector
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -360,6 +360,9 @@ export default function DealsPage() {
       return Math.max(0, Math.round(salary * (pct/100)));
     }
     if (bt === 'retainer') {
+      return Math.max(0, Number(String(invoiceFields.flat_fee || '').replace(/[^0-9.]/g,'')) || 0);
+    }
+    if (bt === 'down_payment') {
       return Math.max(0, Number(String(invoiceFields.flat_fee || '').replace(/[^0-9.]/g,'')) || 0);
     }
     if (bt === 'rpo') {
@@ -419,6 +422,7 @@ export default function DealsPage() {
             <option value="">All Billing Types</option>
             <option>contingency</option>
             <option>retainer</option>
+            <option>down_payment</option>
             <option>rpo</option>
             <option>staffing</option>
           </select>

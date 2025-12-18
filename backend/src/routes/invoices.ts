@@ -167,6 +167,10 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
         amount = parseNum(f.flat_fee);
         break;
       }
+      case 'down_payment': {
+        amount = parseNum(f.flat_fee);
+        break;
+      }
       case 'rpo': {
         amount = parseNum(f.monthly);
         break;

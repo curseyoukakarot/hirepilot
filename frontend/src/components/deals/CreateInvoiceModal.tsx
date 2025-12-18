@@ -11,14 +11,14 @@ export interface CreateInvoiceModalProps {
   open: boolean;
   opportunities: InvoiceOppLite[];
   defaultOpportunityId?: string;
-  defaultBillingType?: 'contingency' | 'retainer' | 'rpo' | 'staffing';
+  defaultBillingType?: 'contingency' | 'retainer' | 'down_payment' | 'rpo' | 'staffing';
   onClose: () => void;
   onCreated: () => Promise<void> | void;
 }
 
 const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ open, opportunities, defaultOpportunityId, defaultBillingType = 'contingency', onClose, onCreated }) => {
   const [opportunityId, setOpportunityId] = useState<string>('');
-  const [billingType, setBillingType] = useState<'contingency'|'retainer'|'rpo'|'staffing'>(defaultBillingType);
+  const [billingType, setBillingType] = useState<'contingency'|'retainer'|'down_payment'|'rpo'|'staffing'>(defaultBillingType);
   const [recipient, setRecipient] = useState('');
   const [fields, setFields] = useState<any>({ salary: '', percent: '20', flat_fee: '', monthly: '', hours: '', hourly_rate: '' });
   const [notes, setNotes] = useState('');
@@ -42,6 +42,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ open, opportuni
       return Math.max(0, Math.round(salary * (pct/100)));
     }
     if (billingType === 'retainer') {
+      return Math.max(0, Number(String(fields.flat_fee || '').replace(/[^0-9.]/g,'')) || 0);
+    }
+    if (billingType === 'down_payment') {
       return Math.max(0, Number(String(fields.flat_fee || '').replace(/[^0-9.]/g,'')) || 0);
     }
     if (billingType === 'rpo') {
@@ -104,6 +107,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ open, opportuni
               <select className="w-full border rounded-md p-2 text-sm" value={billingType} onChange={e=>setBillingType(e.target.value as any)}>
                 <option value="contingency">Contingency</option>
                 <option value="retainer">Retained Search</option>
+                <option value="down_payment">Down Payment</option>
                 <option value="rpo">RPO (Monthly)</option>
                 <option value="staffing">Staffing (Hourly)</option>
               </select>
@@ -131,6 +135,19 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ open, opportuni
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Retainer Amount</label>
+                <input className="pl-3 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={fields.flat_fee} onChange={e=>setFields((p:any)=>({ ...p, flat_fee: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea className="p-2 text-sm bg-white border rounded-md w-full" rows={2} value={notes} onChange={e=>setNotes(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {billingType === 'down_payment' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Down Payment Amount</label>
                 <input className="pl-3 pr-3 py-2 text-sm bg-white border rounded-md w-full" value={fields.flat_fee} onChange={e=>setFields((p:any)=>({ ...p, flat_fee: e.target.value }))} />
               </div>
               <div>

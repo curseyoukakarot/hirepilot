@@ -83,6 +83,8 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
                 <option value="">Select…</option>
                 <option value="contingency">Contingency</option>
                 <option value="retainer">Retained Search</option>
+                <option value="retainer">Retainer</option>
+                <option value="down_payment">Down Payment</option>
                 <option value="rpo">RPO (Monthly)</option>
                 <option value="staffing">Staffing (Hourly)</option>
               </select>
