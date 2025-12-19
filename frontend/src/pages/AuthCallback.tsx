@@ -40,6 +40,8 @@ export default function AuthCallback() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const from = params.get('from') || '/dashboard';
     const app = params.get('app') || undefined;
+    const code = params.get('code') || undefined;
+    const oauthError = params.get('error_description') || params.get('error') || undefined;
 
     const redirect = () => {
       navigate(from, { replace: true });
@@ -60,6 +62,39 @@ export default function AuthCallback() {
       }
     };
 
+    const trySeedSessionFromUrl = async (): Promise<void> => {
+      if (typeof window === 'undefined') return;
+
+      // 1) If Supabase redirected with `code=...` (PKCE), exchange it explicitly.
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.warn('[auth callback] exchangeCodeForSession failed', error);
+        } else if (data?.session?.access_token) {
+          await bootstrap(data.session.access_token);
+          redirect();
+          return;
+        }
+      }
+
+      // 2) Handle implicit hash tokens defensively (older flows / edge cases).
+      try {
+        const hash = window.location.hash || '';
+        if (hash.includes('access_token=')) {
+          const hp = new URLSearchParams(hash.replace(/^#/, ''));
+          const access_token = hp.get('access_token') || undefined;
+          const refresh_token = hp.get('refresh_token') || undefined;
+          if (access_token && refresh_token) {
+            const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (!error && data?.session?.access_token) {
+              await bootstrap(data.session.access_token);
+              redirect();
+            }
+          }
+        }
+      } catch {}
+    };
+
     (async () => {
       try {
         // Cross-domain restore: jobs.* -> app.* needs a one-time session seed.
@@ -78,6 +113,13 @@ export default function AuthCallback() {
             deleteCookie('hp_restore_once', { domain: rootDomain });
           }
         }
+
+        if (oauthError) {
+          console.warn('[auth callback] provider error', oauthError);
+        }
+
+        // Ensure we try to seed session from callback params immediately (PKCE-safe).
+        await trySeedSessionFromUrl();
 
         const { data } = await supabase.auth.getSession();
         if (data?.session?.access_token) {
