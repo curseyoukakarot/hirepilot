@@ -398,12 +398,40 @@ function InnerApp() {
   });
 
   const roleLower = String(role || '').toLowerCase();
-  if (roleLower.startsWith('job_seeker_') && !hostname.startsWith('jobs.')) {
-    // If a job seeker hits the recruiter app, send them to jobs app
-    const dest = `https://jobs.thehirepilot.com/login?from=${encodeURIComponent(window.location.href)}`;
-    window.location.href = dest;
-    return null;
-  }
+  const [handoffingToJobs, setHandoffingToJobs] = useState(false);
+
+  // If a job seeker hits the recruiter app, hand off the session to jobs.* via /auth/callback.
+  // IMPORTANT: do NOT send to /login, otherwise the session never transfers cross-origin and we can
+  // get stuck with stale / invalid tokens on jobs.* (session_not_found).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!roleLower.startsWith('job_seeker_')) return;
+    if (hostname.startsWith('jobs.')) return;
+    if (handoffingToJobs) return;
+
+    setHandoffingToJobs(true);
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const s = data?.session;
+        if (s?.access_token && s?.refresh_token) {
+          const payload = encodeURIComponent(
+            JSON.stringify({ access_token: s.access_token, refresh_token: s.refresh_token })
+          );
+          const rootDomain = window.location.hostname.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
+          const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = `hp_restore_once=${payload}; Path=/; SameSite=Lax${secure}${rootDomain ? `; Domain=${rootDomain}` : ''}; Max-Age=${60 * 5}`;
+        }
+      } catch {}
+
+      // Preserve current path so the jobs app can decide where to land; default to /dashboard.
+      const from = `${window.location.pathname}${window.location.search}${window.location.hash || ''}` || '/dashboard';
+      window.location.href = `https://jobs.thehirepilot.com/auth/callback?from=${encodeURIComponent(from)}&app=job_seeker&forceBootstrap=1`;
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleLower, hostname, handoffingToJobs]);
+
+  if (handoffingToJobs) return null;
 
   // Onboarding route handling
   if (location.pathname === '/onboarding') {
