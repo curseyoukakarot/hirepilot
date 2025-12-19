@@ -52,7 +52,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     let base = supabase.from('invoices').select('*');
     if (isSuper) {
-      // no filter
+      // SECURITY: super admins should not see other users' billing by default.
+      const { data: opps } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
+      const oppIds = (opps || []).map((o: any) => o.id);
+      base = base.or(`opportunity_id.in.(${oppIds.join(',')})`);
     } else if (isTeamAdmin && team_id) {
       const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
       const ids = (teamUsers || []).map((u: any) => u.id);
@@ -77,15 +80,42 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
 // GET /api/invoices/:id
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id as string | undefined;
+  if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!(await canViewBilling(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
+
   const { id } = req.params;
   const { data, error } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle();
   if (error || !data) { res.status(404).json({ error: 'not_found' }); return; }
+
+  // SECURITY: Ensure invoice belongs to user's opportunities (super admin included).
+  if (data.opportunity_id) {
+    const { data: opp } = await supabase.from('opportunities').select('owner_id').eq('id', data.opportunity_id).maybeSingle();
+    if (!opp || String((opp as any).owner_id || '') !== userId) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+  }
+
   res.json(data);
 });
 
 // PATCH /api/invoices/:id
 router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id as string | undefined;
+  if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!(await canViewBilling(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
+
   const { id } = req.params;
+
+  // SECURITY: Ensure invoice belongs to user's opportunities
+  const { data: existing } = await supabase.from('invoices').select('id, opportunity_id').eq('id', id).maybeSingle();
+  if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
+  if (existing.opportunity_id) {
+    const { data: opp } = await supabase.from('opportunities').select('owner_id').eq('id', existing.opportunity_id).maybeSingle();
+    if (!opp || String((opp as any).owner_id || '') !== userId) { res.status(404).json({ error: 'not_found' }); return; }
+  }
+
   const allowed = ['status','paid_at','due_at','notes'];
   const update: any = {};
   for (const f of allowed) if (req.body?.[f] !== undefined) update[f] = req.body[f];

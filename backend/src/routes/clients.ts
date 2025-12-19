@@ -63,25 +63,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewClients(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { role, team_id } = await getUserRoleAndTeam(userId);
-    const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
-    const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
-
     let base = supabase.from('clients')
       .select('id,name,domain,industry,revenue,location,owner_id,created_at,stage,notes,org_meta');
 
-    if (isSuper) {
-      // No filter
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-    } else {
-      base = base.eq('owner_id', userId);
-    }
+    // SECURITY: Always scope to the authenticated user.
+    // Even super admins should not see other users' clients from the Deals UI.
+    base = base.eq('owner_id', userId);
 
     const { data: clients, error } = await base.order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -212,14 +199,15 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewClients(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { name, domain, industry, revenue, location, owner_id } = req.body || {};
+    const { name, domain, industry, revenue, location } = req.body || {};
     const insert = {
       name: name || null,
       domain: domain || null,
       industry: industry || null,
       revenue: revenue ?? null,
       location: location || null,
-      owner_id: owner_id || userId,
+      // SECURITY: Never allow creating clients for another user.
+      owner_id: userId,
       created_at: new Date().toISOString()
     };
     const { data, error } = await supabase
@@ -244,12 +232,14 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
     const { id } = req.params;
     const update: any = {};
-    const fields = ['name','domain','industry','revenue','location','owner_id','stage','notes'];
+    // SECURITY: Never allow transferring ownership via API.
+    const fields = ['name','domain','industry','revenue','location','stage','notes'];
     for (const f of fields) if (req.body?.[f] !== undefined) update[f] = req.body[f];
     const { data, error } = await supabase
       .from('clients')
       .update(update)
       .eq('id', id)
+      .eq('owner_id', userId)
       .select('*')
       .maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -272,7 +262,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     const { error } = await supabase
       .from('clients')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('owner_id', userId);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
   } catch (e: any) {
@@ -288,20 +279,9 @@ router.get('/contacts/all', requireAuth, async (req: Request, res: Response) => 
     const allowed = await canViewClients(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { role, team_id } = await getUserRoleAndTeam(userId);
-    const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
-    const isTeamAdmin = String(role || '').toLowerCase() === 'team_admin';
-
     let base = supabase.from('contacts').select('*');
-    if (isSuper) {
-      // no filter
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-    } else {
-      base = base.eq('owner_id', userId);
-    }
+    // SECURITY: Always scope to the authenticated user.
+    base = base.eq('owner_id', userId);
     const { data, error } = await base.order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data || []);
@@ -317,15 +297,25 @@ router.post('/contacts', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewClients(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { client_id, name, title, email, phone, owner_id } = req.body || {};
+    const { client_id, name, title, email, phone } = req.body || {};
     if (!client_id) { res.status(400).json({ error: 'client_id required' }); return; }
+
+    // SECURITY: Ensure the client belongs to this user before attaching contacts.
+    const { data: clientRow } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('id', client_id)
+      .eq('owner_id', userId)
+      .maybeSingle();
+    if (!clientRow) { res.status(404).json({ error: 'client_not_found' }); return; }
+
     const insert = {
       client_id,
       name: name || null,
       title: title || null,
       email: email || null,
       phone: phone || null,
-      owner_id: owner_id || userId,
+      owner_id: userId,
       created_at: new Date().toISOString()
     };
     const { data, error } = await supabase
@@ -351,7 +341,12 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
     if (!lead_id) { res.status(400).json({ error: 'lead_id required' }); return; }
 
     // Fetch lead
-    const { data: lead } = await supabase.from('leads').select('*').eq('id', lead_id).maybeSingle();
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', lead_id)
+      .eq('user_id', userId)
+      .maybeSingle();
     if (!lead) { res.status(404).json({ error: 'lead_not_found' }); return; }
 
     // Derive company info from enrichment if available
@@ -436,6 +431,7 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
       .from('clients')
       .select('*')
       .eq('id', id)
+      .eq('owner_id', userId)
       .maybeSingle();
     if (clientErr) { res.status(500).json({ error: clientErr.message }); return; }
     if (!client) { res.status(404).json({ error: 'client_not_found' }); return; }
@@ -511,6 +507,7 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
       .from('clients')
       .update(update)
       .eq('id', id)
+      .eq('owner_id', userId)
       .select('*')
       .maybeSingle();
     if (upErr) { res.status(500).json({ error: upErr.message }); return; }

@@ -58,7 +58,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag');
 
     if (isSuper) {
-      // no filter
+      // SECURITY: super admins should not see other users' deals by default
+      if (!forceAll) base = base.eq('owner_id', userId);
     } else if (isTeamAdmin && team_id) {
       const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
       const ids = (teamUsers || []).map((u: any) => u.id);
@@ -131,7 +132,24 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
-    const { data: opp, error } = await supabase.from('opportunities').select('*').eq('id', id).maybeSingle();
+    const { role, team_id } = await getRoleTeam(userId);
+    const lc = role.toLowerCase();
+    const isSuper = ['super_admin','superadmin'].includes(lc);
+    const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
+    const isTeamAdmin = lc === 'team_admin';
+
+    let oppQuery = supabase.from('opportunities').select('*').eq('id', id);
+    if (isSuper) {
+      if (!forceAll) oppQuery = oppQuery.eq('owner_id', userId);
+    } else if (isTeamAdmin && team_id) {
+      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+      const ids = (teamUsers || []).map((u: any) => u.id);
+      oppQuery = oppQuery.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+    } else {
+      oppQuery = oppQuery.eq('owner_id', userId);
+    }
+
+    const { data: opp, error } = await oppQuery.maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
     if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
 
