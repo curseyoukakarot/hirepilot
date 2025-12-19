@@ -388,9 +388,10 @@ export default function AdminUserManagement() {
       // This prevents stale JWTs (old session_id) from being used during callback hydration,
       // which can cause 403 session_not_found on /auth/v1/user.
       try {
-        await supabase.auth.signOut({ scope: 'local' });
+        const mod = await import('../auth/clearSupabaseLocalState');
+        mod.clearSupabaseLocalState();
       } catch {}
-
+      
       // Redirect to the impersonation link
       window.location.href = action_link;
     } catch (error) {

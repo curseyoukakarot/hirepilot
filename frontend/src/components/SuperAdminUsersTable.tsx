@@ -51,7 +51,8 @@ function ImpersonateButton({ userId, userEmail }: { userId: string; userEmail: s
       // IMPORTANT: Clear local Supabase client session before redirecting to the magic link.
       // This prevents stale JWTs (old session_id) from being used during callback hydration.
       try {
-        await supabase.auth.signOut({ scope: 'local' });
+        const mod = await import('../auth/clearSupabaseLocalState');
+        mod.clearSupabaseLocalState();
       } catch {}
 
       // Redirect to the impersonation link

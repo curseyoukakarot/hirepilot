@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { clearSupabaseLocalState } from '../auth/clearSupabaseLocalState';
 
 function getCookie(name: string): string | null {
   try {
@@ -145,7 +146,7 @@ export default function AuthCallback() {
       if (code) {
         // Clear any stale local session before exchanging.
         try {
-          await supabase.auth.signOut({ scope: 'local' });
+          clearSupabaseLocalState();
         } catch {}
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
@@ -185,7 +186,7 @@ export default function AuthCallback() {
           !!code || !!oauthError || !!handoff || hasImplicitTokens || (typeof document !== 'undefined' && !!getCookie('hp_restore_once'));
         if (shouldClearLocal) {
           try {
-            await supabase.auth.signOut({ scope: 'local' });
+            clearSupabaseLocalState();
           } catch {}
         }
 
