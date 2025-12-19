@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { getUserIntegrations } from '../../../utils/userIntegrationsHelper';
 import { enrichWithHunter } from '../../../services/hunter/enrichLead';
 import { enrichWithSkrapp, enrichCompanyWithSkrapp } from '../../../services/skrapp/enrichLead';
+import { getSystemSettingBoolean } from '../../utils/systemSettings';
 
 interface EnrichmentParams {
   leadId: string;
@@ -95,6 +96,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
       try {
         // Get user's integrations (Hunter.io and Skrapp.io API keys)
         const integrations = await getUserIntegrations(userId);
+        const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
         
         // Prepare data for enrichment services
         const fullName = `${firstName} ${lastName}`.trim();
@@ -118,7 +120,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         domain = deriveDomain(record, company);
 
         const preference = (integrations as any).enrichment_source || 'apollo';
-        console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, preference, hasHunterKey: !!(integrations as any).hunter_api_key, hasSkrappKey: !!(integrations as any).skrapp_api_key });
+        console.log('[Enrichment] Prepared enrichment data:', { fullName, domain, preference, skrappApolloFallbackEnabled, hasHunterKey: !!(integrations as any).hunter_api_key, hasSkrappKey: !!(integrations as any).skrapp_api_key });
 
         let emailFoundFrom: 'hunter' | 'skrapp' | null = null;
 
@@ -127,7 +129,10 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
           console.log('[Enrichment] Preference set to Apollo - skipping Hunter/Skrapp');
         } else if (preference === 'skrapp') {
           // Skrapp-first path: Try Skrapp for email + company enrichment, then fallback to Apollo
-          const skrappKey = (integrations as any).skrapp_api_key || process.env.SKRAPP_API_KEY || '';
+          if (!skrappApolloFallbackEnabled) {
+            console.log('[Enrichment] Skrapp disabled by system setting - skipping Skrapp-first path');
+          } else {
+          const skrappKey = String((integrations as any).skrapp_api_key || '').trim();
           if (skrappKey && domain) {
             try {
               console.log('[Enrichment] Preference skrapp: Trying Skrapp.io first...');
@@ -172,7 +177,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
               console.warn('[Enrichment] Skrapp-first enrichment failed:', e?.message || e);
             }
           } else {
-            console.log('[Enrichment] Preference skrapp but no Skrapp API key available (user or env). Skipping Skrapp.');
+            console.log('[Enrichment] Preference skrapp but no USER Skrapp API key available. Skipping Skrapp.');
+          }
           }
         } else if (((integrations as any).hunter_api_key || process.env.HUNTER_API_KEY) && domain) {
           // Legacy/default order when no explicit preference provided: Hunter -> Skrapp -> Apollo
@@ -236,8 +242,8 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         }
 
         // Try Skrapp.io if Hunter.io failed and Skrapp API key is available (legacy/default path)
-        const skrappKeyDefault = (integrations as any).skrapp_api_key || process.env.SKRAPP_API_KEY || '';
-        if (preference !== 'apollo' && skrappKeyDefault && domain) {
+        const skrappKeyDefault = String((integrations as any).skrapp_api_key || '').trim();
+        if (skrappApolloFallbackEnabled && preference !== 'apollo' && skrappKeyDefault && domain) {
           console.log('[Enrichment] Trying Skrapp.io enrichment...');
           try {
             const skrappEmail = await enrichWithSkrapp(skrappKeyDefault, fullName, domain, company || record?.enrichment_data?.apollo?.organization?.name);
@@ -290,7 +296,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
             fallbacks_used.push('skrapp -> apollo');
             // Continue to Apollo fallback silently
           }
-        } else if (integrations.skrapp_api_key && !domain) {
+        } else if (skrappApolloFallbackEnabled && integrations.skrapp_api_key && !domain) {
           console.log('[Enrichment] Skrapp.io API key available but no domain extracted from company');
           errors.push('Skrapp.io skipped: no valid domain found');
         }
@@ -599,6 +605,21 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
 
     // Post-Apollo: if no email yet and we now have a solid domain, try Skrapp one more time to get a Valid email
     try {
+      const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
+      if (!skrappApolloFallbackEnabled) {
+        // Disabled platform-wide unless enabled by Super Admin.
+        return {
+          success: true,
+          provider: 'apollo',
+          data: person,
+          errors: errors.length > 0 ? errors : undefined,
+          fallbacks_used: fallbacks_used.length > 0 ? fallbacks_used : undefined,
+          api_key_info: {
+            using_personal_key: usingPersonalKey,
+            key_type: usingPersonalKey ? 'personal' : 'super_admin'
+          }
+        };
+      }
       const haveEmail = !!(updateData.email || record.email);
       const apolloDomain = String(person?.organization?.domain || person?.organization?.website_url || '').replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];
       const fallbackDomain = (() => {
@@ -608,7 +629,7 @@ export async function enrichWithApollo({ leadId, userId, firstName, lastName, co
         return '';
       })();
       const finalDomain = apolloDomain || fallbackDomain;
-      const skrappKeyAfter = (await getUserIntegrations(userId)).skrapp_api_key || process.env.SKRAPP_API_KEY;
+      const skrappKeyAfter = String((await getUserIntegrations(userId)).skrapp_api_key || '').trim();
       if (!haveEmail && skrappKeyAfter && finalDomain) {
         const postFullName = `${firstName || ''} ${lastName || ''}`.trim();
         console.log('[Enrichment] Post-Apollo: retrying Skrapp with Apollo domain:', finalDomain);

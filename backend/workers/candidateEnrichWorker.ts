@@ -10,6 +10,25 @@ type CandidateEnrichJob = {
   userId: string;
 };
 
+async function getSystemSettingBoolean(key: string, defaultValue = false): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+    if (error) return defaultValue;
+    const v: any = data?.value;
+    if (typeof v === 'boolean') return v;
+    const s = String(v ?? '').trim().toLowerCase();
+    if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true;
+    if (s === 'false' || s === '0' || s === 'no' || s === 'off') return false;
+    return defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
 async function processJob(job: Job<CandidateEnrichJob>) {
   const { candidateId, userId } = job.data;
 
@@ -20,6 +39,7 @@ async function processJob(job: Job<CandidateEnrichJob>) {
     .maybeSingle();
   if (candErr || !candidate) return { ok: false, error: 'missing_candidate' } as const;
 
+  const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
   const enrichmentData = candidate.enrichment_data || {};
   let enrichedEmail: string | null = null;
   let enrichmentSource: string | null = null;
@@ -29,7 +49,7 @@ async function processJob(job: Job<CandidateEnrichJob>) {
   } else if (enrichmentData.hunter?.email) {
     enrichedEmail = enrichmentData.hunter.email;
     enrichmentSource = 'Hunter.io';
-  } else if (enrichmentData.skrapp?.email) {
+  } else if (skrappApolloFallbackEnabled && enrichmentData.skrapp?.email) {
     enrichedEmail = enrichmentData.skrapp.email;
     enrichmentSource = 'Skrapp.io';
   } else if (enrichmentData.decodo?.email) {

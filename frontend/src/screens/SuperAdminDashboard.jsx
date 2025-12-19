@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import AppHealthCard from '../components/AppHealthCard';
 import AuthHealthCard from '../components/AuthHealthCard';
 import REXChatToggleCard from '../components/REXChatToggleCard';
+import SkrappFallbackToggleCard from '../components/SkrappFallbackToggleCard';
 import useAppHealth from '../hooks/useAppHealth';
 
 export default function SuperAdminDashboard() {
@@ -210,8 +211,9 @@ export default function SuperAdminDashboard() {
           <AppHealthCard />
           <div className="bg-gray-800 p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-100">Assistant Configuration</h2>
-            <div className="bg-white rounded-xl p-4">
+            <div className="bg-white rounded-xl p-4 space-y-4">
               <REXChatToggleCard />
+              <SkrappFallbackToggleCard />
             </div>
           </div>
           {/* Quick Actions */}

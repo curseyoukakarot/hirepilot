@@ -23,6 +23,7 @@ import { enqueueLinkedInRemoteAction } from '../services/linkedinRemoteActions';
 import { canUseRemoteLinkedInActions } from '../services/remoteActions';
 import { hasLinkedInCookie } from '../services/linkedin/cookieService';
 import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
+import { getSystemSettingBoolean } from '../utils/systemSettings';
 
 const router = express.Router();
 
@@ -499,6 +500,8 @@ interface EmailEnrichmentOptions {
   brightProfile?: BrightDataProfile | null;
   userId: string;
   leadId: string;
+  // If provided, avoids extra DB lookup per call.
+  skrappApolloFallbackEnabled?: boolean;
 }
 
 interface EmailEnrichmentResult {
@@ -770,16 +773,23 @@ async function runEmailEnrichment(options: EmailEnrichmentOptions): Promise<Emai
 
   if (!email) {
     try {
+      const skrappApolloFallbackEnabled =
+        typeof options.skrappApolloFallbackEnabled === 'boolean'
+          ? options.skrappApolloFallbackEnabled
+          : await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
+
+      if (!skrappApolloFallbackEnabled) {
+        // Skrapp disabled platform-wide unless explicitly enabled by Super Admin.
+        // Do not treat as an error; just skip.
+        return { email, emailStatus, emailSource, enrichmentDataPatch, errors };
+      }
+
       const integrations = await getUserIntegrations(userId);
-      const skrappApiKey = (
-        integrations?.skrapp_api_key ||
-        process.env.SUPER_ADMIN_SKRAPP_API_KEY ||
-        process.env.SKRAPP_API_KEY ||
-        ''
-      ).trim();
+      // Only use Skrapp when the USER has explicitly provided their own key.
+      const skrappApiKey = (integrations?.skrapp_api_key || '').trim();
 
       if (!skrappApiKey) {
-        errors.push('Skrapp API key not configured');
+        // User hasn't provided a Skrapp key; skip silently.
       } else {
         const fullName = buildPreferredFullName(lead, brightProfile);
         const domain = deriveDomainFromRecord(lead, brightProfile?.current_company);
@@ -871,15 +881,12 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 
     const userIntegrations = await getUserIntegrations(userId);
     const hunterApiKey = (userIntegrations.hunter_api_key || process.env.HUNTER_API_KEY || '').trim();
-    const skrappApiKey = (
-      userIntegrations.skrapp_api_key ||
-      process.env.SUPER_ADMIN_SKRAPP_API_KEY ||
-      process.env.SKRAPP_API_KEY ||
-      ''
-    ).trim();
+    const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
+    // Only use Skrapp when the USER has explicitly provided their own key (no env fallbacks).
+    const skrappApiKey = (userIntegrations.skrapp_api_key || '').trim();
     const premiumPreference: 'skrapp' | 'hunter' | 'apollo' = (userIntegrations.enrichment_source as 'skrapp' | 'apollo') || 'hunter';
     const hasHunterKey = hunterApiKey.length > 0;
-    const hasSkrappKey = skrappApiKey.length > 0;
+    const hasSkrappKey = skrappApolloFallbackEnabled && skrappApiKey.length > 0;
 
     const deriveDomainFromLead = (entity: any): string => {
       if (!entity) return '';
@@ -928,8 +935,8 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     const enrichmentFullName = deriveFullNameFromLead(lead);
     const companyForSkrapp = lead?.company || lead?.enrichment_data?.apollo?.organization?.name || lead?.enrichment_data?.decodo?.company || undefined;
 
-    // We now enforce Apollo -> Skrapp -> Hunter order
-    const providerOrder: Array<'skrapp' | 'hunter'> = ['skrapp', 'hunter'];
+    // Enrichment order: Apollo first. Optional Skrapp fallback is controlled by system flag.
+    const providerOrder: Array<'skrapp' | 'hunter'> = hasSkrappKey ? ['skrapp', 'hunter'] : ['hunter'];
 
     const needsPrimaryEmail = () =>
       !(
@@ -942,6 +949,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       providerOrder,
       hasHunterKey,
       hasSkrappKey,
+      skrappApolloFallbackEnabled,
       fullNameAvailable: !!enrichmentFullName,
       domainAvailable: !!enrichmentDomain
     });
@@ -1086,6 +1094,10 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     };
 
     const trySkrappEmail = async () => {
+      if (!skrappApolloFallbackEnabled) {
+        console.log('[LeadEnrich] Skrapp.io enrichment skipped: disabled by system setting');
+        return;
+      }
       if (!hasSkrappKey) {
         console.log('[LeadEnrich] Skrapp.io enrichment skipped: no API key configured');
         errorMessages.push('Skrapp: Missing API key');
@@ -1131,6 +1143,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     };
 
     const mergeSkrappProfile = async (reason: 'premium' | 'apollo') => {
+      if (!skrappApolloFallbackEnabled) return;
       if (!hasSkrappKey) return;
       try {
         const { enrichLeadWithSkrappProfileAndCompany } = await import('../../services/skrapp/enrichLead');

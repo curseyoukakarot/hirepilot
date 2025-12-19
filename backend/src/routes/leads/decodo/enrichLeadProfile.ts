@@ -9,6 +9,8 @@ import { enrichWithSkrapp } from '../../../../services/skrapp/enrichLead';
 import { enrichLead as enrichWithApollo } from '../../../../services/apollo/enrichLead';
 import { fetchHtml } from '../../../lib/decodoProxy';
 import { getLatestLinkedInCookieForUser } from '../../../services/linkedin/cookieService';
+import { getUserIntegrations } from '../../../../utils/userIntegrationsHelper';
+import { getSystemSettingBoolean } from '../../../utils/systemSettings';
 
 const router = express.Router();
 
@@ -278,8 +280,17 @@ async function enrichWithHunterService(fullName: string, company: string): Promi
 }
 
 // STEP 3: Skrapp Email Enrichment
-async function enrichWithSkrappService(fullName: string, company: string): Promise<EnrichmentResult> {
+async function enrichWithSkrappService(userId: string, fullName: string, company: string): Promise<EnrichmentResult> {
   try {
+    const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
+    if (!skrappApolloFallbackEnabled) {
+      return {
+        source: 'skrapp',
+        success: false,
+        error: 'Skrapp disabled'
+      };
+    }
+
     const domain = extractDomain(company);
     if (!domain) {
       return {
@@ -289,8 +300,9 @@ async function enrichWithSkrappService(fullName: string, company: string): Promi
       };
     }
 
-    // Get Skrapp API key from environment
-    const skrappApiKey = process.env.SKRAPP_API_KEY;
+    // Only allow Skrapp when the USER has explicitly provided their own key.
+    const integrations = await getUserIntegrations(userId);
+    const skrappApiKey = (integrations as any)?.skrapp_api_key;
     if (!skrappApiKey) {
       return {
         source: 'skrapp',
@@ -449,51 +461,49 @@ router.post('/enrich', requireAuth, async (req: Request, res: Response) => {
     } else {
       enrichmentLog.push(`❌ Decodo: ${decodoResult?.error || 'Failed'}`);
       
-      // STEP 2: Try Hunter if Decodo failed
+          // STEP 2: Try Apollo if Decodo failed
       const fullName = `${lead.first_name} ${lead.last_name}`.trim();
       if (fullName && lead.company) {
-        console.log('[enrichLeadProfile] Step 2: Trying Hunter email enrichment...');
-        enrichmentLog.push('Step 2: Hunter email enrichment');
-        
-        const hunterResult = await enrichWithHunterService(fullName, lead.company);
-        if (hunterResult.success && hunterResult.data?.email) {
-          enrichmentResult = hunterResult;
-          enrichmentLog.push('✅ Hunter: Success - email found');
-        } else {
-          enrichmentLog.push(`❌ Hunter: ${hunterResult.error || 'Failed'}`);
-          
-          // STEP 3: Try Skrapp if Hunter failed
-          console.log('[enrichLeadProfile] Step 3: Trying Skrapp email enrichment...');
-          enrichmentLog.push('Step 3: Skrapp email enrichment');
-          
-          const skrappResult = await enrichWithSkrappService(fullName, lead.company);
-          if (skrappResult.success && skrappResult.data?.email) {
-            enrichmentResult = skrappResult;
-            enrichmentLog.push('✅ Skrapp: Success - email found');
-          } else {
-            enrichmentLog.push(`❌ Skrapp: ${skrappResult.error || 'Failed'}`);
-            
-            // STEP 4: Final fallback to Apollo
-            console.log('[enrichLeadProfile] Step 4: Using Apollo as final fallback...');
-            enrichmentLog.push('Step 4: Apollo final fallback');
-            
+            console.log('[enrichLeadProfile] Step 2: Using Apollo enrichment...');
+            enrichmentLog.push('Step 2: Apollo enrichment');
+
             const apolloResult = await enrichWithApolloService(
-              leadId, 
-              userId, 
-              lead.first_name, 
-              lead.last_name, 
-              lead.company, 
+              leadId,
+              userId,
+              lead.first_name,
+              lead.last_name,
+              lead.company,
               profileUrl
             );
-            
+
             if (apolloResult.success) {
               enrichmentResult = apolloResult;
               enrichmentLog.push('✅ Apollo: Success - enrichment complete');
             } else {
               enrichmentLog.push(`❌ Apollo: ${apolloResult.error || 'Failed'}`);
+
+              // STEP 3: Optional Skrapp fallback (only when enabled + user has key)
+              console.log('[enrichLeadProfile] Step 3: Optional Skrapp fallback (if enabled)...');
+              enrichmentLog.push('Step 3: Skrapp fallback (optional)');
+              const skrappResult = await enrichWithSkrappService(userId, fullName, lead.company);
+              if (skrappResult.success && skrappResult.data?.email) {
+                enrichmentResult = skrappResult;
+                enrichmentLog.push('✅ Skrapp: Success - email found');
+              } else {
+                enrichmentLog.push(`❌ Skrapp: ${skrappResult.error || 'Skipped/Failed'}`);
+
+                // STEP 4: Hunter final fallback (unchanged)
+                console.log('[enrichLeadProfile] Step 4: Trying Hunter email enrichment...');
+                enrichmentLog.push('Step 4: Hunter email enrichment');
+                const hunterResult = await enrichWithHunterService(fullName, lead.company);
+                if (hunterResult.success && hunterResult.data?.email) {
+                  enrichmentResult = hunterResult;
+                  enrichmentLog.push('✅ Hunter: Success - email found');
+                } else {
+                  enrichmentLog.push(`❌ Hunter: ${hunterResult.error || 'Failed'}`);
+                }
+              }
             }
-          }
-        }
       } else {
         enrichmentLog.push('❌ Skipping Hunter/Skrapp: Missing name or company');
       }

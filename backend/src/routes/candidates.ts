@@ -8,6 +8,7 @@ import { logger } from '../lib/logger';
 import { basicParseFromText, type ParsedResume } from '../services/resumeParser';
 import { ingestCandidateFromParsed } from '../services/candidateIngest';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
+import { getSystemSettingBoolean } from '../utils/systemSettings';
 
 const router = express.Router();
 
@@ -442,10 +443,16 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     // Reuse existing enrichment providers (lead flow) via a light wrapper
     // Simple inline enrichment: reuse existing candidate enrichment worker logic when possible
     try {
+      const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
       const { data: cand } = await supabase.from('candidates').select('id, email, enrichment_data').eq('id', id).maybeSingle();
       let email: string | null = null;
       const enr = (cand as any)?.enrichment_data || {};
-      email = enr?.apollo?.email || enr?.hunter?.email || enr?.skrapp?.email || enr?.decodo?.email || null;
+      email =
+        enr?.apollo?.email ||
+        enr?.hunter?.email ||
+        (skrappApolloFallbackEnabled ? enr?.skrapp?.email : null) ||
+        enr?.decodo?.email ||
+        null;
       if (email) {
         await supabase.from('candidates').update({ email }).eq('id', id);
         res.json({ ok: true, email });
