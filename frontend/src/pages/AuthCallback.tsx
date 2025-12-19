@@ -57,6 +57,16 @@ export default function AuthCallback() {
       undefined;
     const oauthError = params.get('error_description') || params.get('error') || undefined;
     const handoff = params.get('handoff') || undefined;
+    const hasImplicitTokens =
+      typeof window !== 'undefined' &&
+      (() => {
+        try {
+          const raw = (window.location.hash || '').replace(/^#/, '');
+          return raw.includes('access_token=') || raw.includes('refresh_token=') || raw.includes('code=');
+        } catch {
+          return false;
+        }
+      })();
 
     const isJobSeekerFromSession = (session: any): boolean => {
       try {
@@ -133,6 +143,10 @@ export default function AuthCallback() {
 
       // 1) If Supabase redirected with `code=...` (PKCE), exchange it explicitly.
       if (code) {
+        // Clear any stale local session before exchanging.
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {}
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           console.warn('[auth callback] exchangeCodeForSession failed', error);
@@ -164,6 +178,17 @@ export default function AuthCallback() {
 
     (async () => {
       try {
+        // If this is an auth callback or one-time restore, proactively clear any local cached session first.
+        // This avoids Supabase calling /auth/v1/user with a stale JWT whose session_id no longer exists.
+        // NOTE: Only do this when auth params/restore markers exist so we don't log out normal users.
+        const shouldClearLocal =
+          !!code || !!oauthError || !!handoff || hasImplicitTokens || (typeof document !== 'undefined' && !!getCookie('hp_restore_once'));
+        if (shouldClearLocal) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+          } catch {}
+        }
+
         // Cross-domain restore: jobs.* -> app.* needs a one-time session seed.
         if (typeof window !== 'undefined') {
           const rootDomain = window.location.hostname.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;

@@ -384,6 +384,13 @@ export default function AdminUserManagement() {
 
       const { action_link } = await res.json();
       
+      // IMPORTANT: Clear local Supabase client session before redirecting to the magic link.
+      // This prevents stale JWTs (old session_id) from being used during callback hydration,
+      // which can cause 403 session_not_found on /auth/v1/user.
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {}
+
       // Redirect to the impersonation link
       window.location.href = action_link;
     } catch (error) {
