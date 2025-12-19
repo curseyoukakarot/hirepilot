@@ -54,6 +54,18 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
     const targetTeamId = (target as any)?.team_id || null;
     const planTier = await getPlanTier(userId);
 
+    // Paid recruiter roles should never be treated as free, even if `users.plan` is stale/missing.
+    // This fixes cases where a member is blocked from /deals because their `plan` column still says "free".
+    const paidRecruiterRoles = new Set([
+      'member',
+      'admin',
+      'team_admin',
+      'team_admins',
+      'recruitpro',
+      'recruit_pro',
+      'recruiter_pro',
+    ]);
+
     // Super admin => full access
     if (['super_admin','superadmin'].includes(targetRole)) {
       res.json({
@@ -67,7 +79,7 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
     }
 
     // Free or guest plan => no access
-    if (planTier === 'free' || targetRole === 'guest' || targetRole === 'free') {
+    if ((planTier === 'free' && !paidRecruiterRoles.has(targetRole)) || targetRole === 'guest' || targetRole === 'free') {
       res.json({ user_id: userId, can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false, reason: 'free_plan' });
       return;
     }
