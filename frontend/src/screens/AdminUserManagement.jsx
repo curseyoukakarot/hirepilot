@@ -296,10 +296,15 @@ export default function AdminUserManagement() {
 
       let jsResult = null;
       if (jobSeekerWelcomeSelected) {
+        const jsBody = { mode: 'backfill' };
+        const selectedIds = Array.from(dripUserIds);
+        // IMPORTANT: only send user_ids if the admin explicitly selected users.
+        // If we send an empty array, the backend treats it as a filter and will match nobody.
+        if (selectedIds.length > 0) jsBody.user_ids = selectedIds;
         const res2 = await fetch(`${BACKEND_URL}/api/admin/send-jobseeker-welcome`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ mode: 'backfill', user_ids: Array.from(dripUserIds) })
+          body: JSON.stringify(jsBody)
         });
         const json2 = await res2.json().catch(() => ({}));
         if (!res2.ok) throw new Error(json2?.error || 'Failed to backfill job seeker welcome');
@@ -319,7 +324,7 @@ export default function AdminUserManagement() {
       setDripPlan('all');
       setDripUserIds(new Set());
     } catch (e) {
-      setError('Failed to enqueue drips');
+      setError(e?.message || 'Failed to enqueue drips');
     } finally {
       setDripSubmitting(false);
     }
