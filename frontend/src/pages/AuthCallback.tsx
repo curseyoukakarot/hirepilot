@@ -195,15 +195,32 @@ export default function AuthCallback() {
           const rootDomain = window.location.hostname.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
           const restore = getCookie('hp_restore_once');
           if (restore) {
+            let restored = false;
             try {
               const parsed = JSON.parse(decodeURIComponent(restore));
               const access_token = parsed?.access_token;
               const refresh_token = parsed?.refresh_token;
               if (access_token && refresh_token) {
-                await supabase.auth.setSession({ access_token, refresh_token });
+                // First attempt a direct restore.
+                const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+                if (!error) restored = true;
+                // If setSession fails (common when access_token.session_id is stale), fall back to refresh.
+                if (!restored) {
+                  const r = await supabase.auth.refreshSession({ refresh_token });
+                  if (!r.error && r.data?.session?.access_token) restored = true;
+                }
               }
             } catch {}
-            deleteCookie('hp_restore_once', { domain: rootDomain });
+            // Only delete the one-time restore cookie after we successfully restored (or we risk trapping users).
+            if (restored) {
+              deleteCookie('hp_restore_once', { domain: rootDomain });
+            } else {
+              // If restore failed, clear it so we don't loop forever, then fall through to login.
+              deleteCookie('hp_restore_once', { domain: rootDomain });
+              try {
+                console.warn('[auth callback] failed to restore session from hp_restore_once');
+              } catch {}
+            }
           }
         }
 

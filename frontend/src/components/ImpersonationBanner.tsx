@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { clearSupabaseLocalState } from '../auth/clearSupabaseLocalState';
 
 function getCookie(name: string): string | null {
   try {
@@ -44,7 +45,7 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
         const access_token = parsed?.access_token || parsed?.a;
         const refresh_token = parsed?.refresh_token || parsed?.r;
         if (access_token && refresh_token) {
-          setIsImpersonating(true);
+      setIsImpersonating(true);
           setOriginalSession({ access_token, refresh_token });
           return;
         }
@@ -87,10 +88,10 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
 
       if (!access_token || !refresh_token) {
         // Fallback: legacy localStorage format
-        try {
-          const storedSession = localStorage.getItem('superAdminSession');
-          if (storedSession) {
-            const parsed = JSON.parse(storedSession);
+    try {
+      const storedSession = localStorage.getItem('superAdminSession');
+      if (storedSession) {
+        const parsed = JSON.parse(storedSession);
             access_token = parsed?.data?.session?.access_token;
             refresh_token = parsed?.data?.session?.refresh_token;
           }
@@ -111,7 +112,8 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
       // using hp_restore_once, then restore on app.thehirepilot.com/auth/callback.
       if (host.startsWith('jobs.')) {
         try {
-          await supabase.auth.signOut({ scope: 'local' });
+          // Clear local auth state on jobs.* without touching the server session.
+          clearSupabaseLocalState();
         } catch {}
 
         // Clear impersonation markers (so banner disappears)
@@ -142,10 +144,28 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
       }
 
       // Restore the original super admin session on THIS origin (app.*).
-      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-      if (error) {
-        console.error('Error restoring session:', error);
-        toast.error('Failed to restore original session');
+      let restoreOk = false;
+      try {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!error) restoreOk = true;
+        else throw error;
+      } catch (e) {
+        // If the old access token references a session_id that no longer exists,
+        // try refreshing using the refresh token to mint a new session.
+        try {
+          const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+          if (!error && data?.session?.access_token) restoreOk = true;
+        } catch {}
+      }
+      if (!restoreOk) {
+        console.error('Error restoring session:', { host });
+        toast.error('Failed to restore original session. Please sign in again.');
+        // Clear impersonation markers so the user can escape without deleting cookies manually.
+        deleteCookie('hp_super_admin_session', { domain: rootDomain });
+        deleteCookie('hp_super_admin_return', { domain: rootDomain });
+        setIsImpersonating(false);
+        setOriginalSession(null);
+        window.location.href = 'https://app.thehirepilot.com/login';
         return;
       }
 
@@ -156,11 +176,11 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
       deleteCookie('hp_super_admin_session', { domain: rootDomain });
       deleteCookie('hp_super_admin_return', { domain: rootDomain });
 
-      setIsImpersonating(false);
-      setOriginalSession(null);
-
+        setIsImpersonating(false);
+        setOriginalSession(null);
+        
       // Same-origin restore: just refresh UI
-      window.location.reload();
+        window.location.reload();
     } catch (error) {
       console.error('Error exiting impersonation:', error);
       toast.error('Failed to exit impersonation');
