@@ -7,6 +7,7 @@ import GuestLayout from './components/GuestLayout';
 import Sidebar from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Toaster } from 'react-hot-toast';
+import ImpersonationBanner from './components/ImpersonationBanner';
 import Step1JobDescription from "./components/CampaignWizard/Step1JobDescription";
 import Step2Pipeline from './components/CampaignWizard/Step2Pipeline';
 import Step3Message from './components/CampaignWizard/Step3Message';
@@ -605,9 +606,26 @@ function InnerApp() {
   }
 
   const isRexMobile = isMobile && location.pathname === '/rex-chat';
+  const isNavbarVisible =
+    !isRexMobile &&
+    !isAuthPage &&
+    !isPartnerArea &&
+    !(location.pathname.startsWith('/accept-guest') ||
+      location.pathname === '/signout' ||
+      (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings')));
+
+  // Reserve space when impersonation banner is active (cookie exists). This prevents
+  // the fixed banner from overlapping the top of the main content.
+  const hasImpersonationCookie =
+    typeof document !== 'undefined' && typeof document.cookie === 'string'
+      ? document.cookie.includes('hp_super_admin_session=')
+      : false;
+  const bannerOffsetTop = isNavbarVisible ? 72 : 0;
+  const bannerHeightPx = hasImpersonationCookie ? 48 : 0;
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ImpersonationBanner offsetTop={bannerOffsetTop} />
       {paymentWarning && !isSuspended && (
         <div className="w-full bg-red-600 text-white text-center py-2 text-sm flex items-center justify-center gap-3">
           <span>Payment failed – update your card to avoid account suspension.</span>
@@ -617,7 +635,7 @@ function InnerApp() {
           }}>Update payment</button>
         </div>
       )}
-      {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
+      {isNavbarVisible && (
         <div className="fixed top-0 left-0 right-0 z-50"><Navbar /></div>
       )}
       <Toaster
@@ -630,9 +648,19 @@ function InnerApp() {
           },
         }}
       />
-      <div className={`flex flex-1 ${(!isRexMobile && !isAuthPage && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings')))) ? 'pt-[72px]' : ''}`}>
+      <div
+        className={`flex flex-1 ${
+          isNavbarVisible ? (bannerHeightPx ? 'pt-[120px]' : 'pt-[72px]') : bannerHeightPx ? 'pt-[48px]' : ''
+        }`}
+      >
         {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
-          <div id="app-sidebar" className={`fixed left-0 top-[72px] bottom-0 ${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-200`}><Sidebar /></div>
+          <div
+            id="app-sidebar"
+            className={`fixed left-0 bottom-0 ${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-200`}
+            style={{ top: isNavbarVisible ? (bannerHeightPx ? 120 : 72) : bannerHeightPx ? 48 : 0 }}
+          >
+            <Sidebar />
+          </div>
         )}
         <main id="app-main" className={
           isRexMobile

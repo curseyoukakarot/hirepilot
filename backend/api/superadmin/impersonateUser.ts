@@ -64,12 +64,35 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Generate magic link for session impersonation
+    // Generate magic link for session impersonation.
+    //
+    // IMPORTANT: Frontend is configured for PKCE and expects auth links to land on
+    // `/auth/callback` to reliably exchange the code + run bootstrap. Redirecting
+    // straight to `/dashboard` can race app auth gating and result in a "blank" session.
+    //
+    // ALSO: Job seeker users authenticate on the `jobs.` subdomain (separate origin + storage key),
+    // so we must redirect them to the jobs host or the session won't exist there.
+    const targetRoleLower = String(targetUser.role || '').toLowerCase();
+    const isJobSeeker = targetRoleLower.startsWith('job_seeker_');
+
+    const appBase =
+      (process.env.FRONTEND_URL || '').trim() ||
+      'https://app.thehirepilot.com';
+    const jobsBase =
+      (process.env.JOBS_FRONTEND_URL || process.env.JOBSEEKER_FRONTEND_URL || '').trim() ||
+      (appBase.includes('app.') ? appBase.replace('app.', 'jobs.') : 'https://jobs.thehirepilot.com');
+
+    const redirectBase = isJobSeeker ? jobsBase : appBase;
+    const redirectTo =
+      `${redirectBase.replace(/\/$/, '')}/auth/callback` +
+      `?from=${encodeURIComponent('/dashboard')}` +
+      (isJobSeeker ? `&app=job_seeker&forceBootstrap=1` : '');
+
     const { data, error } = await supabaseDb.auth.admin.generateLink({
       type: 'magiclink',
       email: targetUser.email,
       options: {
-        redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`
+        redirectTo
       }
     });
 

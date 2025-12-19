@@ -2,45 +2,148 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 
-export default function ImpersonationBanner() {
+function getCookie(name: string): string | null {
+  try {
+    if (typeof document === 'undefined') return null;
+    const cookies = document.cookie ? document.cookie.split(';') : [];
+    for (const cookie of cookies) {
+      const [k, ...rest] = cookie.trim().split('=');
+      if (k === name) return rest.join('=');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCookie(name: string, value: string, opts?: { maxAgeSeconds?: number; domain?: string }) {
+  try {
+    if (typeof document === 'undefined') return;
+    const maxAge = typeof opts?.maxAgeSeconds === 'number' ? `; Max-Age=${opts.maxAgeSeconds}` : '';
+    const domain = opts?.domain ? `; Domain=${opts.domain}` : '';
+    const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${name}=${value}; Path=/; SameSite=Lax${secure}${domain}${maxAge}`;
+  } catch {}
+}
+
+function deleteCookie(name: string, opts?: { domain?: string }) {
+  setCookie(name, 'deleted', { maxAgeSeconds: 0, domain: opts?.domain });
+}
+
+export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: number }) {
   const [isImpersonating, setIsImpersonating] = useState(false);
-  const [originalSession, setOriginalSession] = useState(null);
+  const [originalSession, setOriginalSession] = useState<{ access_token: string; refresh_token: string } | null>(null);
 
   useEffect(() => {
     // Check if we're currently impersonating
-    const storedSession = localStorage.getItem('superAdminSession');
-    if (storedSession) {
-      setIsImpersonating(true);
-      setOriginalSession(JSON.parse(storedSession));
+    // Prefer cross-subdomain cookie (works between app.thehirepilot.com <-> jobs.thehirepilot.com)
+    const cookie = getCookie('hp_super_admin_session');
+    if (cookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(cookie));
+        const access_token = parsed?.access_token || parsed?.a;
+        const refresh_token = parsed?.refresh_token || parsed?.r;
+        if (access_token && refresh_token) {
+          setIsImpersonating(true);
+          setOriginalSession({ access_token, refresh_token });
+          return;
+        }
+      } catch {}
     }
+
+    // Back-compat (older localStorage format used by earlier implementation)
+    try {
+      const storedSession = localStorage.getItem('superAdminSession');
+      if (!storedSession) return;
+      const parsed = JSON.parse(storedSession);
+      const access_token = parsed?.data?.session?.access_token;
+      const refresh_token = parsed?.data?.session?.refresh_token;
+      if (access_token && refresh_token) {
+        setIsImpersonating(true);
+        setOriginalSession({ access_token, refresh_token });
+      }
+    } catch {}
   }, []);
 
   const exitImpersonation = async () => {
     try {
-      const storedSession = localStorage.getItem('superAdminSession');
-      if (storedSession) {
-        const parsed = JSON.parse(storedSession);
-        
-        // Restore the original super admin session
-        const { error } = await supabase.auth.setSession({
-          access_token: parsed.data.session.access_token,
-          refresh_token: parsed.data.session.refresh_token
-        });
+      const rootDomain =
+        typeof window !== 'undefined' && window.location.hostname.endsWith('thehirepilot.com')
+          ? '.thehirepilot.com'
+          : undefined;
 
-        if (error) {
-          console.error('Error restoring session:', error);
-          toast.error('Failed to restore original session');
-          return;
-        }
+      const cookie = getCookie('hp_super_admin_session');
+      let access_token: string | undefined;
+      let refresh_token: string | undefined;
 
-        // Clear the stored session
-        localStorage.removeItem('superAdminSession');
-        setIsImpersonating(false);
-        setOriginalSession(null);
-        
-        // Reload the page to refresh the UI
-        window.location.reload();
+      if (cookie) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(cookie));
+          access_token = parsed?.access_token || parsed?.a;
+          refresh_token = parsed?.refresh_token || parsed?.r;
+        } catch {}
       }
+
+      if (!access_token || !refresh_token) {
+        // Fallback: legacy localStorage format
+        try {
+          const storedSession = localStorage.getItem('superAdminSession');
+          if (storedSession) {
+            const parsed = JSON.parse(storedSession);
+            access_token = parsed?.data?.session?.access_token;
+            refresh_token = parsed?.data?.session?.refresh_token;
+          }
+        } catch {}
+      }
+
+      if (!access_token || !refresh_token) {
+        toast.error('Missing original session; please sign in again.');
+        return;
+      }
+
+      // Restore the original super admin session on THIS origin.
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) {
+        console.error('Error restoring session:', error);
+        toast.error('Failed to restore original session');
+        return;
+      }
+
+      // Clear impersonation markers
+      try {
+        localStorage.removeItem('superAdminSession');
+      } catch {}
+      deleteCookie('hp_super_admin_session', { domain: rootDomain });
+
+      const returnToRaw = getCookie('hp_super_admin_return');
+      deleteCookie('hp_super_admin_return', { domain: rootDomain });
+
+      setIsImpersonating(false);
+      setOriginalSession(null);
+
+      // If we are on jobs.* and returning to app.*, we need a one-time restore
+      // because Supabase sessions are stored per-origin.
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      if (host.startsWith('jobs.')) {
+        // Stash tokens for the app origin to pick up on /auth/callback.
+        const payload = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
+        setCookie('hp_restore_once', payload, { maxAgeSeconds: 60 * 5, domain: rootDomain });
+
+        let dest = 'https://app.thehirepilot.com/auth/callback?from=%2Fdashboard';
+        try {
+          if (returnToRaw) {
+            const returnTo = decodeURIComponent(returnToRaw);
+            const u = new URL(returnTo);
+            const from = `${u.pathname}${u.search}${u.hash || ''}` || '/dashboard';
+            dest = `${u.origin}/auth/callback?from=${encodeURIComponent(from)}`;
+          }
+        } catch {}
+        window.location.href = dest;
+        return;
+      }
+
+      // Same-origin restore: just refresh UI
+      window.location.reload();
     } catch (error) {
       console.error('Error exiting impersonation:', error);
       toast.error('Failed to exit impersonation');
@@ -50,7 +153,10 @@ export default function ImpersonationBanner() {
   if (!isImpersonating) return null;
 
   return (
-    <div className="bg-red-600 text-white p-3 text-center fixed top-0 w-full z-50 shadow-lg">
+    <div
+      className="bg-red-600 text-white p-3 text-center fixed w-full z-50 shadow-lg"
+      style={{ top: offsetTop }}
+    >
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

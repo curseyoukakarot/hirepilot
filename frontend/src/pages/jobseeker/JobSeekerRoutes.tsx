@@ -26,6 +26,7 @@ import Analytics from '../../screens/Analytics';
 import Settings from '../../screens/Settings';
 import BillingScreen from '../../screens/BillingScreen';
 import HiringManagerWizardPage from './HiringManagerWizardPage';
+import ImpersonationBanner from '../../components/ImpersonationBanner';
 import { supabase } from '../../lib/supabaseClient';
 import AuthCallback from '../AuthCallback';
 
@@ -183,6 +184,7 @@ export default function JobSeekerRoutes() {
 
   return (
     <>
+      <ImpersonationBanner />
       <Toaster
         position="top-right"
         toastOptions={{

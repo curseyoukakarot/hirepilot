@@ -2,6 +2,29 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+function getCookie(name: string): string | null {
+  try {
+    if (typeof document === 'undefined') return null;
+    const cookies = document.cookie ? document.cookie.split(';') : [];
+    for (const cookie of cookies) {
+      const [k, ...rest] = cookie.trim().split('=');
+      if (k === name) return rest.join('=');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function deleteCookie(name: string, opts?: { domain?: string }) {
+  try {
+    if (typeof document === 'undefined') return;
+    const domain = opts?.domain ? `; Domain=${opts.domain}` : '';
+    const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${name}=deleted; Path=/; SameSite=Lax${secure}${domain}; Max-Age=0`;
+  } catch {}
+}
+
 export default function AuthCallback() {
   const navigate = useNavigate();
 
@@ -16,6 +39,7 @@ export default function AuthCallback() {
 
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const from = params.get('from') || '/dashboard';
+    const app = params.get('app') || undefined;
 
     const redirect = () => {
       navigate(from, { replace: true });
@@ -29,7 +53,7 @@ export default function AuthCallback() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify(app ? { app } : {}),
         });
       } catch (err) {
         console.warn('[auth callback] bootstrap failed', err);
@@ -38,6 +62,23 @@ export default function AuthCallback() {
 
     (async () => {
       try {
+        // Cross-domain restore: jobs.* -> app.* needs a one-time session seed.
+        if (typeof window !== 'undefined') {
+          const rootDomain = window.location.hostname.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
+          const restore = getCookie('hp_restore_once');
+          if (restore) {
+            try {
+              const parsed = JSON.parse(decodeURIComponent(restore));
+              const access_token = parsed?.access_token;
+              const refresh_token = parsed?.refresh_token;
+              if (access_token && refresh_token) {
+                await supabase.auth.setSession({ access_token, refresh_token });
+              }
+            } catch {}
+            deleteCookie('hp_restore_once', { domain: rootDomain });
+          }
+        }
+
         const { data } = await supabase.auth.getSession();
         if (data?.session?.access_token) {
           await bootstrap(data.session.access_token);

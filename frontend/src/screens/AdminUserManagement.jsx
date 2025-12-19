@@ -3,7 +3,6 @@ import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
-import ImpersonationBanner from '../components/ImpersonationBanner';
 
 export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
@@ -354,7 +353,20 @@ export default function AdminUserManagement() {
       // Store current session before impersonating
       const currentSession = await supabase.auth.getSession();
       if (currentSession.data.session) {
+        // Back-compat for older banner implementations
         localStorage.setItem('superAdminSession', JSON.stringify(currentSession.data));
+
+        // Cross-subdomain cookie storage (so "Exit Impersonation" works on jobs.* too)
+        const s = currentSession.data.session;
+        const rootDomain = window.location.hostname.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `hp_super_admin_session=${encodeURIComponent(JSON.stringify({
+          access_token: s.access_token,
+          refresh_token: s.refresh_token
+        }))}; Path=/; SameSite=Lax${secure}${rootDomain ? `; Domain=${rootDomain}` : ''}; Max-Age=${60 * 60 * 24}`;
+
+        // Where to return after exiting impersonation
+        document.cookie = `hp_super_admin_return=${encodeURIComponent(window.location.href)}; Path=/; SameSite=Lax${secure}${rootDomain ? `; Domain=${rootDomain}` : ''}; Max-Age=${60 * 60 * 24}`;
       }
 
       const token = (await supabase.auth.getSession()).data.session?.access_token;
@@ -399,7 +411,6 @@ export default function AdminUserManagement() {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
-      <ImpersonationBanner />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">User Management</h1>
         <div className="flex gap-2">
