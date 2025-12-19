@@ -519,18 +519,47 @@ function InnerApp() {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Try to fetch role from users table
-        const { data } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-        if (data?.role) {
-          const normalizedRole = String(data.role).toLowerCase().replace(/\s|-/g, '_');
-          setDbRole(normalizedRole);
-        } else {
-          setDbRole(null);
+        // Prefer backend canonical profile (avoids fragile client-side RLS reads on public.users)
+        try {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          const base = import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com';
+          if (token) {
+            const resp = await fetch(`${base}/api/user/me`, {
+              headers: { Authorization: `Bearer ${token}` },
+              credentials: 'include'
+            });
+            if (resp.ok) {
+              const me = await resp.json();
+              if (me?.role) {
+                const normalizedRole = String(me.role).toLowerCase().replace(/\s|-/g, '_');
+                setDbRole(normalizedRole);
+              }
+            }
+          }
+        } catch {}
+
+        // Fallback to Supabase users table if backend fails
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (data?.role) {
+            const normalizedRole = String(data.role).toLowerCase().replace(/\s|-/g, '_');
+            setDbRole(normalizedRole);
+          } else if (!dbRole) {
+            const meta = user.user_metadata || {};
+            const metaRole = meta.role || meta.account_type || (user.app_metadata || {}).role || null;
+            if (metaRole) setDbRole(String(metaRole).toLowerCase().replace(/\s|-/g, '_'));
+          }
+        } catch {
+          // As a last resort, rely on auth metadata
+          const meta = user.user_metadata || {};
+          const metaRole = meta.role || meta.account_type || (user.app_metadata || {}).role || null;
+          if (metaRole) setDbRole(String(metaRole).toLowerCase().replace(/\s|-/g, '_'));
         }
+
         setPaymentWarning(user.payment_warning || false);
         setIsSuspended(user.is_suspended || false);
 

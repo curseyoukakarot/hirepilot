@@ -79,9 +79,11 @@ export function startSessionCookieSync(): () => void {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         await setCookieFromToken(session.access_token);
-      } else {
-        await clearCookie();
       }
+      // IMPORTANT: Do NOT clear cookies on boot when session is temporarily null.
+      // Supabase session hydration can race initial renders, and clearing here can
+      // break authenticated API calls (causing 401/403 flashes), especially for
+      // super admin pages that rely on cookie auth.
     } catch {}
   })();
 
