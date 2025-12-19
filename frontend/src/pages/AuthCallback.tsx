@@ -40,20 +40,46 @@ export default function AuthCallback() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const from = params.get('from') || '/dashboard';
     const app = params.get('app') || undefined;
-    const code = params.get('code') || undefined;
+    // Supabase may place `code` in either querystring or fragment depending on Site URL / redirects.
+    const code =
+      params.get('code') ||
+      (() => {
+        try {
+          if (typeof window === 'undefined') return null;
+          const raw = (window.location.hash || '').replace(/^#/, '');
+          if (!raw) return null;
+          const hp = new URLSearchParams(raw);
+          return hp.get('code');
+        } catch {
+          return null;
+        }
+      })() ||
+      undefined;
     const oauthError = params.get('error_description') || params.get('error') || undefined;
     const handoff = params.get('handoff') || undefined;
+
+    const isJobSeekerFromSession = (session: any): boolean => {
+      try {
+        const meta = session?.user?.user_metadata || {};
+        const v = String(meta.account_type || meta.plan || meta.role || '').toLowerCase();
+        return v === 'job_seeker' || v.startsWith('job_seeker_') || v.startsWith('jobseeker');
+      } catch {
+        return false;
+      }
+    };
 
     const redirect = async (session?: any) => {
       try {
         if (typeof window !== 'undefined') {
           const host = window.location.hostname || '';
-          const isJobSeeker = String(app || '').toLowerCase() === 'job_seeker';
+          const isJobSeeker = String(app || '').toLowerCase() === 'job_seeker' || isJobSeekerFromSession(session);
           const isOnApp = host.startsWith('app.');
           const isOnJobs = host.startsWith('jobs.');
 
           // If we authenticated on the app domain but we need to land in jobs.*, perform a one-time handoff.
-          if (handoff === 'jobs' && isJobSeeker && !isOnJobs) {
+          const effectiveHandoff = handoff || (isJobSeeker ? 'jobs' : 'app');
+
+          if (effectiveHandoff === 'jobs' && isJobSeeker && !isOnJobs) {
             const rootDomain = host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
             const access_token = session?.access_token;
             const refresh_token = session?.refresh_token;
@@ -68,7 +94,7 @@ export default function AuthCallback() {
           }
 
           // If we authenticated on the marketing/root domain (or jobs) but need to land in app.*, handoff.
-          if (handoff === 'app' && !isOnApp) {
+          if (effectiveHandoff === 'app' && !isOnApp) {
             const rootDomain = host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
             const access_token = session?.access_token;
             const refresh_token = session?.refresh_token;
@@ -120,8 +146,9 @@ export default function AuthCallback() {
       // 2) Handle implicit hash tokens defensively (older flows / edge cases).
       try {
         const hash = window.location.hash || '';
-        if (hash.includes('access_token=')) {
-          const hp = new URLSearchParams(hash.replace(/^#/, ''));
+        const raw = hash.replace(/^#/, '');
+        if (raw.includes('access_token=') || raw.includes('refresh_token=')) {
+          const hp = new URLSearchParams(raw);
           const access_token = hp.get('access_token') || undefined;
           const refresh_token = hp.get('refresh_token') || undefined;
           if (access_token && refresh_token) {

@@ -344,6 +344,26 @@ function InnerApp() {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const [role, setRole] = useState(null);
 
+  // Supabase may redirect magic links back to Site URL (often `https://thehirepilot.com/#...`).
+  // If auth parameters exist but we are not on `/auth/callback`, force-load the callback route
+  // so the SPA can exchange the code and handoff to app/jobs domains as needed.
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (location.pathname === '/auth/callback') return;
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+      const hasAuth =
+        search.includes('code=') ||
+        hash.includes('code=') ||
+        hash.includes('access_token=') ||
+        hash.includes('refresh_token=');
+      if (!hasAuth) return;
+      window.location.replace(`/auth/callback${search}${hash}`);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
