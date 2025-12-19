@@ -42,8 +42,32 @@ export default function AuthCallback() {
     const app = params.get('app') || undefined;
     const code = params.get('code') || undefined;
     const oauthError = params.get('error_description') || params.get('error') || undefined;
+    const handoff = params.get('handoff') || undefined;
 
-    const redirect = () => {
+    const redirect = async (session?: any) => {
+      try {
+        if (typeof window !== 'undefined') {
+          const host = window.location.hostname || '';
+          const isJobSeeker = String(app || '').toLowerCase() === 'job_seeker';
+
+          // If we authenticated on the app domain but we need to land in jobs.*, perform a one-time handoff.
+          if (isJobSeeker && handoff === 'jobs' && !host.startsWith('jobs.')) {
+            const rootDomain = host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
+            const access_token = session?.access_token;
+            const refresh_token = session?.refresh_token;
+            if (access_token && refresh_token) {
+              const payload = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
+              // 5 minute handoff window
+              document.cookie = `hp_restore_once=${payload}; Path=/; SameSite=Lax;${window.location.protocol === 'https:' ? ' Secure;' : ''}${rootDomain ? ` Domain=${rootDomain};` : ''} Max-Age=${60 * 5}`;
+            }
+            const dest = `https://jobs.thehirepilot.com/auth/callback?from=${encodeURIComponent(from)}&app=job_seeker&forceBootstrap=1`;
+            window.location.href = dest;
+            return;
+          }
+        }
+      } catch {
+        // fall through to navigate
+      }
       navigate(from, { replace: true });
     };
 
@@ -72,7 +96,7 @@ export default function AuthCallback() {
           console.warn('[auth callback] exchangeCodeForSession failed', error);
         } else if (data?.session?.access_token) {
           await bootstrap(data.session.access_token);
-          redirect();
+          await redirect(data.session);
           return;
         }
       }
@@ -88,7 +112,7 @@ export default function AuthCallback() {
             const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
             if (!error && data?.session?.access_token) {
               await bootstrap(data.session.access_token);
-              redirect();
+              await redirect(data.session);
             }
           }
         }
@@ -124,7 +148,7 @@ export default function AuthCallback() {
         const { data } = await supabase.auth.getSession();
         if (data?.session?.access_token) {
           await bootstrap(data.session.access_token);
-          redirect();
+          await redirect(data.session);
           return;
         }
       } catch {
@@ -134,7 +158,7 @@ export default function AuthCallback() {
       const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.access_token) {
           await bootstrap(session.access_token);
-          redirect();
+          await redirect(session);
         }
       });
       unsub = () => listener?.subscription?.unsubscribe?.();

@@ -148,11 +148,16 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       (process.env.JOBS_FRONTEND_URL || process.env.JOBSEEKER_FRONTEND_URL || '').trim() ||
       (appBase.includes('app.') ? appBase.replace('app.', 'jobs.') : 'https://jobs.thehirepilot.com');
 
-    const redirectBase = isJobSeeker ? jobsBase : appBase;
+    // IMPORTANT:
+    // Even if the job seeker app lives on `jobs.*`, Supabase Auth redirect allow-lists
+    // often only include the main app domain. To make impersonation reliable, always
+    // send the magic link back to the app callback, then the frontend will "handoff"
+    // the session to `jobs.*` via a short-lived cookie seed.
+    const redirectBase = appBase;
     const redirectTo =
       `${redirectBase.replace(/\/$/, '')}/auth/callback` +
       `?from=${encodeURIComponent('/dashboard')}` +
-      (isJobSeeker ? `&app=job_seeker&forceBootstrap=1` : '');
+      (isJobSeeker ? `&app=job_seeker&forceBootstrap=1&handoff=jobs` : '');
 
     const { data, error } = await supabaseDb.auth.admin.generateLink({
       type: 'magiclink',
