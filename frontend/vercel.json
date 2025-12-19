@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/auth/callback", "destination": "/index.html" },
+    { "source": "/auth/callback/:path*", "destination": "/index.html" },
     { "source": "/affiliates", "destination": "/index.html" },
     { "source": "/partners/:path*", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/" }

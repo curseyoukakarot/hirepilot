@@ -157,12 +157,13 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       (process.env.JOBS_FRONTEND_URL || process.env.JOBSEEKER_FRONTEND_URL || '').trim() ||
       (appBase.includes('app.') ? appBase.replace('app.', 'jobs.') : 'https://jobs.thehirepilot.com');
 
-    // IMPORTANT:
-    // Supabase may ignore `redirectTo` unless it's allow-listed. In many setups, only
-    // the main site URL (often `https://thehirepilot.com`) is allow-listed.
-    // So we always redirect the magic link to `authCallbackBase` and then the frontend
-    // performs a cross-subdomain session handoff to `app.*` or `jobs.*`.
-    const redirectBase = authCallbackBase;
+    // Prefer direct redirects to the correct app when allow-listed in Supabase:
+    // - recruiter app: app.thehirepilot.com/auth/callback
+    // - job seeker app: jobs.thehirepilot.com/auth/callback
+    //
+    // If Supabase ignores redirectTo and falls back to Site URL (often the marketing domain),
+    // our frontend rewrite (/auth/callback -> SPA) + AuthCallback "handoff" logic will recover.
+    const redirectBase = isJobSeeker ? jobsBase : appBase;
     const redirectTo =
       `${redirectBase.replace(/\/$/, '')}/auth/callback` +
       `?from=${encodeURIComponent('/dashboard')}` +

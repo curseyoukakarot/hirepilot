@@ -41,13 +41,31 @@ export default function Sidebar() {
       // Default guest flag from session
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
       if (user) {
-        // Try to fetch from users table
-        const { data } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (data && data.role) role = data.role;
+        // Prefer backend canonical profile (more reliable than client-side RLS reads)
+        try {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          const base = import.meta.env.VITE_BACKEND_URL || 'https://api.thehirepilot.com';
+          if (token) {
+            const resp = await fetch(`${base}/api/user/me`, {
+              headers: { Authorization: `Bearer ${token}` },
+              credentials: 'include'
+            });
+            if (resp.ok) {
+              const me = await resp.json();
+              if (me?.role) role = me.role;
+            }
+          }
+        } catch {}
+
+        // Fallback: Try to fetch from users table (may be blocked by RLS)
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (data && data.role) role = data.role;
+        } catch {}
         // Determine REX flag from integrations table only (source of truth)
         const { data: integ } = await supabase
           .from('integrations')
@@ -70,7 +88,7 @@ export default function Sidebar() {
       const roleLc = (role || '').toLowerCase();
       const premiumRoles = ['recruitpro','teamadmin','team_admin','superadmin','super_admin','admin','member'];
       setIsPremium(premiumRoles.includes(roleLc) || rexEnabled);
-      setIsSuperAdmin(role === 'super_admin');
+      setIsSuperAdmin(roleLc === 'super_admin' || roleLc === 'superadmin');
       setRexEnabled(rexEnabled);
       setIsGuest(guestFlag);
       // Workflows eligibility: explicit paid roles only (no rexEnabled shortcut)
