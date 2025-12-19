@@ -8,10 +8,11 @@ import { randomUUID } from 'crypto';
 import { ApiRequest } from '../../types/api';
 import { CreditService } from '../../services/creditService';
 import { sendEmail } from '../../lib/sendEmail';
-import { sendLifecycleEmail } from '../lib/sendLifecycleEmail';
+import { sendEmail as sendgridSend } from '../integrations/sendgrid';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { dripCadence } from '../lib/dripSchedule';
 import { dripQueue } from '../queues/dripQueue';
+import { jobseekerWelcomeEmail } from '../../emails/jobseekerWelcomeEmail';
 // reuse the same instance name to avoid conflict
 const supabaseClient = dbClient;
 
@@ -117,6 +118,9 @@ router.post('/send-jobseeker-welcome', async (req, res) => {
     const unsubscribeUrl =
       (process.env.JOBSEEKER_UNSUBSCRIBE_URL || process.env.SENDGRID_DEFAULT_UNSUBSCRIBE_URL || 'https://thehirepilot.com/unsubscribe').trim();
     const year = String(new Date().getFullYear());
+    const fromEmail = (process.env.SENDGRID_FROM_EMAIL || '').trim() || 'noreply@hirepilot.com';
+    const fromName = (process.env.SENDGRID_FROM_NAME || '').trim() || 'HirePilot Jobs';
+    const from = `${fromName} <${fromEmail}>`;
 
     // Backfill mode: compute recipients server-side (all job seeker tiers)
     if ((!recipients || recipients.length === 0) && mode === 'backfill') {
@@ -142,19 +146,16 @@ router.post('/send-jobseeker-welcome', async (req, res) => {
       const id = (r as any)?.id as string | undefined;
       if (!email) continue;
       try {
-        await sendLifecycleEmail({
-          to: email,
-          template: 'jobseeker-welcome',
-          tokens: {
-            first_name,
-            app_url: jobsBase,
-            onboarding_url: `${jobsBase}/onboarding`,
-            resume_builder_url: `${jobsBase}/prep`,
-            landing_page_url: `${jobsBase}/prep`,
-            year,
-            unsubscribe_url: unsubscribeUrl,
-          }
+        const html = jobseekerWelcomeEmail({
+          first_name,
+          app_url: jobsBase,
+          onboarding_url: `${jobsBase}/onboarding`,
+          resume_builder_url: `${jobsBase}/prep`,
+          landing_page_url: `${jobsBase}/prep`,
+          year,
+          unsubscribe_url: unsubscribeUrl,
         });
+        await sendgridSend({ from, to: email, subject: 'Welcome to HirePilot Jobs', html });
 
         if (id) {
           await supabaseDb.from('users').update({ job_seeker_welcome_sent_at: new Date().toISOString() }).eq('id', id);

@@ -4,8 +4,9 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { sendSignupWelcomeEmail } from '../../services/sendUserHtmlEmail';
 import { freeForeverQueue } from '../../jobs/freeForeverCadence';
-import { sendLifecycleEmail } from '../lib/sendLifecycleEmail';
+import { sendEmail as sendgridSend } from '../integrations/sendgrid';
 import { sendEmail as sendSimpleEmail } from '../../services/emailService';
+import { jobseekerWelcomeEmail } from '../../emails/jobseekerWelcomeEmail';
 
 const router = Router();
 
@@ -151,20 +152,19 @@ router.post('/signup', async (req, res) => {
           const unsubscribeUrl =
             (process.env.JOBSEEKER_UNSUBSCRIBE_URL || process.env.SENDGRID_DEFAULT_UNSUBSCRIBE_URL || 'https://thehirepilot.com/unsubscribe').trim();
           const firstName = (first_name || (metadata && (metadata as any).first_name) || (metadata && (metadata as any).firstName) || '') as string;
-          await sendLifecycleEmail({
-            to: userEmail,
-            template: 'jobseeker-welcome',
-            subject: 'Welcome to HirePilot Jobs',
-            tokens: {
-              first_name: firstName || 'there',
-              app_url: jobsBase,
-              onboarding_url: `${jobsBase}/onboarding`,
-              resume_builder_url: `${jobsBase}/prep`,
-              landing_page_url: `${jobsBase}/prep`,
-              year: String(new Date().getFullYear()),
-              unsubscribe_url: unsubscribeUrl,
-            }
+          const fromEmail = (process.env.SENDGRID_FROM_EMAIL || '').trim() || 'noreply@hirepilot.com';
+          const fromName = (process.env.SENDGRID_FROM_NAME || '').trim() || 'HirePilot Jobs';
+          const from = `${fromName} <${fromEmail}>`;
+          const html = jobseekerWelcomeEmail({
+            first_name: firstName || 'there',
+            app_url: jobsBase,
+            onboarding_url: `${jobsBase}/onboarding`,
+            resume_builder_url: `${jobsBase}/prep`,
+            landing_page_url: `${jobsBase}/prep`,
+            year: String(new Date().getFullYear()),
+            unsubscribe_url: unsubscribeUrl,
           });
+          await sendgridSend({ from, to: userEmail, subject: 'Welcome to HirePilot Jobs', html });
           try {
             await supabase.from('users').update({ job_seeker_welcome_sent_at: new Date().toISOString() }).eq('id', userId);
             await supabase.from('email_events').insert({
