@@ -8,7 +8,17 @@ type DripJobData = {
   user_id: string;
   to: string;
   template: string;
-  tokens: { first_name: string; app_url?: string; cta_url?: string; article_url?: string };
+  tokens: {
+    first_name: string;
+    app_url?: string;
+    cta_url?: string;
+    article_url?: string;
+    onboarding_url?: string;
+    resume_builder_url?: string;
+    landing_page_url?: string;
+    year?: string;
+    unsubscribe_url?: string;
+  };
   event_key?: string;
 };
 
@@ -26,6 +36,11 @@ export const dripEmailWorker = new Worker('drip:email', async (job) => {
       app_url: data.tokens.app_url,
       cta_url: data.tokens.cta_url,
       article_url: data.tokens.article_url,
+      onboarding_url: data.tokens.onboarding_url,
+      resume_builder_url: data.tokens.resume_builder_url,
+      landing_page_url: data.tokens.landing_page_url,
+      year: data.tokens.year,
+      unsubscribe_url: data.tokens.unsubscribe_url,
     },
   });
 

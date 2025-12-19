@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane, FaListAlt } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane, FaListAlt, FaGamepad } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
@@ -277,16 +277,43 @@ export default function AdminUserManagement() {
         templates: Array.from(selectedTemplates),
         user_ids: Array.from(dripUserIds)
       };
+      const templates = body.templates || [];
+      const jobSeekerWelcomeSelected = templates.includes('jobseeker-welcome');
+      const dripTemplatesOnly = templates.filter(t => t !== 'jobseeker-welcome');
+      body.templates = dripTemplatesOnly;
       if (!body.templates || body.templates.length === 0) delete body.templates;
       if (!body.user_ids || body.user_ids.length === 0) delete body.user_ids;
-      const res = await fetch(`${BACKEND_URL}/api/admin/users/backfill-drips`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error('Failed to enqueue drips');
-      const result = await res.json();
-      setSuccess(`Enqueued ${result.enqueued} drip emails for ${result.plan} users.`);
+      let dripResult = null;
+      if (dripTemplatesOnly.length > 0 || dripPlan !== 'all') {
+        const res = await fetch(`${BACKEND_URL}/api/admin/users/backfill-drips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('Failed to enqueue drips');
+        dripResult = await res.json().catch(() => null);
+      }
+
+      let jsResult = null;
+      if (jobSeekerWelcomeSelected) {
+        const res2 = await fetch(`${BACKEND_URL}/api/admin/send-jobseeker-welcome`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ mode: 'backfill', user_ids: Array.from(dripUserIds) })
+        });
+        const json2 = await res2.json().catch(() => ({}));
+        if (!res2.ok) throw new Error(json2?.error || 'Failed to backfill job seeker welcome');
+        jsResult = json2;
+      }
+
+      const parts = [];
+      if (dripResult) parts.push(`Enqueued ${dripResult.enqueued} drip emails for ${dripResult.plan} users.`);
+      if (jsResult) {
+        const sent = (jsResult.results || []).filter((r) => r.sent).length;
+        const failed = (jsResult.results || []).length - sent;
+        parts.push(`Job Seeker welcome sent: ${sent}${failed ? `, failed: ${failed}` : ''}`);
+      }
+      setSuccess(parts.join(' '));
       setDripModalOpen(false);
       setSelectedTemplates(new Set());
       setDripPlan('all');
@@ -338,6 +365,26 @@ export default function AdminUserManagement() {
       setSuccess(ok ? `Welcome email sent to ${user.email}` : `Failed to send to ${user.email}`);
     } catch (err) {
       setError(err.message || 'Failed to send welcome email');
+    }
+  };
+
+  // Send Job Seeker welcome for a single user (job_seeker_* tiers)
+  const handleSendJobSeekerWelcomeSingle = async (user) => {
+    setError('');
+    setSuccess('');
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/send-jobseeker-welcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ recipients: [{ id: user.id, email: user.email, first_name: user.firstName || 'there' }] })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'Failed to send job seeker welcome email');
+      const ok = Array.isArray(json.results) && json.results[0]?.sent;
+      setSuccess(ok ? `Job Seeker welcome sent to ${user.email}` : `Failed to send to ${user.email}`);
+    } catch (err) {
+      setError(err.message || 'Failed to send job seeker welcome email');
     }
   };
 
@@ -536,6 +583,20 @@ export default function AdminUserManagement() {
           </div>
         </div>
 
+        <div className="mt-4">
+          <h3 className="font-medium text-gray-800 mb-2">Job Seeker (all tiers)</h3>
+          <div className="space-y-2 border rounded p-3">
+            <label className="flex items-center gap-2 text-gray-800">
+              <input
+                type="checkbox"
+                checked={selectedTemplates.has('jobseeker-welcome')}
+                onChange={() => toggleTemplate('jobseeker-welcome')}
+              />
+              <span>Job Seeker Welcome</span>
+            </label>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mt-6">
           <button className="text-sm text-gray-600" onClick={clearAll}>Clear selection</button>
           <div className="flex gap-2">
@@ -696,6 +757,15 @@ export default function AdminUserManagement() {
                   <button className="p-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded" onClick={() => { setCreditUser(user); setCreditAmount(1000); }}><FaCoins /></button>
                   <button className="p-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded" onClick={() => { setPasswordUser(user); setNewPassword(''); }}><FaKey /></button>
                   <button className="p-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded" title="Send Welcome Email" onClick={() => handleSendWelcomeSingle(user)}><FaEnvelope /></button>
+                  {String(user.role || '').toLowerCase().startsWith('job_seeker_') && (
+                    <button
+                      className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded"
+                      title="Send Job Seeker Welcome (Controller)"
+                      onClick={() => handleSendJobSeekerWelcomeSingle(user)}
+                    >
+                      <FaGamepad />
+                    </button>
+                  )}
                   <button className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded" onClick={async () => {
                     const token = (await supabase.auth.getSession()).data.session?.access_token;
                     const res = await fetch(`${BACKEND_URL}/api/admin/users/${user.id}/features`, { headers: { 'Authorization': `Bearer ${token}` }});

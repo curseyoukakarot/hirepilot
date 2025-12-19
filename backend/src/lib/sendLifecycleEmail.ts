@@ -9,6 +9,11 @@ export type LifecycleTokens = {
   article_url?: string;
   app_url?: string;
   plan_tier?: 'free' | 'paid';
+  onboarding_url?: string;
+  resume_builder_url?: string;
+  landing_page_url?: string;
+  year?: string;
+  unsubscribe_url?: string;
 };
 
 export async function sendLifecycleEmail(params: {
@@ -53,6 +58,11 @@ export async function sendLifecycleEmail(params: {
     replaceToken('article_url', tokens.article_url);
     replaceToken('app_url', tokens.app_url);
     replaceToken('plan_tier', tokens.plan_tier);
+    replaceToken('onboarding_url', tokens.onboarding_url);
+    replaceToken('resume_builder_url', tokens.resume_builder_url);
+    replaceToken('landing_page_url', tokens.landing_page_url);
+    replaceToken('year', tokens.year);
+    replaceToken('unsubscribe_url', tokens.unsubscribe_url);
 
     // Derive subject from <title> if not provided
     let subject = params.subject;

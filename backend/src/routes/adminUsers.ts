@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { ApiRequest } from '../../types/api';
 import { CreditService } from '../../services/creditService';
 import { sendEmail } from '../../lib/sendEmail';
+import { sendLifecycleEmail } from '../lib/sendLifecycleEmail';
 import { queueDripOnSignup } from '../lib/queueDripOnSignup';
 import { dripCadence } from '../lib/dripSchedule';
 import { dripQueue } from '../queues/dripQueue';
@@ -85,6 +86,97 @@ router.post('/send-free-welcome', async (req, res) => {
         results.push({ email, sent: false, error: e?.message || 'send_failed' });
       }
     }
+    return res.json({ ok: true, results });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'server_error' });
+  }
+});
+
+// POST /api/admin/send-jobseeker-welcome
+// Body: { mode?: 'backfill', recipients?: [{ id?: string, email: string, first_name?: string }], user_ids?: string[] }
+// Sends the Job Seeker welcome email to job_seeker_* users (free/pro/elite). Backfill mode computes recipients server-side.
+router.post('/send-jobseeker-welcome', async (req, res) => {
+  try {
+    const auth = String(req.headers.authorization || '');
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'missing_auth' });
+
+    // Validate JWT via Supabase and enforce super_admin
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token as any);
+    if (error || !user) return res.status(401).json({ error: 'invalid_token' });
+    const role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role;
+    const roles = new Set([].concat(((user.app_metadata as any)?.allowed_roles || [])));
+    const isSuper = role === 'super_admin' || roles.has('super_admin');
+    if (!isSuper) return res.status(403).json({ error: 'forbidden' });
+
+    const mode = String(req.body?.mode || '').toLowerCase();
+    let recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
+    const userIds: string[] | undefined = Array.isArray(req.body?.user_ids) ? req.body.user_ids : undefined;
+
+    const jobsBase = (process.env.JOBS_FRONTEND_URL || process.env.JOBSEEKER_FRONTEND_URL || 'https://jobs.thehirepilot.com').replace(/\/$/, '');
+    const unsubscribeUrl =
+      (process.env.JOBSEEKER_UNSUBSCRIBE_URL || process.env.SENDGRID_DEFAULT_UNSUBSCRIBE_URL || 'https://thehirepilot.com/unsubscribe').trim();
+    const year = String(new Date().getFullYear());
+
+    // Backfill mode: compute recipients server-side (all job seeker tiers)
+    if ((!recipients || recipients.length === 0) && mode === 'backfill') {
+      let q = supabaseDb
+        .from('users')
+        .select('id,email,first_name,firstName,role,plan,account_type,job_seeker_welcome_sent_at')
+        .is('job_seeker_welcome_sent_at', null)
+        .or('role.ilike.job_seeker_%,account_type.ilike.job_seeker_%,plan.ilike.job_seeker_%');
+      const { data: usersToEmail, error: qErr } = await q;
+      if (qErr) return res.status(500).json({ error: qErr.message });
+      recipients = (usersToEmail || [])
+        .filter((u: any) => !!u.email)
+        .filter((u: any) => !userIds || userIds.includes(u.id))
+        .map((u: any) => ({ id: u.id, email: u.email, first_name: u.first_name || u.firstName || 'there' }));
+    }
+
+    if (!recipients || recipients.length === 0) return res.status(400).json({ error: 'no_recipients' });
+
+    const results: any[] = [];
+    for (const r of recipients) {
+      const email = String((r as any)?.email || '').trim();
+      const first_name = String((r as any)?.first_name || 'there');
+      const id = (r as any)?.id as string | undefined;
+      if (!email) continue;
+      try {
+        await sendLifecycleEmail({
+          to: email,
+          template: 'jobseeker-welcome',
+          tokens: {
+            first_name,
+            app_url: jobsBase,
+            onboarding_url: `${jobsBase}/onboarding`,
+            resume_builder_url: `${jobsBase}/prep`,
+            landing_page_url: `${jobsBase}/prep`,
+            year,
+            unsubscribe_url: unsubscribeUrl,
+          }
+        });
+
+        if (id) {
+          await supabaseDb.from('users').update({ job_seeker_welcome_sent_at: new Date().toISOString() }).eq('id', id);
+          try {
+            await supabaseDb.from('email_events').insert({
+              user_id: id,
+              event_type: 'welcome.job_seeker',
+              provider: 'sendgrid',
+              template: 'jobseeker-welcome',
+              metadata: { template: 'jobseeker-welcome' }
+            } as any);
+          } catch {}
+        } else {
+          await supabaseDb.from('users').update({ job_seeker_welcome_sent_at: new Date().toISOString() }).eq('email', email);
+        }
+
+        results.push({ email, sent: true });
+      } catch (e: any) {
+        results.push({ email, sent: false, error: e?.message || 'send_failed' });
+      }
+    }
+
     return res.json({ ok: true, results });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'server_error' });
