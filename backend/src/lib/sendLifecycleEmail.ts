@@ -24,11 +24,13 @@ export async function sendLifecycleEmail(params: {
   subject?: string;
 }) {
   const { to, template, tokens } = params;
-  // Default display name: special-case founder intro to come from Brandon
-  const from = params.from
-    || (template === 'founder-intro'
-      ? 'Brandon @ HirePilot <notifications@hirepilot.com>'
-      : 'HirePilot <notifications@hirepilot.com>');
+  // Default sender: prefer configured SendGrid sender (verified) to avoid 403s from SendGrid.
+  // Special-case founder intro display name.
+  const fromEmail = (process.env.SENDGRID_FROM_EMAIL || '').trim() || 'noreply@hirepilot.com';
+  const fromName =
+    (process.env.SENDGRID_FROM_NAME || '').trim() ||
+    (template === 'founder-intro' ? 'Brandon @ HirePilot' : 'HirePilot');
+  const from = params.from || `${fromName} <${fromEmail}>`;
 
   try {
     // Resolve template path (works from ts-node and built dist)
