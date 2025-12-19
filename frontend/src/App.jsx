@@ -431,20 +431,6 @@ function InnerApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleLower, hostname, handoffingToJobs]);
 
-  if (handoffingToJobs) return null;
-
-  // Onboarding route handling
-  if (location.pathname === '/onboarding') {
-    if (hostname.startsWith('jobs.')) {
-      return <JobSeekerRoutes />;
-    }
-    return <OnboardingAppPage />;
-  }
-
-  if (mode === 'job_seeker') {
-    return <JobSeekerRoutes />;
-  }
-
   const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
@@ -568,14 +554,14 @@ function InnerApp() {
 
         // Fallback to Supabase users table if backend fails
         try {
-          const { data } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (data?.role) {
-            const normalizedRole = String(data.role).toLowerCase().replace(/\s|-/g, '_');
-            setDbRole(normalizedRole);
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (data?.role) {
+          const normalizedRole = String(data.role).toLowerCase().replace(/\s|-/g, '_');
+          setDbRole(normalizedRole);
           } else if (!dbRole) {
             const meta = user.user_metadata || {};
             const metaRole = meta.role || meta.account_type || (user.app_metadata || {}).role || null;
@@ -680,6 +666,23 @@ function InnerApp() {
 
   if (!userLoaded && !isAuthPage) {
     return <div className="flex items-center justify-center h-screen text-lg">Loading...</div>;
+  }
+
+  // IMPORTANT: Conditional returns must occur AFTER all hooks have been called.
+  // InnerApp previously returned early for onboarding/job-seeker/handoff, which broke hook ordering
+  // during auth transitions (minified React invariant errors in production).
+  if (handoffingToJobs) return null;
+
+  // Onboarding route handling
+  if (location.pathname === '/onboarding') {
+    if (hostname.startsWith('jobs.')) {
+      return <JobSeekerRoutes />;
+    }
+    return <OnboardingAppPage />;
+  }
+
+  if (mode === 'job_seeker') {
+    return <JobSeekerRoutes />;
   }
 
   const isRexMobile = isMobile && location.pathname === '/rex-chat';
