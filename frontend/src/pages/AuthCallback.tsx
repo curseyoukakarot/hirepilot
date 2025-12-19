@@ -49,9 +49,11 @@ export default function AuthCallback() {
         if (typeof window !== 'undefined') {
           const host = window.location.hostname || '';
           const isJobSeeker = String(app || '').toLowerCase() === 'job_seeker';
+          const isOnApp = host.startsWith('app.');
+          const isOnJobs = host.startsWith('jobs.');
 
           // If we authenticated on the app domain but we need to land in jobs.*, perform a one-time handoff.
-          if (isJobSeeker && handoff === 'jobs' && !host.startsWith('jobs.')) {
+          if (handoff === 'jobs' && isJobSeeker && !isOnJobs) {
             const rootDomain = host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
             const access_token = session?.access_token;
             const refresh_token = session?.refresh_token;
@@ -61,6 +63,20 @@ export default function AuthCallback() {
               document.cookie = `hp_restore_once=${payload}; Path=/; SameSite=Lax;${window.location.protocol === 'https:' ? ' Secure;' : ''}${rootDomain ? ` Domain=${rootDomain};` : ''} Max-Age=${60 * 5}`;
             }
             const dest = `https://jobs.thehirepilot.com/auth/callback?from=${encodeURIComponent(from)}&app=job_seeker&forceBootstrap=1`;
+            window.location.href = dest;
+            return;
+          }
+
+          // If we authenticated on the marketing/root domain (or jobs) but need to land in app.*, handoff.
+          if (handoff === 'app' && !isOnApp) {
+            const rootDomain = host.endsWith('thehirepilot.com') ? '.thehirepilot.com' : undefined;
+            const access_token = session?.access_token;
+            const refresh_token = session?.refresh_token;
+            if (access_token && refresh_token) {
+              const payload = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
+              document.cookie = `hp_restore_once=${payload}; Path=/; SameSite=Lax;${window.location.protocol === 'https:' ? ' Secure;' : ''}${rootDomain ? ` Domain=${rootDomain};` : ''} Max-Age=${60 * 5}`;
+            }
+            const dest = `https://app.thehirepilot.com/auth/callback?from=${encodeURIComponent(from)}`;
             window.location.href = dest;
             return;
           }

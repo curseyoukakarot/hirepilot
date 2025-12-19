@@ -34,6 +34,14 @@ function resolveAppBase(): string {
   return fe;
 }
 
+function resolveAuthCallbackBase(appBase: string): string {
+  // Prefer FRONTEND_URL for auth redirects because Supabase redirect allow-lists
+  // often only include the "site url" (marketing/root) and not app/jobs subdomains.
+  const fe = (process.env.FRONTEND_URL || '').trim();
+  if (fe) return fe;
+  return appBase;
+}
+
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     console.log('=== IMPERSONATE USER DEBUG ===');
@@ -144,20 +152,21 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const isJobSeeker = isJobSeekerRole(dbRole) || isJobSeekerRole(authRole);
 
     const appBase = resolveAppBase();
+    const authCallbackBase = resolveAuthCallbackBase(appBase);
     const jobsBase =
       (process.env.JOBS_FRONTEND_URL || process.env.JOBSEEKER_FRONTEND_URL || '').trim() ||
       (appBase.includes('app.') ? appBase.replace('app.', 'jobs.') : 'https://jobs.thehirepilot.com');
 
     // IMPORTANT:
-    // Even if the job seeker app lives on `jobs.*`, Supabase Auth redirect allow-lists
-    // often only include the main app domain. To make impersonation reliable, always
-    // send the magic link back to the app callback, then the frontend will "handoff"
-    // the session to `jobs.*` via a short-lived cookie seed.
-    const redirectBase = appBase;
+    // Supabase may ignore `redirectTo` unless it's allow-listed. In many setups, only
+    // the main site URL (often `https://thehirepilot.com`) is allow-listed.
+    // So we always redirect the magic link to `authCallbackBase` and then the frontend
+    // performs a cross-subdomain session handoff to `app.*` or `jobs.*`.
+    const redirectBase = authCallbackBase;
     const redirectTo =
       `${redirectBase.replace(/\/$/, '')}/auth/callback` +
       `?from=${encodeURIComponent('/dashboard')}` +
-      (isJobSeeker ? `&app=job_seeker&forceBootstrap=1&handoff=jobs` : '');
+      (isJobSeeker ? `&app=job_seeker&forceBootstrap=1&handoff=jobs` : `&handoff=app`);
 
     const { data, error } = await supabaseDb.auth.admin.generateLink({
       type: 'magiclink',
@@ -179,6 +188,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       isJobSeeker,
       redirectBase,
       redirectTo,
+      authCallbackBase,
       targetDbRole: dbRole || null,
       targetAuthRole: authRole ? String(authRole) : null
     });
