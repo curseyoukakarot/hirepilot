@@ -71,6 +71,7 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
         typeof window !== 'undefined' && window.location.hostname.endsWith('thehirepilot.com')
           ? '.thehirepilot.com'
           : undefined;
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
 
       const cookie = getCookie('hp_super_admin_session');
       let access_token: string | undefined;
@@ -101,7 +102,46 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
         return;
       }
 
-      // Restore the original super admin session on THIS origin.
+      const returnToRaw = getCookie('hp_super_admin_return');
+
+      // IMPORTANT:
+      // When exiting impersonation from jobs.*, do NOT attempt to set the super admin session on the jobs origin.
+      // jobs.* uses a different storage key and may immediately call /auth/v1/user with a stale/invalid session_id,
+      // producing a 403 session_not_found. Instead, clear the current (job seeker) local session and hand off to app.*
+      // using hp_restore_once, then restore on app.thehirepilot.com/auth/callback.
+      if (host.startsWith('jobs.')) {
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {}
+
+        // Clear impersonation markers (so banner disappears)
+        try {
+          localStorage.removeItem('superAdminSession');
+        } catch {}
+        deleteCookie('hp_super_admin_session', { domain: rootDomain });
+        deleteCookie('hp_super_admin_return', { domain: rootDomain });
+
+        setIsImpersonating(false);
+        setOriginalSession(null);
+
+        const payload = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
+        setCookie('hp_restore_once', payload, { maxAgeSeconds: 60 * 5, domain: rootDomain });
+
+        let dest = 'https://app.thehirepilot.com/auth/callback?from=%2Fdashboard';
+        try {
+          if (returnToRaw) {
+            const returnTo = decodeURIComponent(returnToRaw);
+            const u = new URL(returnTo);
+            const from = `${u.pathname}${u.search}${u.hash || ''}` || '/dashboard';
+            dest = `${u.origin}/auth/callback?from=${encodeURIComponent(from)}&handoff=app`;
+          }
+        } catch {}
+        if (!dest.includes('handoff=')) dest = `${dest}${dest.includes('?') ? '&' : '?'}handoff=app`;
+        window.location.href = dest;
+        return;
+      }
+
+      // Restore the original super admin session on THIS origin (app.*).
       const { error } = await supabase.auth.setSession({ access_token, refresh_token });
       if (error) {
         console.error('Error restoring session:', error);
@@ -114,33 +154,10 @@ export default function ImpersonationBanner({ offsetTop = 0 }: { offsetTop?: num
         localStorage.removeItem('superAdminSession');
       } catch {}
       deleteCookie('hp_super_admin_session', { domain: rootDomain });
-
-      const returnToRaw = getCookie('hp_super_admin_return');
       deleteCookie('hp_super_admin_return', { domain: rootDomain });
 
       setIsImpersonating(false);
       setOriginalSession(null);
-
-      // If we are on jobs.* and returning to app.*, we need a one-time restore
-      // because Supabase sessions are stored per-origin.
-      const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      if (host.startsWith('jobs.')) {
-        // Stash tokens for the app origin to pick up on /auth/callback.
-        const payload = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
-        setCookie('hp_restore_once', payload, { maxAgeSeconds: 60 * 5, domain: rootDomain });
-
-        let dest = 'https://app.thehirepilot.com/auth/callback?from=%2Fdashboard';
-        try {
-          if (returnToRaw) {
-            const returnTo = decodeURIComponent(returnToRaw);
-            const u = new URL(returnTo);
-            const from = `${u.pathname}${u.search}${u.hash || ''}` || '/dashboard';
-            dest = `${u.origin}/auth/callback?from=${encodeURIComponent(from)}`;
-          }
-        } catch {}
-        window.location.href = dest;
-        return;
-      }
 
       // Same-origin restore: just refresh UI
       window.location.reload();
