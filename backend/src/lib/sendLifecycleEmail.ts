@@ -35,7 +35,10 @@ export async function sendLifecycleEmail(params: {
   try {
     // Resolve template path (works from ts-node and built dist)
     const candidates = [
+      // Repo root (common local/dev)
       path.resolve(process.cwd(), 'frontend', 'src', 'templates', 'emails', `${template}.html`),
+      // If backend runs with CWD=backend (common Railway "root directory" deployments)
+      path.resolve(process.cwd(), '..', 'frontend', 'src', 'templates', 'emails', `${template}.html`),
       path.resolve(__dirname, '../../../frontend/src/templates/emails', `${template}.html`),
       path.resolve(__dirname, `../../frontend/src/templates/emails/${template}.html`)
     ];
