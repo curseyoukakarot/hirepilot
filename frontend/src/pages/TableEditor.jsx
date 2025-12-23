@@ -775,10 +775,12 @@ export default function TableEditor() {
           </div>
         </div>
         <div className="flex flex-1 overflow-hidden">
-          <main id="main-grid" className="flex-1 p-6">
+          {/* min-w-0 is critical here: without it, wide tables force the flex item to expand,
+              and the parent overflow-hidden clips columns instead of allowing horizontal scroll. */}
+          <main id="main-grid" className="flex-1 p-6 min-w-0">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div id="table-container" className="overflow-x-auto overflow-y-auto touch-pan-x overscroll-x-contain" style={{ height: 'calc(100vh - 200px)', WebkitOverflowScrolling: 'touch' }}>
-                <table className="w-max whitespace-nowrap table-auto">
+                <table className="min-w-max w-max whitespace-nowrap table-auto">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectAll(e.target.checked)} checked={selectedRowIdxSet.size>0 && selectedRowIdxSet.size===(rows||[]).length} /></th>
