@@ -6,6 +6,90 @@ import PlotlyImport from 'plotly.js-dist-min';
 
 const Plotly = PlotlyImport?.default || PlotlyImport;
 
+// -------------------- Minimal SVG charts (Plotly-free fallback / default) --------------------
+function SimpleLineChart({ series, keys, colors, height = 320 }) {
+  const rows = Array.isArray(series) ? series : [];
+  const ks = Array.isArray(keys) ? keys : [];
+  if (!rows.length || !ks.length) return null;
+
+  const w = 1000;
+  const h = height;
+  const padL = 50;
+  const padR = 18;
+  const padT = 14;
+  const padB = 28;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+
+  const xs = rows.map((r) => String(r?.t ?? ''));
+  const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const r of rows) {
+    for (const k of ks) {
+      const v = toNum(r?.[k]);
+      minY = Math.min(minY, v);
+      maxY = Math.max(maxY, v);
+    }
+  }
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+    minY = 0; maxY = 1;
+  }
+  if (minY === maxY) {
+    // Make a visible range
+    minY = minY - 1;
+    maxY = maxY + 1;
+  }
+
+  const xFor = (i) => padL + (xs.length === 1 ? innerW / 2 : (i / (xs.length - 1)) * innerW);
+  const yFor = (v) => padT + (1 - ((v - minY) / (maxY - minY))) * innerH;
+
+  const grid = 4;
+  const gridLines = Array.from({ length: grid + 1 }).map((_, i) => {
+    const y = padT + (i / grid) * innerH;
+    return <line key={i} x1={padL} x2={w - padR} y1={y} y2={y} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />;
+  });
+
+  const paths = ks.map((k, idx) => {
+    const pts = rows.map((r, i) => ({ x: xFor(i), y: yFor(toNum(r?.[k])) }));
+    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    const c = colors?.[idx] || '#3b82f6';
+    return (
+      <g key={k}>
+        <path d={d} fill="none" stroke={c} strokeWidth="3" />
+        {pts.length === 1 ? <circle cx={pts[0].x} cy={pts[0].y} r="6" fill={c} stroke="#ffffff" strokeWidth="2" /> : null}
+      </g>
+    );
+  });
+
+  const xLabels = xs.length <= 1 ? xs : [xs[0], xs[Math.floor(xs.length / 2)], xs[xs.length - 1]];
+  const xLabelEls = xLabels.map((lab, i) => {
+    const idx = xs.indexOf(lab);
+    const x = idx >= 0 ? xFor(idx) : padL;
+    return <text key={`${lab}-${i}`} x={x} y={h - 8} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="12">{lab}</text>;
+  });
+
+  const yTicks = [maxY, (maxY + minY) / 2, minY];
+  const yLabelEls = yTicks.map((v, i) => {
+    const y = yFor(v);
+    return (
+      <text key={i} x={padL - 10} y={y + 4} textAnchor="end" fill="rgba(255,255,255,0.55)" fontSize="12">
+        {Math.round(v).toLocaleString()}
+      </text>
+    );
+  });
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} className="block">
+      {gridLines}
+      {paths}
+      {yLabelEls}
+      {xLabelEls}
+    </svg>
+  );
+}
+
 const rangeToStartDate = (range) => {
   const now = new Date();
   if (range === 'last_30_days') { now.setDate(now.getDate() - 30); return now; }
@@ -238,72 +322,9 @@ function ExecOverviewCommandCenter() {
 
   useEffect(() => { load(); }, [range, bucket]);
 
-  // Render Plotly charts into containers
+  // Plotly charts were replaced with inline SVG charts to eliminate environments where Plotly renders a blank panel.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const el1 = document.getElementById('exec-chart-rev-cost');
-        const el2 = document.getElementById('exec-chart-margin');
-        if (!el1 && !el2) return;
-        if (cancelled) return;
-
-        setChartError('');
-        const axisColor = '#e5e7eb';
-        const gridColor = 'rgba(255,255,255,0.08)';
-        const paperBg = 'rgba(0,0,0,0)';
-        const plotBg = 'rgba(0,0,0,0)';
-
-        const xs = (series || []).map(r => r.t);
-        const rev = (series || []).map(r => Number(r?.Revenue) || 0);
-        const cost = (series || []).map(r => Number(r?.Cost) || 0);
-        const margin = rev.map((v, i) => v ? (((v - cost[i]) / v) * 100) : 0);
-        const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
-        const markerSize = xs.length <= 1 ? 10 : 6;
-
-        if (el1) {
-          await Plotly.react(el1, [
-            { type: 'scatter', mode: sparseMode, name: 'Revenue', x: xs, y: rev, line: { color: '#3b82f6', width: 3 }, marker: { color: '#3b82f6', size: markerSize } },
-            { type: 'scatter', mode: sparseMode, name: 'Cost', x: xs, y: cost, line: { color: '#10b981', width: 3 }, marker: { color: '#10b981', size: markerSize } }
-          ], {
-            margin: { t: 10, r: 10, b: 40, l: 60 },
-            plot_bgcolor: plotBg,
-            paper_bgcolor: paperBg,
-            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
-            yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
-            showlegend: true,
-            legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
-          }, { responsive: true, displayModeBar: false, displaylogo: false });
-
-          // Some environments block Plotly (CSP/extensions) without throwing; detect and surface that case.
-          if (!cancelled && el1.children && el1.children.length === 0) {
-            setChartError('Chart failed to render. Check Console for CSP/extension blocks (e.g., “Refused to execute script” / “unsafe-eval”) and try disabling ad-blockers.');
-          }
-        }
-
-        if (el2) {
-          await Plotly.react(el2, [
-            { type: 'scatter', mode: sparseMode, name: 'Margin %', x: xs, y: margin, line: { color: '#f97316', width: 3 }, marker: { color: '#f97316', size: markerSize } }
-          ], {
-            margin: { t: 10, r: 10, b: 40, l: 60 },
-            plot_bgcolor: plotBg,
-            paper_bgcolor: paperBg,
-            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
-            yaxis: { title: 'Margin (%)', gridcolor: gridColor, color: axisColor },
-            showlegend: false
-          }, { responsive: true, displayModeBar: false, displaylogo: false });
-
-          if (!cancelled && el2.children && el2.children.length === 0) {
-            setChartError('Chart failed to render. Check Console for CSP/extension blocks (e.g., “Refused to execute script” / “unsafe-eval”) and try disabling ad-blockers.');
-          }
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setChartError(e?.message || 'Chart failed to render (Plotly load error).');
-        }
-      }
-    })();
-    return () => { cancelled = true; };
+    setChartError('');
   }, [series, plotNonce]);
 
   return (
@@ -365,7 +386,14 @@ function ExecOverviewCommandCenter() {
               ) : (series || []).length === 0 ? (
                 <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
               ) : (
-                <div id="exec-chart-rev-cost" className="h-[320px]" />
+                <div className="h-[320px]">
+                  <SimpleLineChart
+                    height={320}
+                    series={series}
+                    keys={['Revenue', 'Cost']}
+                    colors={['#3b82f6', '#10b981']}
+                  />
+                </div>
               )}
             </ChartCard>
             <ChartCard title="Margin Trend">
@@ -378,7 +406,19 @@ function ExecOverviewCommandCenter() {
               ) : (series || []).length === 0 ? (
                 <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
               ) : (
-                <div id="exec-chart-margin" className="h-[240px]" />
+                <div className="h-[240px]">
+                  <SimpleLineChart
+                    height={240}
+                    series={(series || []).map((r) => {
+                      const rev = Number(r?.Revenue) || 0;
+                      const cost = Number(r?.Cost) || 0;
+                      const marginPct = rev ? (((rev - cost) / rev) * 100) : 0;
+                      return { ...r, Margin: marginPct };
+                    })}
+                    keys={['Margin']}
+                    colors={['#f97316']}
+                  />
+                </div>
               )}
             </ChartCard>
           </div>
