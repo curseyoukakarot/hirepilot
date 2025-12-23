@@ -255,12 +255,20 @@ export default function DashboardDetail() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id && isMounted) {
-          const { data: dbProfile } = await supabase.from('users').select('full_name, role, avatar_url').eq('id', user.id).maybeSingle();
+          // Some environments don't have users.full_name; derive display name from first/last name or auth metadata.
+          const { data: dbProfile, error: dbErr } = await supabase
+            .from('users')
+            .select('first_name,last_name,role,avatar_url,account_type')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (dbErr) throw dbErr;
           const firstName = user.user_metadata?.first_name || '';
           const lastName = user.user_metadata?.last_name || '';
           const fallbackName = [firstName, lastName].filter(Boolean).join(' ') || user.email || 'Member';
-          const derivedName = dbProfile?.full_name || fallbackName;
-          const derivedRole = (dbProfile?.role || user.user_metadata?.role || 'Member').replace(/_/g, ' ');
+          const derivedName =
+            [dbProfile?.first_name, dbProfile?.last_name].filter(Boolean).join(' ')
+            || fallbackName;
+          const derivedRole = (dbProfile?.role || dbProfile?.account_type || user.user_metadata?.role || 'Member').replace(/_/g, ' ');
           const derivedAvatar = dbProfile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=random`;
           setProfile({ name: derivedName, role: derivedRole, avatar: derivedAvatar });
         }
@@ -297,6 +305,7 @@ export default function DashboardDetail() {
         setShowCampaigns(url.searchParams.get('showCampaigns') === '1');
         // Build dynamic traces
         const traces = [];
+        const plotlyModeForPoints = (pts) => (Array.isArray(pts) && pts.length <= 1 ? 'lines+markers' : 'lines');
         // If includeDeals, fetch revenue monthly series via Supabase view and add as trace and KPI
         let revenueKpi = 0;
         if (includeDeals) {
@@ -364,9 +373,10 @@ export default function DashboardDetail() {
               if (r.ok) {
                 const json = await r.json();
                 const pts = json?.points || [];
+                if (!Array.isArray(pts) || pts.length === 0) continue;
                 traces.push({
                   type: 'scatter',
-                  mode: 'lines',
+                  mode: plotlyModeForPoints(pts),
                   name: m.alias || m.columnId,
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
@@ -395,9 +405,9 @@ export default function DashboardDetail() {
               if (r.ok) {
                 const json = await r.json();
                 const pts = json?.points || [];
-                traces.push({
+                if (Array.isArray(pts) && pts.length) traces.push({
                   type: 'scatter',
-                  mode: 'lines',
+                  mode: plotlyModeForPoints(pts),
                   name: formulaLabel || 'Formula',
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
