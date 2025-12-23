@@ -46,6 +46,41 @@ function resolvePaidPlanLabel(...candidates: Array<string | null | undefined>): 
   return 'team';
 }
 
+async function ensureTeamIdForTeamAdmin(userId: string, inviter: any): Promise<string | null> {
+  const existingTeamId = inviter?.team_id || null;
+  if (existingTeamId) return existingTeamId;
+  try {
+    const displayNameCandidate = [inviter?.first_name, inviter?.last_name].filter(Boolean).join(' ').trim();
+    const emailHandle = (inviter?.email || '').split('@')?.[0];
+    const teamName =
+      (inviter?.company || '').trim() ||
+      (displayNameCandidate ? `${displayNameCandidate}'s Team` : null) ||
+      (emailHandle ? `${emailHandle}'s Team` : null) ||
+      `Team ${String(userId).slice(0, 8)}`;
+
+    const { data, error } = await supabaseDb
+      .from('teams')
+      .insert({ name: teamName })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('[team invite] failed to create team for inviter', userId, error);
+      return null;
+    }
+
+    const newTeamId = (data as any)?.id || null;
+    if (!newTeamId) return null;
+
+    await supabaseDb.from('users').update({ team_id: newTeamId }).eq('id', userId);
+    await syncAuthMetadata(userId, null, null, { team_id: newTeamId });
+    return newTeamId;
+  } catch (err) {
+    console.error('[team invite] ensureTeamIdForTeamAdmin error', err);
+    return null;
+  }
+}
+
 async function syncAuthMetadata(userId: string | null, role?: string | null, plan?: string | null, extraMeta: Record<string, any> = {}) {
   if (!userId) return;
   try {
@@ -347,6 +382,14 @@ router.post('/invite', async (req: AuthenticatedRequest, res: Response) => {
     if (!teamId) {
       teamId = (inviter as any)?.team_id || null;
     }
+    // If a team_admin somehow has no team yet, create one on first invite.
+    if (!teamId && normalizedInviterRole === 'team_admin') {
+      teamId = await ensureTeamIdForTeamAdmin(currentUser.id, inviter);
+    }
+    if (!teamId && normalizedInviterRole === 'team_admin') {
+      res.status(409).json({ message: 'Team not initialized yet. Please refresh and try again.' });
+      return;
+    }
 
     const resolvedPaidPlan = resolvePaidPlanLabel(subscriptionPlanTier, (inviter as any)?.plan);
 
@@ -616,6 +659,10 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     if (!teamId) {
       teamId = (inviter as any)?.team_id || null;
+    }
+    // If a team_admin somehow has no team yet, create one on resend.
+    if (!teamId && String((inviter as any)?.role || '').toLowerCase() === 'team_admin') {
+      teamId = await ensureTeamIdForTeamAdmin(currentUser.id, inviter);
     }
 
     const resolvedResendPlan = resolvePaidPlanLabel(resendPlanTier, (inviter as any)?.plan);
