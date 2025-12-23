@@ -37,6 +37,375 @@ const mapRangeToWidgetRange = (range, rangeStartDate) => {
   return { range: '90d' };
 };
 
+// -------------------- Executive template view (to spec) --------------------
+const parseTplMappings = (raw) => {
+  try {
+    if (!raw) return {};
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    try { return JSON.parse(String(raw)); } catch { return {}; }
+  }
+};
+
+const formatCurrency = (n, currency = 'USD') => {
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(n) || 0); }
+  catch { return `$${Number(n) || 0}`; }
+};
+
+const formatNumber = (n) => {
+  try { return new Intl.NumberFormat('en-US').format(Number(n) || 0); }
+  catch { return String(Number(n) || 0); }
+};
+
+function ExecutiveKpiCard({ label, value, subtext }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+      <div className="text-xs uppercase tracking-wider text-white/50">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+      <div className="mt-1 text-xs text-white/40">{subtext || ''}</div>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-zinc-950/60 px-5 py-4">
+      <div className="flex items-center justify-between">
+        <div className="text-white font-semibold">{title}</div>
+        <button className="text-white/50 hover:text-white/80">
+          <i className="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function ChartEmpty({ onChangeRange }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60">
+        <i className="fa-solid fa-chart-line"></i>
+      </div>
+      <div className="mt-4 text-white font-semibold">No data in this time range</div>
+      <div className="mt-1 text-sm text-white/50">Try expanding the date range or checking your date column mapping.</div>
+      <button
+        onClick={onChangeRange}
+        className="mt-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80"
+      >
+        Change range
+      </button>
+    </div>
+  );
+}
+
+function ChartError({ message, onRetry }) {
+  return (
+    <div className="bg-red-500/10 border border-red-500/20 text-red-200 rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-3">
+      <div className="min-w-0 truncate">{message}</div>
+      <button onClick={onRetry} className="shrink-0 underline text-red-100 hover:text-white">Retry</button>
+    </div>
+  );
+}
+
+function Skeleton({ h }) {
+  return <div className={`animate-pulse rounded-lg bg-white/5 border border-white/10 ${h}`} />;
+}
+
+function ExecDashboardCommandCenter() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [range, setRange] = useState('last_90_days');
+  const [bucket, setBucket] = useState('month');
+  const [kpi, setKpi] = useState({ revenue: 0, cost: 0, profit: 0, margin: 0 });
+  const [series, setSeries] = useState([]);
+  const [statusCounts, setStatusCounts] = useState({ healthy: 0, atRisk: 0, notViable: 0 });
+  const [atRiskItems, setAtRiskItems] = useState([]);
+
+  const load = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const url = new URL(window.location.href);
+      const tpl = url.searchParams.get('tpl') || '';
+      const tableId = url.searchParams.get('tpl_table') || '';
+      const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
+      const revenueCol = mappings.revenue;
+      const costCol = mappings.cost;
+      const dateCol = mappings.date;
+      const statusCol = mappings.status;
+      if (!tpl || !tableId || !revenueCol || !costCol || !dateCol) {
+        throw new Error('Missing required template mappings (Revenue, Cost, Date).');
+      }
+      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const rangeStart = rangeToStartDate(range);
+      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+
+      // KPI totals
+      const kpiResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({
+          table_id: tableId,
+          metrics: [
+            { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
+            { alias: 'Cost', agg: 'SUM', column_id: costCol }
+          ],
+          time_bucket: 'none',
+          ...rangeCfg
+        })
+      });
+      if (!kpiResp.ok) throw new Error('Failed to load KPI totals');
+      const kpiJson = await kpiResp.json();
+      const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+      const revenue = Number(krow?.Revenue) || 0;
+      const cost = Number(krow?.Cost) || 0;
+      const profit = revenue - cost;
+      const margin = revenue ? (profit / revenue) * 100 : 0;
+      setKpi({ revenue, cost, profit, margin });
+
+      // Trend series
+      const trendResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({
+          table_id: tableId,
+          metrics: [
+            { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
+            { alias: 'Cost', agg: 'SUM', column_id: costCol }
+          ],
+          date_column_id: dateCol,
+          time_bucket: bucket,
+          ...rangeCfg
+        })
+      });
+      if (!trendResp.ok) throw new Error('Failed to load trend series');
+      const trendJson = await trendResp.json();
+      const s = Array.isArray(trendJson?.series) ? trendJson.series : [];
+      setSeries(s);
+
+      // Best-effort: compute health + at-risk list from raw rows (client-side).
+      try {
+        const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
+        const schema = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const rows = Array.isArray(data?.data_json) ? data.data_json : [];
+        const findCol = (id) => schema.find((c) => String(c?.id || c?.key || c?.name || '') === String(id));
+        const revC = findCol(revenueCol);
+        const costC = findCol(costCol);
+        const statusC = statusCol ? findCol(statusCol) : null;
+        const titleC = schema.find((c) => /event|project|name|title/i.test(String(c?.label || c?.name || ''))) || schema[0];
+        const get = (r, c) => {
+          if (!c) return undefined;
+          const key = c?.key;
+          const label = c?.label || c?.name;
+          return (key && r && Object.prototype.hasOwnProperty.call(r, key)) ? r[key] : (label && r ? r[label] : undefined);
+        };
+        const threshold = 10; // margin % threshold
+        const items = (rows || []).map((r) => {
+          const rv = Number(get(r, revC)) || 0;
+          const cv = Number(get(r, costC)) || 0;
+          const pf = rv - cv;
+          const mg = rv ? ((pf / rv) * 100) : 0;
+          const st = statusC ? String(get(r, statusC) || '').toLowerCase() : '';
+          const atRisk = mg < threshold || st.includes('at risk');
+          const notViable = mg < 0;
+          const title = String(get(r, titleC) || 'Item');
+          return { title, mg, atRisk, notViable };
+        });
+        const atRiskList = items.filter(x => x.atRisk).sort((a,b)=>a.mg-b.mg).slice(0,5);
+        setAtRiskItems(atRiskList);
+        setStatusCounts({
+          healthy: items.filter(x=>!x.atRisk).length,
+          atRisk: items.filter(x=>x.atRisk).length,
+          notViable: items.filter(x=>x.notViable).length
+        });
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [range, bucket]);
+
+  // Render Plotly charts into containers
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const el1 = document.getElementById('exec-chart-rev-cost');
+        const el2 = document.getElementById('exec-chart-margin');
+        if (!el1 || !el2) return;
+        const PlotlyMod = await import('plotly.js-dist-min');
+        const Plotly = PlotlyMod.default || PlotlyMod;
+        if (cancelled) return;
+
+        const axisColor = '#e5e7eb';
+        const gridColor = 'rgba(255,255,255,0.08)';
+        const paperBg = 'rgba(0,0,0,0)';
+        const plotBg = 'rgba(0,0,0,0)';
+
+        const xs = (series || []).map(r => r.t);
+        const rev = (series || []).map(r => Number(r?.Revenue) || 0);
+        const cost = (series || []).map(r => Number(r?.Cost) || 0);
+        const margin = rev.map((v, i) => v ? (((v - cost[i]) / v) * 100) : 0);
+        const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
+        const markerSize = xs.length <= 1 ? 10 : 6;
+
+        await Plotly.newPlot('exec-chart-rev-cost', [
+          { type: 'scatter', mode: sparseMode, name: 'Revenue', x: xs, y: rev, line: { color: '#3b82f6', width: 3 }, marker: { color: '#3b82f6', size: markerSize } },
+          { type: 'scatter', mode: sparseMode, name: 'Cost', x: xs, y: cost, line: { color: '#10b981', width: 3 }, marker: { color: '#10b981', size: markerSize } }
+        ], {
+          margin: { t: 10, r: 10, b: 40, l: 60 },
+          plot_bgcolor: plotBg,
+          paper_bgcolor: paperBg,
+          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+          yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+
+        await Plotly.newPlot('exec-chart-margin', [
+          { type: 'scatter', mode: sparseMode, name: 'Margin %', x: xs, y: margin, line: { color: '#f97316', width: 3 }, marker: { color: '#f97316', size: markerSize } }
+        ], {
+          margin: { t: 10, r: 10, b: 40, l: 60 },
+          plot_bgcolor: plotBg,
+          paper_bgcolor: paperBg,
+          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+          yaxis: { title: 'Margin (%)', gridcolor: gridColor, color: axisColor },
+          showlegend: false
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [series]);
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* Top Header (to spec) */}
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="text-2xl font-semibold text-white">Executive Overview</div>
+            <div className="mt-1 text-sm text-white/50">Executive Overview</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={range} onChange={(e)=>setRange(e.target.value)}>
+              <option value="all_time">All time</option>
+              <option value="last_90_days">90d</option>
+              <option value="last_30_days">30d</option>
+              <option value="ytd">YTD</option>
+            </select>
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={bucket} onChange={(e)=>setBucket(e.target.value)}>
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+            </select>
+            <button className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80">Edit Dashboard</button>
+            <button className="rounded-xl bg-white text-zinc-900 hover:opacity-90 transition px-4 py-2 text-sm font-semibold">Add Widget</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-6">
+        {/* KPI Row (to spec) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <>
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+            </>
+          ) : (
+            <>
+              <ExecutiveKpiCard label="Total Revenue" value={formatCurrency(kpi.revenue)} subtext="vs last period" />
+              <ExecutiveKpiCard label="Total Cost" value={formatCurrency(kpi.cost)} subtext="vs last period" />
+              <ExecutiveKpiCard label="Profit" value={formatCurrency(kpi.profit)} subtext="vs last period" />
+              <ExecutiveKpiCard label="Margin %" value={`${formatNumber(kpi.margin.toFixed(1))}%`} subtext="vs last period" />
+            </>
+          )}
+        </div>
+
+        {/* Main Grid (to spec) */}
+        <div className="mt-6 grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8 space-y-4">
+            <ChartCard title="Revenue vs Cost">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[320px]" />
+              ) : (series || []).length === 0 ? (
+                <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
+              ) : (
+                <div id="exec-chart-rev-cost" className="h-[320px]" />
+              )}
+            </ChartCard>
+            <ChartCard title="Margin Trend">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[240px]" />
+              ) : (series || []).length === 0 ? (
+                <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
+              ) : (
+                <div id="exec-chart-margin" className="h-[240px]" />
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <ChartCard title="Health">
+              <div className="space-y-3">
+                {[
+                  { label: 'Healthy', v: statusCounts.healthy, cls: 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-200' },
+                  { label: 'At Risk', v: statusCounts.atRisk, cls: 'bg-amber-500/10 border border-amber-500/20 text-amber-200' },
+                  { label: 'Not Viable', v: statusCounts.notViable, cls: 'bg-red-500/10 border border-red-500/20 text-red-200' }
+                ].map((x) => (
+                  <div key={x.label} className="flex items-center justify-between">
+                    <div className="text-sm text-white/70">{x.label}</div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${x.cls}`}>{x.v}</span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+
+            <ChartCard title="At Risk Items">
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                </div>
+              ) : (atRiskItems || []).length ? (
+                <div className="space-y-2">
+                  {atRiskItems.slice(0,5).map((r, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm text-white truncate">{r.title}</div>
+                        <div className="text-xs text-white/40">Margin {Math.round(r.mg)}%</div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-1 text-xs text-red-200 border border-red-500/20">At risk</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">No at-risk items detected.</div>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const NavButton = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -227,7 +596,7 @@ const AIInsightsSection = () => (
   </motion.div>
 );
 
-export default function DashboardDetail() {
+function DashboardDetailLegacy() {
   const [kpis, setKpis] = useState([]);
   const [showFunnel, setShowFunnel] = useState(false);
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -1095,6 +1464,16 @@ export default function DashboardDetail() {
       </div>
     </div>
   );
+}
+
+export default function DashboardDetail() {
+  let tpl = '';
+  try {
+    const url = new URL(window.location.href);
+    tpl = url.searchParams.get('tpl') || '';
+  } catch {}
+  if (tpl) return <ExecDashboardCommandCenter />;
+  return <DashboardDetailLegacy />;
 }
 
 

@@ -3,6 +3,9 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import TemplateGallery from '../components/dashboards/TemplateGallery';
+import TemplateWizard from '../components/dashboards/TemplateWizard';
+import { DASHBOARD_TEMPLATES } from '../lib/dashboards/templates';
 
 export default function Dashboards() {
   const navigate = useNavigate();
@@ -42,6 +45,10 @@ export default function Dashboards() {
   const [selectedDashIds, setSelectedDashIds] = useState([]);
   const [editingDashboardId, setEditingDashboardId] = useState(null);
   const [builderError, setBuilderError] = useState('');
+  const [createMode, setCreateMode] = useState('gallery'); // gallery | wizard | custom
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateMappings, setTemplateMappings] = useState({});
+  const [templateTableId, setTemplateTableId] = useState('');
   const announceOverlayToggle = useCallback((label, enabled) => {
     if (enabled) toast.success(`${label} enabled`);
     else toast(`${label} hidden`);
@@ -60,6 +67,10 @@ export default function Dashboards() {
     setFormulaLabel('Formula');
     setBuilderError('');
     setDashboardName('Custom Dashboard');
+    setCreateMode('gallery');
+    setSelectedTemplateId('');
+    setTemplateMappings({});
+    setTemplateTableId('');
   }, []);
 
   const hydrateBuilderFromLayout = useCallback((layout = {}) => {
@@ -172,6 +183,9 @@ export default function Dashboards() {
     if (Array.isArray(layout.metrics) && layout.metrics.length) params.set('metrics', encodeURIComponent(JSON.stringify(layout.metrics)));
     if (layout.formula) params.set('formula', layout.formula);
     if (layout.formulaLabel) params.set('formulaLabel', layout.formulaLabel);
+    if (layout.template_id) params.set('tpl', String(layout.template_id));
+    if (layout.template_table_id) params.set('tpl_table', String(layout.template_table_id));
+    if (layout.template_mappings) params.set('tpl_map', encodeURIComponent(JSON.stringify(layout.template_mappings)));
     if (layout.tb) params.set('tb', layout.tb);
     if (layout.groupAlias) params.set('groupAlias', layout.groupAlias);
     if (layout.groupCol) params.set('groupCol', layout.groupCol);
@@ -224,6 +238,10 @@ export default function Dashboards() {
     hydrateBuilderFromLayout(dashboard.layout || {});
     setEditingDashboardId(dashboard.id);
     setIsCreateOpen(true);
+    setCreateMode((dashboard.layout || {})?.template_id ? 'wizard' : 'custom');
+    setSelectedTemplateId((dashboard.layout || {})?.template_id || '');
+    setTemplateTableId((dashboard.layout || {})?.template_table_id || '');
+    setTemplateMappings((dashboard.layout || {})?.template_mappings || {});
     await loadTables();
   }, [hydrateBuilderFromLayout, loadTables]);
 
@@ -621,25 +639,112 @@ export default function Dashboards() {
       {/* Create Dashboard Modal */}
       <AnimatePresence>
         {isCreateOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e)=>{ if (e.target===e.currentTarget) closeModal(); }}>
-            <motion.div initial={{ scale: 0.97, y: 10, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.98, y: 6, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-indigo-200/40 dark:border-indigo-900/40">
-              <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-2xl font-bold">{editingDashboardId ? 'Edit Dashboard' : 'Create Custom Dashboard'}</h2>
-                      {editingDashboardId && (
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-white/20">Editing existing</span>
-                      )}
-                    </div>
-                    <p className="opacity-90 mt-1">Choose any tables or system data, name the metrics, add an optional formula, and we’ll assemble widgets and charts.</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={(e)=>{ if (e.target===e.currentTarget) closeModal(); }}>
+            <motion.div initial={{ scale: 0.97, y: 10, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.98, y: 6, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className="w-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-zinc-950/80 backdrop-blur">
+              <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <div className="text-white text-2xl font-semibold">{editingDashboardId ? 'Edit Dashboard' : 'New Dashboard'}</div>
+                  <div className="text-white/50 text-sm mt-1">Template-first. Map once. Get an executive dashboard instantly.</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
+                    <button onClick={() => setCreateMode('gallery')} className={`px-3 py-1.5 rounded-lg text-sm transition ${createMode==='gallery'?'bg-white text-zinc-900':'text-white/70 hover:text-white'}`}>Templates</button>
+                    <button onClick={() => setCreateMode('custom')} className={`px-3 py-1.5 rounded-lg text-sm transition ${createMode==='custom'?'bg-white text-zinc-900':'text-white/70 hover:text-white'}`}>Custom</button>
                   </div>
-                  <button className="text-white/90 hover:text-white" onClick={closeModal}><i className="fa-solid fa-xmark text-2xl"></i></button>
+                  <button className="text-white/60 hover:text-white" onClick={closeModal} aria-label="Close">
+                    <i className="fa-solid fa-xmark text-xl"></i>
+                  </button>
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2 space-y-4">
+
+              {/* Template Gallery / Wizard */}
+              {(createMode === 'gallery' || createMode === 'wizard') && (
+                <div className="p-6">
+                  {createMode === 'gallery' && (
+                    <TemplateGallery
+                      templates={DASHBOARD_TEMPLATES}
+                      onSelect={(tplId) => { setSelectedTemplateId(tplId); setCreateMode('wizard'); }}
+                      onSelectCustom={() => setCreateMode('custom')}
+                    />
+                  )}
+                  {createMode === 'wizard' && (
+                    <TemplateWizard
+                      template={DASHBOARD_TEMPLATES.find(t => t.id === selectedTemplateId) || DASHBOARD_TEMPLATES[0]}
+                      tables={tables}
+                      loadingTables={loadingTables}
+                      onBack={() => setCreateMode('gallery')}
+                      onCreate={async ({ dashboardName: name, tableId, mappings }) => {
+                        try {
+                          const tpl = DASHBOARD_TEMPLATES.find(t => t.id === selectedTemplateId) || DASHBOARD_TEMPLATES[0];
+                          const dateCol = mappings['date'] || '';
+                          const sources = [{ alias: 'T', tableId }];
+                          const metrics = [];
+                          if (tpl.id === 'exec_overview_v1') {
+                            if (mappings['revenue']) metrics.push({ alias: 'Revenue', agg: 'SUM', column_id: mappings['revenue'], date_column_id: dateCol || undefined });
+                            if (mappings['cost']) metrics.push({ alias: 'Cost', agg: 'SUM', column_id: mappings['cost'], date_column_id: dateCol || undefined });
+                          } else if (tpl.id === 'cost_drivers_v1') {
+                            if (mappings['cost']) metrics.push({ alias: 'Cost', agg: 'SUM', column_id: mappings['cost'], date_column_id: dateCol || undefined });
+                          } else if (tpl.id === 'pipeline_health_v1') {
+                            // Basic count metric. Template rendering will handle richer widgets later.
+                            if (dateCol) metrics.push({ alias: 'Count', agg: 'COUNT', column_id: dateCol, date_column_id: dateCol });
+                          }
+
+                          const layout = {
+                            name,
+                            template_id: tpl.id,
+                            template_table_id: tableId,
+                            template_mappings: mappings,
+                            sources,
+                            metrics,
+                            tb: 'month',
+                            groupAlias: 'T',
+                            groupCol: dateCol,
+                            groupMode: dateCol ? 'time' : 'row',
+                            range: 'last_90_days'
+                          };
+
+                          const { data: { user } } = await supabase.auth.getUser();
+                          if (!user?.id) throw new Error('Not signed in');
+                          let targetId = editingDashboardId || null;
+                          if (editingDashboardId) {
+                            const { data: updated, error } = await supabase
+                              .from('user_dashboards')
+                              .update({ layout })
+                              .eq('id', editingDashboardId)
+                              .select('id')
+                              .single();
+                            if (error) throw error;
+                            targetId = updated?.id || editingDashboardId;
+                          } else {
+                            const { data: inserted, error } = await supabase
+                              .from('user_dashboards')
+                              .insert({ user_id: user.id, layout })
+                              .select('id')
+                              .single();
+                            if (error) throw error;
+                            targetId = inserted?.id;
+                          }
+                          if (targetId) {
+                            await loadDashboards();
+                            closeModal();
+                            toast.success(editingDashboardId ? 'Dashboard updated' : 'Dashboard created');
+                            navigate(`/dashboards/${targetId}?${buildParamsFromLayout(layout)}`);
+                          }
+                        } catch {
+                          toast.error('Failed to create dashboard');
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Custom Builder (existing) */}
+              {createMode === 'custom' && (
+                <>
+                  <div className="bg-white dark:bg-slate-900 p-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 space-y-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Dashboard name</label>
                       <input
@@ -919,6 +1024,8 @@ export default function Dashboards() {
                   }}>Build Dashboard</button>
                 </div>
               </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
