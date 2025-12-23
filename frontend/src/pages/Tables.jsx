@@ -72,6 +72,15 @@ export default function Tables() {
   }, []);
 
   const numberFmt = useMemo(() => new Intl.NumberFormat('en-US'), []);
+  const toKey = (label) => {
+    const base = String(label || '').trim().toLowerCase()
+      .replace(/['"]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return base || 'col';
+  };
+  const colLabel = (c) => String(c?.label || c?.name || '');
+  const colKey = (c) => String(c?.key || toKey(colLabel(c)));
   const toCSV = (rows) => {
     const arr = Array.isArray(rows) ? rows : [];
     const headers = Array.from(new Set(arr.flatMap(r => Object.keys(r || {}))));
@@ -158,7 +167,7 @@ export default function Tables() {
                         <thead className="bg-gray-50 dark:bg-gray-800">
                           <tr>
                             {previewCols.map(c => (
-                              <th key={c.name} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">{c.name}</th>
+                              <th key={c.id || c.key || c.name} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">{colLabel(c)}</th>
                             ))}
                           </tr>
                         </thead>
@@ -166,14 +175,14 @@ export default function Tables() {
                           {previewRows.map((r, i) => (
                             <tr key={i} className="border-t">
                               {previewCols.map(c => {
-                                const v = (r || {})[c.name];
+                                const v = (r || {})[colKey(c)] ?? (r || {})[colLabel(c)];
                                 if (c.type === 'money') {
                                   const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: (c && c.currency) ? c.currency : 'USD' });
-                                  return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{fmt.format(Number(v) || 0)}</td>;
+                                  return <td key={c.id || c.key || c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{fmt.format(Number(v) || 0)}</td>;
                                 }
-                                if (c.type === 'number') return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{numberFmt.format(Number(v) || 0)}</td>;
-                                if (c.type === 'status') return <td key={c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">{String(v || '')}</span></td>;
-                                return <td key={c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{String(v || '')}</td>;
+                                if (c.type === 'number') return <td key={c.id || c.key || c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{numberFmt.format(Number(v) || 0)}</td>;
+                                if (c.type === 'status') return <td key={c.id || c.key || c.name} className="px-3 py-2"><span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">{String(v || '')}</span></td>;
+                                return <td key={c.id || c.key || c.name} className="px-3 py-2 text-gray-900 dark:text-gray-100">{String(v || '')}</td>;
                               })}
                             </tr>
                           ))}

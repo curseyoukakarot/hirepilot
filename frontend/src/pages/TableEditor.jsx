@@ -49,6 +49,65 @@ export default function TableEditor() {
     return resp.json();
   };
 
+  const generateId = () => {
+    try { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; } catch { return `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; }
+  };
+  const toKey = (label) => {
+    const base = String(label || '').trim().toLowerCase()
+      .replace(/['"]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return base || 'col';
+  };
+  const ensureUniqueKey = (schemaIn, desired, colIdToSkip) => {
+    const taken = new Set((schemaIn || []).map(c => String(c?.key || '').toLowerCase()).filter(Boolean));
+    // If updating an existing column, allow its current key.
+    if (colIdToSkip) {
+      const current = (schemaIn || []).find(c => String(c?.id || '') === String(colIdToSkip));
+      if (current?.key) taken.delete(String(current.key).toLowerCase());
+    }
+    if (!taken.has(String(desired).toLowerCase())) return desired;
+    let i = 2;
+    while (taken.has(`${desired}_${i}`.toLowerCase())) i += 1;
+    return `${desired}_${i}`;
+  };
+  const colLabel = (c) => String(c?.label || c?.name || '');
+  const colKey = (c) => String(c?.key || toKey(colLabel(c)));
+  const normalizeSchema = (schemaIn) => {
+    const next = (Array.isArray(schemaIn) ? schemaIn : []).map((c) => {
+      const label = String(c?.label || c?.name || 'Column');
+      const id = c?.id ? String(c.id) : generateId();
+      const keyBase = c?.key ? String(c.key) : toKey(label);
+      const key = ensureUniqueKey(schemaIn, keyBase, id);
+      // Keep `name` for backward compatibility (many parts of UI still reference it as the display label).
+      return { ...c, id, key, label, name: label };
+    });
+    // Second pass to ensure uniqueness after normalization
+    const fixed = [];
+    for (const c of next) {
+      const key = ensureUniqueKey(fixed, String(c.key), String(c.id));
+      fixed.push({ ...c, key });
+    }
+    return fixed;
+  };
+  const migrateRowsToKeys = (rowsIn, schemaIn) => {
+    const sch = Array.isArray(schemaIn) ? schemaIn : [];
+    return (Array.isArray(rowsIn) ? rowsIn : []).map((r) => {
+      const out = {};
+      for (const c of sch) {
+        const k = colKey(c);
+        const label = colLabel(c);
+        // Prefer key storage; fallback to legacy label/name storage.
+        const v = (r && Object.prototype.hasOwnProperty.call(r, k)) ? r[k]
+          : (r && Object.prototype.hasOwnProperty.call(r, label)) ? r[label]
+          : (r && c?.name && Object.prototype.hasOwnProperty.call(r, c.name)) ? r[c.name]
+          : undefined;
+        out[k] = v;
+      }
+      return out;
+    });
+  };
+
   const toVarName = (name) => {
     const base = String(name || '').replace(/\W+/g, '_');
     return base.length ? base : 'col';
@@ -56,11 +115,12 @@ export default function TableEditor() {
 
   const buildScopeForRow = (row) => {
     const varMap = {};
-    (schema || []).forEach((c) => { varMap[toVarName(c.name)] = c.name; });
+    // Variables are based on display labels, but values come from stable column keys.
+    (schema || []).forEach((c) => { varMap[toVarName(colLabel(c))] = colKey(c); });
     const scope = {};
     for (const v in varMap) {
-      const colName = varMap[v];
-      const raw = row?.[colName];
+      const key = varMap[v];
+      const raw = row?.[key];
       const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
       scope[v] = isNaN(n) ? 0 : n;
     }
@@ -103,7 +163,7 @@ export default function TableEditor() {
           result = Number(mathEvaluate(safeExpr(c.formula), buildScopeForRow(next)));
           if (isNaN(result)) result = 0;
         } catch { result = 0; }
-        next = { ...next, [c.name]: result };
+        next = { ...next, [colKey(c)]: result };
       }
       return next;
     });
@@ -136,11 +196,24 @@ export default function TableEditor() {
           .eq('id', id)
           .maybeSingle();
         if (data?.name) { setTableName(String(data.name)); setLastSavedName(String(data.name)); }
-        const loadedSchema = Array.isArray(data?.schema_json) ? data.schema_json : [];
-        const loadedRows = Array.isArray(data?.data_json) ? data.data_json : [];
-        setSchema(loadedSchema);
-        setRows(recomputeFormulasRows(loadedRows));
+        const loadedSchemaRaw = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const loadedRowsRaw = Array.isArray(data?.data_json) ? data.data_json : [];
+        const normalizedSchema = normalizeSchema(loadedSchemaRaw);
+        const migratedRows = migrateRowsToKeys(loadedRowsRaw, normalizedSchema);
+        setSchema(normalizedSchema);
+        setRows(recomputeFormulasRows(migratedRows));
         setCollaborators(Array.isArray(data?.collaborators) ? data.collaborators : []);
+        // Best-effort: persist schema + migrated rows once (prevents future dashboard breakage on renames).
+        try {
+          const schemaChanged = JSON.stringify(loadedSchemaRaw) !== JSON.stringify(normalizedSchema);
+          const rowsChanged = JSON.stringify(loadedRowsRaw) !== JSON.stringify(migratedRows);
+          if (schemaChanged || rowsChanged) {
+            await supabase
+              .from('custom_tables')
+              .update({ schema_json: normalizedSchema, data_json: migratedRows, updated_at: new Date().toISOString() })
+              .eq('id', id);
+          }
+        } catch {}
       } catch {}
     };
     load();
@@ -245,32 +318,38 @@ export default function TableEditor() {
       }
       {
         // Perform import locally via Supabase (avoid Vercel APIs)
-        const ensure = (arr, name, type) => { if (!arr.some(c => String(c.name) === name)) arr.push({ name, type }); };
+        const ensureCol = (arr, label, type) => {
+          const existing = (arr || []).find(c => String(colLabel(c)) === String(label) || String(c?.name || '') === String(label));
+          if (existing) return;
+          const idVal = generateId();
+          const key = ensureUniqueKey(arr || [], toKey(label), idVal);
+          (arr || []).push({ id: idVal, key, label, name: label, type });
+        };
         const { data: tableRow } = await supabase
           .from('custom_tables')
           .select('schema_json,data_json')
           .eq('id', targetId)
           .maybeSingle();
-        let schemaLocal = Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : [];
-        let dataLocal = Array.isArray(tableRow?.data_json) ? tableRow.data_json : [];
+        let schemaLocal = normalizeSchema(Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : []);
+        let dataLocal = migrateRowsToKeys(Array.isArray(tableRow?.data_json) ? tableRow.data_json : [], schemaLocal);
         if (src === '/deals' || src === 'deals' || src === '/opportunities' || src === 'opportunities') {
           const lim = Number(filters?.limit) || 1000;
           const { data: opps } = await supabase.from('opportunities').select('title,value,stage,created_at').limit(lim);
-          ensure(schemaLocal, 'Deal Title', 'text');
-          ensure(schemaLocal, 'Value', 'number');
-          ensure(schemaLocal, 'Status', 'status');
-          ensure(schemaLocal, 'Created', 'date');
+          ensureCol(schemaLocal, 'Deal Title', 'text');
+          ensureCol(schemaLocal, 'Value', 'number');
+          ensureCol(schemaLocal, 'Status', 'status');
+          ensureCol(schemaLocal, 'Created', 'date');
           const list = (opps || []).map(o => ({ 'Deal Title': o?.title || 'Deal', 'Value': Number(o?.value)||0, 'Status': o?.stage || 'Pipeline', 'Created': o?.created_at || null }));
-          dataLocal = [...dataLocal, ...list];
+          dataLocal = [...dataLocal, ...migrateRowsToKeys(list, schemaLocal)];
         } else if (src === '/jobs' || src === 'jobs') {
           const lim = Number(filters?.limit) || 1000;
           const { data: jobs } = await supabase.from('job_requisitions').select('title,status,candidate_count,created_at').limit(lim);
-          ensure(schemaLocal, 'Position', 'text');
-          ensure(schemaLocal, 'Candidates', 'number');
-          ensure(schemaLocal, 'Status', 'status');
-          ensure(schemaLocal, 'Created', 'date');
+          ensureCol(schemaLocal, 'Position', 'text');
+          ensureCol(schemaLocal, 'Candidates', 'number');
+          ensureCol(schemaLocal, 'Status', 'status');
+          ensureCol(schemaLocal, 'Created', 'date');
           const list = (jobs || []).map(j => ({ 'Position': j?.title || 'Job', 'Candidates': Number(j?.candidate_count)||0, 'Status': j?.status || 'Open', 'Created': j?.created_at || null }));
-          dataLocal = [...dataLocal, ...list];
+          dataLocal = [...dataLocal, ...migrateRowsToKeys(list, schemaLocal)];
         } else if (src === '/leads' || src === 'leads') {
           const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
           let q = supabase.from('leads').select('name,email,status,tags,location,source,created_at');
@@ -280,8 +359,8 @@ export default function TableEditor() {
           const { data: leads } = await q.limit(lim);
           const list = (leads || []).map(l => ({ 'Name': l?.name||'', 'Email': l?.email||'', 'Status': l?.status||'', 'Tags': Array.isArray(l?.tags)?l.tags.join(', '):(l?.tags||''), 'Location': l?.location||'', 'Source': l?.source||'' }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
-          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
-          dataLocal = [...dataLocal, ...list];
+          keys.forEach(k => ensureCol(schemaLocal, k, 'text'));
+          dataLocal = [...dataLocal, ...migrateRowsToKeys(list, schemaLocal)];
         } else if (src === '/candidates' || src === 'candidates') {
           const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
           let q = supabase.from('candidates').select('name,email,status,job_assigned,location,source,created_at');
@@ -291,8 +370,8 @@ export default function TableEditor() {
           const { data: cands } = await q.limit(lim);
           const list = (cands || []).map(c => ({ 'Name': c?.name||'', 'Email': c?.email||'', 'Status': c?.status||'', 'Job': c?.job_assigned||'', 'Location': c?.location||'', 'Source': c?.source||'' }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
-          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
-          dataLocal = [...dataLocal, ...list];
+          keys.forEach(k => ensureCol(schemaLocal, k, 'text'));
+          dataLocal = [...dataLocal, ...migrateRowsToKeys(list, schemaLocal)];
         } else if (src === '/campaigns' || src === 'campaigns') {
           const lim = filters?.importAll ? 100000 : (Number(filters?.limit) || 2000);
           let q = supabase.from('campaigns').select('name,status,leads_count,outreach_sent,reply_rate,conversion_rate,created_at');
@@ -302,8 +381,8 @@ export default function TableEditor() {
           const { data: camps } = await q.limit(lim);
           const list = (camps || []).map(c => ({ 'Name': c?.name||'', 'Status': c?.status||'', 'Leads': Number(c?.leads_count)||0, 'Sent': Number(c?.outreach_sent)||0, 'ReplyRate': Number(c?.reply_rate)||0, 'ConversionRate': Number(c?.conversion_rate)||0, 'Created': c?.created_at || null }));
           const keys = Array.from(new Set(list.flatMap(r=>Object.keys(r))));
-          keys.forEach(k => { if (!schemaLocal.some(c=>c.name===k)) schemaLocal.push({ name:k, type:'text' }); });
-          dataLocal = [...dataLocal, ...list];
+          keys.forEach(k => ensureCol(schemaLocal, k, 'text'));
+          dataLocal = [...dataLocal, ...migrateRowsToKeys(list, schemaLocal)];
         }
         await supabase
           .from('custom_tables')
@@ -317,8 +396,12 @@ export default function TableEditor() {
           .select('*')
           .eq('id', targetId)
           .maybeSingle();
-        setSchema(Array.isArray(data?.schema_json) ? data.schema_json : []);
-        setRows(Array.isArray(data?.data_json) ? data.data_json : []);
+        const loadedSchemaRaw = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const loadedRowsRaw = Array.isArray(data?.data_json) ? data.data_json : [];
+        const normalizedSchema = normalizeSchema(loadedSchemaRaw);
+        const migratedRows = migrateRowsToKeys(loadedRowsRaw, normalizedSchema);
+        setSchema(normalizedSchema);
+        setRows(recomputeFormulasRows(migratedRows));
         // Navigate to the real table route if we just created it
         if (id === 'new' && targetId && targetId !== id) {
           navigate(`/tables/${targetId}/edit`, { replace: true });
@@ -333,14 +416,16 @@ export default function TableEditor() {
 
   const handleAddColumn = async (type) => {
     if (!id) return;
-    const existingNames = (schema || []).map((c) => String(c.name || ''));
-    let idx = existingNames.length + 1;
+    const existingLabels = (schema || []).map((c) => String(colLabel(c) || ''));
+    let idx = existingLabels.length + 1;
     let name = `New Column ${idx}`;
-    while (existingNames.includes(name)) { idx += 1; name = `New Column ${idx}`; }
-    let newCol = { name, type };
-    if (type === 'formula') newCol = { name, type, formula: '=0' };
-    if (type === 'money') newCol = { name, type, currency: 'USD' };
-    const nextSchema = [...schema, newCol];
+    while (existingLabels.includes(name)) { idx += 1; name = `New Column ${idx}`; }
+    const idVal = generateId();
+    const key = ensureUniqueKey(schema, toKey(name), idVal);
+    let newCol = { id: idVal, key, label: name, name, type };
+    if (type === 'formula') newCol = { ...newCol, formula: '=0' };
+    if (type === 'money') newCol = { ...newCol, currency: 'USD' };
+    const nextSchema = normalizeSchema([...schema, newCol]);
     try {
       setSaving(true);
       const { data, error } = await supabase
@@ -355,7 +440,7 @@ export default function TableEditor() {
         const backRows = Array.isArray(data?.data_json) ? data.data_json : rows;
         setRows(recomputeFormulasRows(backRows));
         if (type === 'formula') {
-          const idxInSchema = updatedSchema.findIndex(c => c.name === name);
+          const idxInSchema = updatedSchema.findIndex((c) => String(c?.id || '') === String(idVal));
           if (idxInSchema >= 0) openFormulaBuilder(idxInSchema);
         }
         addActivity(`Added ${type} column`);
@@ -367,7 +452,10 @@ export default function TableEditor() {
   const handleAddRow = async () => {
     if (!id) return;
     const empty = {};
-    (schema || []).forEach((c) => { empty[c.name] = c.type === 'number' ? 0 : c.type === 'date' ? null : ''; });
+    (schema || []).forEach((c) => {
+      const k = colKey(c);
+      empty[k] = c.type === 'number' ? 0 : c.type === 'date' ? null : '';
+    });
     const next = recomputeFormulasRows([...rows, empty]);
     try {
       setSaving(true);
@@ -407,7 +495,8 @@ export default function TableEditor() {
       const num = Number(value);
       normalized = isNaN(num) ? 0 : num;
     }
-    const edited = rows.map((r, i) => (i === rowIdx ? { ...r, [col.name]: normalized } : r));
+    const k = colKey(col);
+    const edited = rows.map((r, i) => (i === rowIdx ? { ...r, [k]: normalized } : r));
     const next = recomputeFormulasRows(edited);
     setRows(next);
     scheduleSave(next);
@@ -434,7 +523,8 @@ export default function TableEditor() {
   const deleteColumnAt = async (colIdx) => {
     const col = schema[colIdx]; if (!col) return;
     const nextSchema = schema.filter((_, i) => i !== colIdx);
-    const nextRows = (rows||[]).map(r => { const { [col.name]: _drop, ...rest } = r || {}; return rest; });
+    const k = colKey(col);
+    const nextRows = (rows||[]).map(r => { const { [k]: _drop, ...rest } = r || {}; return rest; });
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
     addActivity(`Deleted column ${col.name}`);
@@ -442,18 +532,12 @@ export default function TableEditor() {
 
   const renameColumnAt = async (colIdx, name) => {
     const col = schema[colIdx]; if (!col) return;
-    const newName = name && name.trim() ? name.trim() : col.name;
-    let final = newName === col.name ? col.name : ensureUniqueColName(newName);
-    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, name: final } : c);
-    const nextRows = (rows||[]).map(r => {
-      const value = (r||{})[col.name];
-      if (final === col.name) return r;
-      const { [col.name]: _old, ...rest } = r || {};
-      return { ...rest, [final]: value };
-    });
-    setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
-    await persistSchemaRows(nextSchema, nextRows);
-    addActivity(`Renamed column to ${final}`);
+    // Rename affects display label only; key stays stable so dashboards don’t break.
+    const newLabel = name && name.trim() ? name.trim() : colLabel(col);
+    const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, label: newLabel, name: newLabel } : c);
+    setSchema(nextSchema); setColumnMenuIdx(null);
+    await persistSchemaRows(nextSchema, rows);
+    addActivity(`Renamed column to ${newLabel}`);
   };
 
   const changeColumnTypeAt = async (colIdx, newType, newCurrency) => {
@@ -471,7 +555,8 @@ export default function TableEditor() {
     });
     let nextRows = rows;
     if (newType === 'number' || newType === 'money') {
-      nextRows = (rows || []).map(r => ({ ...r, [col.name]: Number((r || {})[col.name]) || 0 }));
+      const k = colKey(col);
+      nextRows = (rows || []).map(r => ({ ...r, [k]: Number((r || {})[k]) || 0 }));
     }
     nextRows = recomputeFormulasRows(nextRows);
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
@@ -530,7 +615,8 @@ export default function TableEditor() {
   };
 
   const renderEditableCell = (row, col, rowIdx) => {
-    const val = row?.[col.name] ?? '';
+    const k = colKey(col);
+    const val = row?.[k] ?? '';
     const common = {
       className: "w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200 dark:placeholder-gray-400",
       onBlur: () => persistRows(rows),
@@ -583,7 +669,7 @@ export default function TableEditor() {
     if (col.type === 'status') {
       // Build options from existing values + sensible defaults
       const defaults = ['Pipeline','Best Case','Commit','Close Won','Closed Lost','Open','Draft','Hired'];
-      const existing = Array.from(new Set((rows||[]).map(r => String((r||{})[col.name] ?? '')).filter(Boolean)));
+      const existing = Array.from(new Set((rows||[]).map(r => String((r||{})[k] ?? '')).filter(Boolean)));
       const options = Array.from(new Set([...existing, ...defaults]));
       return (
         <select
@@ -619,13 +705,13 @@ export default function TableEditor() {
       if ([ 'number','money','formula' ].includes(c?.type)) {
         let sum = 0;
         for (const r of (rows || [])) {
-          const raw = r?.[c.name];
+          const raw = r?.[colKey(c)];
           let n = 0;
           if (c.type === 'money') n = Number(String(raw ?? '').replace(/[^0-9.-]/g, '')) || 0;
           else n = Number(raw) || 0;
           sum += isNaN(n) ? 0 : n;
         }
-        acc[c.name] = sum;
+        acc[colKey(c)] = sum;
       }
     }
     return acc;
@@ -921,7 +1007,7 @@ export default function TableEditor() {
                       <tr key={idx} className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50 dark:bg-gray-800' : 'hover:bg-purple-50 dark:hover:bg-gray-800'}`} onClick={()=>setSelectedRowIndex(idx)}>
                         <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
                         {schema.map((col, ci) => (
-                          <td key={`${idx}-${col.name}`} className="px-4 py-3 border-r border-gray-300" style={{ width: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
+                          <td key={`${idx}-${col.id || col.key || col.name}`} className="px-4 py-3 border-r border-gray-300" style={{ width: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
                             {renderEditableCell(r, col, idx)}
                           </td>
                         ))}
@@ -932,11 +1018,11 @@ export default function TableEditor() {
                     <tr>
                       <td className="px-4 py-2 text-right font-semibold text-gray-700">Total</td>
                       {schema.map((col) => (
-                        <td key={`total-${col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">
+                        <td key={`total-${col.id || col.key || col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">
                           {['number','money','formula'].includes(col.type)
                             ? ((col.type === 'money' || (col.type==='formula' && col.currency))
-                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[col.name] || 0))
-                                : numberFormatter.format(Number(totals[col.name] || 0)))
+                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[colKey(col)] || 0))
+                                : numberFormatter.format(Number(totals[colKey(col)] || 0)))
                             : ''}
                         </td>
                       ))}
@@ -1197,17 +1283,20 @@ export default function TableEditor() {
                       const numericCols = (schema || []).filter(c => ['number','money','formula'].includes(c?.type));
                       const chips = [];
                       if (numericCols.length) {
-                        const v0 = toVarName(numericCols[0].name);
-                        chips.push({ label: `${numericCols[0].name} × 12`, expr: `${v0} * 12` });
+                        const label0 = colLabel(numericCols[0]);
+                        const v0 = toVarName(label0);
+                        chips.push({ label: `${label0} × 12`, expr: `${v0} * 12` });
                       }
                       if (numericCols.length >= 2) {
-                        const vA = toVarName(numericCols[0].name);
-                        const vB = toVarName(numericCols[1].name);
-                        chips.push({ label: `${numericCols[0].name} + ${numericCols[1].name}`, expr: `${vA} + ${vB}` });
-                        chips.push({ label: `${numericCols[0].name} × ${numericCols[1].name}`, expr: `${vA} * ${vB}` });
+                        const labelA = colLabel(numericCols[0]);
+                        const labelB = colLabel(numericCols[1]);
+                        const vA = toVarName(labelA);
+                        const vB = toVarName(labelB);
+                        chips.push({ label: `${labelA} + ${labelB}`, expr: `${vA} + ${vB}` });
+                        chips.push({ label: `${labelA} × ${labelB}`, expr: `${vA} * ${vB}` });
                       }
                       if (numericCols.length >= 2) {
-                        const allVars = numericCols.map(c => toVarName(c.name)).join(', ');
+                        const allVars = numericCols.map(c => toVarName(colLabel(c))).join(', ');
                         chips.push({ label: 'SUM(all numeric)', expr: `SUM(${allVars})` });
                         chips.push({ label: 'AVG(all numeric)', expr: `AVG(${allVars})` });
                       }
@@ -1223,9 +1312,9 @@ export default function TableEditor() {
                 <div className="max-h-48 overflow-auto border rounded p-2">
                   {schema.map((c, i) => (
                     <button key={i} className="px-2 py-1 mr-2 mb-2 border rounded text-sm hover:bg-gray-50" onClick={()=>{
-                      const v = toVarName(c.name);
+                      const v = toVarName(colLabel(c));
                       setFormulaExpr(f => f ? `${f} ${v}` : v);
-                    }}>{toVarName(c.name)}</button>
+                    }}>{toVarName(colLabel(c))}</button>
                   ))}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">Variables represent column values per row. Example: Monthly * 12. Functions supported: SUM, AVG, MIN, MAX, ROUND.</p>

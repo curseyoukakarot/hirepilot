@@ -81,6 +81,29 @@ function applyFilter(rows: any[], f: Filter): any[] {
   });
 }
 
+function resolveCol(schema: any[] | undefined, columnIdOrKeyOrLabel: string): any | null {
+  const q = String(columnIdOrKeyOrLabel || '').trim();
+  if (!q) return null;
+  const arr = Array.isArray(schema) ? schema : [];
+  return arr.find(c =>
+    String(c?.id || '') === q ||
+    String(c?.key || '') === q ||
+    String(c?.label || c?.name || '') === q ||
+    String(c?.name || '') === q
+  ) || null;
+}
+
+function getCellValue(row: any, col: any): any {
+  if (!row || !col) return undefined;
+  const key = col?.key;
+  const label = col?.label || col?.name;
+  if (key && Object.prototype.hasOwnProperty.call(row, key)) return row[key];
+  if (label && Object.prototype.hasOwnProperty.call(row, label)) return row[label];
+  if (col?.name && Object.prototype.hasOwnProperty.call(row, col.name)) return row[col.name];
+  if (col?.id && Object.prototype.hasOwnProperty.call(row, col.id)) return row[col.id];
+  return undefined;
+}
+
 function bucketKeyForTime(row: any, timeBucket: TimeBucket, dateColumnGuess?: string): string {
   if (!timeBucket || timeBucket === 'none') return 'ALL';
   const dc = dateColumnGuess || Object.keys(row || {}).find(k => /(^|_)(date|created_at|created)$/i.test(k)) || '';
@@ -159,9 +182,11 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
   const refs = parseRefs(formula);
   // Load rows per source
   const aliasToRows: Record<string, any[]> = {};
+  const aliasToSchema: Record<string, any[] | undefined> = {};
   for (const s of sources) {
-    const { rows } = await loadRows(s.tableId);
+    const { rows, schema } = await loadRows(s.tableId);
     aliasToRows[s.alias] = rows || [];
+    aliasToSchema[s.alias] = Array.isArray(schema) ? schema : undefined;
   }
   // Apply filters per alias
   const perAliasFilters: Record<string, Filter[]> = {};
@@ -172,7 +197,28 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
   }
   for (const alias of Object.keys(aliasToRows)) {
     const fs = perAliasFilters[alias] || [];
-    aliasToRows[alias] = fs.reduce((acc, f) => applyFilter(acc, f), aliasToRows[alias]);
+    // Map filter columnId through schema to stable key when possible
+    const schema = aliasToSchema[alias];
+    aliasToRows[alias] = fs.reduce((acc, f) => {
+      const col = resolveCol(schema, f.columnId);
+      if (!col) return applyFilter(acc, f);
+      // Apply filter using resolved values, not raw r[f.columnId]
+      return acc.filter((r) => {
+        const v = getCellValue(r, col);
+        switch (f.operator) {
+          case 'eq': return v === f.value;
+          case 'neq': return v !== f.value;
+          case 'in': return Array.isArray(f.value) ? (f.value as any[]).includes(v) : false;
+          case 'nin': return Array.isArray(f.value) ? !(f.value as any[]).includes(v) : true;
+          case 'gt': return Number(v) > Number(f.value);
+          case 'gte': return Number(v) >= Number(f.value);
+          case 'lt': return Number(v) < Number(f.value);
+          case 'lte': return Number(v) <= Number(f.value);
+          case 'contains': return String(v || '').toLowerCase().includes(String(f.value || '').toLowerCase());
+          default: return true;
+        }
+      });
+    }, aliasToRows[alias]);
   }
   // Determine buckets
   type BucketMeta = { label: string; order: number };
@@ -230,7 +276,14 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
     const values: Record<string, number> = {};
     for (const ref of refs) {
       const rows = (aliasBucketed[ref.alias]?.[bucket]) || aliasToRows[ref.alias] || [];
-      const nums = rows.map(r => Number(r?.[ref.column])).filter(n => Number.isFinite(n));
+      const schema = aliasToSchema[ref.alias];
+      const col = resolveCol(schema, ref.column);
+      const nums = rows
+        .map(r => {
+          const raw = col ? getCellValue(r, col) : r?.[ref.column];
+          return Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
+        })
+        .filter(n => Number.isFinite(n));
       values[ref.token] = aggregate(ref.func, nums);
     }
     byBucket[bucket] = values;

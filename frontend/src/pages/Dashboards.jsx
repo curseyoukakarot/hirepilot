@@ -71,9 +71,10 @@ export default function Dashboards() {
           id: `metric-${idx}-${Date.now()}`,
           alias: m.alias || `Metric ${idx + 1}`,
           tableId: sourceTableId,
-          columnId: m.columnId || '',
+          // Support both legacy layouts (columnId/dateColumn) and new layouts (column_id/date_column_id)
+          columnId: m.column_id || m.columnId || '',
           agg: m.agg || 'SUM',
-          dateColumn: m.dateColumn || ''
+          dateColumn: m.date_column_id || m.dateColumn || ''
         };
       });
       setMetricBlocks(derivedBlocks);
@@ -669,8 +670,10 @@ export default function Dashboards() {
                         {metricBlocks.map((block, idx) => {
                           const selectedTable = tables.find((t) => t.id === block.tableId);
                           const schema = Array.isArray(selectedTable?.schema_json) ? selectedTable.schema_json : [];
+                          const colLabel = (c) => String(c?.label || c?.name || '');
+                          const colId = (c) => String(c?.id || c?.key || c?.name || '');
                           const numericColumns = schema.filter((c) => ['number', 'money', 'formula'].includes(String(c.type)));
-                          const dateColumns = schema.filter((c) => String(c.type) === 'date' || /date|created/i.test(String(c.name || '')));
+                          const dateColumns = schema.filter((c) => String(c.type) === 'date' || /date|created/i.test(String(colLabel(c))));
                           return (
                             <div key={block.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-white dark:bg-slate-900/40">
                               <div className="flex items-start justify-between">
@@ -706,7 +709,7 @@ export default function Dashboards() {
                                   className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm disabled:opacity-50"
                                 >
                                   <option value="">{block.tableId ? 'Value column' : 'Select table first'}</option>
-                                  {numericColumns.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                  {numericColumns.map((c) => <option key={colId(c)} value={colId(c)}>{colLabel(c)}</option>)}
                                 </select>
                                 <select
                                   value={block.agg}
@@ -722,7 +725,7 @@ export default function Dashboards() {
                                   className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 dark:text-slate-200 text-sm disabled:opacity-50"
                                 >
                                   <option value="">Date column (optional)</option>
-                                  {dateColumns.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                  {dateColumns.map((c) => <option key={colId(c)} value={colId(c)}>{colLabel(c)}</option>)}
                                 </select>
                               </div>
                             </div>
@@ -824,11 +827,12 @@ export default function Dashboards() {
                     }
                     setBuilderError('');
                     const sources = validMetrics.map((block) => ({ alias: block.alias, tableId: block.tableId }));
+                    // Persist stable identifiers in layout (column_id/date_column_id) to avoid breakage on label renames.
                     const metrics = validMetrics.map((block) => ({
                       alias: block.alias,
-                      columnId: block.columnId,
+                      column_id: block.columnId,
                       agg: block.agg || 'SUM',
-                      dateColumn: block.dateColumn || undefined
+                      date_column_id: block.dateColumn || undefined
                     }));
                     params.set('sources', encodeURIComponent(JSON.stringify(sources)));
                     params.set('metrics', encodeURIComponent(JSON.stringify(metrics)));

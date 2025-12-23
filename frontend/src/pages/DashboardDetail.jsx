@@ -23,6 +23,20 @@ const aggRef = (alias, columnId) => {
   return isSafeIdentifier(c) ? `${a}.${c}` : `${a}[${JSON.stringify(c)}]`;
 };
 
+const mapRangeToWidgetRange = (range, rangeStartDate) => {
+  // DashboardDetail uses last_* values; the universal widget query engine uses short codes.
+  if (range === 'last_7_days') return { range: '7d' };
+  if (range === 'last_30_days') return { range: '30d' };
+  if (range === 'last_90_days') return { range: '90d' };
+  if (range === 'ytd') return { range: 'ytd' };
+  if (range === 'all_time') return { range: 'all_time' };
+  // last_180_days isn't a first-class option in the widget engine; use custom with computed start.
+  if (range === 'last_180_days' && rangeStartDate) {
+    return { range: 'custom', range_start: rangeStartDate.toISOString(), range_end: new Date().toISOString() };
+  }
+  return { range: '90d' };
+};
+
 const NavButton = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -361,38 +375,94 @@ export default function DashboardDetail() {
           let paletteIdx = 0;
           const { data: { session } } = await supabase.auth.getSession();
           const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
-          // Side-by-side metrics (each becomes its own formula chart)
-          for (const m of (Array.isArray(metrics) ? metrics : [])) {
+          // Prefer universal single-table query when possible (faster, stable column_id, better empty states).
+          const canUseWidgetQuery = sources.length === 1 && Array.isArray(metrics) && metrics.length > 0;
+          if (canUseWidgetQuery) {
             try {
-              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              const tableId = sources[0]?.tableId;
+              const tbMapped = tb === 'none' ? 'none' : (tb || 'month');
+              const rangeCfg = mapRangeToWidgetRange(range, rangeStart);
+              const dateColumnId = groupBy?.mode === 'time' ? (groupBy?.columnId || undefined) : undefined;
+              const widgetMetrics = (metrics || []).map((m) => ({
+                alias: m.alias,
+                agg: (m.agg || 'SUM').toUpperCase(),
+                column_id: m.column_id || m.columnId
+              }));
+              const r = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
-                  type: 'formulaChart',
-                  formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, m.columnId)})`,
-                  sources,
-                  timeBucket: tb,
-                  groupBy
+                  table_id: tableId,
+                  metrics: widgetMetrics,
+                  date_column_id: dateColumnId,
+                  time_bucket: tbMapped,
+                  ...rangeCfg
                 })
               });
               if (r.ok) {
                 const json = await r.json();
-                const pts = json?.points || [];
-                if (!Array.isArray(pts) || pts.length === 0) continue;
-                const color = palette[paletteIdx % palette.length];
-                traces.push({
-                  type: 'scatter',
-                  mode: plotlyModeForPoints(pts),
-                  name: m.alias || m.columnId,
-                  x: pts.map(p => p.x),
-                  y: pts.map(p => p.value),
-                  line: { width: 3, color },
-                  marker: plotlyMarkerFor(color, pts)
-                });
-                paletteIdx += 1;
+                const series = Array.isArray(json?.series) ? json.series : [];
+                if (json?.message && String(json.message).toLowerCase().includes('no data')) {
+                  toast(json.message);
+                }
+                (json?.warnings || []).forEach((w) => { try { toast(String(w)); } catch {} });
+                if (series.length) {
+                  for (const m of (metrics || [])) {
+                    const alias = m.alias;
+                    const pts = series.map((row) => ({ x: row.t, value: Number(row?.[alias]) || 0 }));
+                    const color = palette[paletteIdx % palette.length];
+                    traces.push({
+                      type: 'scatter',
+                      mode: plotlyModeForPoints(pts),
+                      name: alias,
+                      x: pts.map(p => p.x),
+                      y: pts.map(p => p.value),
+                      line: { width: 3, color },
+                      marker: plotlyMarkerFor(color, pts)
+                    });
+                    paletteIdx += 1;
+                  }
+                }
               }
             } catch {
-              toast.error(`Failed to load ${m.alias || m.columnId} series`);
+              // fall back to formula preview below
+            }
+          }
+          // Side-by-side metrics (each becomes its own formula chart) fallback: multi-table or widget query failed
+          if (!traces.length) {
+            for (const m of (Array.isArray(metrics) ? metrics : [])) {
+              try {
+                const columnId = m.column_id || m.columnId;
+                const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...authHeader },
+                  body: JSON.stringify({
+                    type: 'formulaChart',
+                    formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, columnId)})`,
+                    sources,
+                    timeBucket: tb,
+                    groupBy
+                  })
+                });
+                if (r.ok) {
+                  const json = await r.json();
+                  const pts = json?.points || [];
+                  if (!Array.isArray(pts) || pts.length === 0) continue;
+                  const color = palette[paletteIdx % palette.length];
+                  traces.push({
+                    type: 'scatter',
+                    mode: plotlyModeForPoints(pts),
+                    name: m.alias || m.columnId,
+                    x: pts.map(p => p.x),
+                    y: pts.map(p => p.value),
+                    line: { width: 3, color },
+                    marker: plotlyMarkerFor(color, pts)
+                  });
+                  paletteIdx += 1;
+                }
+              } catch {
+                toast.error(`Failed to load ${m.alias || m.columnId} series`);
+              }
             }
           }
           // Optional formula series
@@ -432,24 +502,58 @@ export default function DashboardDetail() {
           }
           // Compute KPI cards (aggregates with no time bucket)
           const k = [];
-          for (const m of (Array.isArray(metrics) ? metrics : [])) {
+          // Prefer universal widget query for KPI row when single-table.
+          if (sources.length === 1 && Array.isArray(metrics) && metrics.length) {
             try {
-              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              const rangeCfg = mapRangeToWidgetRange(range, rangeStart);
+              const widgetMetrics = (metrics || []).map((m) => ({
+                alias: m.alias,
+                agg: (m.agg || 'SUM').toUpperCase(),
+                column_id: m.column_id || m.columnId
+              }));
+              const r = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
-                  type: 'formulaMetric',
-                  formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, m.columnId)})`,
-                  sources,
-                  timeBucket: 'none'
+                  table_id: sources[0]?.tableId,
+                  metrics: widgetMetrics,
+                  time_bucket: 'none',
+                  ...rangeCfg
                 })
               });
               if (r.ok) {
                 const j = await r.json();
-                k.push({ id: `${m.alias}_${m.columnId}`, label: m.alias || m.columnId, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(m.columnId)) ? 'currency' : 'number' });
+                const row = Array.isArray(j?.series) ? j.series[0] : null;
+                for (const m of (metrics || [])) {
+                  const columnId = m.column_id || m.columnId;
+                  const val = row ? (row[m.alias] ?? 0) : 0;
+                  k.push({ id: `${m.alias}_${columnId}`, label: m.alias || columnId, value: val, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(columnId)) ? 'currency' : 'number' });
+                }
               }
-            } catch {
-              toast.error(`Failed to load ${m.alias || m.columnId} KPI`);
+            } catch {}
+          }
+          // Fallback to formula preview KPI for multi-table
+          if (!k.length) {
+            for (const m of (Array.isArray(metrics) ? metrics : [])) {
+              try {
+                const columnId = m.column_id || m.columnId;
+                const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...authHeader },
+                  body: JSON.stringify({
+                    type: 'formulaMetric',
+                    formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, columnId)})`,
+                    sources,
+                    timeBucket: 'none'
+                  })
+                });
+                if (r.ok) {
+                  const j = await r.json();
+                  k.push({ id: `${m.alias}_${columnId}`, label: m.alias || columnId, value: j?.value ?? 0, format: /amount|revenue|price|cost|value|total|monthly|yearly/i.test(String(columnId)) ? 'currency' : 'number' });
+                }
+              } catch {
+                toast.error(`Failed to load ${m.alias || m.columnId} KPI`);
+              }
             }
           }
           if (formulaExpr) {
