@@ -115,6 +115,8 @@ function Skeleton({ h }) {
 function ExecOverviewCommandCenter() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [chartError, setChartError] = useState('');
+  const [plotNonce, setPlotNonce] = useState(0);
   const [range, setRange] = useState('last_90_days');
   const [bucket, setBucket] = useState('month');
   const [kpi, setKpi] = useState({ revenue: 0, cost: 0, profit: 0, margin: 0 });
@@ -240,11 +242,12 @@ function ExecOverviewCommandCenter() {
       try {
         const el1 = document.getElementById('exec-chart-rev-cost');
         const el2 = document.getElementById('exec-chart-margin');
-        if (!el1 || !el2) return;
+        if (!el1 && !el2) return;
         const PlotlyMod = await import('plotly.js-dist-min');
         const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
+        setChartError('');
         const axisColor = '#e5e7eb';
         const gridColor = 'rgba(255,255,255,0.08)';
         const paperBg = 'rgba(0,0,0,0)';
@@ -257,35 +260,41 @@ function ExecOverviewCommandCenter() {
         const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
         const markerSize = xs.length <= 1 ? 10 : 6;
 
-        await Plotly.newPlot('exec-chart-rev-cost', [
-          { type: 'scatter', mode: sparseMode, name: 'Revenue', x: xs, y: rev, line: { color: '#3b82f6', width: 3 }, marker: { color: '#3b82f6', size: markerSize } },
-          { type: 'scatter', mode: sparseMode, name: 'Cost', x: xs, y: cost, line: { color: '#10b981', width: 3 }, marker: { color: '#10b981', size: markerSize } }
-        ], {
-          margin: { t: 10, r: 10, b: 40, l: 60 },
-          plot_bgcolor: plotBg,
-          paper_bgcolor: paperBg,
-          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
-          yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
-          showlegend: true,
-          legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
-        }, { responsive: true, displayModeBar: false, displaylogo: false });
+        if (el1) {
+          await Plotly.react(el1, [
+            { type: 'scatter', mode: sparseMode, name: 'Revenue', x: xs, y: rev, line: { color: '#3b82f6', width: 3 }, marker: { color: '#3b82f6', size: markerSize } },
+            { type: 'scatter', mode: sparseMode, name: 'Cost', x: xs, y: cost, line: { color: '#10b981', width: 3 }, marker: { color: '#10b981', size: markerSize } }
+          ], {
+            margin: { t: 10, r: 10, b: 40, l: 60 },
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg,
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+            yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
+            showlegend: true,
+            legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
 
-        await Plotly.newPlot('exec-chart-margin', [
-          { type: 'scatter', mode: sparseMode, name: 'Margin %', x: xs, y: margin, line: { color: '#f97316', width: 3 }, marker: { color: '#f97316', size: markerSize } }
-        ], {
-          margin: { t: 10, r: 10, b: 40, l: 60 },
-          plot_bgcolor: plotBg,
-          paper_bgcolor: paperBg,
-          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
-          yaxis: { title: 'Margin (%)', gridcolor: gridColor, color: axisColor },
-          showlegend: false
-        }, { responsive: true, displayModeBar: false, displaylogo: false });
-      } catch {
-        // ignore
+        if (el2) {
+          await Plotly.react(el2, [
+            { type: 'scatter', mode: sparseMode, name: 'Margin %', x: xs, y: margin, line: { color: '#f97316', width: 3 }, marker: { color: '#f97316', size: markerSize } }
+          ], {
+            margin: { t: 10, r: 10, b: 40, l: 60 },
+            plot_bgcolor: plotBg,
+            paper_bgcolor: paperBg,
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+            yaxis: { title: 'Margin (%)', gridcolor: gridColor, color: axisColor },
+            showlegend: false
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setChartError(e?.message || 'Chart failed to render (Plotly load error).');
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, [series]);
+  }, [series, plotNonce]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -339,6 +348,8 @@ function ExecOverviewCommandCenter() {
             <ChartCard title="Revenue vs Cost">
               {error ? (
                 <ChartError message={error} onRetry={load} />
+              ) : chartError ? (
+                <ChartError message={chartError} onRetry={() => { setChartError(''); setPlotNonce((n) => n + 1); }} />
               ) : loading ? (
                 <Skeleton h="h-[320px]" />
               ) : (series || []).length === 0 ? (
@@ -350,6 +361,8 @@ function ExecOverviewCommandCenter() {
             <ChartCard title="Margin Trend">
               {error ? (
                 <ChartError message={error} onRetry={load} />
+              ) : chartError ? (
+                <ChartError message={chartError} onRetry={() => { setChartError(''); setPlotNonce((n) => n + 1); }} />
               ) : loading ? (
                 <Skeleton h="h-[240px]" />
               ) : (series || []).length === 0 ? (
