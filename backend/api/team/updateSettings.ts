@@ -1,6 +1,7 @@
 import { ApiRequest, ApiHandler, ErrorResponse } from '../../types/api';
 import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
+import { getUserTeamContext } from './teamContext';
 
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
@@ -20,20 +21,15 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       analyticsAdminViewUserId
     } = req.body;
 
-    // Get user's role and team_id
-    const { data: userData, error: userError } = await supabaseDb
-      .from('users')
-      .select('team_id, role')
-      .eq('id', req.user.id)
-      .single();
-
-    if (userError || !userData?.team_id) {
-      res.status(404).json({ error: 'User not part of a team' });
+    // Resolve team membership (supports both legacy `users.team_id` and newer `team_members`)
+    const { teamId, role } = await getUserTeamContext(req.user.id);
+    if (!teamId) {
+      res.status(403).json({ error: 'User not part of a team' });
       return;
     }
 
     // Determine role-based permissions
-    const normalizedRole = String(userData.role || '').toLowerCase();
+    const normalizedRole = String(role || '').toLowerCase();
     const adminRoles = ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'];
     const memberRoles = [...adminRoles, 'member', 'recruitpro', 'recruit_pro'];
     const isAdminRole = adminRoles.includes(normalizedRole);
@@ -46,7 +42,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     // Build update payload (write both keys for compatibility with mixed schema)
     const updateData: any = {
-      team_id: userData.team_id,
+      team_id: teamId,
       team_admin_id: req.user.id,
       updated_at: new Date().toISOString()
     };

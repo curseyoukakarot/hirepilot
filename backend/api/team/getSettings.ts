@@ -1,6 +1,7 @@
 import { ApiRequest, ApiHandler, ErrorResponse } from '../../types/api';
 import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
+import { getUserTeamContext } from './teamContext';
 
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
@@ -9,15 +10,9 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Get user's team_id
-    const { data: userData, error: userError } = await supabaseDb
-      .from('users')
-      .select('team_id')
-      .eq('id', req.user.id)
-      .single();
-
-    if (userError || !userData?.team_id) {
-      res.status(404).json({ error: 'User not part of a team' });
+    const { teamId } = await getUserTeamContext(req.user.id);
+    if (!teamId) {
+      res.status(403).json({ error: 'User not part of a team' });
       return;
     }
 
@@ -25,7 +20,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const { data: settings, error: settingsError } = await supabaseDb
       .from('team_settings')
       .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
-      .eq('team_id', userData.team_id)
+      .eq('team_id', teamId)
       .single();
 
     if (settingsError && settingsError.code !== 'PGRST116') {

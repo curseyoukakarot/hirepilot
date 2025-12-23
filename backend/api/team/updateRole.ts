@@ -1,6 +1,7 @@
 import { ApiRequest, ApiHandler, ErrorResponse } from '../../types/api';
 import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
+import { getUserTeamContext } from './teamContext';
 
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
@@ -22,21 +23,15 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    // Get current user's role and team_id
-    const { data: currentUserData, error: currentUserError } = await supabaseDb
-      .from('users')
-      .select('team_id, role')
-      .eq('id', req.user.id)
-      .single();
-
-    if (currentUserError || !currentUserData?.team_id) {
-      res.status(404).json({ error: 'Current user not part of a team' });
+    const { teamId: currentTeamId, role: currentRole } = await getUserTeamContext(req.user.id);
+    if (!currentTeamId) {
+      res.status(403).json({ error: 'Current user not part of a team' });
       return;
     }
 
     // Check if current user has permission to update roles
     const allowedRoles = ['admin', 'team_admin', 'super_admin'];
-    if (!allowedRoles.includes(currentUserData.role)) {
+    if (!allowedRoles.includes(String(currentRole || ''))) {
       res.status(403).json({ error: 'Insufficient permissions to update user roles' });
       return;
     }
@@ -53,22 +48,41 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
+    // Resolve target user's team (supports both legacy `users.team_id` and newer `team_members`)
+    const { teamId: targetTeamId } = await getUserTeamContext(userId);
+
     // Ensure target user is in the same team
-    if (targetUserData.team_id !== currentUserData.team_id) {
+    if (!targetTeamId || targetTeamId !== currentTeamId) {
       res.status(403).json({ error: 'Cannot update role of user from different team' });
       return;
     }
 
     // Prevent self-demotion if user is the only admin
-    if (userId === req.user.id && role !== 'admin' && currentUserData.role === 'admin') {
+    if (userId === req.user.id && role !== 'admin' && String(currentRole || '') === 'admin') {
       // Check if there are other admins in the team
-      const { data: otherAdmins, error: adminCheckError } = await supabaseDb
-        .from('users')
-        .select('id')
-        .eq('team_id', currentUserData.team_id)
-        .eq('role', 'admin')
-        .neq('id', req.user.id)
-        .limit(1);
+      const { data: teamMembers, error: membersError } = await supabaseDb
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', currentTeamId);
+
+      if (membersError) throw membersError;
+
+      const memberIds = (teamMembers || [])
+        .map((m: any) => m.user_id)
+        .filter((id: any) => typeof id === 'string' && id.length > 0);
+
+      const otherAdminsQuery =
+        memberIds.length > 0
+          ? supabaseDb
+              .from('users')
+              .select('id')
+              .in('id', memberIds)
+              .eq('role', 'admin')
+              .neq('id', req.user.id)
+              .limit(1)
+          : ({ data: [], error: null } as any);
+
+      const { data: otherAdmins, error: adminCheckError } = await otherAdminsQuery;
 
       if (adminCheckError) {
         throw adminCheckError;
