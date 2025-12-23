@@ -306,6 +306,11 @@ export default function DashboardDetail() {
         // Build dynamic traces
         const traces = [];
         const plotlyModeForPoints = (pts) => (Array.isArray(pts) && pts.length <= 1 ? 'lines+markers' : 'lines');
+        const plotlyMarkerFor = (color, pts) => {
+          // Make single-point series very obvious; otherwise keep markers subtle/off.
+          if (Array.isArray(pts) && pts.length <= 1) return { size: 10, color, line: { width: 2, color: '#ffffff' } };
+          return { size: 6, color, opacity: 0.9 };
+        };
         // If includeDeals, fetch revenue monthly series via Supabase view and add as trace and KPI
         let revenueKpi = 0;
         if (includeDeals) {
@@ -374,13 +379,15 @@ export default function DashboardDetail() {
                 const json = await r.json();
                 const pts = json?.points || [];
                 if (!Array.isArray(pts) || pts.length === 0) continue;
+                const color = palette[paletteIdx % palette.length];
                 traces.push({
                   type: 'scatter',
                   mode: plotlyModeForPoints(pts),
                   name: m.alias || m.columnId,
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
-                  line: { width: 3, color: palette[paletteIdx % palette.length] }
+                  line: { width: 3, color },
+                  marker: plotlyMarkerFor(color, pts)
                 });
                 paletteIdx += 1;
               }
@@ -405,14 +412,18 @@ export default function DashboardDetail() {
               if (r.ok) {
                 const json = await r.json();
                 const pts = json?.points || [];
-                if (Array.isArray(pts) && pts.length) traces.push({
+                if (Array.isArray(pts) && pts.length) {
+                  const color = palette[paletteIdx % palette.length];
+                  traces.push({
                   type: 'scatter',
                   mode: plotlyModeForPoints(pts),
                   name: formulaLabel || 'Formula',
                   x: pts.map(p => p.x),
                   y: pts.map(p => p.value),
-                  line: { width: 3, color: palette[paletteIdx % palette.length] }
+                  line: { width: 3, color },
+                  marker: plotlyMarkerFor(color, pts)
                 });
+                }
                 paletteIdx += 1;
               }
             } catch {
@@ -493,7 +504,9 @@ export default function DashboardDetail() {
             margin: { t: 20, r: 20, b: 40, l: 60 },
             plot_bgcolor: plotBg,
             paper_bgcolor: paperBg,
-            xaxis: { title: '', showgrid: false, color: axisColor },
+            // When we're plotting bucket keys (YYYY-MM, row labels, categories), treat x as categorical
+            // so Plotly doesn't auto-interpret as a date axis and zoom into weird sub-second ticks.
+            xaxis: { title: '', showgrid: false, color: axisColor, type: traces.length ? 'category' : undefined },
             yaxis: { title: 'Amount ($)', gridcolor: gridColor, color: axisColor },
             showlegend: true,
             legend: { orientation: 'h', y: -0.15 }
