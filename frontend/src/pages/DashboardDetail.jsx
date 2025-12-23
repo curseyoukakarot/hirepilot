@@ -273,6 +273,11 @@ function ExecOverviewCommandCenter() {
             showlegend: true,
             legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
           }, { responsive: true, displayModeBar: false, displaylogo: false });
+
+          // Some environments block Plotly (CSP/extensions) without throwing; detect and surface that case.
+          if (!cancelled && el1.children && el1.children.length === 0) {
+            setChartError('Chart failed to render. Check Console for CSP/extension blocks (e.g., “Refused to execute script” / “unsafe-eval”) and try disabling ad-blockers.');
+          }
         }
 
         if (el2) {
@@ -286,6 +291,10 @@ function ExecOverviewCommandCenter() {
             yaxis: { title: 'Margin (%)', gridcolor: gridColor, color: axisColor },
             showlegend: false
           }, { responsive: true, displayModeBar: false, displaylogo: false });
+
+          if (!cancelled && el2.children && el2.children.length === 0) {
+            setChartError('Chart failed to render. Check Console for CSP/extension blocks (e.g., “Refused to execute script” / “unsafe-eval”) and try disabling ad-blockers.');
+          }
         }
       } catch (e) {
         if (!cancelled) {
