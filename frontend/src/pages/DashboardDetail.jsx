@@ -273,7 +273,37 @@ function ExecOverviewCommandCenter() {
       if (!trendResp.ok) throw new Error('Failed to load trend series');
       const trendJson = await trendResp.json();
       const s = Array.isArray(trendJson?.series) ? trendJson.series : [];
-      setSeries(s);
+      // If bucketing collapses to a single point (common when two dates fall in the same month/week),
+      // automatically fall back to day bucketing so the user sees a real trend line.
+      if ((bucket === 'month' || bucket === 'week') && s.length <= 1) {
+        try {
+          const finerResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeader },
+            body: JSON.stringify({
+              table_id: tableId,
+              metrics: [
+                { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
+                { alias: 'Cost', agg: 'SUM', column_id: costCol }
+              ],
+              date_column_id: dateCol,
+              time_bucket: 'day',
+              ...rangeCfg
+            })
+          });
+          if (finerResp.ok) {
+            const finerJson = await finerResp.json();
+            const s2 = Array.isArray(finerJson?.series) ? finerJson.series : [];
+            setSeries(s2.length > 1 ? s2 : s);
+          } else {
+            setSeries(s);
+          }
+        } catch {
+          setSeries(s);
+        }
+      } else {
+        setSeries(s);
+      }
 
       // Best-effort: compute health + at-risk list from raw rows (client-side).
       try {
@@ -346,6 +376,7 @@ function ExecOverviewCommandCenter() {
             <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={bucket} onChange={(e)=>setBucket(e.target.value)}>
               <option value="month">Month</option>
               <option value="week">Week</option>
+              <option value="day">Day</option>
             </select>
             <button className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80">Edit Dashboard</button>
             <button className="rounded-xl bg-white text-zinc-900 hover:opacity-90 transition px-4 py-2 text-sm font-semibold">Add Widget</button>
