@@ -6,6 +6,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import TemplateGallery from '../components/dashboards/TemplateGallery';
 import TemplateWizard from '../components/dashboards/TemplateWizard';
 import { DASHBOARD_TEMPLATES } from '../lib/dashboards/templates';
+import PlotlyImport from 'plotly.js-dist-min';
+
+const Plotly = PlotlyImport?.default || PlotlyImport;
 
 export default function Dashboards() {
   const navigate = useNavigate();
@@ -314,8 +317,6 @@ export default function Dashboards() {
         const el = document.getElementById('builder-preview-chart');
         if (!el) return;
         if (!previewSeries || previewSeries.length === 0) return;
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
         const xs = previewSeries.map((r) => r.t);
@@ -493,8 +494,6 @@ export default function Dashboards() {
     let isMounted = true;
     (async () => {
       try {
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (!isMounted) return;
         const sparklineConfigs = [
           { id: 'sparkline-1', data: [12.3, 14.1, 13.8, 15.2, 14.9, 16.1, 15.7, 17.2, 16.8, 18.3, 17.9, 19.1], color: '#10b981' },

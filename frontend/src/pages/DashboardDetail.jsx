@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 import { AnimatePresence, motion } from 'framer-motion';
+import PlotlyImport from 'plotly.js-dist-min';
+
+const Plotly = PlotlyImport?.default || PlotlyImport;
 
 const rangeToStartDate = (range) => {
   const now = new Date();
@@ -243,8 +246,6 @@ function ExecOverviewCommandCenter() {
         const el1 = document.getElementById('exec-chart-rev-cost');
         const el2 = document.getElementById('exec-chart-margin');
         if (!el1 && !el2) return;
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
         setChartError('');
@@ -559,8 +560,6 @@ function PipelineHealthCommandCenter() {
         const cashEl = document.getElementById('pipeline-chart-cash');
         const statusEl = document.getElementById('pipeline-chart-status');
         if (!cashEl && !statusEl) return;
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
         const axisColor = '#e5e7eb';
@@ -844,8 +843,6 @@ function CostDriversCommandCenter() {
         const catEl = document.getElementById('cost-chart-category');
         const trendEl = document.getElementById('cost-chart-trend');
         if (!catEl && !trendEl) return;
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
         const axisColor = '#e5e7eb';
@@ -1100,8 +1097,6 @@ function SingleTablePremiumCommandCenter() {
       try {
         const el = document.getElementById('single-table-trend');
         if (!el) return;
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (cancelled) return;
 
         const axisColor = '#e5e7eb';
@@ -1464,8 +1459,6 @@ function DashboardDetailLegacy() {
     })();
     (async () => {
       try {
-        const PlotlyMod = await import('plotly.js-dist-min');
-        const Plotly = PlotlyMod.default || PlotlyMod;
         if (!isMounted) return;
         // Try dynamic data via preview endpoint using modal selections
         const url = new URL(window.location.href);
