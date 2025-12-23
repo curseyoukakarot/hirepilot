@@ -14,6 +14,15 @@ const rangeToStartDate = (range) => {
   return now;
 };
 
+const isSafeIdentifier = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(s || ''));
+const aggRef = (alias, columnId) => {
+  const a = String(alias || '').trim();
+  const c = String(columnId || '');
+  // Use bracket JSON-string form when the column name is not a safe identifier (spaces, punctuation, etc).
+  // Backend formula engine supports both: A.col and A["Column Name"].
+  return isSafeIdentifier(c) ? `${a}.${c}` : `${a}[${JSON.stringify(c)}]`;
+};
+
 const NavButton = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -346,7 +355,7 @@ export default function DashboardDetail() {
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
                   type: 'formulaChart',
-                  formula: `${(m.agg || 'SUM').toUpperCase()}(${m.alias}.${m.columnId})`,
+                  formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, m.columnId)})`,
                   sources,
                   timeBucket: tb,
                   groupBy
@@ -409,7 +418,7 @@ export default function DashboardDetail() {
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
                   type: 'formulaMetric',
-                  formula: `${(m.agg || 'SUM').toUpperCase()}(${m.alias}.${m.columnId})`,
+                  formula: `${(m.agg || 'SUM').toUpperCase()}(${aggRef(m.alias, m.columnId)})`,
                   sources,
                   timeBucket: 'none'
                 })

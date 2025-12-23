@@ -30,13 +30,33 @@ export type ComputeFormulaArgs = {
 
 type Ref = { func: 'SUM'|'AVG'|'COUNT'|'MIN'|'MAX'; alias: string; column: string; token: string };
 
-const AGG_FUNC = /\b(SUM|AVG|COUNT|MIN|MAX)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
+// Supports:
+// - SUM(A.column_name) where column_name is an identifier
+// - SUM(A["Column Name With Spaces"]) where the bracket value is a JSON string
+// We prefer JSON-string bracket form so column names can include spaces/punctuation.
+const AGG_FUNC =
+  /\b(SUM|AVG|COUNT|MIN|MAX)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:\.\s*([A-Za-z_][A-Za-z0-9_]*)|\[\s*("(?:(?:\\.)|[^"\\])*")\s*\])\s*\)/g;
+
+function decodeColumn(colIdent?: string, colJson?: string): string {
+  if (colIdent) return colIdent;
+  if (colJson) {
+    try {
+      const parsed = JSON.parse(colJson);
+      return typeof parsed === 'string' ? parsed : String(parsed);
+    } catch {
+      // Fallback: strip surrounding quotes if present
+      return String(colJson).replace(/^"(.*)"$/, '$1');
+    }
+  }
+  return '';
+}
 
 function parseRefs(expr: string): Ref[] {
   const refs: Ref[] = [];
   let i = 0;
-  expr.replace(AGG_FUNC, (_m, func, alias, column) => {
+  expr.replace(AGG_FUNC, (_m, func, alias, colIdent, colJson) => {
     const token = `__ref_${i++}`;
+    const column = decodeColumn(colIdent, colJson);
     refs.push({ func, alias, column, token } as Ref);
     return '';
   });
@@ -216,8 +236,14 @@ export async function computeFormula(args: ComputeFormulaArgs): Promise<
     byBucket[bucket] = values;
   }
   // Build expression with tokens
-  let expr = formula.replace(AGG_FUNC, (_m, func, alias, col, _idx) => {
-    const found = refs.find(r => r.func === func && r.alias === alias && r.column === col);
+  // Build a lookup to avoid O(n^2) replacement.
+  const refLookup: Record<string, string> = {};
+  for (const r of refs) refLookup[`${r.func}|${r.alias}|${r.column}`] = r.token;
+
+  let expr = formula.replace(AGG_FUNC, (_m, func, alias, colIdent, colJson) => {
+    const col = decodeColumn(colIdent, colJson);
+    const token = refLookup[`${func}|${alias}|${col}`];
+    const found = token ? ({ token } as any) : undefined;
     return found ? found.token : '0';
   });
   // Decide whether to return single metric or series

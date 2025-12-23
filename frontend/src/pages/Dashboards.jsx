@@ -9,6 +9,14 @@ export default function Dashboards() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [tables, setTables] = useState([]);
   const [loadingTables, setLoadingTables] = useState(false);
+  const isSafeIdentifier = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(s || ''));
+  const aggRef = (alias, columnId) => {
+    const a = String(alias || '').trim();
+    const c = String(columnId || '');
+    // Use bracket JSON-string form when the column name is not a safe identifier (spaces, punctuation, etc).
+    // Backend formula engine supports both: A.col and A["Column Name"].
+    return isSafeIdentifier(c) ? `${a}.${c}` : `${a}[${JSON.stringify(c)}]`;
+  };
   const createMetricBlock = () => ({
     id: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `metric-${Date.now()}-${Math.random()}`),
     alias: '',
@@ -829,7 +837,7 @@ export default function Dashboards() {
                       formulaPayload = formulaExpr;
                       validMetrics.forEach((block) => {
                         const pattern = new RegExp(`\\b${block.alias}\\b`, 'g');
-                        formulaPayload = formulaPayload.replace(pattern, `${(block.agg || 'SUM').toUpperCase()}(${block.alias}.${block.columnId})`);
+                        formulaPayload = formulaPayload.replace(pattern, `${(block.agg || 'SUM').toUpperCase()}(${aggRef(block.alias, block.columnId)})`);
                       });
                       params.set('formula', formulaPayload);
                       if (formulaLabel.trim()) params.set('formulaLabel', formulaLabel.trim());
