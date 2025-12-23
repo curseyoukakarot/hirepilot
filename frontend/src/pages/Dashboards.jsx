@@ -12,6 +12,9 @@ export default function Dashboards() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [tables, setTables] = useState([]);
   const [loadingTables, setLoadingTables] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [previewSeries, setPreviewSeries] = useState([]);
   const isSafeIdentifier = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(s || ''));
   const aggRef = (alias, columnId) => {
     const a = String(alias || '').trim();
@@ -49,6 +52,99 @@ export default function Dashboards() {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateMappings, setTemplateMappings] = useState({});
   const [templateTableId, setTemplateTableId] = useState('');
+
+  const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+  const mapRangeToWidgetRange = (range, rangeStartDate) => {
+    if (range === 'last_7_days') return { range: '7d' };
+    if (range === 'last_30_days') return { range: '30d' };
+    if (range === 'last_90_days') return { range: '90d' };
+    if (range === 'ytd') return { range: 'ytd' };
+    if (range === 'all_time') return { range: 'all_time' };
+    if (range === 'last_180_days' && rangeStartDate) {
+      return { range: 'custom', range_start: rangeStartDate.toISOString(), range_end: new Date().toISOString() };
+    }
+    return { range: '90d' };
+  };
+
+  const genId = () => {
+    try { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; } catch { return `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; }
+  };
+  const toKey = (label) => {
+    const base = String(label || '').trim().toLowerCase()
+      .replace(/['"]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return base || 'col';
+  };
+  const colLabel = (c) => String(c?.label || c?.name || '');
+  const ensureUniqueKey = (schemaIn, desired, colIdToSkip) => {
+    const taken = new Set((schemaIn || []).map(c => String(c?.key || '').toLowerCase()).filter(Boolean));
+    if (colIdToSkip) {
+      const current = (schemaIn || []).find(c => String(c?.id || '') === String(colIdToSkip));
+      if (current?.key) taken.delete(String(current.key).toLowerCase());
+    }
+    if (!taken.has(String(desired).toLowerCase())) return desired;
+    let i = 2;
+    while (taken.has(`${desired}_${i}`.toLowerCase())) i += 1;
+    return `${desired}_${i}`;
+  };
+  const normalizeSchema = (schemaIn) => {
+    const raw = Array.isArray(schemaIn) ? schemaIn : [];
+    const firstPass = raw.map((c) => {
+      const label = colLabel(c) || 'Column';
+      const id = c?.id ? String(c.id) : genId();
+      const keyBase = c?.key ? String(c.key) : toKey(label);
+      const key = ensureUniqueKey(raw, keyBase, id);
+      return { ...c, id, key, label, name: label };
+    });
+    const fixed = [];
+    for (const c of firstPass) {
+      const key = ensureUniqueKey(fixed, String(c.key), String(c.id));
+      fixed.push({ ...c, key });
+    }
+    return fixed;
+  };
+
+  const migrateDashboardLayoutToStableIds = async (dashboard) => {
+    const layout = dashboard?.layout || {};
+    const sources = Array.isArray(layout.sources) ? layout.sources : [];
+    const metrics = Array.isArray(layout.metrics) ? layout.metrics : [];
+    if (!sources.length || !metrics.length) return { changed: false, layout };
+    const hasLegacy = metrics.some(m => m && (m.columnId || m.dateColumn) && !(m.column_id || m.date_column_id));
+    if (!hasLegacy) return { changed: false, layout };
+    // Fetch schemas for referenced tables
+    const tableIds = Array.from(new Set(sources.map(s => s.tableId).filter(Boolean)));
+    const schemasByTable = {};
+    for (const tid of tableIds) {
+      try {
+        const { data } = await supabase.from('custom_tables').select('schema_json').eq('id', tid).maybeSingle();
+        const schemaRaw = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const normalized = normalizeSchema(schemaRaw);
+        schemasByTable[tid] = normalized;
+        // Persist schema normalization (ids/keys) without touching rows.
+        if (JSON.stringify(schemaRaw) !== JSON.stringify(normalized)) {
+          await supabase.from('custom_tables').update({ schema_json: normalized, updated_at: new Date().toISOString() }).eq('id', tid);
+        }
+      } catch {}
+    }
+    const resolveColId = (tableId, q) => {
+      const sch = schemasByTable[tableId] || [];
+      const s = String(q || '').trim();
+      if (!s) return '';
+      const found = sch.find(c => String(c?.id||'')===s || String(c?.key||'')===s || String(c?.label||c?.name||'')===s || String(c?.name||'')===s);
+      return found ? String(found.id || found.key || found.name) : '';
+    };
+    const nextMetrics = metrics.map((m) => {
+      const tableId = sources.find(s => s.alias === m.alias)?.tableId || sources[0]?.tableId;
+      const colLegacy = m.columnId || '';
+      const dateLegacy = m.dateColumn || '';
+      const colId = m.column_id || resolveColId(tableId, colLegacy);
+      const dateId = m.date_column_id || (dateLegacy ? resolveColId(tableId, dateLegacy) : undefined);
+      return { ...m, column_id: colId, date_column_id: dateId, columnId: undefined, dateColumn: undefined };
+    });
+    const nextLayout = { ...layout, metrics: nextMetrics };
+    return { changed: true, layout: nextLayout };
+  };
   const announceOverlayToggle = useCallback((label, enabled) => {
     if (enabled) toast.success(`${label} enabled`);
     else toast(`${label} hidden`);
@@ -138,6 +234,122 @@ export default function Dashboards() {
     });
   };
 
+  // -------------------- Live preview (custom builder) --------------------
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setPreviewError('');
+        const valid = metricBlocks.map((b) => ({ ...b, alias: (b.alias || '').trim() })).filter((b) => b.alias && b.tableId && b.columnId);
+        if (!valid.length) {
+          setPreviewSeries([]);
+          setPreviewLoading(false);
+          return;
+        }
+
+        const tableId = valid[0].tableId;
+        const multiTable = valid.some((b) => b.tableId !== tableId);
+        if (multiTable) {
+          setPreviewSeries([]);
+          setPreviewError('Live preview currently supports a single table. Use the template wizard for multi-table patterns.');
+          setPreviewLoading(false);
+          return;
+        }
+
+        const dateBlock = valid.find((b) => b.dateColumn);
+        if (!dateBlock) {
+          setPreviewSeries([]);
+          setPreviewError('Select a Date column on at least one series to preview a trend.');
+          setPreviewLoading(false);
+          return;
+        }
+
+        setPreviewLoading(true);
+        await ensureSession().catch(() => {});
+        const { data: { session } } = await supabase.auth.getSession();
+        const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+        const rangeStart = (() => {
+          if (timeRange === 'last_180_days') {
+            const d = new Date();
+            d.setDate(d.getDate() - 180);
+            return d;
+          }
+          return null;
+        })();
+        const rangeCfg = mapRangeToWidgetRange(timeRange, rangeStart);
+
+        const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify({
+            table_id: tableId,
+            metrics: valid.slice(0, 3).map((b) => ({ alias: b.alias, agg: (b.agg || 'SUM').toUpperCase(), column_id: b.columnId })),
+            date_column_id: dateBlock.dateColumn,
+            time_bucket: 'month',
+            ...rangeCfg
+          })
+        });
+        if (!resp.ok) throw new Error('Preview query failed');
+        const json = await resp.json();
+        if (cancelled) return;
+        setPreviewSeries(Array.isArray(json?.series) ? json.series : []);
+      } catch (e) {
+        if (cancelled) return;
+        setPreviewSeries([]);
+        setPreviewError(e?.message || 'Failed to load preview');
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [metricBlocks, timeRange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const el = document.getElementById('builder-preview-chart');
+        if (!el) return;
+        if (!previewSeries || previewSeries.length === 0) return;
+        const PlotlyMod = await import('plotly.js-dist-min');
+        const Plotly = PlotlyMod.default || PlotlyMod;
+        if (cancelled) return;
+
+        const xs = previewSeries.map((r) => r.t);
+        const keys = previewSeries?.[0] ? Object.keys(previewSeries[0]).filter((k) => k !== 't') : [];
+        const isDark = document?.documentElement?.classList?.contains?.('dark');
+        const axisColor = isDark ? '#e5e7eb' : '#0f172a';
+        const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.10)';
+
+        const traces = keys.slice(0, 3).map((k, idx) => ({
+          type: 'scatter',
+          mode: xs.length <= 1 ? 'lines+markers' : 'lines',
+          name: k,
+          x: xs,
+          y: previewSeries.map((r) => Number(r?.[k]) || 0),
+          line: { width: 3 },
+          marker: { size: xs.length <= 1 ? 10 : 6 }
+        }));
+
+        await Plotly.newPlot('builder-preview-chart', traces, {
+          margin: { t: 10, r: 10, b: 40, l: 55 },
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+          yaxis: { title: '', gridcolor: gridColor, color: axisColor },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.25 }
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [previewSeries]);
+
   const loadTables = async () => {
     try {
       setLoadingTables(true);
@@ -148,7 +360,19 @@ export default function Dashboards() {
         .select('id,name,schema_json')
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      setTables(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      // Ensure schema_json columns have stable {id,key,label}. This enables reliable dashboards without requiring user to open the table editor.
+      const normalizedList = await Promise.all(list.map(async (t) => {
+        const schemaRaw = Array.isArray(t?.schema_json) ? t.schema_json : [];
+        const normalized = normalizeSchema(schemaRaw);
+        try {
+          if (JSON.stringify(schemaRaw) !== JSON.stringify(normalized)) {
+            await supabase.from('custom_tables').update({ schema_json: normalized, updated_at: new Date().toISOString() }).eq('id', t.id);
+          }
+        } catch {}
+        return { ...t, schema_json: normalized };
+      }));
+      setTables(normalizedList);
     } catch (e) {
       setTables([]);
       setTablesError(e?.message || 'Failed to load tables');
@@ -229,9 +453,19 @@ export default function Dashboards() {
     await deleteDashboardsByIds(selectedDashIds);
   }, [deleteDashboardsByIds, selectedDashIds]);
 
-  const viewDashboard = useCallback((dashboard) => {
-    const qs = buildParamsFromLayout(dashboard.layout || {});
-    navigate(`/dashboards/${dashboard.id}?${qs}`);
+  const viewDashboard = useCallback(async (dashboard) => {
+    try {
+      const { changed, layout } = await migrateDashboardLayoutToStableIds(dashboard);
+      if (changed) {
+        await supabase.from('user_dashboards').update({ layout }).eq('id', dashboard.id);
+        toast('Migrated dashboard to stable column IDs.');
+      }
+      const qs = buildParamsFromLayout(layout || dashboard.layout || {});
+      navigate(`/dashboards/${dashboard.id}?${qs}`);
+    } catch {
+      const qs = buildParamsFromLayout(dashboard.layout || {});
+      navigate(`/dashboards/${dashboard.id}?${qs}`);
+    }
   }, [buildParamsFromLayout, navigate]);
 
   const startEditDashboard = useCallback(async (dashboard) => {
@@ -902,6 +1136,27 @@ export default function Dashboards() {
                       <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Preview summary</h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">We’ll build {metricBlocks.filter((b)=>b.alias && b.tableId && b.columnId).length} metric series, {addFormulaSeries && formulaExpr ? 'plus a formula output.' : 'with no formula output yet.'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">Charts will bucket by the first metric with a date column, otherwise fall back to row order.</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live preview</h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">Auto-refresh</span>
+                      </div>
+                      {previewError ? (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-200 rounded-lg px-3 py-2 text-sm">
+                          {previewError}
+                        </div>
+                      ) : null}
+                      {previewLoading ? (
+                        <div className="animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 h-[220px]" />
+                      ) : previewSeries && previewSeries.length ? (
+                        <div id="builder-preview-chart" className="h-[220px]" />
+                      ) : (
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          Add an alias + value column (and at least one date column) to preview.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

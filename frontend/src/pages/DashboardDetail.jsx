@@ -112,7 +112,7 @@ function Skeleton({ h }) {
   return <div className={`animate-pulse rounded-lg bg-white/5 border border-white/10 ${h}`} />;
 }
 
-function ExecDashboardCommandCenter() {
+function ExecOverviewCommandCenter() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [range, setRange] = useState('last_90_days');
@@ -294,7 +294,7 @@ function ExecDashboardCommandCenter() {
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-2xl font-semibold text-white">Executive Overview</div>
-            <div className="mt-1 text-sm text-white/50">Executive Overview</div>
+            <div className="mt-1 text-sm text-white/50">Revenue, cost, profit, and margin — plus trends and a quick at-risk view.</div>
           </div>
           <div className="flex items-center gap-3">
             <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={range} onChange={(e)=>setRange(e.target.value)}>
@@ -398,6 +398,787 @@ function ExecDashboardCommandCenter() {
               ) : (
                 <div className="text-sm text-white/50">No at-risk items detected.</div>
               )}
+            </ChartCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PipelineHealthCommandCenter() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [range, setRange] = useState('last_90_days');
+  const [bucket, setBucket] = useState('week');
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [notApprovedCount, setNotApprovedCount] = useState(0);
+  const [cashTotal, setCashTotal] = useState(0);
+  const [cashSeries, setCashSeries] = useState([]);
+  const [statusDist, setStatusDist] = useState([]);
+  const [upcomingItems, setUpcomingItems] = useState([]);
+
+  const parseDate = (v) => {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const load = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const url = new URL(window.location.href);
+      const tableId = url.searchParams.get('tpl_table') || '';
+      const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
+      const dateCol = mappings.date;
+      const statusCol = mappings.status;
+      const cashCol = mappings.cash_required;
+      const ownerCol = mappings.owner;
+
+      if (!tableId || !dateCol) throw new Error('Missing required template mappings (Date).');
+
+      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const rangeStart = rangeToStartDate(range);
+      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+
+      // Load raw rows for distribution + upcoming list
+      const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
+      const schema = Array.isArray(data?.schema_json) ? data.schema_json : [];
+      const rows = Array.isArray(data?.data_json) ? data.data_json : [];
+      const findCol = (id) => schema.find((c) => String(c?.id || c?.key || c?.name || '') === String(id));
+      const dateC = findCol(dateCol);
+      const statusC = statusCol ? findCol(statusCol) : null;
+      const cashC = cashCol ? findCol(cashCol) : null;
+      const ownerC = ownerCol ? findCol(ownerCol) : null;
+      const titleC = schema.find((c) => /event|project|name|title/i.test(String(c?.label || c?.name || ''))) || schema[0];
+      const get = (r, c) => {
+        if (!c) return undefined;
+        const key = c?.key;
+        const label = c?.label || c?.name;
+        return (key && r && Object.prototype.hasOwnProperty.call(r, key)) ? r[key] : (label && r ? r[label] : undefined);
+      };
+
+      const now = new Date();
+      const horizon = new Date();
+      horizon.setDate(horizon.getDate() + 90);
+
+      const upcoming = (rows || [])
+        .map((r) => {
+          const d = parseDate(get(r, dateC));
+          if (!d) return null;
+          const isUpcoming = d >= now && d <= horizon;
+          const status = statusC ? String(get(r, statusC) || '').trim() : '';
+          const cash = cashC ? (Number(get(r, cashC)) || 0) : 0;
+          const owner = ownerC ? String(get(r, ownerC) || '').trim() : '';
+          const title = String(get(r, titleC) || 'Item');
+          return { title, date: d, status, cash, owner, isUpcoming };
+        })
+        .filter(Boolean)
+        .filter((x) => x.isUpcoming)
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      setUpcomingCount(upcoming.length);
+      setCashTotal(upcoming.reduce((acc, x) => acc + (Number(x.cash) || 0), 0));
+      setUpcomingItems(upcoming.slice(0, 5));
+
+      if (statusC) {
+        const distMap = new Map();
+        for (const x of upcoming) {
+          const k = (x.status || 'Unknown') || 'Unknown';
+          distMap.set(k, (distMap.get(k) || 0) + 1);
+        }
+        const dist = Array.from(distMap.entries()).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
+        setStatusDist(dist);
+
+        const approved = upcoming.filter(x => String(x.status || '').toLowerCase().includes('approved')).length;
+        setApprovedCount(approved);
+        setNotApprovedCount(Math.max(0, upcoming.length - approved));
+      } else {
+        setStatusDist([]);
+        setApprovedCount(0);
+        setNotApprovedCount(0);
+      }
+
+      // Trend series (cash required)
+      if (cashCol) {
+        const cashResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify({
+            table_id: tableId,
+            metrics: [{ alias: 'Cash', agg: 'SUM', column_id: cashCol }],
+            date_column_id: dateCol,
+            time_bucket: bucket,
+            ...rangeCfg
+          })
+        });
+        if (!cashResp.ok) throw new Error('Failed to load cash risk trend');
+        const cashJson = await cashResp.json();
+        setCashSeries(Array.isArray(cashJson?.series) ? cashJson.series : []);
+      } else {
+        setCashSeries([]);
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [range, bucket]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cashEl = document.getElementById('pipeline-chart-cash');
+        const statusEl = document.getElementById('pipeline-chart-status');
+        if (!cashEl && !statusEl) return;
+        const PlotlyMod = await import('plotly.js-dist-min');
+        const Plotly = PlotlyMod.default || PlotlyMod;
+        if (cancelled) return;
+
+        const axisColor = '#e5e7eb';
+        const gridColor = 'rgba(255,255,255,0.08)';
+
+        if (cashEl) {
+          const xs = (cashSeries || []).map(r => r.t);
+          const ys = (cashSeries || []).map(r => Number(r?.Cash) || 0);
+          const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
+          const markerSize = xs.length <= 1 ? 10 : 6;
+          await Plotly.newPlot('pipeline-chart-cash', [
+            { type: 'scatter', mode: sparseMode, name: 'Cash Required', x: xs, y: ys, line: { color: '#f97316', width: 3 }, marker: { color: '#f97316', size: markerSize } }
+          ], {
+            margin: { t: 10, r: 10, b: 40, l: 70 },
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+            yaxis: { title: 'Cash ($)', gridcolor: gridColor, color: axisColor },
+            showlegend: false
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
+
+        if (statusEl) {
+          const xs = (statusDist || []).map(x => x.k);
+          const ys = (statusDist || []).map(x => x.v);
+          await Plotly.newPlot('pipeline-chart-status', [
+            { type: 'bar', name: 'Count', x: xs, y: ys, marker: { color: '#3b82f6' } }
+          ], {
+            margin: { t: 10, r: 10, b: 70, l: 50 },
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category', tickangle: -25 },
+            yaxis: { title: 'Count', gridcolor: gridColor, color: axisColor },
+            showlegend: false
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [cashSeries, statusDist]);
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="text-2xl font-semibold text-white">Pipeline / Schedule Health</div>
+            <div className="mt-1 text-sm text-white/50">Upcoming items, approvals, and (optional) cash risk trend.</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={range} onChange={(e)=>setRange(e.target.value)}>
+              <option value="all_time">All time</option>
+              <option value="last_90_days">90d</option>
+              <option value="last_30_days">30d</option>
+              <option value="ytd">YTD</option>
+            </select>
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={bucket} onChange={(e)=>setBucket(e.target.value)}>
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+            </select>
+            <button className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80">Edit Dashboard</button>
+            <button className="rounded-xl bg-white text-zinc-900 hover:opacity-90 transition px-4 py-2 text-sm font-semibold">Add Widget</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <>
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+            </>
+          ) : (
+            <>
+              <ExecutiveKpiCard label="Upcoming (next 90d)" value={formatNumber(upcomingCount)} subtext="count" />
+              <ExecutiveKpiCard label="Approved" value={formatNumber(approvedCount)} subtext="from status column (if mapped)" />
+              <ExecutiveKpiCard label="Not Approved" value={formatNumber(notApprovedCount)} subtext="from status column (if mapped)" />
+              <ExecutiveKpiCard label="Cash Required (upcoming)" value={formatCurrency(cashTotal)} subtext="sum (if mapped)" />
+            </>
+          )}
+        </div>
+
+        <div className="mt-6 grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8 space-y-4">
+            <ChartCard title="Approval Status Distribution">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[320px]" />
+              ) : (statusDist || []).length === 0 ? (
+                <div className="text-sm text-white/50 py-6">
+                  Map an <span className="text-white">Approval Status</span> column to see a distribution chart.
+                </div>
+              ) : (
+                <div id="pipeline-chart-status" className="h-[320px]" />
+              )}
+            </ChartCard>
+
+            <ChartCard title="Cash Risk Trend">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[240px]" />
+              ) : (cashSeries || []).length === 0 ? (
+                <div className="text-sm text-white/50 py-6">
+                  Map a <span className="text-white">Cash Required</span> column to see a cash risk trend.
+                </div>
+              ) : (
+                <div id="pipeline-chart-cash" className="h-[240px]" />
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <ChartCard title="Upcoming Items">
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                </div>
+              ) : (upcomingItems || []).length ? (
+                <div className="space-y-2">
+                  {upcomingItems.slice(0,5).map((r, i) => (
+                    <div key={i} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="text-sm text-white truncate">{r.title}</div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-white/40 gap-2">
+                        <span>{r.date?.toLocaleDateString?.() || ''}</span>
+                        <span className="truncate">{r.owner || ''}</span>
+                      </div>
+                      {r.status ? (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-1 text-xs text-white/70 border border-white/10">
+                            {r.status}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">No upcoming items detected in the next 90 days.</div>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CostDriversCommandCenter() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [range, setRange] = useState('last_90_days');
+  const [bucket, setBucket] = useState('month');
+  const [totals, setTotals] = useState({ cost: 0, baseline: 0, delta: 0, deltaPct: 0 });
+  const [trend, setTrend] = useState([]);
+  const [byCategory, setByCategory] = useState([]);
+  const [topItems, setTopItems] = useState([]);
+
+  const load = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const url = new URL(window.location.href);
+      const tableId = url.searchParams.get('tpl_table') || '';
+      const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
+      const costCol = mappings.cost;
+      const categoryCol = mappings.category;
+      const baselineCol = mappings.baseline_cost;
+      const dateCol = mappings.date;
+      if (!tableId || !costCol) throw new Error('Missing required template mappings (Cost).');
+
+      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const rangeStart = rangeToStartDate(range);
+      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+
+      // Total cost via query engine (respects range)
+      const totalResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({
+          table_id: tableId,
+          metrics: [{ alias: 'Cost', agg: 'SUM', column_id: costCol }],
+          time_bucket: 'none',
+          ...(dateCol ? { date_column_id: dateCol } : {}),
+          ...rangeCfg
+        })
+      });
+      if (!totalResp.ok) throw new Error('Failed to load cost totals');
+      const totalJson = await totalResp.json();
+      const trow = Array.isArray(totalJson?.series) ? totalJson.series[0] : null;
+      const costTotal = Number(trow?.Cost) || 0;
+
+      // Raw rows for category + baseline variance
+      const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
+      const schema = Array.isArray(data?.schema_json) ? data.schema_json : [];
+      const rows = Array.isArray(data?.data_json) ? data.data_json : [];
+      const findCol = (id) => schema.find((c) => String(c?.id || c?.key || c?.name || '') === String(id));
+      const costC = findCol(costCol);
+      const catC = categoryCol ? findCol(categoryCol) : null;
+      const baseC = baselineCol ? findCol(baselineCol) : null;
+      const titleC = schema.find((c) => /item|line|vendor|name|title|event|project/i.test(String(c?.label || c?.name || ''))) || schema[0];
+      const get = (r, c) => {
+        if (!c) return undefined;
+        const key = c?.key;
+        const label = c?.label || c?.name;
+        return (key && r && Object.prototype.hasOwnProperty.call(r, key)) ? r[key] : (label && r ? r[label] : undefined);
+      };
+
+      // Category aggregation
+      if (catC) {
+        const map = new Map();
+        for (const r of (rows || [])) {
+          const c = Number(get(r, costC)) || 0;
+          const k = String(get(r, catC) || 'Uncategorized').trim() || 'Uncategorized';
+          map.set(k, (map.get(k) || 0) + c);
+        }
+        const arr = Array.from(map.entries()).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v).slice(0, 10);
+        setByCategory(arr);
+      } else {
+        setByCategory([]);
+      }
+
+      // Top line items
+      const items = (rows || [])
+        .map((r) => ({ title: String(get(r, titleC) || 'Item'), cost: Number(get(r, costC)) || 0 }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 10);
+      setTopItems(items);
+
+      // Baseline variance (client-side)
+      let baselineTotal = 0;
+      if (baseC) {
+        baselineTotal = (rows || []).reduce((acc, r) => acc + (Number(get(r, baseC)) || 0), 0);
+      }
+      const delta = costTotal - baselineTotal;
+      const deltaPct = baselineTotal ? (delta / baselineTotal) * 100 : 0;
+      setTotals({ cost: costTotal, baseline: baselineTotal, delta, deltaPct });
+
+      // Trend (optional date)
+      if (dateCol) {
+        const trendResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify({
+            table_id: tableId,
+            metrics: [{ alias: 'Cost', agg: 'SUM', column_id: costCol }],
+            date_column_id: dateCol,
+            time_bucket: bucket,
+            ...rangeCfg
+          })
+        });
+        if (!trendResp.ok) throw new Error('Failed to load cost trend');
+        const trendJson = await trendResp.json();
+        setTrend(Array.isArray(trendJson?.series) ? trendJson.series : []);
+      } else {
+        setTrend([]);
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [range, bucket]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const catEl = document.getElementById('cost-chart-category');
+        const trendEl = document.getElementById('cost-chart-trend');
+        if (!catEl && !trendEl) return;
+        const PlotlyMod = await import('plotly.js-dist-min');
+        const Plotly = PlotlyMod.default || PlotlyMod;
+        if (cancelled) return;
+
+        const axisColor = '#e5e7eb';
+        const gridColor = 'rgba(255,255,255,0.08)';
+
+        if (catEl) {
+          const xs = (byCategory || []).map(x => x.k);
+          const ys = (byCategory || []).map(x => Number(x.v) || 0);
+          await Plotly.newPlot('cost-chart-category', [
+            { type: 'bar', name: 'Cost', x: xs, y: ys, marker: { color: '#10b981' } }
+          ], {
+            margin: { t: 10, r: 10, b: 90, l: 70 },
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category', tickangle: -25 },
+            yaxis: { title: 'Cost ($)', gridcolor: gridColor, color: axisColor },
+            showlegend: false
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
+
+        if (trendEl) {
+          const xs = (trend || []).map(r => r.t);
+          const ys = (trend || []).map(r => Number(r?.Cost) || 0);
+          const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
+          const markerSize = xs.length <= 1 ? 10 : 6;
+          await Plotly.newPlot('cost-chart-trend', [
+            { type: 'scatter', mode: sparseMode, name: 'Cost', x: xs, y: ys, line: { color: '#10b981', width: 3 }, marker: { color: '#10b981', size: markerSize } }
+          ], {
+            margin: { t: 10, r: 10, b: 40, l: 70 },
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+            yaxis: { title: 'Cost ($)', gridcolor: gridColor, color: axisColor },
+            showlegend: false
+          }, { responsive: true, displayModeBar: false, displaylogo: false });
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [byCategory, trend]);
+
+  const deltaChip = totals.delta >= 0
+    ? { cls: 'bg-red-500/10 border border-red-500/20 text-red-200', label: `+${formatCurrency(totals.delta)}` }
+    : { cls: 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-200', label: formatCurrency(totals.delta) };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="text-2xl font-semibold text-white">Cost Drivers</div>
+            <div className="mt-1 text-sm text-white/50">Category breakdown, top line items, and variance if baseline exists.</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={range} onChange={(e)=>setRange(e.target.value)}>
+              <option value="all_time">All time</option>
+              <option value="last_90_days">90d</option>
+              <option value="last_30_days">30d</option>
+              <option value="ytd">YTD</option>
+            </select>
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={bucket} onChange={(e)=>setBucket(e.target.value)}>
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+            </select>
+            <button className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80">Edit Dashboard</button>
+            <button className="rounded-xl bg-white text-zinc-900 hover:opacity-90 transition px-4 py-2 text-sm font-semibold">Add Widget</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <>
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+            </>
+          ) : (
+            <>
+              <ExecutiveKpiCard label="Total Cost" value={formatCurrency(totals.cost)} subtext="sum" />
+              <ExecutiveKpiCard label="Baseline Cost" value={formatCurrency(totals.baseline)} subtext="if mapped" />
+              <ExecutiveKpiCard label="Cost Increase" value={<span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${deltaChip.cls}`}>{deltaChip.label}</span>} subtext="current - baseline" />
+              <ExecutiveKpiCard label="Cost Increase %" value={`${formatNumber(totals.deltaPct.toFixed(1))}%`} subtext="vs baseline" />
+            </>
+          )}
+        </div>
+
+        <div className="mt-6 grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8 space-y-4">
+            <ChartCard title="Cost by Category">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[320px]" />
+              ) : (byCategory || []).length === 0 ? (
+                <div className="text-sm text-white/50 py-6">
+                  Map a <span className="text-white">Category</span> column to see cost-by-category.
+                </div>
+              ) : (
+                <div id="cost-chart-category" className="h-[320px]" />
+              )}
+            </ChartCard>
+
+            <ChartCard title="Cost Trend">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[240px]" />
+              ) : (trend || []).length === 0 ? (
+                <div className="text-sm text-white/50 py-6">
+                  Map a <span className="text-white">Date</span> column to see a trend.
+                </div>
+              ) : (
+                <div id="cost-chart-trend" className="h-[240px]" />
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <ChartCard title="Top 10 Cost Line Items">
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                </div>
+              ) : (topItems || []).length ? (
+                <div className="space-y-2">
+                  {topItems.slice(0,10).map((x, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm text-white truncate">{x.title}</div>
+                      </div>
+                      <div className="text-sm text-white/80">{formatCurrency(x.cost)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">No items found.</div>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SingleTablePremiumCommandCenter() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [range, setRange] = useState('last_90_days');
+  const [bucket, setBucket] = useState('month');
+  const [kpis, setKpis] = useState([]);
+  const [series, setSeries] = useState([]);
+  const [title, setTitle] = useState('Dashboard');
+
+  const parseJsonParam = (p) => {
+    try {
+      if (!p) return null;
+      return JSON.parse(decodeURIComponent(p));
+    } catch {
+      try { return JSON.parse(String(p)); } catch { return null; }
+    }
+  };
+
+  const load = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const url = new URL(window.location.href);
+      const sources = parseJsonParam(url.searchParams.get('sources') || '') || [];
+      const metrics = parseJsonParam(url.searchParams.get('metrics') || '') || [];
+      const tableId = sources?.[0]?.tableId || '';
+      const metricList = Array.isArray(metrics) ? metrics.filter(m => m && m.alias && (m.column_id || m.columnId)) : [];
+      if (!tableId || !metricList.length) throw new Error('Missing dashboard configuration.');
+
+      setTitle(url.searchParams.get('name') || 'Dashboard');
+
+      const dateCol = (() => {
+        const m = metricList.find(mm => mm && (mm.date_column_id || mm.dateColumn));
+        return m ? String(m.date_column_id || m.dateColumn || '') : '';
+      })();
+      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const rangeStart = rangeToStartDate(range);
+      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+
+      // KPI totals (up to 4)
+      const kpiMetrics = metricList.slice(0, 4).map(m => ({
+        alias: String(m.alias),
+        agg: String(m.agg || 'SUM'),
+        column_id: String(m.column_id || m.columnId || '')
+      }));
+      const kpiResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({
+          table_id: tableId,
+          metrics: kpiMetrics,
+          time_bucket: 'none',
+          ...(dateCol ? { date_column_id: dateCol } : {}),
+          ...rangeCfg
+        })
+      });
+      if (!kpiResp.ok) throw new Error('Failed to load KPI totals');
+      const kpiJson = await kpiResp.json();
+      const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+      setKpis(kpiMetrics.map(m => ({ label: m.alias, value: Number(krow?.[m.alias]) || 0 })));
+
+      // Trend (first 2 metrics)
+      const trendMetrics = metricList.slice(0, 2).map(m => ({
+        alias: String(m.alias),
+        agg: String(m.agg || 'SUM'),
+        column_id: String(m.column_id || m.columnId || '')
+      }));
+      if (dateCol) {
+        const trendResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify({
+            table_id: tableId,
+            metrics: trendMetrics,
+            date_column_id: dateCol,
+            time_bucket: bucket,
+            ...rangeCfg
+          })
+        });
+        if (!trendResp.ok) throw new Error('Failed to load trend series');
+        const trendJson = await trendResp.json();
+        setSeries(Array.isArray(trendJson?.series) ? trendJson.series : []);
+      } else {
+        setSeries([]);
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [range, bucket]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const el = document.getElementById('single-table-trend');
+        if (!el) return;
+        const PlotlyMod = await import('plotly.js-dist-min');
+        const Plotly = PlotlyMod.default || PlotlyMod;
+        if (cancelled) return;
+
+        const axisColor = '#e5e7eb';
+        const gridColor = 'rgba(255,255,255,0.08)';
+        const xs = (series || []).map(r => r.t);
+        const keys = series?.[0] ? Object.keys(series[0]).filter(k => k !== 't') : [];
+        const sparseMode = xs.length <= 1 ? 'lines+markers' : 'lines';
+        const markerSize = xs.length <= 1 ? 10 : 6;
+        const colors = ['#3b82f6', '#10b981', '#f97316', '#a855f7'];
+
+        const traces = keys.slice(0, 2).map((k, idx) => ({
+          type: 'scatter',
+          mode: sparseMode,
+          name: k,
+          x: xs,
+          y: (series || []).map(r => Number(r?.[k]) || 0),
+          line: { color: colors[idx], width: 3 },
+          marker: { color: colors[idx], size: markerSize }
+        }));
+
+        await Plotly.newPlot('single-table-trend', traces, {
+          margin: { t: 10, r: 10, b: 40, l: 70 },
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          xaxis: { title: '', showgrid: false, color: axisColor, type: 'category' },
+          yaxis: { title: '', gridcolor: gridColor, color: axisColor },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.2, font: { color: axisColor } }
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [series]);
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="text-2xl font-semibold text-white">{title}</div>
+            <div className="mt-1 text-sm text-white/50">Single-table dashboard</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={range} onChange={(e)=>setRange(e.target.value)}>
+              <option value="all_time">All time</option>
+              <option value="last_90_days">90d</option>
+              <option value="last_30_days">30d</option>
+              <option value="ytd">YTD</option>
+            </select>
+            <select className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-4 py-2 text-sm text-white/90" value={bucket} onChange={(e)=>setBucket(e.target.value)}>
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+            </select>
+            <button className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80">Edit Dashboard</button>
+            <button className="rounded-xl bg-white text-zinc-900 hover:opacity-90 transition px-4 py-2 text-sm font-semibold">Add Widget</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <>
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+            </>
+          ) : (
+            <>
+              {kpis.slice(0,4).map((k) => (
+                <ExecutiveKpiCard key={k.label} label={k.label} value={formatNumber(k.value)} subtext="" />
+              ))}
+            </>
+          )}
+        </div>
+
+        <div className="mt-6 grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8 space-y-4">
+            <ChartCard title="Trend">
+              {error ? (
+                <ChartError message={error} onRetry={load} />
+              ) : loading ? (
+                <Skeleton h="h-[320px]" />
+              ) : (series || []).length === 0 ? (
+                <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
+              ) : (
+                <div id="single-table-trend" className="h-[320px]" />
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <ChartCard title="Notes">
+              <div className="text-sm text-white/60">
+                This is the premium single-table renderer. Multi-source dashboards still fall back to the legacy UI.
+              </div>
             </ChartCard>
           </div>
         </div>
@@ -1468,11 +2249,35 @@ function DashboardDetailLegacy() {
 
 export default function DashboardDetail() {
   let tpl = '';
+  let sourcesRaw = '';
+  let metricsRaw = '';
   try {
     const url = new URL(window.location.href);
     tpl = url.searchParams.get('tpl') || '';
+    sourcesRaw = url.searchParams.get('sources') || '';
+    metricsRaw = url.searchParams.get('metrics') || '';
   } catch {}
-  if (tpl) return <ExecDashboardCommandCenter />;
+  if (tpl === 'exec_overview_v1') return <ExecOverviewCommandCenter />;
+  if (tpl === 'pipeline_health_v1') return <PipelineHealthCommandCenter />;
+  if (tpl === 'cost_drivers_v1') return <CostDriversCommandCenter />;
+  if (tpl) return <ExecOverviewCommandCenter />;
+
+  // If this is a single-table dashboard layout (custom tables), prefer the premium renderer.
+  const isSingleTableLayout = (() => {
+    try {
+      if (!sourcesRaw || !metricsRaw) return false;
+      const sources = JSON.parse(decodeURIComponent(sourcesRaw));
+      const metrics = JSON.parse(decodeURIComponent(metricsRaw));
+      if (!Array.isArray(sources) || sources.length !== 1) return false;
+      if (!sources[0]?.tableId) return false;
+      if (!Array.isArray(metrics) || !metrics.length) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (isSingleTableLayout) return <SingleTablePremiumCommandCenter />;
+
   return <DashboardDetailLegacy />;
 }
 
