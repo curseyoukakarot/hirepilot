@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { getAppModeFromLocation } from '../lib/appMode';
 
 export type OnboardingStepKey =
   | 'resume_generated'
@@ -52,7 +53,17 @@ export function useOnboardingProgress(opts: { autoToast?: boolean } = {}) {
 
   const fetchProgress = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
+      // This hook is only meaningful on the job seeker app (jobs.*). On the recruiter app,
+      // avoid calling job-seeker onboarding APIs.
+      if (typeof window !== 'undefined') {
+        const mode = getAppModeFromLocation(window.location);
+        if (mode !== 'job_seeker') {
+          setProgress(null);
+          return;
+        }
+      }
       const base = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${base}/api/jobs/onboarding/progress`, {
         headers: await authHeaders(),

@@ -4,11 +4,13 @@ import { motion } from 'framer-motion';
 import { FaCircleCheck, FaArrowRight } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { useOnboardingProgress } from '../../hooks/useOnboardingProgress';
+import { useAppMode } from '../../lib/appMode';
 
 const BANNER_KEY = 'hp_onboarding_banner_dismissed';
 
 export function OnboardingBanner() {
   const navigate = useNavigate();
+  const appMode = useAppMode();
   const { progress, loading } = useOnboardingProgress();
   const [show, setShow] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
@@ -34,6 +36,7 @@ export function OnboardingBanner() {
     return Math.round((completed / total) * 100);
   }, [completed, total, progress]);
 
+  if (appMode !== 'job_seeker') return null;
   if (loading || !show) return null;
   if (!isNewUser && completed >= total) return null;
 

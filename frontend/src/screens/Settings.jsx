@@ -162,23 +162,25 @@ export default function Settings() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Job Search Setup</div>
-            <div className="text-sm text-blue-800">
-              {progress?.total_completed ?? 0} of {progress?.total_steps ?? 7} complete — {progress?.total_credits_awarded ?? 0}/100 credits earned
+        {appMode === 'job_seeker' && (
+          <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Job Search Setup</div>
+              <div className="text-sm text-blue-800">
+                {progress?.total_completed ?? 0} of {progress?.total_steps ?? 7} complete — {progress?.total_credits_awarded ?? 0}/100 credits earned
+              </div>
+              <div className="mt-2 w-64 bg-white/70 rounded-full h-2 overflow-hidden">
+                <div className="h-2 bg-blue-500" style={{ width: `${completionPct}%` }} />
+              </div>
             </div>
-            <div className="mt-2 w-64 bg-white/70 rounded-full h-2 overflow-hidden">
-              <div className="h-2 bg-blue-500" style={{ width: `${completionPct}%` }} />
-            </div>
+            <button
+              onClick={() => navigate('/onboarding')}
+              className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-500"
+            >
+              Continue setup
+            </button>
           </div>
-          <button
-            onClick={() => navigate('/onboarding')}
-            className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-500"
-          >
-            Continue setup
-          </button>
-        </div>
+        )}
 
         {/* Tabs */}
         <div className="flex space-x-1 bg-white rounded-lg p-1 mb-8 border">
