@@ -10,8 +10,19 @@ export default function SettingsGuest() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from('users').select('full_name, avatar_url').eq('id', user.id).maybeSingle();
-        setFullName(data?.full_name || '');
+        // Be defensive: some environments may not have users.full_name yet (migration drift).
+        const { data } = await supabase
+          .from('users')
+          .select('first_name,last_name,full_name,avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        const derived =
+          data?.full_name
+          || [data?.first_name, data?.last_name].filter(Boolean).join(' ')
+          || user.user_metadata?.full_name
+          || user.user_metadata?.name
+          || '';
+        setFullName(derived);
         setAvatarUrl(data?.avatar_url || '');
       }
     })();
