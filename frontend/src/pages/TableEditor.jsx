@@ -6,19 +6,25 @@ import { evaluate as mathEvaluate } from 'mathjs';
 export default function TableEditor() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
   const [tableName, setTableName] = useState('Untitled Table');
   const [lastSavedName, setLastSavedName] = useState('Untitled Table');
   const [saving, setSaving] = useState(false);
   const [presenceCount, setPresenceCount] = useState(1);
   const [schema, setSchema] = useState([]);
   const [rows, setRows] = useState([]);
+  const [accessRole, setAccessRole] = useState('edit'); // 'owner' | 'edit' | 'view'
   const [selectedRowIndex, setSelectedRowIndex] = useState(-1);
   const [showShare, setShowShare] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
+  const [collabProfiles, setCollabProfiles] = useState({}); // user_id -> { id,email,name,avatar_url,team_id,role }
   const [canManageAccess, setCanManageAccess] = useState(false);
   const [addingUserId, setAddingUserId] = useState('');
   const [addingRole, setAddingRole] = useState('view');
+  const [shareSearch, setShareSearch] = useState('');
+  const [shareResults, setShareResults] = useState([]);
+  const [shareLoading, setShareLoading] = useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSource, setImportSource] = useState('/leads');
@@ -48,6 +54,8 @@ export default function TableEditor() {
     if (!resp.ok) throw new Error(await resp.text());
     return resp.json();
   };
+
+  const isReadOnly = accessRole === 'view';
 
   const generateId = () => {
     try { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; } catch { return `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; }
@@ -190,6 +198,7 @@ export default function TableEditor() {
     const load = async () => {
       if (!id) return;
       try {
+        const { data: { user } } = await supabase.auth.getUser();
         const { data } = await supabase
           .from('custom_tables')
           .select('*')
@@ -203,6 +212,17 @@ export default function TableEditor() {
         setSchema(normalizedSchema);
         setRows(recomputeFormulasRows(migratedRows));
         setCollaborators(Array.isArray(data?.collaborators) ? data.collaborators : []);
+        // Derive view/edit role for current user for better UX (RLS enforces too)
+        try {
+          const myId = user?.id ? String(user.id) : '';
+          const ownerId = data?.user_id ? String(data.user_id) : '';
+          if (myId && ownerId && myId === ownerId) setAccessRole('owner');
+          else if (myId) {
+            const collabs = Array.isArray(data?.collaborators) ? data.collaborators : [];
+            const mine = collabs.find((c) => String(c?.user_id || '') === myId);
+            setAccessRole(String(mine?.role || '').toLowerCase() === 'edit' ? 'edit' : 'view');
+          }
+        } catch {}
         // Best-effort: persist schema + migrated rows once (prevents future dashboard breakage on renames).
         try {
           const schemaChanged = JSON.stringify(loadedSchemaRaw) !== JSON.stringify(normalizedSchema);
@@ -235,11 +255,12 @@ export default function TableEditor() {
         if (!user) { setCanManageAccess(false); return; }
         const { data: me } = await supabase.from('users').select('role, team_id').eq('id', user.id).maybeSingle();
         const roleLc = String(me?.role || '').toLowerCase();
+        const isJobSeeker = roleLc.startsWith('job_seeker');
         const isSuper = ['super_admin','superadmin'].includes(roleLc);
         const isTeamAdmin = roleLc === 'team_admin';
-        setCanManageAccess(isSuper || isTeamAdmin);
+        setCanManageAccess(!isJobSeeker && (isSuper || isTeamAdmin));
         if (me?.team_id) {
-          const { data: members } = await supabase.from('users').select('id, email').eq('team_id', me.team_id);
+          const { data: members } = await supabase.from('users').select('id,email,first_name,last_name,full_name,avatar_url').eq('team_id', me.team_id);
           setTeamMembers(Array.isArray(members) ? members : []);
         } else {
           setTeamMembers([]);
@@ -247,6 +268,63 @@ export default function TableEditor() {
       } catch { setCanManageAccess(false); }
     })();
   }, []);
+
+  const loadShareState = async () => {
+    if (!id) return;
+    try {
+      setShareLoading(true);
+      const data = await apiFetch(`${backendBase}/api/tables/${id}/collaborators-unified`);
+      const collabs = Array.isArray(data?.collaborators) ? data.collaborators : [];
+      setCollaborators(collabs.map((c)=>({ user_id: String(c.user_id), role: (String(c.role)==='edit'?'edit':'view') })));
+      const map = {};
+      for (const c of collabs) {
+        if (c?.user?.id) {
+          map[String(c.user.id)] = {
+            id: String(c.user.id),
+            email: c.user.email || null,
+            name: c.user.full_name || [c.user.first_name, c.user.last_name].filter(Boolean).join(' ') || c.user.email || c.user.id,
+            avatar_url: c.user.avatar_url || null,
+            team_id: c.user.team_id || null,
+            role: c.user.role || null,
+          };
+        }
+      }
+      setCollabProfiles(map);
+    } catch (e) {
+      // If backend isn't available (dev), fall back to local state.
+      console.warn('Failed to load table collaborators (unified)', e);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Load unified collaborators when Share modal opens
+  useEffect(() => {
+    if (!showShare) return;
+    loadShareState();
+  }, [showShare, id]);
+
+  // Search any recruiter user to share with (backend-enforced recruiter-only)
+  useEffect(() => {
+    if (!showShare) return;
+    const q = String(shareSearch || '').trim();
+    if (!q) { setShareResults([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const resp = await apiFetch(`${backendBase}/api/tables/users/search?q=${encodeURIComponent(q)}`);
+        const users = Array.isArray(resp?.users) ? resp.users : [];
+        if (cancelled) return;
+        // Filter out existing collaborators and self/team duplicates
+        const existing = new Set((collaborators || []).map(c => String(c.user_id)));
+        const byTeam = new Set((teamMembers || []).map(m => String(m.id)));
+        setShareResults(users.filter(u => u?.id && !existing.has(String(u.id)) && !byTeam.has(String(u.id))));
+      } catch {
+        if (!cancelled) setShareResults([]);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [shareSearch, showShare, collaborators, teamMembers]);
 
   // Realtime presence stub
   useEffect(() => {
@@ -281,6 +359,7 @@ export default function TableEditor() {
 
   const onSave = async () => {
     if (!id) return;
+    if (isReadOnly) return;
     try {
       setSaving(true);
       await supabase
@@ -296,6 +375,7 @@ export default function TableEditor() {
   };
 
   const importFrom = async (src, filters) => {
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     try {
       setSaving(true);
       // Ensure we have a real table id (handle /tables/new/edit deep-link)
@@ -416,6 +496,7 @@ export default function TableEditor() {
 
   const handleAddColumn = async (type) => {
     if (!id) return;
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const existingLabels = (schema || []).map((c) => String(colLabel(c) || ''));
     let idx = existingLabels.length + 1;
     let name = `New Column ${idx}`;
@@ -451,6 +532,7 @@ export default function TableEditor() {
 
   const handleAddRow = async () => {
     if (!id) return;
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const empty = {};
     (schema || []).forEach((c) => {
       const k = colKey(c);
@@ -489,6 +571,7 @@ export default function TableEditor() {
   };
 
   const updateCell = (rowIdx, col, value) => {
+    if (isReadOnly) return;
     // Normalize by type
     let normalized = value;
     if (col.type === 'number' || col.type === 'money') {
@@ -521,6 +604,7 @@ export default function TableEditor() {
   };
 
   const deleteColumnAt = async (colIdx) => {
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const col = schema[colIdx]; if (!col) return;
     const nextSchema = schema.filter((_, i) => i !== colIdx);
     const k = colKey(col);
@@ -531,6 +615,7 @@ export default function TableEditor() {
   };
 
   const renameColumnAt = async (colIdx, name) => {
+    if (isReadOnly) return;
     const col = schema[colIdx]; if (!col) return;
     // Rename affects display label only; key stays stable so dashboards don’t break.
     const newLabel = name && name.trim() ? name.trim() : colLabel(col);
@@ -541,6 +626,7 @@ export default function TableEditor() {
   };
 
   const changeColumnTypeAt = async (colIdx, newType, newCurrency) => {
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const col = schema[colIdx]; if (!col) return;
     const nextSchema = schema.map((c, i) => {
       if (i !== colIdx) return c;
@@ -604,6 +690,7 @@ export default function TableEditor() {
 
   const bulkDeleteSelected = async () => {
     if (!selectedRowIdxSet.size) return;
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const count = selectedRowIdxSet.size;
     let proceed = true;
     try { proceed = window.confirm(`Delete ${count} selected row${count > 1 ? 's' : ''}? This cannot be undone.`); } catch {}
@@ -718,6 +805,7 @@ export default function TableEditor() {
   }, [rows, schema]);
 
   const updateColumnWidthAt = async (colIdx, widthPx) => {
+    if (isReadOnly) return;
     const col = schema[colIdx]; if (!col) return;
     const w = Math.max(60, Math.min(600, Number(widthPx) || 0));
     const nextSchema = schema.map((c, i) => i===colIdx ? { ...c, width: w } : c);
@@ -737,6 +825,7 @@ export default function TableEditor() {
   };
   const handleHeaderDrop = (targetIdx) => async (e) => {
     e.preventDefault();
+    if (isReadOnly) return;
     const from = dragColIdx;
     setDragColIdx(null);
     if (from == null || from === targetIdx) return;
@@ -788,15 +877,21 @@ export default function TableEditor() {
                   onBlur={() => { if (tableName && tableName.trim() !== lastSavedName) onSave(); }}
                   placeholder="Name your table…"
                   title="Click to rename your table"
+                  disabled={isReadOnly}
                   className="pl-7 pr-3 text-2xl font-semibold text-gray-900 bg-gray-50 border border-transparent outline-none focus:bg-white focus:border-purple-300 rounded px-2 py-1 transition-colors"
                 />
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {isReadOnly && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                  View only
+                </span>
+              )}
               <button onClick={() => { if (canManageAccess) setShowShare(true); else window.alert('Only team admins can manage access'); }} className="px-4 py-2 text-purple-600 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-60" disabled={!canManageAccess}>
                 <i className="fas fa-share-alt mr-2"></i>Share
               </button>
-              <button onClick={onSave} disabled={saving} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-70">
+              <button onClick={onSave} disabled={saving || isReadOnly} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-70">
                 <i className="fas fa-save mr-2"></i>{saving ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -805,7 +900,7 @@ export default function TableEditor() {
         <div id="toolbar" className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <button id="add-column-btn" onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <button id="add-column-btn" disabled={isReadOnly} onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
                 <i className="fas fa-plus text-sm"></i>
                 Add Column
                 <i className="fas fa-chevron-down text-xs"></i>
@@ -842,13 +937,13 @@ export default function TableEditor() {
                 </div>
               </div>
             </div>
-            <button onClick={handleAddRow} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={handleAddRow} disabled={isReadOnly} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
               <i className="fas fa-plus text-sm"></i>Add Row
             </button>
-            <button onClick={bulkDeleteSelected} disabled={!selectedRowIdxSet.size} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${selectedRowIdxSet.size ? 'text-red-700 border-red-300 hover:bg-red-50' : 'text-gray-400 border-gray-200 cursor-not-allowed'}`}>
+            <button onClick={bulkDeleteSelected} disabled={!selectedRowIdxSet.size || isReadOnly} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${(!selectedRowIdxSet.size || isReadOnly) ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-red-700 border-red-300 hover:bg-red-50'}`}>
               <i className="fas fa-trash"></i>Delete Selected
             </button>
-            <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button disabled={isReadOnly} onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
             <div className="flex items-center gap-2 ml-auto">
@@ -1129,13 +1224,49 @@ export default function TableEditor() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Add teammate</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Add collaborator</label>
+                <div className="mb-2">
+                  <input
+                    value={shareSearch}
+                    onChange={(e)=>setShareSearch(e.target.value)}
+                    placeholder="Search any recruiter user by email or name…"
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                  {shareResults.length > 0 && (
+                    <div className="mt-2 max-h-44 overflow-auto border rounded-lg divide-y">
+                      {shareResults.slice(0, 20).map((u)=>(
+                        <button
+                          key={u.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                          onClick={()=>{
+                            setAddingUserId(String(u.id));
+                            setShareSearch(String(u.email || u.name || ''));
+                            setShareResults([]);
+                          }}
+                        >
+                          <div className="text-sm font-medium text-gray-900 truncate">{u.name || u.email || u.id}</div>
+                          <div className="text-xs text-gray-500 truncate">{u.email || ''}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <select value={addingUserId} onChange={(e)=>setAddingUserId(e.target.value)} className="flex-1 px-3 py-2 border rounded-lg">
                     <option value="">Select user</option>
-                    {teamMembers.filter(m => !(collaborators||[]).some(c => String(c.user_id) === String(m.id))).map((m)=>(
-                      <option key={m.id} value={m.id}>{m.full_name || m.email || m.id}</option>
-                    ))}
+                    {teamMembers
+                      .filter(m => !(collaborators||[]).some(c => String(c.user_id) === String(m.id)))
+                      .map((m)=>(
+                        <option key={m.id} value={m.id}>{m.full_name || [m.first_name,m.last_name].filter(Boolean).join(' ') || m.email || m.id}</option>
+                      ))}
+                    {shareResults.length > 0 && (
+                      <optgroup label="Other recruiter users">
+                        {shareResults.slice(0, 20).map((u)=>(
+                          <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <select value={addingRole} onChange={(e)=>setAddingRole(e.target.value)} className="px-3 py-2 border rounded-lg">
                     <option value="view">View</option>
@@ -1153,11 +1284,14 @@ export default function TableEditor() {
                 <div className="divide-y border rounded-lg">
                   {(collaborators||[]).map((c, i) => {
                     const member = teamMembers.find(m => String(m.id) === String(c.user_id));
+                    const external = collabProfiles[String(c.user_id)];
+                    const display = member?.full_name || (member ? [member.first_name, member.last_name].filter(Boolean).join(' ') : '') || external?.name || member?.email || external?.email || c.user_id;
+                    const email = member?.email || external?.email || '';
                     return (
                       <div key={`${c.user_id}-${i}`} className="flex items-center justify-between p-3">
                         <div className="min-w-0">
-                          <div className="text-gray-900 font-medium truncate">{member?.full_name || member?.email || c.user_id}</div>
-                          <div className="text-xs text-gray-500 truncate">{member?.email || ''}</div>
+                          <div className="text-gray-900 font-medium truncate">{display}</div>
+                          <div className="text-xs text-gray-500 truncate">{email}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <select value={c.role} onChange={(e)=>{
@@ -1174,20 +1308,22 @@ export default function TableEditor() {
                   })}
                   {(!collaborators || collaborators.length === 0) && <div className="p-3 text-sm text-gray-500">No collaborators yet.</div>}
                 </div>
+                {shareLoading && <div className="mt-2 text-xs text-gray-500">Loading access…</div>}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={()=>setShowShare(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{
                 try {
-                  // Update collaborators directly via Supabase; client enforces team-admin gating
-                  await supabase
-                    .from('custom_tables')
-                    .update({ collaborators, updated_at: new Date().toISOString() })
-                    .eq('id', id);
+                  await apiFetch(`${backendBase}/api/tables/${id}/collaborators`, {
+                    method: 'POST',
+                    body: JSON.stringify({ collaborators }),
+                  });
+                  await loadShareState();
                   setShowShare(false);
                 } catch (e) {
-                  window.alert('Failed to save access');
+                  console.error('Failed to save access', e);
+                  window.alert('Failed to save access. Make sure you are a team admin and the collaborator is a recruiter user.');
                 }
               }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Save</button>
             </div>
