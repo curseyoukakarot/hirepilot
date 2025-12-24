@@ -31,6 +31,72 @@ function displayName(u: any): string {
   return String(u?.email || u?.id || 'User');
 }
 
+function isValidRecruiterRole(role: any): boolean {
+  const r = normRole(role);
+  if (!r) return true; // treat unknown/empty as recruiter-side (we will default to 'free' in public.users)
+  return !r.startsWith('job_seeker');
+}
+
+async function authAdminLookupByEmail(email: string): Promise<any | null> {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  const url = (process.env.SUPABASE_URL as string) || '';
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY as string) || '';
+  if (url && serviceKey) {
+    try {
+      const adminBase = `${url}/auth/v1`;
+      const headers: any = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+      const resp = await fetch(`${adminBase}/admin/users?email=${encodeURIComponent(normalized)}`, { headers });
+      if (!resp.ok) return null;
+      const body = await resp.json();
+      const user = Array.isArray(body?.users) ? body.users[0] : (body?.id ? body : null);
+      if (!user?.id) return null;
+      return user;
+    } catch {}
+  }
+
+  // Fallback: scan a few pages (best-effort)
+  try {
+    const perPage = 200;
+    for (let page = 1; page <= 5; page++) {
+      const { data, error } = await (supabase as any).auth.admin.listUsers({ page, perPage });
+      if (error) break;
+      const found = (data?.users || []).find((u: any) => String(u.email || '').toLowerCase() === normalized);
+      if (found) return found;
+      if ((data?.users || []).length < perPage) break;
+    }
+  } catch {}
+  return null;
+}
+
+async function ensurePublicUserFromAuth(authUser: any): Promise<any | null> {
+  try {
+    const id = String(authUser?.id || authUser?.user?.id || '').trim();
+    const email = String(authUser?.email || authUser?.user?.email || '').trim().toLowerCase();
+    if (!id || !email) return null;
+
+    const meta = (authUser?.user_metadata || authUser?.user?.user_metadata || {}) as any;
+    const app = (authUser?.app_metadata || authUser?.user?.app_metadata || {}) as any;
+    const roleRaw = meta.role || meta.account_type || meta.user_type || app.role || null;
+    if (!isValidRecruiterRole(roleRaw)) return null;
+
+    // Default role to 'free' to satisfy RLS predicate (role NOT ilike job_seeker% must be true)
+    const role = roleRaw ? String(roleRaw) : 'free';
+
+    // Upsert minimal public.users row so sharing/RLS works immediately
+    const { data, error } = await supabase
+      .from('users')
+      .upsert({ id, email, role } as any, { onConflict: 'id' })
+      .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
+      .maybeSingle();
+    if (error) return null;
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
 async function getMe(userId: string): Promise<{ id: string; role: string; team_id: string | null; email: string | null }> {
   const { data } = await supabase.from('users').select('id,role,team_id,email').eq('id', userId).maybeSingle();
   return {
@@ -101,6 +167,24 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
         role: u.role || null,
       }));
 
+    // If query looks like an email and we found nothing, fallback to Auth lookup (handles missing public.users row)
+    if (users.length === 0 && q.includes('@') && q.includes('.')) {
+      const authUser = await authAdminLookupByEmail(q);
+      const publicRow = authUser ? await ensurePublicUserFromAuth(authUser) : null;
+      if (publicRow?.id && !isJobSeekerRole(publicRow?.role)) {
+        return res.json({
+          users: [{
+            id: String(publicRow.id),
+            email: publicRow.email || null,
+            name: displayName(publicRow),
+            avatar_url: publicRow.avatar_url || null,
+            team_id: publicRow.team_id || null,
+            role: publicRow.role || null,
+          }]
+        });
+      }
+    }
+
     return res.json({ users });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'search_failed' });
@@ -129,6 +213,10 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
         .maybeSingle();
       if (error) return res.status(500).json({ error: error.message });
       row = data || null;
+      if (!row) {
+        const authUser = await authAdminLookupByEmail(emailRaw);
+        row = authUser ? await ensurePublicUserFromAuth(authUser) : null;
+      }
     } else if (qRaw) {
       const term = `%${qRaw.replace(/%/g, '').replace(/,/g, '')}%`;
       const { data, error } = await supabase
