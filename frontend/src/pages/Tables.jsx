@@ -8,6 +8,7 @@ export default function Tables() {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [duplicatingId, setDuplicatingId] = useState(null);
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -115,6 +116,43 @@ export default function Tables() {
     } catch {}
   };
 
+  const duplicateTable = async (t) => {
+    if (!t?.id) return;
+    try {
+      setDuplicatingId(t.id);
+      setMenuOpenId(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error('unauthenticated');
+
+      const baseName = String(t?.name || 'Untitled Table');
+      const name = baseName.endsWith(' (Copy)') ? `${baseName} 2` : `${baseName} (Copy)`;
+      const schema_json = Array.isArray(t?.schema_json) ? t.schema_json : [];
+      const data_json = Array.isArray(t?.data_json) ? t.data_json : [];
+
+      const { data: inserted, error } = await supabase
+        .from('custom_tables')
+        .insert({
+          user_id: user.id,
+          name,
+          schema_json,
+          data_json,
+        })
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+
+      if (inserted?.id) {
+        setTables(prev => [inserted, ...(Array.isArray(prev) ? prev : [])]);
+        navigate(`/tables/${inserted.id}/edit`);
+      }
+    } catch (e) {
+      console.error('Failed to duplicate table', e);
+      window.alert('Could not duplicate table. Please try again.');
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   return (
     <div className="bg-neutral min-h-screen">
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
@@ -154,6 +192,13 @@ export default function Tables() {
                       {menuOpenId===t.id && (
                         <div className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-50 w-36">
                           <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm" onClick={()=>navigate(`/tables/${t.id}/edit`)}>Edit</button>
+                          <button
+                            className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm disabled:opacity-60"
+                            disabled={duplicatingId === t.id}
+                            onClick={() => duplicateTable(t)}
+                          >
+                            {duplicatingId === t.id ? 'Duplicating…' : 'Duplicate'}
+                          </button>
                           <button className="w-full text-left px-3 py-2 rounded hover:bg-red-50 text-sm text-red-600" onClick={()=>deleteTable(t.id)}>Delete</button>
                         </div>
                       )}
