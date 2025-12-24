@@ -73,8 +73,9 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
     let query = supabase
       .from('users')
       .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-      .not('role', 'ilike', 'job_seeker%')
-      .limit(limit);
+      // NOTE: don't filter by role in SQL because role may be null in some envs.
+      // We'll filter out job_seekers in JS to keep results reliable.
+      .limit(Math.min(100, limit * 3));
 
     query = query.or(
       [
@@ -88,14 +89,17 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
     const { data, error } = await query.order('email', { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
 
-    const users = (data || []).map((u: any) => ({
-      id: String(u.id),
-      email: u.email || null,
-      name: displayName(u),
-      avatar_url: u.avatar_url || null,
-      team_id: u.team_id || null,
-      role: u.role || null,
-    }));
+    const users = (data || [])
+      .filter((u: any) => !isJobSeekerRole(u?.role))
+      .slice(0, limit)
+      .map((u: any) => ({
+        id: String(u.id),
+        email: u.email || null,
+        name: displayName(u),
+        avatar_url: u.avatar_url || null,
+        team_id: u.team_id || null,
+        role: u.role || null,
+      }));
 
     return res.json({ users });
   } catch (e: any) {
@@ -122,7 +126,6 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
         .from('users')
         .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
         .eq('email', emailRaw)
-        .not('role', 'ilike', 'job_seeker%')
         .maybeSingle();
       if (error) return res.status(500).json({ error: error.message });
       row = data || null;
@@ -131,7 +134,6 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
       const { data, error } = await supabase
         .from('users')
         .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-        .not('role', 'ilike', 'job_seeker%')
         .or(
           [
             `email.ilike.${term}`,
@@ -140,12 +142,13 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
             `last_name.ilike.${term}`,
           ].join(',')
         )
-        .limit(2);
+        .limit(5);
       if (error) return res.status(500).json({ error: error.message });
-      // Only resolve automatically if it's an unambiguous single match
-      row = Array.isArray(data) && data.length === 1 ? data[0] : null;
-      if (!row && Array.isArray(data) && data.length > 1) {
-        return res.status(409).json({ error: 'ambiguous', count: data.length });
+      const filtered = (Array.isArray(data) ? data : []).filter((u: any) => !isJobSeekerRole(u?.role));
+      // Only resolve automatically if it's an unambiguous single match (after filtering job seekers)
+      row = filtered.length === 1 ? filtered[0] : null;
+      if (!row && filtered.length > 1) {
+        return res.status(409).json({ error: 'ambiguous', count: filtered.length });
       }
     } else {
       return res.status(400).json({ error: 'missing_email_or_q' });

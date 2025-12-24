@@ -317,8 +317,7 @@ export default function TableEditor() {
         if (cancelled) return;
         // Filter out existing collaborators and self/team duplicates
         const existing = new Set((collaborators || []).map(c => String(c.user_id)));
-        const byTeam = new Set((teamMembers || []).map(m => String(m.id)));
-        setShareResults(users.filter(u => u?.id && !existing.has(String(u.id)) && !byTeam.has(String(u.id))));
+        setShareResults(users.filter(u => u?.id && !existing.has(String(u.id))));
       } catch {
         if (!cancelled) setShareResults([]);
       }
@@ -1232,6 +1231,18 @@ export default function TableEditor() {
                     placeholder="Search any recruiter user by email or name…"
                     className="w-full px-3 py-2 border rounded-lg"
                   />
+                  {(() => {
+                    const q = String(shareSearch || '').trim();
+                    const isEmail = q.includes('@') && q.includes('.');
+                    if (!q) return null;
+                    if (shareResults.length > 0) return null;
+                    if (!isEmail) return null;
+                    return (
+                      <div className="mt-2 text-xs text-gray-500">
+                        No recruiter user found for <span className="font-medium">{q}</span>. (They must already have an `app.thehirepilot.com` account.)
+                      </div>
+                    );
+                  })()}
                   {shareResults.length > 0 && (
                     <div className="mt-2 max-h-44 overflow-auto border rounded-lg divide-y">
                       {shareResults.slice(0, 20).map((u)=>(
