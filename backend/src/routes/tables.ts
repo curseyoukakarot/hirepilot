@@ -15,6 +15,10 @@ type UserLite = {
   role?: string | null;
 };
 
+const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
+const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url';
+const USER_SELECT_TINY = 'id,email,role';
+
 function normRole(role: any): string {
   return String(role || '').toLowerCase().replace(/\s|-/g, '_');
 }
@@ -29,6 +33,22 @@ function displayName(u: any): string {
   const composed = [u?.first_name, u?.last_name].filter(Boolean).join(' ').trim();
   if (composed) return composed;
   return String(u?.email || u?.id || 'User');
+}
+
+async function runUsersQueryWithFallback<T>(
+  build: (selectCols: string) => Promise<{ data: T; error: any }>
+): Promise<{ data: T; error: any }> {
+  // Some environments have schema drift (missing first_name/full_name/etc).
+  // Retry with minimal selects when PostgREST returns undefined-column (42703).
+  const selects = [USER_SELECT_FULL, USER_SELECT_MIN, USER_SELECT_TINY];
+  let last: { data: any; error: any } = { data: null, error: null };
+  for (const cols of selects) {
+    const resp = await build(cols);
+    last = resp as any;
+    if (!resp?.error) return resp as any;
+    if (String(resp.error?.code || '') !== '42703') return resp as any;
+  }
+  return last as any;
 }
 
 function isValidRecruiterRole(role: any): boolean {
@@ -85,20 +105,29 @@ async function ensurePublicUserFromAuth(authUser: any): Promise<any | null> {
     const role = roleRaw ? String(roleRaw) : 'free';
 
     // Upsert minimal public.users row so sharing/RLS works immediately
-    const { data, error } = await supabase
-      .from('users')
-      .upsert({ id, email, role } as any, { onConflict: 'id' })
-      .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-      .maybeSingle();
-    if (error) return null;
-    return data || null;
+    const upsert = await runUsersQueryWithFallback<any>(async (cols) => {
+      const resp = await supabase
+        .from('users')
+        .upsert({ id, email, role } as any, { onConflict: 'id' })
+        .select(cols)
+        .maybeSingle();
+      return { data: resp.data, error: resp.error };
+    });
+    if (upsert.error) return null;
+    return (upsert.data as any) || null;
   } catch {
     return null;
   }
 }
 
 async function getMe(userId: string): Promise<{ id: string; role: string; team_id: string | null; email: string | null }> {
-  const { data } = await supabase.from('users').select('id,role,team_id,email').eq('id', userId).maybeSingle();
+  const meResp = await runUsersQueryWithFallback<any>(async (cols) => {
+    // Always include role/email/team_id if present; fallback helper will trim if needed
+    const wanted = cols.includes('team_id') ? 'id,role,team_id,email' : 'id,role,email';
+    const resp = await supabase.from('users').select(wanted).eq('id', userId).maybeSingle();
+    return { data: resp.data, error: resp.error };
+  });
+  const data = (meResp as any)?.data;
   return {
     id: userId,
     role: String((data as any)?.role || ''),
@@ -136,24 +165,28 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
     if (!q) return res.json({ users: [] });
 
     const term = `%${q.replace(/%/g, '').replace(/,/g, '')}%`;
-    let query = supabase
-      .from('users')
-      .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-      // NOTE: don't filter by role in SQL because role may be null in some envs.
-      // We'll filter out job_seekers in JS to keep results reliable.
-      .limit(Math.min(100, limit * 3));
+    // NOTE: don't filter by role in SQL because role may be null in some envs.
+    // We'll filter out job_seekers in JS to keep results reliable.
+    const searchResp = await runUsersQueryWithFallback<any[]>(async (cols) => {
+      let query = supabase
+        .from('users')
+        .select(cols)
+        .limit(Math.min(100, limit * 3));
 
-    query = query.or(
-      [
-        `email.ilike.${term}`,
-        `full_name.ilike.${term}`,
-        `first_name.ilike.${term}`,
-        `last_name.ilike.${term}`,
-      ].join(',')
-    );
-
-    const { data, error } = await query.order('email', { ascending: true });
-    if (error) return res.status(500).json({ error: error.message });
+      query = query.or(
+        [
+          `email.ilike.${term}`,
+          `full_name.ilike.${term}`,
+          `first_name.ilike.${term}`,
+          `last_name.ilike.${term}`,
+        ].join(',')
+      );
+      const resp = await query.order('email', { ascending: true });
+      return { data: resp.data, error: resp.error };
+    });
+    const data = (searchResp as any)?.data || [];
+    const error = (searchResp as any)?.error || null;
+    if (error) return res.status(500).json({ error: error.message || String(error) });
 
     const users = (data || [])
       .filter((u: any) => !isJobSeekerRole(u?.role))
@@ -206,33 +239,39 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
 
     let row: any | null = null;
     if (emailRaw) {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-        .eq('email', emailRaw)
-        .maybeSingle();
-      if (error) return res.status(500).json({ error: error.message });
-      row = data || null;
+      const byEmail = await runUsersQueryWithFallback<any>(async (cols) => {
+        const resp = await supabase
+          .from('users')
+          .select(cols)
+          .ilike('email', emailRaw)
+          .maybeSingle();
+        return { data: resp.data, error: resp.error };
+      });
+      if (byEmail.error) return res.status(500).json({ error: byEmail.error.message || String(byEmail.error) });
+      row = byEmail.data || null;
       if (!row) {
         const authUser = await authAdminLookupByEmail(emailRaw);
         row = authUser ? await ensurePublicUserFromAuth(authUser) : null;
       }
     } else if (qRaw) {
       const term = `%${qRaw.replace(/%/g, '').replace(/,/g, '')}%`;
-      const { data, error } = await supabase
-        .from('users')
-        .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
-        .or(
-          [
-            `email.ilike.${term}`,
-            `full_name.ilike.${term}`,
-            `first_name.ilike.${term}`,
-            `last_name.ilike.${term}`,
-          ].join(',')
-        )
-        .limit(5);
-      if (error) return res.status(500).json({ error: error.message });
-      const filtered = (Array.isArray(data) ? data : []).filter((u: any) => !isJobSeekerRole(u?.role));
+      const byQ = await runUsersQueryWithFallback<any[]>(async (cols) => {
+        const resp = await supabase
+          .from('users')
+          .select(cols)
+          .or(
+            [
+              `email.ilike.${term}`,
+              `full_name.ilike.${term}`,
+              `first_name.ilike.${term}`,
+              `last_name.ilike.${term}`,
+            ].join(',')
+          )
+          .limit(5);
+        return { data: resp.data, error: resp.error };
+      });
+      if (byQ.error) return res.status(500).json({ error: byQ.error.message || String(byQ.error) });
+      const filtered = (Array.isArray(byQ.data) ? byQ.data : []).filter((u: any) => !isJobSeekerRole(u?.role));
       // Only resolve automatically if it's an unambiguous single match (after filtering job seekers)
       row = filtered.length === 1 ? filtered[0] : null;
       if (!row && filtered.length > 1) {
@@ -297,9 +336,13 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
 
     // Attach user profiles for owner + collaborators
     const ids = Array.from(new Set([ownerId, ...collabs.map((c) => c.user_id)]));
-    const { data: users } = ids.length
-      ? await supabase.from('users').select('id,email,first_name,last_name,full_name,avatar_url,team_id,role').in('id', ids)
-      : ({ data: [] } as any);
+    const usersResp = ids.length
+      ? await runUsersQueryWithFallback<any[]>(async (cols) => {
+          const resp = await supabase.from('users').select(cols).in('id', ids);
+          return { data: resp.data, error: resp.error };
+        })
+      : ({ data: [] as any[], error: null } as any);
+    const users = (usersResp as any)?.data || [];
     const byId = new Map<string, UserLite>(((users || []) as any[]).map((u: any) => [String(u.id), u]));
 
     const owner = byId.get(ownerId) || ({ id: ownerId, email: null } as any);
