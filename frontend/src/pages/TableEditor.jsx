@@ -1272,10 +1272,43 @@ export default function TableEditor() {
                     <option value="view">View</option>
                     <option value="edit">Edit</option>
                   </select>
-                  <button onClick={()=>{
-                    if (!addingUserId) return;
-                    setCollaborators(prev => [...prev, { user_id: addingUserId, role: addingRole }]);
-                    setAddingUserId('');
+                  <button onClick={async ()=>{
+                    try {
+                      let uid = String(addingUserId || '').trim();
+                      const q = String(shareSearch || '').trim();
+
+                      // If no selected user, attempt to resolve from typed value (email or unique match)
+                      if (!uid && q) {
+                        const isEmail = q.includes('@') && q.includes('.');
+                        const resolveUrl = isEmail
+                          ? `${backendBase}/api/tables/users/resolve?email=${encodeURIComponent(q.toLowerCase())}`
+                          : `${backendBase}/api/tables/users/resolve?q=${encodeURIComponent(q)}`;
+                        const resolved = await apiFetch(resolveUrl);
+                        uid = String(resolved?.user?.id || '').trim();
+                        if (uid) {
+                          setCollabProfiles((prev)=>({ ...(prev||{}), [uid]: resolved.user }));
+                          setAddingUserId(uid);
+                        }
+                      }
+
+                      if (!uid) {
+                        window.alert('Select a user, or type a recruiter email and try again.');
+                        return;
+                      }
+
+                      setCollaborators(prev => {
+                        const arr = Array.isArray(prev) ? prev : [];
+                        if (arr.some(x => String(x.user_id) === uid)) return arr;
+                        return [...arr, { user_id: uid, role: (addingRole === 'edit' ? 'edit' : 'view') }];
+                      });
+
+                      setAddingUserId('');
+                      setShareSearch('');
+                      setShareResults([]);
+                    } catch (e) {
+                      console.error('Failed to resolve/add collaborator', e);
+                      window.alert('Could not find that recruiter user. If you typed a name, please pick from the dropdown. If you typed an email, make sure it’s an existing recruiter account.');
+                    }
                   }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Add</button>
                 </div>
               </div>

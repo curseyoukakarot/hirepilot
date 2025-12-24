@@ -103,6 +103,72 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
   }
 });
 
+// GET /api/tables/users/resolve?email=... OR ?q=...
+// Resolves a single recruiter-side user for share-by-typing flows.
+router.get('/users/resolve', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const me = await getMe(userId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const emailRaw = String((req.query as any)?.email || '').trim().toLowerCase();
+    const qRaw = String((req.query as any)?.q || '').trim();
+
+    let row: any | null = null;
+    if (emailRaw) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
+        .eq('email', emailRaw)
+        .not('role', 'ilike', 'job_seeker%')
+        .maybeSingle();
+      if (error) return res.status(500).json({ error: error.message });
+      row = data || null;
+    } else if (qRaw) {
+      const term = `%${qRaw.replace(/%/g, '').replace(/,/g, '')}%`;
+      const { data, error } = await supabase
+        .from('users')
+        .select('id,email,first_name,last_name,full_name,avatar_url,team_id,role')
+        .not('role', 'ilike', 'job_seeker%')
+        .or(
+          [
+            `email.ilike.${term}`,
+            `full_name.ilike.${term}`,
+            `first_name.ilike.${term}`,
+            `last_name.ilike.${term}`,
+          ].join(',')
+        )
+        .limit(2);
+      if (error) return res.status(500).json({ error: error.message });
+      // Only resolve automatically if it's an unambiguous single match
+      row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+      if (!row && Array.isArray(data) && data.length > 1) {
+        return res.status(409).json({ error: 'ambiguous', count: data.length });
+      }
+    } else {
+      return res.status(400).json({ error: 'missing_email_or_q' });
+    }
+
+    if (!row?.id) return res.status(404).json({ error: 'user_not_found' });
+    if (isJobSeekerRole(row.role)) return res.status(400).json({ error: 'invalid_user_type' });
+
+    return res.json({
+      user: {
+        id: String(row.id),
+        email: row.email || null,
+        name: displayName(row),
+        avatar_url: row.avatar_url || null,
+        team_id: row.team_id || null,
+        role: row.role || null,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'resolve_failed' });
+  }
+});
+
 // GET /api/tables/:id/collaborators-unified
 router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: Response) => {
   try {
