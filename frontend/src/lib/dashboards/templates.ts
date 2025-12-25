@@ -21,8 +21,9 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     description: 'Revenue, cost, profit, and margin — plus trends and a quick “at risk” view.',
     requirements: [
       { id: 'revenue', label: 'Revenue', required: true, kind: 'currency', description: 'Money column for revenue (SUM).' },
+      { id: 'revenue_date', label: 'Revenue Date', required: true, kind: 'date', description: 'Date column for revenue trend bucketing.' },
       { id: 'cost', label: 'Cost', required: true, kind: 'currency', description: 'Money column for costs (SUM).' },
-      { id: 'date', label: 'Date', required: true, kind: 'date', description: 'Date column to bucket trends.' },
+      { id: 'cost_date', label: 'Cost Date', required: true, kind: 'date', description: 'Date column for cost trend bucketing.' },
       { id: 'status', label: 'Status', required: false, kind: 'status', description: 'Optional status column for health/at-risk.' },
       { id: 'category', label: 'Category', required: false, kind: 'category', description: 'Optional category for breakdowns.' }
     ]

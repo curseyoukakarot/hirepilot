@@ -881,8 +881,26 @@ export default function Dashboards() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
-                    <button onClick={() => setCreateMode('gallery')} className={`px-3 py-1.5 rounded-lg text-sm transition ${createMode==='gallery'?'bg-white text-zinc-900':'text-white/70 hover:text-white'}`}>Templates</button>
-                    <button onClick={() => setCreateMode('custom')} className={`px-3 py-1.5 rounded-lg text-sm transition ${createMode==='custom'?'bg-white text-zinc-900':'text-white/70 hover:text-white'}`}>Custom</button>
+                    <button
+                      onClick={() => setCreateMode('gallery')}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition ${
+                        createMode === 'gallery'
+                          ? 'bg-white/15 text-white border border-white/15 shadow-sm'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Templates
+                    </button>
+                    <button
+                      onClick={() => setCreateMode('custom')}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition ${
+                        createMode === 'custom'
+                          ? 'bg-white/15 text-white border border-white/15 shadow-sm'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Custom
+                    </button>
                   </div>
                   <button className="text-white/60 hover:text-white" onClick={closeModal} aria-label="Close">
                     <i className="fa-solid fa-xmark text-xl"></i>
@@ -906,33 +924,71 @@ export default function Dashboards() {
                       tables={tables}
                       loadingTables={loadingTables}
                       onBack={() => setCreateMode('gallery')}
-                      onCreate={async ({ dashboardName: name, tableId, mappings }) => {
+                      onCreate={async ({ dashboardName: name, mappings }) => {
                         try {
                           const tpl = DASHBOARD_TEMPLATES.find(t => t.id === selectedTemplateId) || DASHBOARD_TEMPLATES[0];
-                          const dateCol = mappings['date'] || '';
-                          const sources = [{ alias: 'T', tableId }];
+                          const getMap = (id) => (mappings && mappings[id]) ? mappings[id] : { tableId: '', columnId: '' };
+                          const getCol = (id) => String(getMap(id)?.columnId || '');
+                          const getTable = (id) => String(getMap(id)?.tableId || '');
+                          const sharedDateCol = getCol('date');
+
+                          const sources = [];
                           const metrics = [];
+                          const pushSource = (alias, tId) => {
+                            if (!alias || !tId) return;
+                            sources.push({ alias, tableId: tId });
+                          };
+                          const pushMetric = (alias, agg, colId, dateColId) => {
+                            if (!alias || !colId) return;
+                            metrics.push({ alias, agg, column_id: colId, date_column_id: dateColId || undefined });
+                          };
+
                           if (tpl.id === 'exec_overview_v1') {
-                            if (mappings['revenue']) metrics.push({ alias: 'Revenue', agg: 'SUM', column_id: mappings['revenue'], date_column_id: dateCol || undefined });
-                            if (mappings['cost']) metrics.push({ alias: 'Cost', agg: 'SUM', column_id: mappings['cost'], date_column_id: dateCol || undefined });
+                            const revenueTableId = getTable('revenue');
+                            const costTableId = getTable('cost');
+                            const revenueCol = getCol('revenue');
+                            const costCol = getCol('cost');
+                            const revenueDateCol = getCol('revenue_date') || sharedDateCol;
+                            const costDateCol = getCol('cost_date') || sharedDateCol;
+
+                            pushSource('Revenue', revenueTableId);
+                            pushSource('Cost', costTableId);
+                            pushMetric('Revenue', 'SUM', revenueCol, revenueDateCol);
+                            pushMetric('Cost', 'SUM', costCol, costDateCol);
                           } else if (tpl.id === 'cost_drivers_v1') {
-                            if (mappings['cost']) metrics.push({ alias: 'Cost', agg: 'SUM', column_id: mappings['cost'], date_column_id: dateCol || undefined });
+                            const costTableId = getTable('cost');
+                            const costCol = getCol('cost');
+                            const dateCol = getCol('date');
+                            pushSource('T', costTableId);
+                            pushMetric('Cost', 'SUM', costCol, dateCol);
                           } else if (tpl.id === 'pipeline_health_v1') {
                             // Basic count metric. Template rendering will handle richer widgets later.
-                            if (dateCol) metrics.push({ alias: 'Count', agg: 'COUNT', column_id: dateCol, date_column_id: dateCol });
+                            const dateTableId = getTable('date');
+                            const dateCol = getCol('date');
+                            pushSource('T', dateTableId);
+                            if (dateCol) pushMetric('Count', 'COUNT', dateCol, dateCol);
                           }
+
+                          const primaryTableId =
+                            getTable('revenue') ||
+                            getTable('cost') ||
+                            getTable('date') ||
+                            (sources[0] ? String(sources[0].tableId) : '');
+
+                          const anyDateCol = sharedDateCol || getCol('revenue_date') || getCol('cost_date') || getCol('date') || '';
 
                           const layout = {
                             name,
                             template_id: tpl.id,
-                            template_table_id: tableId,
+                            template_table_id: primaryTableId,
+                            template_table_ids: Array.from(new Set(sources.map(s => s.tableId).filter(Boolean))),
                             template_mappings: mappings,
                             sources,
                             metrics,
                             tb: 'month',
-                            groupAlias: 'T',
-                            groupCol: dateCol,
-                            groupMode: dateCol ? 'time' : 'row',
+                            groupAlias: sources[0]?.alias || 'T',
+                            groupCol: anyDateCol,
+                            groupMode: anyDateCol ? 'time' : 'row',
                             range: 'last_90_days'
                           };
 

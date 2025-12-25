@@ -19,7 +19,7 @@ export default function TemplateGallery({ templates, onSelect, onSelectCustom }:
         </div>
         <button
           onClick={onSelectCustom}
-          className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-4 py-2 text-sm text-white/80"
+          className="rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 transition px-4 py-2 text-sm text-white"
         >
           Custom (Advanced)
         </button>
@@ -30,14 +30,14 @@ export default function TemplateGallery({ templates, onSelect, onSelectCustom }:
           <button
             key={tpl.id}
             onClick={() => onSelect(tpl.id)}
-            className="text-left rounded-xl border border-white/10 bg-zinc-950/60 hover:bg-zinc-950/80 transition px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+            className="text-left rounded-xl border border-white/15 bg-zinc-950/60 hover:bg-zinc-950/80 transition px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-white font-semibold truncate">{tpl.name}</div>
-                <div className="mt-1 text-sm text-white/50">{tpl.description}</div>
+                <div className="mt-1 text-sm text-white/60">{tpl.description}</div>
               </div>
-              <div className="shrink-0 text-white/40">
+              <div className="shrink-0 text-white/60">
                 <i className="fa-solid fa-wand-magic-sparkles" />
               </div>
             </div>
@@ -48,12 +48,12 @@ export default function TemplateGallery({ templates, onSelect, onSelectCustom }:
                 .map((r) => (
                   <span
                     key={r.id}
-                    className="inline-flex items-center rounded-full bg-white/5 px-2 py-1 text-xs text-white/60 border border-white/10"
+                    className="inline-flex items-center rounded-full bg-white/10 px-2 py-1 text-xs text-white/80 border border-white/15"
                   >
                     {r.label}
                   </span>
                 ))}
-              <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-1 text-xs text-white/60 border border-white/10">
+              <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-1 text-xs text-white/90 border border-white/15">
                 Map columns →
               </span>
             </div>

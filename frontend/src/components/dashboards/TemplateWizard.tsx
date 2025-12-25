@@ -5,12 +5,15 @@ import { supabase } from '../../lib/supabaseClient';
 type TableCol = { id?: string; key?: string; name?: string; label?: string; type?: string; currency?: string };
 type TableOption = { id: string; name: string; schema_json?: TableCol[] };
 
+type RoleMapping = { tableId: string; columnId: string };
+type RoleMappings = Record<string, RoleMapping>;
+
 type Props = {
   template: DashboardTemplate;
   tables: TableOption[];
   loadingTables: boolean;
   onBack: () => void;
-  onCreate: (args: { dashboardName: string; tableId: string; mappings: Record<string, string> }) => Promise<void>;
+  onCreate: (args: { dashboardName: string; mappings: RoleMappings }) => Promise<void>;
 };
 
 const roleTypeHint: Record<TemplateRole['kind'], string> = {
@@ -119,28 +122,68 @@ function SimpleLineChart({ series, keys, colors, height = 180 }: { series: any[]
 export default function TemplateWizard({ template, tables, loadingTables, onBack, onCreate }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [dashboardName, setDashboardName] = useState(template.name);
-  const [tableId, setTableId] = useState('');
-  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [defaultTableId, setDefaultTableId] = useState('');
+  const [mappings, setMappings] = useState<RoleMappings>({});
   const [saving, setSaving] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [previewSeries, setPreviewSeries] = useState<any[]>([]);
   const [previewKpi, setPreviewKpi] = useState({ revenue: 0, cost: 0, profit: 0, margin: 0 });
 
-  const table = useMemo(() => tables.find((t) => t.id === tableId), [tables, tableId]);
-  const schema = useMemo(() => (Array.isArray(table?.schema_json) ? table?.schema_json : []), [table]);
+  const tableById = useMemo(() => {
+    const map = new Map<string, TableOption>();
+    (tables || []).forEach((t) => map.set(String(t.id), t));
+    return map;
+  }, [tables]);
 
   const requiredRoles = template.requirements.filter((r) => r.required);
-  const missingRequired = requiredRoles.filter((r) => !mappings[r.id]);
+  const missingRequired = requiredRoles.filter((r) => !mappings[r.id]?.tableId || !mappings[r.id]?.columnId);
 
   const nextEnabled = useMemo(() => {
-    if (step === 1) return Boolean(tableId);
+    if (step === 1) return true;
     if (step === 2) return missingRequired.length === 0;
     return true;
-  }, [step, tableId, missingRequired.length]);
+  }, [step, missingRequired.length]);
 
-  const setRole = (roleId: string, value: string) => {
-    setMappings((m) => ({ ...m, [roleId]: value }));
+  const setRole = (roleId: string, patch: Partial<RoleMapping>) => {
+    setMappings((m) => {
+      const prev = m[roleId] || { tableId: defaultTableId || '', columnId: '' };
+      const next = { ...prev, ...patch };
+      // If table changes, reset column
+      if (patch.tableId && patch.tableId !== prev.tableId) next.columnId = '';
+      return { ...m, [roleId]: next };
+    });
+  };
+
+  const resolveRole = (roleId: string): RoleMapping => {
+    const v = mappings?.[roleId];
+    if (v?.tableId && v?.columnId) return v;
+    // If the role has a table set but no column, still return that for UI.
+    if (v?.tableId) return { tableId: v.tableId, columnId: v.columnId || '' };
+    return { tableId: defaultTableId || '', columnId: '' };
+  };
+
+  const filteredSchemaForRole = (role: TemplateRole, tableId: string) => {
+    const t = tableById.get(String(tableId));
+    const schema = Array.isArray(t?.schema_json) ? t?.schema_json : [];
+    return schema.filter((c) => isRoleCompatible(role, c));
+  };
+
+  const mergeSeriesByT = (seriesList: any[][]) => {
+    const out = new Map<string, any>();
+    for (const series of (seriesList || [])) {
+      for (const row of (Array.isArray(series) ? series : [])) {
+        const t = String(row?.t ?? '');
+        if (!t) continue;
+        const prev = out.get(t) || { t };
+        Object.keys(row || {}).forEach((k) => {
+          if (k === 't') return;
+          prev[k] = row[k];
+        });
+        out.set(t, prev);
+      }
+    }
+    return Array.from(out.values()).sort((a, b) => String(a.t).localeCompare(String(b.t)));
   };
 
   // Live preview for Executive Overview (Step 3)
@@ -153,10 +196,17 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
       setPreviewKpi({ revenue: 0, cost: 0, profit: 0, margin: 0 });
 
       if (template.id !== 'exec_overview_v1') return;
-      const revenueCol = mappings.revenue;
-      const costCol = mappings.cost;
-      const dateCol = mappings.date;
-      if (!tableId || !revenueCol || !costCol || !dateCol) return;
+      const revenue = resolveRole('revenue');
+      const cost = resolveRole('cost');
+      const revenueDate = resolveRole('revenue_date');
+      const costDate = resolveRole('cost_date');
+      // Backward-compat: if revenue_date/cost_date are unset, allow a shared 'date' mapping.
+      const sharedDate = resolveRole('date');
+      const revDate = revenueDate?.columnId ? revenueDate : sharedDate;
+      const cstDate = costDate?.columnId ? costDate : sharedDate;
+
+      if (!revenue?.tableId || !revenue?.columnId || !cost?.tableId || !cost?.columnId) return;
+      if (!revDate?.columnId || !cstDate?.columnId) return;
 
       setPreviewLoading(true);
       try {
@@ -165,48 +215,93 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
 
+        const query = async (payload: any) => {
+          const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          if (!resp.ok) throw new Error('Preview query failed');
+          return resp.json();
+        };
+
         // KPI totals (all-time for preview; avoids confusing empty ranges)
-        const kpiResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            table_id: tableId,
+        let revenueTotal = 0;
+        let costTotal = 0;
+        if (revenue.tableId === cost.tableId) {
+          const kpiJson = await query({
+            table_id: revenue.tableId,
             metrics: [
-              { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
-              { alias: 'Cost', agg: 'SUM', column_id: costCol }
+              { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
+              { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
             ],
             time_bucket: 'none',
             range: 'all_time'
-          })
-        });
-        if (!kpiResp.ok) throw new Error('Preview KPI query failed');
-        const kpiJson = await kpiResp.json();
-        const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
-        const revenue = Number(krow?.Revenue) || 0;
-        const cost = Number(krow?.Cost) || 0;
-        const profit = revenue - cost;
-        const margin = revenue ? (profit / revenue) * 100 : 0;
-        if (!cancelled) setPreviewKpi({ revenue, cost, profit, margin });
+          });
+          const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+          revenueTotal = Number(krow?.Revenue) || 0;
+          costTotal = Number(krow?.Cost) || 0;
+        } else {
+          const [revJson, costJson] = await Promise.all([
+            query({
+              table_id: revenue.tableId,
+              metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
+              time_bucket: 'none',
+              range: 'all_time'
+            }),
+            query({
+              table_id: cost.tableId,
+              metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
+              time_bucket: 'none',
+              range: 'all_time'
+            })
+          ]);
+          const rrow = Array.isArray(revJson?.series) ? revJson.series[0] : null;
+          const crow = Array.isArray(costJson?.series) ? costJson.series[0] : null;
+          revenueTotal = Number(rrow?.Revenue) || 0;
+          costTotal = Number(crow?.Cost) || 0;
+        }
+        const profit = revenueTotal - costTotal;
+        const margin = revenueTotal ? (profit / revenueTotal) * 100 : 0;
+        if (!cancelled) setPreviewKpi({ revenue: revenueTotal, cost: costTotal, profit, margin });
 
         // Trend (90d, monthly)
-        const trendResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            table_id: tableId,
+        let trendSeries: any[] = [];
+        if (revenue.tableId === cost.tableId && revDate.columnId === cstDate.columnId) {
+          const trendJson = await query({
+            table_id: revenue.tableId,
             metrics: [
-              { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
-              { alias: 'Cost', agg: 'SUM', column_id: costCol }
+              { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
+              { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
             ],
-            date_column_id: dateCol,
+            date_column_id: revDate.columnId,
             time_bucket: 'month',
             range: '90d'
-          })
-        });
-        if (!trendResp.ok) throw new Error('Preview trend query failed');
-        const trendJson = await trendResp.json();
-        const s = Array.isArray(trendJson?.series) ? trendJson.series : [];
-        if (!cancelled) setPreviewSeries(s);
+          });
+          trendSeries = Array.isArray(trendJson?.series) ? trendJson.series : [];
+        } else {
+          const [revTrend, costTrend] = await Promise.all([
+            query({
+              table_id: revenue.tableId,
+              metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
+              date_column_id: revDate.columnId,
+              time_bucket: 'month',
+              range: '90d'
+            }),
+            query({
+              table_id: cost.tableId,
+              metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
+              date_column_id: cstDate.columnId,
+              time_bucket: 'month',
+              range: '90d'
+            })
+          ]);
+          trendSeries = mergeSeriesByT([
+            Array.isArray(revTrend?.series) ? revTrend.series : [],
+            Array.isArray(costTrend?.series) ? costTrend.series : []
+          ]);
+        }
+        if (!cancelled) setPreviewSeries(trendSeries);
       } catch (e: any) {
         if (!cancelled) setPreviewError(e?.message || 'Preview failed');
       } finally {
@@ -215,7 +310,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
     };
     run();
     return () => { cancelled = true; };
-  }, [step, template.id, tableId, mappings.revenue, mappings.cost, mappings.date]);
+  }, [step, template.id, defaultTableId, mappings]);
 
   const typeBadge = (t: string) => {
     const kind = t === 'money' ? 'currency' : t;
@@ -241,7 +336,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
       {/* Stepper */}
       <div className="grid grid-cols-4 gap-2">
         {[
-          { n: 1, label: 'Table' },
+          { n: 1, label: 'Tables' },
           { n: 2, label: 'Map Columns' },
           { n: 3, label: 'Preview' },
           { n: 4, label: 'Create' }
@@ -270,19 +365,22 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
             />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wider text-white/50">Select table</div>
+            <div className="text-xs uppercase tracking-wider text-white/50">Default table (optional)</div>
             <select
-              value={tableId}
-              onChange={(e) => setTableId(e.target.value)}
+              value={defaultTableId}
+              onChange={(e) => setDefaultTableId(e.target.value)}
               className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
             >
-              <option value="">{loadingTables ? 'Loading…' : 'Choose a table'}</option>
+              <option value="">{loadingTables ? 'Loading…' : 'Choose a default table'}</option>
               {tables.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
             </select>
+            <div className="mt-2 text-xs text-white/40">
+              You can map each required field to a different table in the next step.
+            </div>
           </div>
         </div>
       )}
@@ -294,11 +392,11 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
           </div>
           <div className="space-y-3">
             {template.requirements.map((role) => {
-              const current = mappings[role.id] || '';
-              const options = schema.filter((c) => isRoleCompatible(role, c));
+              const current = resolveRole(role.id);
+              const options = current?.tableId ? filteredSchemaForRole(role, current.tableId) : [];
               return (
-                <div key={role.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                  <div className="md:col-span-1">
+                <div key={role.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                  <div className="md:col-span-4">
                     <div className="text-white font-medium">
                       {role.label}{' '}
                       {role.required ? <span className="text-red-300 text-xs">(required)</span> : <span className="text-white/40 text-xs">(optional)</span>}
@@ -307,10 +405,25 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                       {roleTypeHint[role.kind]}{role.description ? ` · ${role.description}` : ''}
                     </div>
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <select
-                      value={current}
-                      onChange={(e) => setRole(role.id, e.target.value)}
+                      value={current?.tableId || ''}
+                      onChange={(e) => setRole(role.id, { tableId: e.target.value })}
+                      className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
+                    >
+                      <option value="">{loadingTables ? 'Loading…' : 'Select table'}</option>
+                      {tables.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-5">
+                    <select
+                      value={current?.columnId || ''}
+                      onChange={(e) => setRole(role.id, { columnId: e.target.value })}
+                      disabled={!current?.tableId}
                       className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
                     >
                       <option value="">{role.required ? 'Select a column' : 'None'}</option>
@@ -321,7 +434,9 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                       ))}
                     </select>
                     <div className="mt-1 text-xs text-white/35">
-                      {current ? `Selected: ${options.find(o => colId(o) === current)?.label || options.find(o => colId(o) === current)?.name || 'Column'} (${roleTypeHint[role.kind]})` : '—'}
+                      {current?.columnId
+                        ? `Selected: ${options.find(o => colId(o) === current.columnId)?.label || options.find(o => colId(o) === current.columnId)?.name || 'Column'} (${roleTypeHint[role.kind]})`
+                        : '—'}
                     </div>
                   </div>
                 </div>
@@ -407,8 +522,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
         <div className="rounded-xl border border-white/10 bg-zinc-950/60 px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] space-y-3">
           <div className="text-white font-semibold">Ready to create</div>
           <div className="text-sm text-white/60">
-            We’ll generate an executive dashboard using <span className="text-white">{template.name}</span> on{' '}
-            <span className="text-white">{table?.name || 'your table'}</span>.
+            We’ll generate a dashboard using <span className="text-white">{template.name}</span> with your selected table mappings.
           </div>
         </div>
       )}
@@ -436,7 +550,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
               onClick={async () => {
                 try {
                   setSaving(true);
-                  await onCreate({ dashboardName, tableId, mappings });
+                  await onCreate({ dashboardName, mappings });
                 } finally {
                   setSaving(false);
                 }

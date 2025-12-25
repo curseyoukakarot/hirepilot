@@ -134,6 +134,44 @@ const parseTplMappings = (raw) => {
   }
 };
 
+// Template mappings can be legacy (roleId -> columnId) or multi-table (roleId -> { tableId, columnId }).
+const resolveTplRole = (mappings, roleId, fallbackTableId) => {
+  const raw = mappings ? mappings[roleId] : null;
+  if (!raw) return { tableId: String(fallbackTableId || ''), columnId: '' };
+  if (typeof raw === 'string') {
+    const s = String(raw);
+    // Allow "tableId::columnId" encoding as an escape hatch.
+    if (s.includes('::')) {
+      const [t, c] = s.split('::');
+      return { tableId: String(t || ''), columnId: String(c || '') };
+    }
+    return { tableId: String(fallbackTableId || ''), columnId: s };
+  }
+  if (typeof raw === 'object') {
+    const tableId = raw.tableId || raw.table_id || fallbackTableId || '';
+    const columnId = raw.columnId || raw.column_id || '';
+    return { tableId: String(tableId || ''), columnId: String(columnId || '') };
+  }
+  return { tableId: String(fallbackTableId || ''), columnId: '' };
+};
+
+const mergeSeriesByT = (seriesList) => {
+  const out = new Map();
+  for (const series of (seriesList || [])) {
+    for (const row of (Array.isArray(series) ? series : [])) {
+      const t = String(row?.t ?? '');
+      if (!t) continue;
+      const prev = out.get(t) || { t };
+      Object.keys(row || {}).forEach((k) => {
+        if (k === 't') return;
+        prev[k] = row[k];
+      });
+      out.set(t, prev);
+    }
+  }
+  return Array.from(out.values()).sort((a, b) => String(a.t).localeCompare(String(b.t)));
+};
+
 const formatCurrency = (n, currency = 'USD') => {
   try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(n) || 0); }
   catch { return `$${Number(n) || 0}`; }
@@ -217,14 +255,19 @@ function ExecOverviewCommandCenter() {
     try {
       const url = new URL(window.location.href);
       const tpl = url.searchParams.get('tpl') || '';
-      const tableId = url.searchParams.get('tpl_table') || '';
+      const fallbackTableId = url.searchParams.get('tpl_table') || '';
       const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
-      const revenueCol = mappings.revenue;
-      const costCol = mappings.cost;
-      const dateCol = mappings.date;
-      const statusCol = mappings.status;
-      if (!tpl || !tableId || !revenueCol || !costCol || !dateCol) {
-        throw new Error('Missing required template mappings (Revenue, Cost, Date).');
+      const revenue = resolveTplRole(mappings, 'revenue', fallbackTableId);
+      const cost = resolveTplRole(mappings, 'cost', fallbackTableId);
+      const sharedDate = resolveTplRole(mappings, 'date', fallbackTableId);
+      const revenueDate = resolveTplRole(mappings, 'revenue_date', fallbackTableId);
+      const costDate = resolveTplRole(mappings, 'cost_date', fallbackTableId);
+      const revDate = revenueDate?.columnId ? revenueDate : sharedDate;
+      const cstDate = costDate?.columnId ? costDate : sharedDate;
+      const status = resolveTplRole(mappings, 'status', fallbackTableId);
+
+      if (!tpl || !revenue?.tableId || !revenue?.columnId || !cost?.tableId || !cost?.columnId || !revDate?.columnId || !cstDate?.columnId) {
+        throw new Error('Missing required template mappings (Revenue, Revenue Date, Cost, Cost Date).');
       }
       const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
       const { data: { session } } = await supabase.auth.getSession();
@@ -232,81 +275,113 @@ function ExecOverviewCommandCenter() {
       const rangeStart = rangeToStartDate(range);
       const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
 
-      // KPI totals
-      const kpiResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
-        body: JSON.stringify({
-          table_id: tableId,
+      const query = async (payload) => {
+        const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error('Failed to query dashboard data');
+        return resp.json();
+      };
+
+      // KPI totals (can come from multiple tables)
+      let revenueTotal = 0;
+      let costTotal = 0;
+      if (revenue.tableId === cost.tableId) {
+        const kpiJson = await query({
+          table_id: revenue.tableId,
           metrics: [
-            { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
-            { alias: 'Cost', agg: 'SUM', column_id: costCol }
+            { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
+            { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
           ],
           time_bucket: 'none',
           ...rangeCfg
-        })
-      });
-      if (!kpiResp.ok) throw new Error('Failed to load KPI totals');
-      const kpiJson = await kpiResp.json();
-      const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
-      const revenue = Number(krow?.Revenue) || 0;
-      const cost = Number(krow?.Cost) || 0;
-      const profit = revenue - cost;
-      const margin = revenue ? (profit / revenue) * 100 : 0;
-      setKpi({ revenue, cost, profit, margin });
+        });
+        const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+        revenueTotal = Number(krow?.Revenue) || 0;
+        costTotal = Number(krow?.Cost) || 0;
+      } else {
+        const [revJson, costJson] = await Promise.all([
+          query({
+            table_id: revenue.tableId,
+            metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
+            time_bucket: 'none',
+            ...rangeCfg
+          }),
+          query({
+            table_id: cost.tableId,
+            metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
+            time_bucket: 'none',
+            ...rangeCfg
+          })
+        ]);
+        const rrow = Array.isArray(revJson?.series) ? revJson.series[0] : null;
+        const crow = Array.isArray(costJson?.series) ? costJson.series[0] : null;
+        revenueTotal = Number(rrow?.Revenue) || 0;
+        costTotal = Number(crow?.Cost) || 0;
+      }
+      const profit = revenueTotal - costTotal;
+      const margin = revenueTotal ? (profit / revenueTotal) * 100 : 0;
+      setKpi({ revenue: revenueTotal, cost: costTotal, profit, margin });
 
-      // Trend series
-      const trendResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
-        body: JSON.stringify({
-          table_id: tableId,
-          metrics: [
-            { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
-            { alias: 'Cost', agg: 'SUM', column_id: costCol }
-          ],
-          date_column_id: dateCol,
-          time_bucket: bucket,
-          ...rangeCfg
-        })
-      });
-      if (!trendResp.ok) throw new Error('Failed to load trend series');
-      const trendJson = await trendResp.json();
-      const s = Array.isArray(trendJson?.series) ? trendJson.series : [];
-      // If bucketing collapses to a single point (common when two dates fall in the same month/week),
-      // automatically fall back to day bucketing so the user sees a real trend line.
-      if ((bucket === 'month' || bucket === 'week') && s.length <= 1) {
-        try {
-          const finerResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeader },
-            body: JSON.stringify({
-              table_id: tableId,
-              metrics: [
-                { alias: 'Revenue', agg: 'SUM', column_id: revenueCol },
-                { alias: 'Cost', agg: 'SUM', column_id: costCol }
-              ],
-              date_column_id: dateCol,
-              time_bucket: 'day',
-              ...rangeCfg
-            })
+      const fetchTrend = async (timeBucket) => {
+        if (revenue.tableId === cost.tableId && revDate.columnId === cstDate.columnId) {
+          const trendJson = await query({
+            table_id: revenue.tableId,
+            metrics: [
+              { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
+              { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
+            ],
+            date_column_id: revDate.columnId,
+            time_bucket: timeBucket,
+            ...rangeCfg
           });
-          if (finerResp.ok) {
-            const finerJson = await finerResp.json();
-            const s2 = Array.isArray(finerJson?.series) ? finerJson.series : [];
-            setSeries(s2.length > 1 ? s2 : s);
-          } else {
-            setSeries(s);
-          }
+          return Array.isArray(trendJson?.series) ? trendJson.series : [];
+        }
+        const [revTrend, costTrend] = await Promise.all([
+          query({
+            table_id: revenue.tableId,
+            metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
+            date_column_id: revDate.columnId,
+            time_bucket: timeBucket,
+            ...rangeCfg
+          }),
+          query({
+            table_id: cost.tableId,
+            metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
+            date_column_id: cstDate.columnId,
+            time_bucket: timeBucket,
+            ...rangeCfg
+          })
+        ]);
+        return mergeSeriesByT([
+          Array.isArray(revTrend?.series) ? revTrend.series : [],
+          Array.isArray(costTrend?.series) ? costTrend.series : []
+        ]);
+      };
+
+      // Trend series (auto-fallback to day if bucketing collapses)
+      const initial = await fetchTrend(bucket);
+      if ((bucket === 'month' || bucket === 'week') && initial.length <= 1) {
+        try {
+          const finer = await fetchTrend('day');
+          setSeries(finer.length > 1 ? finer : initial);
         } catch {
-          setSeries(s);
+          setSeries(initial);
         }
       } else {
-        setSeries(s);
+        setSeries(initial);
       }
 
       // Best-effort: compute health + at-risk list from raw rows (client-side).
       try {
+        // Row-level "at risk" only makes sense when revenue + cost live on the same table.
+        if (revenue.tableId !== cost.tableId) return;
+        const tableId = revenue.tableId;
+        const revenueCol = revenue.columnId;
+        const costCol = cost.columnId;
+        const statusCol = status?.columnId || '';
         const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
         const schema = Array.isArray(data?.schema_json) ? data.schema_json : [];
         const rows = Array.isArray(data?.data_json) ? data.data_json : [];
@@ -523,14 +598,20 @@ function PipelineHealthCommandCenter() {
     setLoading(true);
     try {
       const url = new URL(window.location.href);
-      const tableId = url.searchParams.get('tpl_table') || '';
+      const fallbackTableId = url.searchParams.get('tpl_table') || '';
       const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
-      const dateCol = mappings.date;
-      const statusCol = mappings.status;
-      const cashCol = mappings.cash_required;
-      const ownerCol = mappings.owner;
+      const date = resolveTplRole(mappings, 'date', fallbackTableId);
+      const status = resolveTplRole(mappings, 'status', fallbackTableId);
+      const cash = resolveTplRole(mappings, 'cash_required', fallbackTableId);
+      const owner = resolveTplRole(mappings, 'owner', fallbackTableId);
 
-      if (!tableId || !dateCol) throw new Error('Missing required template mappings (Date).');
+      const tableId = date?.tableId || fallbackTableId;
+      const dateCol = date?.columnId || '';
+      const statusCol = (status?.tableId === tableId) ? (status?.columnId || '') : '';
+      const cashCol = (cash?.tableId === tableId) ? (cash?.columnId || '') : '';
+      const ownerCol = (owner?.tableId === tableId) ? (owner?.columnId || '') : '';
+
+      if (!tableId || !dateCol) throw new Error('Missing required template mappings (Event / Project Date).');
 
       const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
       const { data: { session } } = await supabase.auth.getSession();
@@ -802,12 +883,19 @@ function CostDriversCommandCenter() {
     setLoading(true);
     try {
       const url = new URL(window.location.href);
-      const tableId = url.searchParams.get('tpl_table') || '';
+      const fallbackTableId = url.searchParams.get('tpl_table') || '';
       const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
-      const costCol = mappings.cost;
-      const categoryCol = mappings.category;
-      const baselineCol = mappings.baseline_cost;
-      const dateCol = mappings.date;
+      const cost = resolveTplRole(mappings, 'cost', fallbackTableId);
+      const category = resolveTplRole(mappings, 'category', fallbackTableId);
+      const baseline = resolveTplRole(mappings, 'baseline_cost', fallbackTableId);
+      const date = resolveTplRole(mappings, 'date', fallbackTableId);
+
+      const tableId = cost?.tableId || fallbackTableId;
+      const costCol = cost?.columnId || '';
+      const categoryCol = (category?.tableId === tableId) ? (category?.columnId || '') : '';
+      const baselineCol = (baseline?.tableId === tableId) ? (baseline?.columnId || '') : '';
+      const dateCol = (date?.tableId === tableId) ? (date?.columnId || '') : '';
+
       if (!tableId || !costCol) throw new Error('Missing required template mappings (Cost).');
 
       const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
