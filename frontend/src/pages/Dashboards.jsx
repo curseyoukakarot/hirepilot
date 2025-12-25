@@ -1224,7 +1224,9 @@ export default function Dashboards() {
                     if (timeRange) params.set('range', timeRange);
                     // Save dashboard to Supabase so it appears in Custom Dashboards
                     try {
+                      const resolvedName = String(dashboardName || '').trim() || 'Custom Dashboard';
                       const layout = {
+                        name: resolvedName,
                         sources,
                         metrics,
                         formula: formulaPayload || '',
@@ -1355,7 +1357,7 @@ function SavedDashboards({
           <div key={d.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg transition relative cursor-pointer" onClick={() => onView?.(d)}>
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Custom Dashboard</h4>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{String(d?.layout?.name || '').trim() || 'Custom Dashboard'}</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Updated {new Date(d.updated_at).toLocaleString()}</p>
               </div>
               <div className="flex items-center gap-2">
