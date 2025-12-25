@@ -172,6 +172,34 @@ const mergeSeriesByT = (seriesList) => {
   return Array.from(out.values()).sort((a, b) => String(a.t).localeCompare(String(b.t)));
 };
 
+const resolveTplRoleMulti = (mappings, roleId, fallbackTableId) => {
+  const raw = mappings ? mappings[roleId] : null;
+  const normalizeCols = (v) => {
+    if (!v) return [];
+    if (Array.isArray(v)) return v.map(String).filter(Boolean);
+    const s = String(v);
+    if (!s.trim()) return [];
+    // support comma-separated as a fallback encoding
+    if (s.includes(',')) return s.split(',').map(x => String(x).trim()).filter(Boolean);
+    return [s];
+  };
+  if (!raw) return { tableId: String(fallbackTableId || ''), columnIds: [] };
+  if (typeof raw === 'string') {
+    // Allow "tableId::colA,colB" encoding as an escape hatch.
+    if (raw.includes('::')) {
+      const [t, cols] = raw.split('::');
+      return { tableId: String(t || ''), columnIds: normalizeCols(cols) };
+    }
+    return { tableId: String(fallbackTableId || ''), columnIds: normalizeCols(raw) };
+  }
+  if (typeof raw === 'object') {
+    const tableId = raw.tableId || raw.table_id || fallbackTableId || '';
+    const cols = raw.columnIds ?? raw.column_ids ?? raw.columnId ?? raw.column_id ?? '';
+    return { tableId: String(tableId || ''), columnIds: normalizeCols(cols) };
+  }
+  return { tableId: String(fallbackTableId || ''), columnIds: [] };
+};
+
 const formatCurrency = (n, currency = 'USD') => {
   try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(n) || 0); }
   catch { return `$${Number(n) || 0}`; }
@@ -277,8 +305,8 @@ function ExecOverviewCommandCenter() {
 
       const query = async (payload) => {
         const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeader },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify(payload)
         });
         if (!resp.ok) throw new Error('Failed to query dashboard data');
@@ -297,8 +325,8 @@ function ExecOverviewCommandCenter() {
           ],
           time_bucket: 'none',
           ...rangeCfg
-        });
-        const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+      });
+      const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
         revenueTotal = Number(krow?.Revenue) || 0;
         costTotal = Number(krow?.Cost) || 0;
       } else {
@@ -313,8 +341,8 @@ function ExecOverviewCommandCenter() {
             table_id: cost.tableId,
             metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
             time_bucket: 'none',
-            ...rangeCfg
-          })
+          ...rangeCfg
+        })
         ]);
         const rrow = Array.isArray(revJson?.series) ? revJson.series[0] : null;
         const crow = Array.isArray(costJson?.series) ? costJson.series[0] : null;
@@ -329,13 +357,13 @@ function ExecOverviewCommandCenter() {
         if (revenue.tableId === cost.tableId && revDate.columnId === cstDate.columnId) {
           const trendJson = await query({
             table_id: revenue.tableId,
-            metrics: [
+              metrics: [
               { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
               { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
-            ],
+              ],
             date_column_id: revDate.columnId,
             time_bucket: timeBucket,
-            ...rangeCfg
+              ...rangeCfg
           });
           return Array.isArray(trendJson?.series) ? trendJson.series : [];
         }
@@ -1145,6 +1173,256 @@ function CostDriversCommandCenter() {
                 </div>
               ) : (
                 <div className="text-sm text-white/50">No items found.</div>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NetProfitOutlookCommandCenter() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [range, setRange] = useState('last_90_days');
+  const [bucket, setBucket] = useState('month');
+  const [kpi, setKpi] = useState({ profit: 0, cost: 0, net: 0, margin: 0 });
+  const [series, setSeries] = useState([]);
+  const [topProfitCats, setTopProfitCats] = useState([]);
+  const [topCostCats, setTopCostCats] = useState([]);
+
+  const sumAliasPrefix = (row, prefix, n) => {
+    let s = 0;
+    for (let i = 0; i < n; i += 1) s += (Number(row?.[`${prefix}${i}`]) || 0);
+    return s;
+  };
+  const metricsForCols = (prefix, cols) => (cols || []).map((c, i) => ({ alias: `${prefix}${i}`, agg: 'SUM', column_id: c }));
+
+  const load = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const url = new URL(window.location.href);
+      const tpl = url.searchParams.get('tpl') || '';
+      const fallbackTableId = url.searchParams.get('tpl_table') || '';
+      const mappings = parseTplMappings(url.searchParams.get('tpl_map') || '') || {};
+
+      const profitAmounts = resolveTplRoleMulti(mappings, 'profit_amounts', fallbackTableId);
+      const profitDates = resolveTplRoleMulti(mappings, 'profit_dates', profitAmounts.tableId || fallbackTableId);
+      const profitCats = resolveTplRoleMulti(mappings, 'profit_categories', profitAmounts.tableId || fallbackTableId);
+      const costAmounts = resolveTplRoleMulti(mappings, 'cost_amounts', fallbackTableId);
+      const costDates = resolveTplRoleMulti(mappings, 'cost_dates', costAmounts.tableId || fallbackTableId);
+      const costCats = resolveTplRoleMulti(mappings, 'cost_categories', costAmounts.tableId || fallbackTableId);
+
+      const profitTableId = profitAmounts.tableId;
+      const costTableId = costAmounts.tableId;
+      const profitAmountCols = profitAmounts.columnIds;
+      const costAmountCols = costAmounts.columnIds;
+      const profitDateCol = profitDates.columnIds[0] || '';
+      const costDateCol = costDates.columnIds[0] || '';
+
+      if (!tpl || !profitTableId || !costTableId || profitAmountCols.length === 0 || costAmountCols.length === 0 || !profitDateCol || !costDateCol) {
+        throw new Error('Missing required template mappings (Profit Amounts/Dates, Cost Amounts/Dates).');
+      }
+
+      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const rangeStart = rangeToStartDate(range);
+      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+
+      const query = async (payload) => {
+        const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error('Failed to query dashboard data');
+        return resp.json();
+      };
+
+      // KPI totals
+      const [profitTotalJson, costTotalJson] = await Promise.all([
+        query({ table_id: profitTableId, metrics: metricsForCols('P', profitAmountCols), time_bucket: 'none', ...rangeCfg }),
+        query({ table_id: costTableId, metrics: metricsForCols('C', costAmountCols), time_bucket: 'none', ...rangeCfg })
+      ]);
+      const prow = Array.isArray(profitTotalJson?.series) ? profitTotalJson.series[0] : null;
+      const crow = Array.isArray(costTotalJson?.series) ? costTotalJson.series[0] : null;
+      const profit = sumAliasPrefix(prow, 'P', profitAmountCols.length);
+      const cost = sumAliasPrefix(crow, 'C', costAmountCols.length);
+      const net = profit - cost;
+      const margin = profit ? (net / profit) * 100 : 0;
+      setKpi({ profit, cost, net, margin });
+
+      // Trend series: query each table separately, then merge
+      const [profitTrendJson, costTrendJson] = await Promise.all([
+        query({ table_id: profitTableId, metrics: metricsForCols('P', profitAmountCols), date_column_id: profitDateCol, time_bucket: bucket, ...rangeCfg }),
+        query({ table_id: costTableId, metrics: metricsForCols('C', costAmountCols), date_column_id: costDateCol, time_bucket: bucket, ...rangeCfg })
+      ]);
+      const pRaw = Array.isArray(profitTrendJson?.series) ? profitTrendJson.series : [];
+      const cRaw = Array.isArray(costTrendJson?.series) ? costTrendJson.series : [];
+      const pSeries = pRaw.map((r) => ({ t: r?.t, Profit: sumAliasPrefix(r, 'P', profitAmountCols.length) }));
+      const cSeries = cRaw.map((r) => ({ t: r?.t, Cost: sumAliasPrefix(r, 'C', costAmountCols.length) }));
+      const merged = mergeSeriesByT([pSeries, cSeries]).map((r) => {
+        const p = Number(r?.Profit) || 0;
+        const c = Number(r?.Cost) || 0;
+        return { ...r, Net: p - c };
+      });
+      setSeries(merged);
+
+      // Best-effort category drivers (overall, not range-filtered; mirrors other templates)
+      const computeTopCats = async (tableId, amountCols, catColId, prefix) => {
+        if (!tableId || !amountCols?.length || !catColId) return [];
+        const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
+        const schema = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const rows = Array.isArray(data?.data_json) ? data.data_json : [];
+        const findCol = (id) => schema.find((c) => String(c?.id || c?.key || c?.name || '') === String(id));
+        const catC = findCol(catColId);
+        const amtCols = amountCols.map(findCol).filter(Boolean);
+        const get = (r, c) => {
+          if (!c) return undefined;
+          const key = c?.key;
+          const label = c?.label || c?.name;
+          return (key && r && Object.prototype.hasOwnProperty.call(r, key)) ? r[key] : (label && r ? r[label] : undefined);
+        };
+        if (!catC || amtCols.length === 0) return [];
+        const map = new Map();
+        for (const r of rows) {
+          const k = String(get(r, catC) || 'Uncategorized').trim() || 'Uncategorized';
+          const amt = amtCols.reduce((acc, c) => acc + (Number(get(r, c)) || 0), 0);
+          map.set(k, (map.get(k) || 0) + amt);
+        }
+        return Array.from(map.entries())
+          .map(([k, v]) => ({ k, v }))
+          .sort((a, b) => b.v - a.v)
+          .slice(0, 8);
+      };
+
+      try {
+        const profitCatCol = profitCats.columnIds[0] || '';
+        const costCatCol = costCats.columnIds[0] || '';
+        const [pCats, cCats] = await Promise.all([
+          computeTopCats(profitTableId, profitAmountCols, profitCatCol, 'P'),
+          computeTopCats(costTableId, costAmountCols, costCatCol, 'C')
+        ]);
+        setTopProfitCats(pCats);
+        setTopCostCats(cCats);
+      } catch {
+        setTopProfitCats([]);
+        setTopCostCats([]);
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [range, bucket]);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="text-2xl font-semibold text-white">Net Profit Outlook</div>
+            <div className="mt-1 text-sm text-white/50">Combine profit + cost tables into totals, trend, and category drivers.</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={range} onChange={(e) => setRange(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+              <option value="last_30_days">Last 30 Days</option>
+              <option value="last_90_days">Last 90 Days</option>
+              <option value="last_180_days">Last 180 Days</option>
+              <option value="ytd">Year to Date</option>
+              <option value="all_time">All Time</option>
+            </select>
+            <select value={bucket} onChange={(e) => setBucket(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+            </select>
+            <button onClick={load} className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition px-3 py-2 text-sm text-white/80">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-6 space-y-6">
+        {error ? <ChartError message={error} onRetry={load} /> : null}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <>
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+              <Skeleton h="h-[92px]" />
+            </>
+          ) : (
+            <>
+              <ExecutiveKpiCard label="Total Profit" value={formatCurrency(kpi.profit)} subtext="sum across profit amount columns" />
+              <ExecutiveKpiCard label="Total Cost" value={formatCurrency(kpi.cost)} subtext="sum across cost amount columns" />
+              <ExecutiveKpiCard label="Net Profit" value={formatCurrency(kpi.net)} subtext="profit - cost" />
+              <ExecutiveKpiCard label="Margin %" value={`${formatNumber(kpi.margin.toFixed(1))}%`} subtext="net / profit" />
+            </>
+          )}
+        </div>
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8">
+            <ChartCard title="Profit, Cost, Net (Trend)">
+              {loading ? (
+                <Skeleton h="h-[320px]" />
+              ) : (series || []).length === 0 ? (
+                <ChartEmpty onChangeRange={() => setRange('last_90_days')} />
+              ) : (
+                <div className="h-[320px]">
+                  <SimpleLineChart height={320} series={series} keys={['Profit', 'Cost', 'Net']} colors={['#22c55e', '#ef4444', '#3b82f6']} />
+                </div>
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <ChartCard title="Top Profit Categories">
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                </div>
+              ) : (topProfitCats || []).length ? (
+                <div className="space-y-2">
+                  {topProfitCats.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="text-sm text-white truncate">{r.k}</div>
+                      <div className="text-sm text-white/70">{formatCurrency(r.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">Map a Profit Category column to see drivers.</div>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Top Cost Categories">
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                  <Skeleton h="h-10" />
+                </div>
+              ) : (topCostCats || []).length ? (
+                <div className="space-y-2">
+                  {topCostCats.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="text-sm text-white truncate">{r.k}</div>
+                      <div className="text-sm text-white/70">{formatCurrency(r.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">Map a Cost Category column to see drivers.</div>
               )}
             </ChartCard>
           </div>
@@ -2434,6 +2712,7 @@ export default function DashboardDetail() {
   if (tpl === 'exec_overview_v1') return <ExecOverviewCommandCenter />;
   if (tpl === 'pipeline_health_v1') return <PipelineHealthCommandCenter />;
   if (tpl === 'cost_drivers_v1') return <CostDriversCommandCenter />;
+  if (tpl === 'net_profit_outlook_v1') return <NetProfitOutlookCommandCenter />;
   if (tpl) return <ExecOverviewCommandCenter />;
 
   // If this is a single-table dashboard layout (custom tables), prefer the premium renderer.

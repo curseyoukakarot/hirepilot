@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 type TableCol = { id?: string; key?: string; name?: string; label?: string; type?: string; currency?: string };
 type TableOption = { id: string; name: string; schema_json?: TableCol[] };
 
-type RoleMapping = { tableId: string; columnId: string };
+type RoleMapping = { tableId: string; columnId: string | string[] };
 type RoleMappings = Record<string, RoleMapping>;
 
 type Props = {
@@ -159,7 +159,12 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
   const clearAllTables = () => setSelectedTableIds([]);
 
   const requiredRoles = template.requirements.filter((r) => r.required);
-  const missingRequired = requiredRoles.filter((r) => !mappings[r.id]?.tableId || !mappings[r.id]?.columnId);
+  const hasSelectedCols = (v: any) => {
+    if (!v) return false;
+    if (Array.isArray(v)) return v.filter(Boolean).length > 0;
+    return Boolean(String(v).trim());
+  };
+  const missingRequired = requiredRoles.filter((r) => !mappings[r.id]?.tableId || !hasSelectedCols(mappings[r.id]?.columnId));
 
   const nextEnabled = useMemo(() => {
     if (step === 1) return selectedTableIds.length > 0;
@@ -174,6 +179,26 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
       // If table changes, reset column
       if (patch.tableId && patch.tableId !== prev.tableId) next.columnId = '';
       return { ...m, [roleId]: next };
+    });
+  };
+
+  const roleColumnIds = (roleId: string) => {
+    const v = mappings?.[roleId]?.columnId;
+    if (Array.isArray(v)) return v.map(String).filter(Boolean);
+    if (v) return [String(v)];
+    return [];
+  };
+
+  const toggleRoleColumn = (roleId: string, columnId: string) => {
+    const cid = String(columnId || '');
+    if (!cid) return;
+    setMappings((m) => {
+      const prev = m?.[roleId] || { tableId: defaultTableId || '', columnId: [] as string[] };
+      const prevCols = Array.isArray(prev.columnId) ? prev.columnId.map(String) : (prev.columnId ? [String(prev.columnId)] : []);
+      const set = new Set(prevCols);
+      if (set.has(cid)) set.delete(cid);
+      else set.add(cid);
+      return { ...(m || {}), [roleId]: { ...prev, columnId: Array.from(set) } };
     });
   };
 
@@ -242,6 +267,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
   };
 
   const [costPreview, setCostPreview] = useState({ total: 0, series: [] as any[] });
+  const [netPreview, setNetPreview] = useState({ profit: 0, cost: 0, net: 0, margin: 0, series: [] as any[] });
 
   // Live preview for Executive Overview (Step 3)
   useEffect(() => {
@@ -252,6 +278,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
       setPreviewSeries([]);
       setPreviewKpi({ revenue: 0, cost: 0, profit: 0, margin: 0 });
       setCostPreview({ total: 0, series: [] });
+      setNetPreview({ profit: 0, cost: 0, net: 0, margin: 0, series: [] });
 
       setPreviewLoading(true);
       try {
@@ -268,20 +295,20 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
           if (!revenue?.tableId || !revenue?.columnId || !cost?.tableId || !cost?.columnId) return;
           if (!revDate?.columnId || !cstDate?.columnId) return;
 
-          // KPI totals (all-time for preview; avoids confusing empty ranges)
+        // KPI totals (all-time for preview; avoids confusing empty ranges)
           let revenueTotal = 0;
           let costTotal = 0;
           if (revenue.tableId === cost.tableId) {
             const kpiJson = await queryWidget({
               table_id: revenue.tableId,
-              metrics: [
+            metrics: [
                 { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
                 { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
-              ],
-              time_bucket: 'none',
-              range: 'all_time'
-            });
-            const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
+            ],
+            time_bucket: 'none',
+            range: 'all_time'
+        });
+        const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
             revenueTotal = Number(krow?.Revenue) || 0;
             costTotal = Number(krow?.Cost) || 0;
           } else {
@@ -308,15 +335,15 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
           const margin = revenueTotal ? (profit / revenueTotal) * 100 : 0;
           if (!cancelled) setPreviewKpi({ revenue: revenueTotal, cost: costTotal, profit, margin });
 
-          // Trend (90d, monthly)
+        // Trend (90d, monthly)
           let trendSeries: any[] = [];
           if (revenue.tableId === cost.tableId && revDate.columnId === cstDate.columnId) {
             const trendJson = await queryWidget({
               table_id: revenue.tableId,
-              metrics: [
+            metrics: [
                 { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
                 { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
-              ],
+            ],
               date_column_id: revDate.columnId,
               time_bucket: 'month',
               range: '90d'
@@ -335,9 +362,9 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                 table_id: cost.tableId,
                 metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
                 date_column_id: cstDate.columnId,
-                time_bucket: 'month',
-                range: '90d'
-              })
+            time_bucket: 'month',
+            range: '90d'
+          })
             ]);
             trendSeries = mergeSeriesByT([
               Array.isArray(revTrend?.series) ? revTrend.series : [],
@@ -371,6 +398,51 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
             series = Array.isArray(trendJson?.series) ? trendJson.series : [];
           }
           if (!cancelled) setCostPreview({ total, series });
+        } else if (template.id === 'net_profit_outlook_v1') {
+          const profitTableId = resolveRole('profit_amounts')?.tableId || '';
+          const costTableId = resolveRole('cost_amounts')?.tableId || '';
+          const profitAmountCols = roleColumnIds('profit_amounts');
+          const costAmountCols = roleColumnIds('cost_amounts');
+          const profitDateCols = roleColumnIds('profit_dates');
+          const costDateCols = roleColumnIds('cost_dates');
+          const profitDate = profitDateCols[0] || '';
+          const costDate = costDateCols[0] || '';
+          if (!profitTableId || !costTableId || profitAmountCols.length === 0 || costAmountCols.length === 0) return;
+          if (!profitDate || !costDate) return;
+
+          const metricAliases = (prefix: string, cols: string[]) => cols.map((c, i) => ({ alias: `${prefix}${i}`, agg: 'SUM', column_id: c }));
+          const sumAliases = (row: any, prefix: string, n: number) => {
+            let s = 0;
+            for (let i = 0; i < n; i += 1) s += (Number(row?.[`${prefix}${i}`]) || 0);
+            return s;
+          };
+
+          const [profitTotalJson, costTotalJson] = await Promise.all([
+            queryWidget({ table_id: profitTableId, metrics: metricAliases('P', profitAmountCols), time_bucket: 'none', range: 'all_time' }),
+            queryWidget({ table_id: costTableId, metrics: metricAliases('C', costAmountCols), time_bucket: 'none', range: 'all_time' })
+          ]);
+          const prow = Array.isArray(profitTotalJson?.series) ? profitTotalJson.series[0] : null;
+          const crow = Array.isArray(costTotalJson?.series) ? costTotalJson.series[0] : null;
+          const profitTotal = sumAliases(prow, 'P', profitAmountCols.length);
+          const costTotal = sumAliases(crow, 'C', costAmountCols.length);
+          const netTotal = profitTotal - costTotal;
+          const margin = profitTotal ? (netTotal / profitTotal) * 100 : 0;
+
+          const [profitTrendJson, costTrendJson] = await Promise.all([
+            queryWidget({ table_id: profitTableId, metrics: metricAliases('P', profitAmountCols), date_column_id: profitDate, time_bucket: 'month', range: '90d' }),
+            queryWidget({ table_id: costTableId, metrics: metricAliases('C', costAmountCols), date_column_id: costDate, time_bucket: 'month', range: '90d' })
+          ]);
+          const pSeriesRaw = Array.isArray(profitTrendJson?.series) ? profitTrendJson.series : [];
+          const cSeriesRaw = Array.isArray(costTrendJson?.series) ? costTrendJson.series : [];
+          const pSeries = pSeriesRaw.map((r: any) => ({ t: r?.t, Profit: sumAliases(r, 'P', profitAmountCols.length) }));
+          const cSeries = cSeriesRaw.map((r: any) => ({ t: r?.t, Cost: sumAliases(r, 'C', costAmountCols.length) }));
+          const merged = mergeSeriesByT([pSeries, cSeries]).map((r: any) => {
+            const p = Number(r?.Profit) || 0;
+            const c = Number(r?.Cost) || 0;
+            return { ...r, Net: p - c };
+          });
+
+          if (!cancelled) setNetPreview({ profit: profitTotal, cost: costTotal, net: netTotal, margin, series: merged });
         }
       } catch (e: any) {
         if (!cancelled) setPreviewError(e?.message || 'Preview failed');
@@ -449,7 +521,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                   type="button"
                   onClick={clearAllTables}
                   className="text-xs rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-white/80"
-                >
+            >
                   Clear
                 </button>
               </div>
@@ -520,24 +592,67 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                     </select>
                   </div>
                   <div className="md:col-span-5">
-                    <select
-                      value={current?.columnId || ''}
-                      onChange={(e) => setRole(role.id, { columnId: e.target.value })}
-                      disabled={!current?.tableId}
-                      className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
-                    >
-                      <option value="">{role.required ? 'Select a column' : 'None'}</option>
-                      {options.map((c) => (
-                        <option key={colId(c)} value={colId(c)}>
-                          {colLabel(c)}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="mt-1 text-xs text-white/35">
-                      {current?.columnId
-                        ? `Selected: ${options.find(o => colId(o) === current.columnId)?.label || options.find(o => colId(o) === current.columnId)?.name || 'Column'} (${roleTypeHint[role.kind]})`
-                        : '—'}
-                    </div>
+                    {role.multi ? (
+                      <>
+                        <div className={`w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 ${!current?.tableId ? 'opacity-50' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <span>{role.required ? 'Select columns' : 'Select columns (optional)'}</span>
+                            <span className="text-xs text-white/50">{roleColumnIds(role.id).length} selected</span>
+                          </div>
+                        </div>
+                        <div className={`mt-2 rounded-xl border border-white/10 bg-black/20 p-3 max-h-44 overflow-y-auto ${!current?.tableId ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {(options || []).length ? (
+                            <div className="space-y-2">
+                              {(options || []).map((c) => {
+                                const id = colId(c);
+                                const checked = roleColumnIds(role.id).includes(id);
+                                return (
+                                  <label key={id} className="flex items-center gap-3 text-sm text-white/80 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleRoleColumn(role.id, id)}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="truncate">{colLabel(c)}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-white/50">
+                              {current?.tableId ? 'No compatible columns found.' : 'Select a table first.'}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-white/35">
+                          {roleColumnIds(role.id).length ? `Selected ${roleColumnIds(role.id).length} column(s)` : '—'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          value={Array.isArray(current?.columnId) ? (current.columnId[0] || '') : (current?.columnId || '')}
+                          onChange={(e) => setRole(role.id, { columnId: e.target.value })}
+                          disabled={!current?.tableId}
+                          className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
+                        >
+                          <option value="">{role.required ? 'Select a column' : 'None'}</option>
+                          {options.map((c) => (
+                            <option key={colId(c)} value={colId(c)}>
+                              {colLabel(c)}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="mt-1 text-xs text-white/35">
+                          {(!Array.isArray(current?.columnId) && current?.columnId)
+                            ? `Selected: ${options.find(o => colId(o) === current.columnId)?.label || options.find(o => colId(o) === current.columnId)?.name || 'Column'} (${roleTypeHint[role.kind]})`
+                            : Array.isArray(current?.columnId) && current.columnId?.[0]
+                              ? `Selected: ${options.find(o => colId(o) === current.columnId[0])?.label || options.find(o => colId(o) === current.columnId[0])?.name || 'Column'} (${roleTypeHint[role.kind]})`
+                              : '—'}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -567,55 +682,55 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
             </div>
           )}
           {template.id === 'exec_overview_v1' ? (
-            <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-12 lg:col-span-8 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
-                <div className="text-white font-semibold">Revenue vs Cost</div>
-                <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-2">
-                  {previewLoading ? (
-                    <div className="h-40 rounded-lg bg-white/5 animate-pulse" />
-                  ) : (previewSeries && previewSeries.length) ? (
-                    <SimpleLineChart
-                      height={180}
-                      series={previewSeries}
-                      keys={['Revenue', 'Cost']}
-                      colors={['#3b82f6', '#10b981']}
-                    />
-                  ) : (
-                    <div className="h-40 flex items-center justify-center text-sm text-white/40">
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 lg:col-span-8 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
+              <div className="text-white font-semibold">Revenue vs Cost</div>
+              <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-2">
+                {previewLoading ? (
+                  <div className="h-40 rounded-lg bg-white/5 animate-pulse" />
+                ) : (previewSeries && previewSeries.length) ? (
+                  <SimpleLineChart
+                    height={180}
+                    series={previewSeries}
+                    keys={['Revenue', 'Cost']}
+                    colors={['#3b82f6', '#10b981']}
+                  />
+                ) : (
+                  <div className="h-40 flex items-center justify-center text-sm text-white/40">
                       Map Revenue, Cost, and their Date columns to see a live preview.
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="col-span-12 lg:col-span-4 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
-                <div className="text-white font-semibold">Health</div>
-                <div className="mt-3 space-y-2">
-                  {['Healthy', 'At Risk', 'Not Viable'].map((x) => (
-                    <div key={x} className="flex items-center justify-between text-sm text-white/70">
-                      <span>{x}</span>
-                      <span className="text-white/50">—</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="col-span-12 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
-                <div className="text-white font-semibold">KPI Row</div>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[
-                    { k: 'Total Revenue', v: previewLoading ? '—' : formatCurrency(previewKpi.revenue) },
-                    { k: 'Total Cost', v: previewLoading ? '—' : formatCurrency(previewKpi.cost) },
-                    { k: 'Profit', v: previewLoading ? '—' : formatCurrency(previewKpi.profit) },
-                    { k: 'Margin %', v: previewLoading ? '—' : `${formatNumber(previewKpi.margin.toFixed(1))}%` }
-                  ].map(({ k, v }) => (
-                    <div key={k} className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-                      <div className="text-xs uppercase tracking-wider text-white/50">{k}</div>
-                      <div className="mt-2 text-2xl font-semibold text-white">{v}</div>
-                      <div className="mt-1 text-xs text-white/40">preview</div>
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
+            <div className="col-span-12 lg:col-span-4 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
+              <div className="text-white font-semibold">Health</div>
+              <div className="mt-3 space-y-2">
+                {['Healthy', 'At Risk', 'Not Viable'].map((x) => (
+                  <div key={x} className="flex items-center justify-between text-sm text-white/70">
+                    <span>{x}</span>
+                    <span className="text-white/50">—</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="col-span-12 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
+              <div className="text-white font-semibold">KPI Row</div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { k: 'Total Revenue', v: previewLoading ? '—' : formatCurrency(previewKpi.revenue) },
+                  { k: 'Total Cost', v: previewLoading ? '—' : formatCurrency(previewKpi.cost) },
+                  { k: 'Profit', v: previewLoading ? '—' : formatCurrency(previewKpi.profit) },
+                  { k: 'Margin %', v: previewLoading ? '—' : `${formatNumber(previewKpi.margin.toFixed(1))}%` }
+                ].map(({ k, v }) => (
+                  <div key={k} className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                    <div className="text-xs uppercase tracking-wider text-white/50">{k}</div>
+                    <div className="mt-2 text-2xl font-semibold text-white">{v}</div>
+                    <div className="mt-1 text-xs text-white/40">preview</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
           ) : template.id === 'cost_drivers_v1' ? (
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 lg:col-span-4 rounded-xl border border-white/10 bg-black/30 px-4 py-4">
@@ -646,9 +761,48 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
               </div>
             </div>
           ) : (
+            template.id === 'net_profit_outlook_v1' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    { k: 'Total Profit', v: previewLoading ? '—' : formatCurrency(netPreview.profit) },
+                    { k: 'Total Cost', v: previewLoading ? '—' : formatCurrency(netPreview.cost) },
+                    { k: 'Net Profit', v: previewLoading ? '—' : formatCurrency(netPreview.net) },
+                    { k: 'Margin %', v: previewLoading ? '—' : `${formatNumber(netPreview.margin.toFixed(1))}%` }
+                  ].map(({ k, v }) => (
+                    <div key={k} className="rounded-xl border border-white/10 bg-zinc-950/60 backdrop-blur px-5 py-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                      <div className="text-xs uppercase tracking-wider text-white/50">{k}</div>
+                      <div className="mt-2 text-2xl font-semibold text-white">{v}</div>
+                      <div className="mt-1 text-xs text-white/40">preview</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-4">
+                  <div className="text-white font-semibold">Net Profit Trend (90d)</div>
+                  <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-2">
+                    {previewLoading ? (
+                      <div className="h-40 rounded-lg bg-white/5 animate-pulse" />
+                    ) : (netPreview.series || []).length ? (
+                      <SimpleLineChart
+                        height={200}
+                        series={netPreview.series}
+                        keys={['Profit', 'Cost', 'Net']}
+                        colors={['#22c55e', '#ef4444', '#3b82f6']}
+                      />
+                    ) : (
+                      <div className="h-40 flex items-center justify-center text-sm text-white/40">
+                        Map Profit Amount(s), Profit Date(s), Cost Amount(s), and Cost Date(s) to see a live preview.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="text-sm text-white/60">
               Preview isn’t available for this template yet. You can still create the dashboard.
             </div>
+            )
           )}
         </div>
       )}

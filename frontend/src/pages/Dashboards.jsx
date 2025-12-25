@@ -928,9 +928,19 @@ export default function Dashboards() {
                         try {
                           const tpl = DASHBOARD_TEMPLATES.find(t => t.id === selectedTemplateId) || DASHBOARD_TEMPLATES[0];
                           const getMap = (id) => (mappings && mappings[id]) ? mappings[id] : { tableId: '', columnId: '' };
-                          const getCol = (id) => String(getMap(id)?.columnId || '');
+                          const getColFirst = (id) => {
+                            const v = getMap(id)?.columnId;
+                            if (Array.isArray(v)) return String(v[0] || '');
+                            return String(v || '');
+                          };
+                          const getColIds = (id) => {
+                            const v = getMap(id)?.columnId;
+                            if (Array.isArray(v)) return v.map(String).filter(Boolean);
+                            if (v) return [String(v)];
+                            return [];
+                          };
                           const getTable = (id) => String(getMap(id)?.tableId || '');
-                          const sharedDateCol = getCol('date');
+                          const sharedDateCol = getColFirst('date');
 
                           const sources = [];
                           const metrics = [];
@@ -946,10 +956,10 @@ export default function Dashboards() {
                           if (tpl.id === 'exec_overview_v1') {
                             const revenueTableId = getTable('revenue');
                             const costTableId = getTable('cost');
-                            const revenueCol = getCol('revenue');
-                            const costCol = getCol('cost');
-                            const revenueDateCol = getCol('revenue_date') || sharedDateCol;
-                            const costDateCol = getCol('cost_date') || sharedDateCol;
+                            const revenueCol = getColFirst('revenue');
+                            const costCol = getColFirst('cost');
+                            const revenueDateCol = getColFirst('revenue_date') || sharedDateCol;
+                            const costDateCol = getColFirst('cost_date') || sharedDateCol;
 
                             pushSource('Revenue', revenueTableId);
                             pushSource('Cost', costTableId);
@@ -957,25 +967,47 @@ export default function Dashboards() {
                             pushMetric('Cost', 'SUM', costCol, costDateCol);
                           } else if (tpl.id === 'cost_drivers_v1') {
                             const costTableId = getTable('cost');
-                            const costCol = getCol('cost');
-                            const dateCol = getCol('date');
+                            const costCol = getColFirst('cost');
+                            const dateCol = getColFirst('date');
                             pushSource('T', costTableId);
                             pushMetric('Cost', 'SUM', costCol, dateCol);
                           } else if (tpl.id === 'pipeline_health_v1') {
                             // Basic count metric. Template rendering will handle richer widgets later.
                             const dateTableId = getTable('date');
-                            const dateCol = getCol('date');
+                            const dateCol = getColFirst('date');
                             pushSource('T', dateTableId);
                             if (dateCol) pushMetric('Count', 'COUNT', dateCol, dateCol);
+                          } else if (tpl.id === 'net_profit_outlook_v1') {
+                            const profitTableId = getTable('profit_amounts');
+                            const costTableId = getTable('cost_amounts');
+                            const profitDateCol = getColIds('profit_dates')[0] || '';
+                            const costDateCol = getColIds('cost_dates')[0] || '';
+                            // Store multi-select mappings in template_mappings; DashboardDetail will handle full querying/rendering.
+                            pushSource('Profit', profitTableId);
+                            pushSource('Cost', costTableId);
+                            // Provide a lightweight metric so the generic dashboard renderer has something to show if needed.
+                            const profitFirstAmount = getColIds('profit_amounts')[0] || '';
+                            const costFirstAmount = getColIds('cost_amounts')[0] || '';
+                            if (profitFirstAmount) pushMetric('Profit', 'SUM', profitFirstAmount, profitDateCol);
+                            if (costFirstAmount) pushMetric('Cost', 'SUM', costFirstAmount, costDateCol);
                           }
 
                           const primaryTableId =
                             getTable('revenue') ||
                             getTable('cost') ||
                             getTable('date') ||
+                            getTable('profit_amounts') ||
+                            getTable('cost_amounts') ||
                             (sources[0] ? String(sources[0].tableId) : '');
 
-                          const anyDateCol = sharedDateCol || getCol('revenue_date') || getCol('cost_date') || getCol('date') || '';
+                          const anyDateCol =
+                            sharedDateCol ||
+                            getColFirst('revenue_date') ||
+                            getColFirst('cost_date') ||
+                            getColFirst('date') ||
+                            getColIds('profit_dates')[0] ||
+                            getColIds('cost_dates')[0] ||
+                            '';
 
                           const layout = {
                             name,
