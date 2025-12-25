@@ -122,7 +122,7 @@ function SimpleLineChart({ series, keys, colors, height = 180 }: { series: any[]
 export default function TemplateWizard({ template, tables, loadingTables, onBack, onCreate }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [dashboardName, setDashboardName] = useState(template.name);
-  const [defaultTableId, setDefaultTableId] = useState('');
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [mappings, setMappings] = useState<RoleMappings>({});
   const [saving, setSaving] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -130,20 +130,42 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
   const [previewSeries, setPreviewSeries] = useState<any[]>([]);
   const [previewKpi, setPreviewKpi] = useState({ revenue: 0, cost: 0, profit: 0, margin: 0 });
 
+  const defaultTableId = selectedTableIds?.[0] ? String(selectedTableIds[0]) : '';
+
   const tableById = useMemo(() => {
     const map = new Map<string, TableOption>();
     (tables || []).forEach((t) => map.set(String(t.id), t));
     return map;
   }, [tables]);
 
+  const selectableTables = useMemo(() => {
+    const ids = new Set((selectedTableIds || []).map((x) => String(x)));
+    if (!ids.size) return tables || [];
+    return (tables || []).filter((t) => ids.has(String(t.id)));
+  }, [tables, selectedTableIds]);
+
+  const toggleSelectedTable = (tableId: string) => {
+    const tid = String(tableId || '');
+    if (!tid) return;
+    setSelectedTableIds((prev) => {
+      const set = new Set((prev || []).map((x) => String(x)));
+      if (set.has(tid)) set.delete(tid);
+      else set.add(tid);
+      return Array.from(set);
+    });
+  };
+
+  const selectAllTables = () => setSelectedTableIds((tables || []).map((t) => String(t.id)));
+  const clearAllTables = () => setSelectedTableIds([]);
+
   const requiredRoles = template.requirements.filter((r) => r.required);
   const missingRequired = requiredRoles.filter((r) => !mappings[r.id]?.tableId || !mappings[r.id]?.columnId);
 
   const nextEnabled = useMemo(() => {
-    if (step === 1) return true;
+    if (step === 1) return selectedTableIds.length > 0;
     if (step === 2) return missingRequired.length === 0;
     return true;
-  }, [step, missingRequired.length]);
+  }, [step, missingRequired.length, selectedTableIds.length]);
 
   const setRole = (roleId: string, patch: Partial<RoleMapping>) => {
     setMappings((m) => {
@@ -162,6 +184,25 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
     if (v?.tableId) return { tableId: v.tableId, columnId: v.columnId || '' };
     return { tableId: defaultTableId || '', columnId: '' };
   };
+
+  // Keep mappings valid if tables are deselected
+  useEffect(() => {
+    const allowed = new Set((selectedTableIds || []).map((x) => String(x)));
+    // If none selected, leave mappings as-is; Step 1 prevents going forward anyway.
+    if (!allowed.size) return;
+    setMappings((m) => {
+      let changed = false;
+      const next: RoleMappings = { ...(m || {}) };
+      for (const roleId of Object.keys(next)) {
+        const cur = next[roleId];
+        if (cur?.tableId && !allowed.has(String(cur.tableId))) {
+          next[roleId] = { tableId: defaultTableId || '', columnId: '' };
+          changed = true;
+        }
+      }
+      return changed ? next : m;
+    });
+  }, [selectedTableIds, defaultTableId]);
 
   const filteredSchemaForRole = (role: TemplateRole, tableId: string) => {
     const t = tableById.get(String(tableId));
@@ -365,21 +406,51 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
             />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wider text-white/50">Default table (optional)</div>
-            <select
-              value={defaultTableId}
-              onChange={(e) => setDefaultTableId(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
-            >
-              <option value="">{loadingTables ? 'Loading…' : 'Choose a default table'}</option>
-              {tables.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs uppercase tracking-wider text-white/50">Select tables (required)</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllTables}
+                  className="text-xs rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-white/80"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAllTables}
+                  className="text-xs rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-white/80"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 rounded-xl border border-white/10 bg-black/30 p-3 max-h-48 overflow-y-auto">
+              {loadingTables ? (
+                <div className="text-sm text-white/50">Loading…</div>
+              ) : (tables || []).length ? (
+                <div className="space-y-2">
+                  {(tables || []).map((t) => {
+                    const checked = (selectedTableIds || []).map(String).includes(String(t.id));
+                    return (
+                      <label key={t.id} className="flex items-center gap-3 text-sm text-white/80 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelectedTable(String(t.id))}
+                          className="w-4 h-4"
+                        />
+                        <span className="truncate">{t.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-sm text-white/50">No tables available.</div>
+              )}
+            </div>
             <div className="mt-2 text-xs text-white/40">
-              You can map each required field to a different table in the next step.
+              Pick the tables you want to use for this dashboard. In the next step, each field can be mapped to any selected table.
             </div>
           </div>
         </div>
@@ -412,7 +483,7 @@ export default function TemplateWizard({ template, tables, loadingTables, onBack
                       className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10"
                     >
                       <option value="">{loadingTables ? 'Loading…' : 'Select table'}</option>
-                      {tables.map((t) => (
+                      {selectableTables.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}
                         </option>
