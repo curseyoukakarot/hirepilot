@@ -138,17 +138,18 @@ export default function TableEditor() {
     setEditingCell({ rowIdx, colIdx });
   };
 
-  const commitEditingCell = async () => {
+  const commitEditingCell = async (overrideValue) => {
     try {
       if (isReadOnly) return;
       const ec = editingCell;
       if (!ec) return;
       const col = schema?.[ec.colIdx];
       if (!col) { setEditingCell(null); return; }
+      const valueToApply = overrideValue !== undefined ? overrideValue : editDraftValue;
       if (selectedColIdx !== null && selectedColIdx === ec.colIdx) {
-        applyValueToColumn(ec.colIdx, editDraftValue);
+        applyValueToColumn(ec.colIdx, valueToApply);
       } else {
-        updateCell(ec.rowIdx, col, editDraftValue);
+        updateCell(ec.rowIdx, col, valueToApply);
       }
     } finally {
       setEditingCell(null);
@@ -1136,7 +1137,7 @@ export default function TableEditor() {
           type="date"
           autoFocus
           value={String(editDraftValue || '').slice(0,10)}
-          onChange={(e)=> { setEditDraftValue(e.target.value); setTimeout(()=> commitEditingCell(), 0); }}
+          onChange={(e)=> { const v = e.target.value; setEditDraftValue(v); commitEditingCell(v); }}
           onBlur={() => commitEditingCell()}
           onKeyDown={(e)=> {
             if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
@@ -1164,7 +1165,7 @@ export default function TableEditor() {
               return;
             }
             setEditDraftValue(nextVal);
-            setTimeout(()=> commitEditingCell(), 0);
+            commitEditingCell(nextVal);
           }}
           onBlur={() => commitEditingCell()}
           onKeyDown={(e)=> {
