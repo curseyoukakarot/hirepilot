@@ -33,6 +33,7 @@ export default function TableEditor() {
   const [importFilters, setImportFilters] = useState({ status: '', startDate: '', endDate: '', limit: 1000, importAll: false });
   const [columnMenuIdx, setColumnMenuIdx] = useState(null);
   const [columnMenuPos, setColumnMenuPos] = useState(null); // { top:number, left:number }
+  const [selectedColIdx, setSelectedColIdx] = useState(null); // when set, edits apply to entire column
   const [editColName, setEditColName] = useState('');
   const [editColType, setEditColType] = useState('text');
   const [selectedRowIdxSet, setSelectedRowIdxSet] = useState(new Set());
@@ -87,6 +88,26 @@ export default function TableEditor() {
     return out;
   };
 
+  const formatNumberForColumn = (col, nRaw) => {
+    const n = Number(nRaw);
+    const val = isNaN(n) ? 0 : n;
+    let fmt = String(col?.format || '').toLowerCase();
+    // Back-compat: older formula columns used `currency` without a `format` flag.
+    if (!fmt && String(col?.type || '') === 'formula' && col?.currency) fmt = 'currency';
+    if (fmt === 'percent') {
+      return new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 2 }).format(val);
+    }
+    if (fmt === 'decimal_0') return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+    if (fmt === 'decimal_1') return new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(val);
+    if (fmt === 'decimal_2') return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+    if (fmt === 'currency') {
+      const cur = col?.currency || 'USD';
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).format(val);
+    }
+    // default "number"
+    return numberFormatter.format(val);
+  };
+
   const isEditableTarget = (el) => {
     try {
       if (!el) return false;
@@ -124,7 +145,11 @@ export default function TableEditor() {
       if (!ec) return;
       const col = schema?.[ec.colIdx];
       if (!col) { setEditingCell(null); return; }
-      updateCell(ec.rowIdx, col, editDraftValue);
+      if (selectedColIdx !== null && selectedColIdx === ec.colIdx) {
+        applyValueToColumn(ec.colIdx, editDraftValue);
+      } else {
+        updateCell(ec.rowIdx, col, editDraftValue);
+      }
     } finally {
       setEditingCell(null);
     }
@@ -655,6 +680,15 @@ export default function TableEditor() {
     } catch {}
   };
 
+  const updateColumnMetaAt = async (colIdx, patch) => {
+    if (isReadOnly) return;
+    const col = schema?.[colIdx];
+    if (!col) return;
+    const nextSchema = schema.map((c, i) => (i === colIdx ? { ...(c || {}), ...(patch || {}) } : c));
+    setSchema(nextSchema);
+    await persistSchemaRows(nextSchema, rows);
+  };
+
   const openStatusOptions = (colIdx) => {
     if (isReadOnly) {
       try { window.alert('This table is view-only. Ask the owner for Edit access.'); } catch {}
@@ -779,6 +813,14 @@ export default function TableEditor() {
     };
   }, [columnMenuIdx]);
 
+  // Keep selected column index valid as schema changes
+  useEffect(() => {
+    if (selectedColIdx === null) return;
+    if (!Array.isArray(schema) || selectedColIdx < 0 || selectedColIdx >= schema.length) {
+      setSelectedColIdx(null);
+    }
+  }, [schema, selectedColIdx]);
+
   const toggleSelectRow = (idx, checked) => {
     const set = new Set(selectedRowIdxSet);
     if (checked) set.add(idx); else set.delete(idx);
@@ -816,6 +858,26 @@ export default function TableEditor() {
       if (ri == null || ri < 0 || !col) return;
       updateCell(ri, col, '');
       addActivity(`Cleared ${colLabel(col)}`);
+    } catch {}
+  };
+
+  const applyValueToColumn = (colIdx, value) => {
+    try {
+      if (isReadOnly) return;
+      const col = schema?.[colIdx];
+      if (!col) return;
+      if (col.type === 'formula') return;
+      let normalized = value;
+      if (col.type === 'number' || col.type === 'money') {
+        const num = Number(value);
+        normalized = isNaN(num) ? 0 : num;
+      }
+      const k = colKey(col);
+      const edited = (rows || []).map((r) => ({ ...(r || {}), [k]: normalized }));
+      const next = recomputeFormulasRows(edited);
+      setRows(next);
+      scheduleSave(next);
+      addActivity(`Filled column ${colLabel(col)}`);
     } catch {}
   };
 
@@ -998,7 +1060,10 @@ export default function TableEditor() {
           const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: col.currency || 'USD' });
           return fmt.format(n);
         }
-        if (col.type === 'number' || col.type === 'formula') {
+        if (col.type === 'formula') {
+          return formatNumberForColumn(col, val);
+        }
+        if (col.type === 'number') {
           const n = Number(val) || 0;
           return numberFormatter.format(n);
         }
@@ -1082,6 +1147,7 @@ export default function TableEditor() {
           onChange={(e)=> {
             const nextVal = e.target.value;
             if (nextVal === '__custom__') {
+              cancelEditingCell();
               openStatusOptions(colIdx);
               return;
             }
@@ -1245,6 +1311,21 @@ export default function TableEditor() {
         </header>
         <div id="toolbar" className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center gap-4">
+            {selectedColIdx !== null && schema?.[selectedColIdx] && (
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
+                <div className="text-sm text-purple-900">
+                  Column selected: <span className="font-medium">{schema[selectedColIdx].name}</span>
+                  <span className="text-purple-700 ml-2">Edits apply to all rows.</span>
+                </div>
+                <button
+                  className="text-purple-700 hover:text-purple-900 text-sm"
+                  onClick={()=> setSelectedColIdx(null)}
+                  title="Clear column selection"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             <div className="relative">
               <button id="add-column-btn" disabled={isReadOnly} onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
                 <i className="fas fa-plus text-sm"></i>
@@ -1321,7 +1402,7 @@ export default function TableEditor() {
                       {schema.map((col, ci) => (
                         <th
                           key={col.name}
-                          className={`px-4 py-3 text-left text-sm font-medium border-r border-gray-300 min-w-40 relative select-none ${activeColIdx===ci?'bg-purple-50/40':''}`}
+                          className={`px-4 py-3 text-left text-sm font-medium border-r border-gray-300 min-w-40 relative select-none ${activeColIdx===ci?'bg-purple-50/40':''} ${selectedColIdx===ci?'bg-purple-100/60 ring-2 ring-purple-300':''}`}
                           style={{ width: col.width ? `${col.width}px` : undefined, minWidth: col.width ? `${col.width}px` : undefined }}
                           onClick={()=> setActiveColIdx(ci)}
                           draggable={true}
@@ -1355,6 +1436,13 @@ export default function TableEditor() {
                                 <i className="fas fa-calculator text-xs"></i>
                               </button>
                             )}
+                            <button
+                              title={selectedColIdx===ci ? 'Clear column selection' : 'Select entire column (edits apply to all rows)'}
+                              className={`ml-1 ${selectedColIdx===ci ? 'text-purple-700' : 'text-gray-400'} hover:text-purple-700`}
+                              onClick={(e)=>{ e.stopPropagation(); setSelectedColIdx(selectedColIdx===ci ? null : ci); }}
+                            >
+                              <i className={selectedColIdx===ci ? 'fas fa-check-square text-xs' : 'far fa-square text-xs'}></i>
+                            </button>
                             <i className="fas fa-grip-vertical text-gray-500 cursor-move" title="Drag to reorder"></i>
                             <button
                               className="ml-1 text-gray-400 hover:text-gray-600"
@@ -1420,7 +1508,7 @@ export default function TableEditor() {
                         {schema.map((col, ci) => (
                           <td
                             key={`${idx}-${col.id || col.key || col.name}`}
-                            className="px-2 py-1 border-r border-gray-300"
+                            className={`px-2 py-1 border-r border-gray-300 ${selectedColIdx===ci ? 'bg-purple-50/30' : ''}`}
                             style={{ width: col.width ? `${col.width}px` : undefined }}
                             onClick={(e)=> { e.stopPropagation(); setSelectedRowIndex(idx); setActiveColIdx(ci); }}
                             onDoubleClick={(e)=> { e.stopPropagation(); setSelectedRowIndex(idx); setActiveColIdx(ci); startEditingCell(idx, ci); }}
@@ -1437,9 +1525,11 @@ export default function TableEditor() {
                       {schema.map((col) => (
                         <td key={`total-${col.id || col.key || col.name}`} className="px-4 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">
                           {['number','money','formula'].includes(col.type)
-                            ? ((col.type === 'money' || (col.type==='formula' && col.currency))
+                            ? (col.type === 'money'
                                 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: (col && col.currency) ? col.currency : 'USD' }).format(Number(totals[colKey(col)] || 0))
-                                : numberFormatter.format(Number(totals[colKey(col)] || 0)))
+                                : col.type === 'formula'
+                                  ? formatNumberForColumn(col, Number(totals[colKey(col)] || 0))
+                                  : numberFormatter.format(Number(totals[colKey(col)] || 0)))
                             : ''}
                         </td>
                       ))}
@@ -1488,14 +1578,39 @@ export default function TableEditor() {
                         <button className="px-3 py-2 bg-purple-600 text-white rounded" onClick={()=> applyFormulaToColumn(activeColIdx, schema[activeColIdx].formula || '0')}>Apply</button>
                       </div>
                       <div className="mt-3">
-                        <label className="block text-sm text-gray-600 mb-1">Currency (optional)</label>
-                        <select className="w-full px-3 py-2 border rounded" value={schema[activeColIdx].currency || ''} onChange={(e)=> changeColumnTypeAt(activeColIdx, 'formula', e.target.value || undefined)}>
-                          <option value="">None</option>
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
+                        <label className="block text-sm text-gray-600 mb-1">Format</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded"
+                          value={schema[activeColIdx].format || (schema[activeColIdx].currency ? 'currency' : 'number')}
+                          onChange={async (e)=> {
+                            const fmt = e.target.value;
+                            const patch = { format: fmt };
+                            if (fmt === 'currency' && !schema[activeColIdx].currency) patch.currency = 'USD';
+                            await updateColumnMetaAt(activeColIdx, patch);
+                          }}
+                        >
+                          <option value="number">Number</option>
+                          <option value="currency">Currency</option>
+                          <option value="percent">Percent (%)</option>
+                          <option value="decimal_0">Decimal (0)</option>
+                          <option value="decimal_1">Decimal (0.0)</option>
+                          <option value="decimal_2">Decimal (0.00)</option>
                         </select>
                       </div>
+                      {(String(schema[activeColIdx].format || '') === 'currency' || (!schema[activeColIdx].format && schema[activeColIdx].currency)) && (
+                        <div className="mt-3">
+                          <label className="block text-sm text-gray-600 mb-1">Currency</label>
+                          <select
+                            className="w-full px-3 py-2 border rounded"
+                            value={schema[activeColIdx].currency || 'USD'}
+                            onChange={async (e)=> { await updateColumnMetaAt(activeColIdx, { currency: e.target.value || 'USD', format: 'currency' }); }}
+                          >
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div>
