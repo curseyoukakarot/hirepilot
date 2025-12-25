@@ -7,7 +7,7 @@ import PlotlyImport from 'plotly.js-dist-min';
 const Plotly = PlotlyImport?.default || PlotlyImport;
 
 // -------------------- Minimal SVG charts (Plotly-free fallback / default) --------------------
-function SimpleLineChart({ series, keys, colors, height = 320 }) {
+function SimpleLineChart({ series, keys, colors, height = 320, showLegend = true }) {
   const rows = Array.isArray(series) ? series : [];
   const ks = Array.isArray(keys) ? keys : [];
   if (!rows.length || !ks.length) return null;
@@ -16,7 +16,9 @@ function SimpleLineChart({ series, keys, colors, height = 320 }) {
   const h = height;
   const padL = 50;
   const padR = 18;
-  const padT = 14;
+  const legendEnabled = Boolean(showLegend) && ks.length > 1;
+  const legendH = legendEnabled ? 22 : 0;
+  const padT = 14 + legendH;
   const padB = 28;
   const innerW = w - padL - padR;
   const innerH = h - padT - padB;
@@ -80,8 +82,27 @@ function SimpleLineChart({ series, keys, colors, height = 320 }) {
     );
   });
 
+  const legendEls = legendEnabled ? (
+    <g>
+      {ks.slice(0, 6).map((k, idx) => {
+        const c = colors?.[idx] || '#3b82f6';
+        const x = padL + idx * 150;
+        const y = 16;
+        return (
+          <g key={`legend-${k}`} transform={`translate(${x}, ${y})`}>
+            <line x1="0" x2="18" y1="0" y2="0" stroke={c} strokeWidth="4" strokeLinecap="round" />
+            <text x="26" y="4" fill="rgba(255,255,255,0.75)" fontSize="12">
+              {String(k)}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  ) : null;
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} className="block">
+      {legendEls}
       {gridLines}
       {paths}
       {yLabelEls}

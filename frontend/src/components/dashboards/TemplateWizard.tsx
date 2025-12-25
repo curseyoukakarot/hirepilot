@@ -54,7 +54,7 @@ function formatNumber(n: any) {
   catch { return String(Number(n) || 0); }
 }
 
-function SimpleLineChart({ series, keys, colors, height = 180 }: { series: any[]; keys: string[]; colors: string[]; height?: number }) {
+function SimpleLineChart({ series, keys, colors, height = 180, showLegend = true }: { series: any[]; keys: string[]; colors: string[]; height?: number; showLegend?: boolean }) {
   const rows = Array.isArray(series) ? series : [];
   if (!rows.length || !keys.length) return null;
 
@@ -62,7 +62,9 @@ function SimpleLineChart({ series, keys, colors, height = 180 }: { series: any[]
   const h = height;
   const padL = 44;
   const padR = 16;
-  const padT = 10;
+  const legendEnabled = Boolean(showLegend) && keys.length > 1;
+  const legendH = legendEnabled ? 20 : 0;
+  const padT = 10 + legendH;
   const padB = 26;
   const innerW = w - padL - padR;
   const innerH = h - padT - padB;
@@ -110,8 +112,27 @@ function SimpleLineChart({ series, keys, colors, height = 180 }: { series: any[]
     return <text key={`${lab}-${i}`} x={x} y={h - 8} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="12">{lab}</text>;
   });
 
+  const legendEls = legendEnabled ? (
+    <g>
+      {keys.slice(0, 6).map((k, idx) => {
+        const c = colors[idx] || '#3b82f6';
+        const x = padL + idx * 140;
+        const y = 14;
+        return (
+          <g key={`legend-${k}`} transform={`translate(${x}, ${y})`}>
+            <line x1="0" x2="16" y1="0" y2="0" stroke={c} strokeWidth="4" strokeLinecap="round" />
+            <text x="24" y="4" fill="rgba(255,255,255,0.75)" fontSize="12">
+              {String(k)}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  ) : null;
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} className="block">
+      {legendEls}
       {gridLines}
       {paths}
       {xLabelEls}
