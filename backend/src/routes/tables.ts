@@ -401,12 +401,23 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
       // Notify existing user (best-effort)
       try {
         const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
-        const { data: inviter } = await supabase.from('users').select('email').eq('id', inviterId).maybeSingle();
-        const inviterName = inviter?.email || 'a teammate';
-        const subject = `You were added to a Table on HirePilot`;
+        const inviterResp = await runUsersQueryWithFallback<any>(async (cols) => {
+          const resp = await supabase.from('users').select(cols).eq('id', inviterId).maybeSingle();
+          return { data: resp.data, error: resp.error };
+        });
+        const inviter = inviterResp.data as any;
+        const inviterDisplay =
+          (inviter && displayName(inviter) !== inviterId ? displayName(inviter) : null)
+          || inviter?.email
+          || 'a teammate';
+        const tableName = table.name || 'Untitled Table';
+        const subject = `You were added to "${tableName}" on HirePilot`;
         const html = `
-          <p>${inviterName} added you as a collaborator to the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
+          <p>Hi,</p>
+          <p>${inviterDisplay} added you as a collaborator to the table <strong>${tableName}</strong>.</p>
+          <p>No action is required. The table will now appear in your Tables list.</p>
           <p><a href="${appUrl}/tables/${id}/edit">Open the table</a></p>
+          <p style="color:#888;font-size:12px;margin-top:16px">You received this because your email (${email}) is a HirePilot account.</p>
         `;
         const { sendEmail } = await import('../../services/emailService');
         await sendEmail(email, subject, subject, html);
@@ -434,10 +445,14 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
       // Best-effort email invite
       try {
         const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
-        const subject = `You were invited to collaborate on a Table in HirePilot`;
+        const tableName = table.name || 'Untitled Table';
+        const subject = `You're invited to collaborate on "${tableName}" on HirePilot`;
         const html = `
-          <p>You were invited to collaborate on the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
-          <p>Create/sign in to your recruiter account, then open: <a href="${appUrl}/tables/${id}/edit">${appUrl}/tables/${id}/edit</a></p>
+          <p>Hi,</p>
+          <p>You were invited to collaborate on the table <strong>${tableName}</strong>.</p>
+          <p>To access it, create/sign in to your HirePilot recruiter account using this email address, and the table will appear in your Tables list.</p>
+          <p><a href="${appUrl}/tables/${id}/edit">Open the table</a></p>
+          <p style="color:#888;font-size:12px;margin-top:16px">You received this invite because someone shared a table with ${email}.</p>
         `;
         const { sendEmail } = await import('../../services/emailService');
         await sendEmail(email, subject, subject, html);
@@ -455,10 +470,14 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     // Best-effort email invite
     try {
       const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
-      const subject = `You were invited to collaborate on a Table in HirePilot`;
+      const tableName = table.name || 'Untitled Table';
+      const subject = `You're invited to collaborate on "${tableName}" on HirePilot`;
       const html = `
-        <p>You were invited to collaborate on the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
-        <p>Create/sign in to your recruiter account, then open: <a href="${appUrl}/tables/${id}/edit">${appUrl}/tables/${id}/edit</a></p>
+        <p>Hi,</p>
+        <p>You were invited to collaborate on the table <strong>${tableName}</strong>.</p>
+        <p>To access it, create/sign in to your HirePilot recruiter account using this email address, and the table will appear in your Tables list.</p>
+        <p><a href="${appUrl}/tables/${id}/edit">Open the table</a></p>
+        <p style="color:#888;font-size:12px;margin-top:16px">You received this invite because someone shared a table with ${email}.</p>
       `;
       const { sendEmail } = await import('../../services/emailService');
       await sendEmail(email, subject, subject, html);
