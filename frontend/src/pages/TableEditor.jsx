@@ -41,12 +41,23 @@ export default function TableEditor() {
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [formulaColIdx, setFormulaColIdx] = useState(null);
   const [formulaExpr, setFormulaExpr] = useState('');
+  const [showStatusOptionsModal, setShowStatusOptionsModal] = useState(false);
+  const [statusOptionsColIdx, setStatusOptionsColIdx] = useState(null);
+  const [statusOptionsDraft, setStatusOptionsDraft] = useState([]);
+  const [statusOptionsInput, setStatusOptionsInput] = useState('');
   const [activeColIdx, setActiveColIdx] = useState(0);
   const [activity, setActivity] = useState([]);
   const addActivity = (msg) => setActivity((a)=>[{ msg, at: new Date() }, ...a].slice(0,50));
   const [dragColIdx, setDragColIdx] = useState(null);
   const [resizing, setResizing] = useState(null); // { idx, startX, startW }
   const menuRef = useRef(null);
+  const tableNameInputRef = useRef(null);
+  const commandInputRef = useRef(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
+  const [editingCell, setEditingCell] = useState(null); // { rowIdx, colIdx } | null
+  const [editDraftValue, setEditDraftValue] = useState('');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -58,6 +69,70 @@ export default function TableEditor() {
   };
 
   const isReadOnly = accessRole === 'view';
+
+  const DEFAULT_STATUS_OPTIONS = ['Pipeline','Best Case','Commit','Close Won','Closed Lost','Open','Draft','Hired'];
+  const normalizeStatusOptions = (list) => {
+    const raw = Array.isArray(list) ? list : [];
+    const out = [];
+    const seen = new Set();
+    for (const v of raw) {
+      const s = String(v ?? '').trim();
+      if (!s) continue;
+      const key = s.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+    return out;
+  };
+
+  const isEditableTarget = (el) => {
+    try {
+      if (!el) return false;
+      const tag = String(el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    } catch { return false; }
+  };
+
+  const getCellValue = (rowIdx, colIdx) => {
+    try {
+      const col = schema?.[colIdx];
+      const row = rows?.[rowIdx];
+      if (!col || !row) return '';
+      return row?.[colKey(col)] ?? '';
+    } catch { return ''; }
+  };
+
+  const startEditingCell = (rowIdx, colIdx) => {
+    if (isReadOnly) return;
+    if (rowIdx == null || colIdx == null) return;
+    const col = schema?.[colIdx];
+    if (!col) return;
+    if (col?.type === 'formula') return;
+    const current = getCellValue(rowIdx, colIdx);
+    setEditDraftValue(current === null || current === undefined ? '' : String(current));
+    setEditingCell({ rowIdx, colIdx });
+  };
+
+  const commitEditingCell = async () => {
+    try {
+      if (isReadOnly) return;
+      const ec = editingCell;
+      if (!ec) return;
+      const col = schema?.[ec.colIdx];
+      if (!col) { setEditingCell(null); return; }
+      updateCell(ec.rowIdx, col, editDraftValue);
+    } finally {
+      setEditingCell(null);
+    }
+  };
+
+  const cancelEditingCell = () => {
+    setEditingCell(null);
+    setEditDraftValue('');
+  };
 
   const generateId = () => {
     try { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; } catch { return `col_${Date.now()}_${Math.random().toString(16).slice(2)}`; }
@@ -579,6 +654,49 @@ export default function TableEditor() {
     } catch {}
   };
 
+  const openStatusOptions = (colIdx) => {
+    if (isReadOnly) {
+      try { window.alert('This table is view-only. Ask the owner for Edit access.'); } catch {}
+      return;
+    }
+    const col = schema?.[colIdx];
+    if (!col) return;
+    const initial = normalizeStatusOptions(Array.isArray(col?.status_options) ? col.status_options : DEFAULT_STATUS_OPTIONS);
+    setStatusOptionsColIdx(colIdx);
+    setStatusOptionsDraft(initial);
+    setStatusOptionsInput('');
+    setShowStatusOptionsModal(true);
+  };
+
+  const closeStatusOptions = () => {
+    setShowStatusOptionsModal(false);
+    setStatusOptionsColIdx(null);
+    setStatusOptionsDraft([]);
+    setStatusOptionsInput('');
+  };
+
+  const saveStatusOptions = async () => {
+    if (isReadOnly) return;
+    const colIdx = statusOptionsColIdx;
+    const col = schema?.[colIdx];
+    if (colIdx == null || !col) return;
+    const cleaned = normalizeStatusOptions(statusOptionsDraft);
+    const defaultsClean = normalizeStatusOptions(DEFAULT_STATUS_OPTIONS);
+    const isSameAsDefaults = cleaned.length === defaultsClean.length && cleaned.every((v, i) => v === defaultsClean[i]);
+    const nextSchema = schema.map((c, i) => {
+      if (i !== colIdx) return c;
+      if (isSameAsDefaults) {
+        const { status_options, ...rest } = c || {};
+        return rest;
+      }
+      return { ...(c || {}), status_options: cleaned };
+    });
+    setSchema(nextSchema);
+    await persistSchemaRows(nextSchema, rows);
+    addActivity(`Updated status options for ${colLabel(col)}`);
+    closeStatusOptions();
+  };
+
   const ensureUniqueColName = (base) => {
     const taken = new Set((schema||[]).map(c => String(c.name)));
     if (!taken.has(base)) return base;
@@ -685,25 +803,231 @@ export default function TableEditor() {
     addActivity(`Deleted ${count} row${count>1?'s':''}`);
   };
 
-  const renderEditableCell = (row, col, rowIdx) => {
+  const clearActiveCell = async () => {
+    try {
+      if (isReadOnly) return;
+      const ri = selectedRowIndex;
+      const ci = activeColIdx;
+      const col = schema?.[ci];
+      if (ri == null || ri < 0 || !col) return;
+      updateCell(ri, col, '');
+      addActivity(`Cleared ${colLabel(col)}`);
+    } catch {}
+  };
+
+  const closeTopUI = () => {
+    if (showCommandPalette) { setShowCommandPalette(false); setCommandQuery(''); return true; }
+    if (showShortcuts) { setShowShortcuts(false); return true; }
+    if (editingCell) { cancelEditingCell(); return true; }
+    if (showStatusOptionsModal) { closeStatusOptions(); return true; }
+    if (showFormulaModal) { setShowFormulaModal(false); return true; }
+    if (showImportModal) { setShowImportModal(false); return true; }
+    if (showShare) { setShowShare(false); return true; }
+    if (columnMenuIdx !== null) { setColumnMenuIdx(null); return true; }
+    if (columnMenuOpen) { setColumnMenuOpen(false); return true; }
+    return false;
+  };
+
+  const commands = useMemo(() => {
+    const list = [];
+    list.push({ id: 'add_row', title: 'Add row', shortcut: '⌘Enter', enabled: !isReadOnly, run: () => handleAddRow() });
+    list.push({ id: 'delete_selected', title: 'Delete selected rows…', shortcut: 'Del', enabled: !isReadOnly && selectedRowIdxSet.size > 0, run: () => bulkDeleteSelected() });
+    list.push({ id: 'clear_cell', title: 'Clear active cell', shortcut: 'Del', enabled: !isReadOnly && selectedRowIndex >= 0 && !!schema?.[activeColIdx], run: () => clearActiveCell() });
+    list.push({ id: 'rename_table', title: 'Rename table', shortcut: '', enabled: !isReadOnly, run: () => { try { tableNameInputRef.current?.focus(); tableNameInputRef.current?.select?.(); } catch {} } });
+    list.push({ id: 'import_data', title: 'Import data…', shortcut: '', enabled: !isReadOnly, run: () => { setImportSource('/leads'); setShowImportModal(true); } });
+    list.push({ id: 'share', title: 'Share…', shortcut: '', enabled: canManageAccess, run: () => setShowShare(true) });
+    list.push({ id: 'add_col_text', title: 'Add column: Text', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('text') });
+    list.push({ id: 'add_col_status', title: 'Add column: Status', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('status') });
+    list.push({ id: 'add_col_number', title: 'Add column: Number', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('number') });
+    list.push({ id: 'add_col_money', title: 'Add column: Money', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('money') });
+    list.push({ id: 'add_col_date', title: 'Add column: Date', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('date') });
+    list.push({ id: 'add_col_formula', title: 'Add column: Formula', shortcut: '', enabled: !isReadOnly, run: () => handleAddColumn('formula') });
+
+    const activeCol = schema?.[activeColIdx];
+    if (activeCol?.type === 'status') {
+      list.push({ id: 'customize_status', title: `Customize status options (${colLabel(activeCol)})…`, shortcut: '', enabled: !isReadOnly, run: () => openStatusOptions(activeColIdx) });
+    }
+    if (activeCol?.type === 'formula') {
+      list.push({ id: 'edit_formula', title: `Edit formula (${colLabel(activeCol)})…`, shortcut: '', enabled: !isReadOnly, run: () => openFormulaBuilder(activeColIdx) });
+    }
+
+    return list;
+  }, [isReadOnly, selectedRowIdxSet, selectedRowIndex, activeColIdx, schema, canManageAccess, showCommandPalette, showShortcuts]);
+
+  const filteredCommands = useMemo(() => {
+    const q = String(commandQuery || '').trim().toLowerCase();
+    const base = commands.filter((c) => c.enabled);
+    if (!q) return base;
+    return base.filter((c) => String(c.title).toLowerCase().includes(q));
+  }, [commands, commandQuery]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const key = String(e.key || '');
+      const meta = !!e.metaKey;
+      const ctrl = !!e.ctrlKey;
+
+      // Always allow Esc to close the top-most UI.
+      if (key === 'Escape') {
+        const closed = closeTopUI();
+        if (closed) e.preventDefault();
+        return;
+      }
+
+      // Shortcuts overlay: Shift+/ (i.e., '?')
+      if ((key === '?' || (key === '/' && e.shiftKey)) && !meta && !ctrl) {
+        if (!showCommandPalette) {
+          e.preventDefault();
+          setShowShortcuts(true);
+        }
+        return;
+      }
+
+      // Command palette: Cmd/Ctrl+K
+      if ((meta || ctrl) && key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(true);
+        setShowShortcuts(false);
+        return;
+      }
+
+      // If typing in an input/textarea/select, don't hijack keystrokes (except meta/ctrl combos above).
+      if (isEditableTarget(document.activeElement)) return;
+
+      // Don't move around the grid if any modal/palette is open.
+      if (showCommandPalette || showShortcuts || showStatusOptionsModal || showFormulaModal || showImportModal || showShare) return;
+
+      const maxRow = (rows || []).length - 1;
+      const maxCol = (schema || []).length - 1;
+      const hasGrid = maxRow >= 0 && maxCol >= 0;
+      const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+      const setSelection = (ri, ci) => {
+        if (!hasGrid) return;
+        setSelectedRowIndex(clamp(ri, 0, maxRow));
+        setActiveColIdx(clamp(ci, 0, maxCol));
+      };
+
+      // Grid navigation (navigate mode only)
+      if (!editingCell && hasGrid) {
+        if (key === 'ArrowUp') { e.preventDefault(); setSelection((selectedRowIndex >= 0 ? selectedRowIndex : 0) - 1, activeColIdx); return; }
+        if (key === 'ArrowDown') { e.preventDefault(); setSelection((selectedRowIndex >= 0 ? selectedRowIndex : 0) + 1, activeColIdx); return; }
+        if (key === 'ArrowLeft') { e.preventDefault(); setSelection(selectedRowIndex >= 0 ? selectedRowIndex : 0, activeColIdx - 1); return; }
+        if (key === 'ArrowRight') { e.preventDefault(); setSelection(selectedRowIndex >= 0 ? selectedRowIndex : 0, activeColIdx + 1); return; }
+
+        if (key === 'Tab') {
+          e.preventDefault();
+          const ri = selectedRowIndex >= 0 ? selectedRowIndex : 0;
+          const ci = activeColIdx;
+          const dir = e.shiftKey ? -1 : 1;
+          let nextCi = ci + dir;
+          let nextRi = ri;
+          if (nextCi > maxCol) { nextCi = 0; nextRi = ri + 1; }
+          if (nextCi < 0) { nextCi = maxCol; nextRi = ri - 1; }
+          nextRi = clamp(nextRi, 0, maxRow);
+          setSelection(nextRi, nextCi);
+          return;
+        }
+
+        if (key === 'Enter') {
+          e.preventDefault();
+          const ri = selectedRowIndex >= 0 ? selectedRowIndex : 0;
+          const ci = activeColIdx;
+          startEditingCell(ri, ci);
+          return;
+        }
+      }
+
+      // Add row: Cmd/Ctrl+Enter
+      if ((meta || ctrl) && key === 'Enter') {
+        e.preventDefault();
+        if (!isReadOnly) handleAddRow();
+        return;
+      }
+
+      // Delete behavior: if rows are selected, delete them; else clear the active cell.
+      if (key === 'Backspace' || key === 'Delete') {
+        if (isReadOnly) return;
+        e.preventDefault();
+        if (selectedRowIdxSet.size > 0) bulkDeleteSelected();
+        else clearActiveCell();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    isReadOnly,
+    selectedRowIdxSet,
+    selectedRowIndex,
+    activeColIdx,
+    rows,
+    schema,
+    showCommandPalette,
+    showShortcuts,
+    showStatusOptionsModal,
+    showFormulaModal,
+    showImportModal,
+    showShare,
+    columnMenuIdx,
+    columnMenuOpen,
+  ]);
+
+  useEffect(() => {
+    if (!showCommandPalette) return;
+    try {
+      setTimeout(() => commandInputRef.current?.focus?.(), 0);
+    } catch {}
+  }, [showCommandPalette]);
+
+  const renderEditableCell = (row, col, rowIdx, colIdx) => {
     const k = colKey(col);
     const val = row?.[k] ?? '';
-    const common = {
-      className: "w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200 dark:placeholder-gray-400",
-      onBlur: () => persistRows(rows),
-    };
-    const currencySymbol = (cur) => (cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '$');
+    const isEditing = !!editingCell && editingCell.rowIdx === rowIdx && editingCell.colIdx === colIdx;
+    const commonClass = "w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200 dark:placeholder-gray-400";
+
+    // Navigate mode (display-only)
+    if (!isEditing) {
+      const display = (() => {
+        if (val === null || val === undefined || val === '') return '';
+        if (col.type === 'money') {
+          const n = Number(String(val ?? '').replace(/[^0-9.-]/g, '')) || 0;
+          const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: col.currency || 'USD' });
+          return fmt.format(n);
+        }
+        if (col.type === 'number' || col.type === 'formula') {
+          const n = Number(val) || 0;
+          return numberFormatter.format(n);
+        }
+        if (col.type === 'date') return String(val).slice(0, 10);
+        return String(val);
+      })();
+      const isSelected = selectedRowIndex === rowIdx && activeColIdx === colIdx;
+      return (
+        <div className={`px-2 py-1 min-h-[32px] flex items-center rounded ${isSelected ? 'ring-2 ring-purple-300 bg-purple-50/40' : ''}`}>
+          <span className={`text-sm ${display ? 'text-gray-900' : 'text-gray-400'}`}>{display}</span>
+        </div>
+      );
+    }
+
+    // Edit mode (editor)
     if (col.type === 'number' || col.type === 'money') {
       if (col.type === 'money') {
+        const currencySymbol = (cur) => (cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '$');
         return (
           <div className="flex items-center">
             <span className="text-gray-500 mr-1">{currencySymbol(col.currency || 'USD')}</span>
             <input
               type="number"
               step="0.01"
-              value={val === '' || val === null ? '' : Number(val)}
-              onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-              {...common}
+              autoFocus
+              value={editDraftValue}
+              onChange={(e)=> setEditDraftValue(e.target.value)}
+              onBlur={() => commitEditingCell()}
+              onKeyDown={(e)=> {
+                if (e.key === 'Enter') { e.preventDefault(); commitEditingCell(); }
+                if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
+              }}
+              className={commonClass}
             />
           </div>
         );
@@ -712,57 +1036,90 @@ export default function TableEditor() {
         <input
           type="number"
           step="1"
-          value={val === '' || val === null ? '' : Number(val)}
-          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-          {...common}
+          autoFocus
+          value={editDraftValue}
+          onChange={(e)=> setEditDraftValue(e.target.value)}
+          onBlur={() => commitEditingCell()}
+          onKeyDown={(e)=> {
+            if (e.key === 'Enter') { e.preventDefault(); commitEditingCell(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
+          }}
+          className={commonClass}
         />
       );
     }
-    if (col.type === 'formula') {
-      const n = Number(val) || 0;
-      if (col.currency) {
-        const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: col.currency || 'USD' });
-        return <span className="px-2 py-1 inline-block w-full text-right">{fmt.format(n)}</span>;
-      }
-      return <span className="px-2 py-1 inline-block w-full text-right">{numberFormatter.format(n)}</span>;
-    }
+
     if (col.type === 'date') {
-      const iso = val ? String(val).slice(0,10) : '';
       return (
         <input
           type="date"
-          value={iso}
-          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-          {...common}
+          autoFocus
+          value={String(editDraftValue || '').slice(0,10)}
+          onChange={(e)=> { setEditDraftValue(e.target.value); setTimeout(()=> commitEditingCell(), 0); }}
+          onBlur={() => commitEditingCell()}
+          onKeyDown={(e)=> {
+            if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
+          }}
+          className={commonClass}
         />
       );
     }
+
     if (col.type === 'status') {
-      // Build options from existing values + sensible defaults
-      const defaults = ['Pipeline','Best Case','Commit','Close Won','Closed Lost','Open','Draft','Hired'];
+      const custom = normalizeStatusOptions(col?.status_options);
+      const base = custom.length ? custom : DEFAULT_STATUS_OPTIONS;
       const existing = Array.from(new Set((rows||[]).map(r => String((r||{})[k] ?? '')).filter(Boolean)));
-      const options = Array.from(new Set([...existing, ...defaults]));
+      const baseSet = new Set(base.map((x) => String(x).toLowerCase()));
+      const extras = existing.filter((x) => x && !baseSet.has(String(x).toLowerCase()));
       return (
         <select
-          value={String(val)}
-          onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-          className="w-full bg-transparent border-none outline-none focus:bg-white dark:focus:bg-gray-800 focus:border focus:border-purple-300 dark:focus:border-gray-600 rounded px-2 py-1 dark:text-gray-200"
-          onBlur={() => persistRows(rows)}
+          autoFocus
+          value={String(editDraftValue || '')}
+          onChange={(e)=> {
+            const nextVal = e.target.value;
+            if (nextVal === '__custom__') {
+              openStatusOptions(colIdx);
+              return;
+            }
+            setEditDraftValue(nextVal);
+            setTimeout(()=> commitEditingCell(), 0);
+          }}
+          onBlur={() => commitEditingCell()}
+          onKeyDown={(e)=> {
+            if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
+          }}
+          className={commonClass}
         >
           <option value=""></option>
-          {options.map(opt => (
+          {base.map(opt => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
+          {!!extras.length && (
+            <optgroup label="In table data">
+              {extras.map(opt => (
+                <option key={`extra_${opt}`} value={opt}>{opt}</option>
+              ))}
+            </optgroup>
+          )}
+          <option disabled value="__sep__">────────</option>
+          <option value="__custom__">Custom…</option>
         </select>
       );
     }
-    // status/text/formula fallback to text edit
+
+    // Text fallback
     return (
       <input
         type="text"
-        value={String(val)}
-        onChange={(e)=> updateCell(rowIdx, col, e.target.value)}
-        {...common}
+        autoFocus
+        value={String(editDraftValue)}
+        onChange={(e)=> setEditDraftValue(e.target.value)}
+        onBlur={() => commitEditingCell()}
+        onKeyDown={(e)=> {
+          if (e.key === 'Enter') { e.preventDefault(); commitEditingCell(); }
+          if (e.key === 'Escape') { e.preventDefault(); cancelEditingCell(); }
+        }}
+        className={commonClass}
       />
     );
   };
@@ -862,6 +1219,7 @@ export default function TableEditor() {
                   placeholder="Name your table…"
                   title="Click to rename your table"
                   disabled={isReadOnly}
+                  ref={tableNameInputRef}
                   className="pl-7 pr-3 text-2xl font-semibold text-gray-900 bg-gray-50 border border-transparent outline-none focus:bg-white focus:border-purple-300 rounded px-2 py-1 transition-colors"
                 />
               </div>
@@ -931,6 +1289,13 @@ export default function TableEditor() {
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
             <div className="flex items-center gap-2 ml-auto">
+              <button
+                title="Keyboard shortcuts (?)"
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                onClick={()=> setShowShortcuts(true)}
+              >
+                <i className="fas fa-keyboard"></i>
+              </button>
               <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"><i className="fas fa-filter"></i></button>
               <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"><i className="fas fa-sort"></i></button>
               <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
@@ -1083,11 +1448,31 @@ export default function TableEditor() {
                       </tr>
                     )}
                     {rows.map((r, idx) => (
-                      <tr key={idx} className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50 dark:bg-gray-800' : 'hover:bg-purple-50 dark:hover:bg-gray-800'}`} onClick={()=>setSelectedRowIndex(idx)}>
-                        <td className="px-4 py-3"><input type="checkbox" className="rounded border-gray-300" onChange={(e)=>toggleSelectRow(idx, e.target.checked)} checked={selectedRowIdxSet.has(idx)} /></td>
+                      <tr
+                        key={idx}
+                        className={`transition-colors border-b border-gray-300 ${selectedRowIndex === idx ? 'bg-purple-50 dark:bg-gray-800' : 'hover:bg-purple-50 dark:hover:bg-gray-800'}`}
+                        onClick={()=>{
+                          setSelectedRowIndex(idx);
+                          if (activeColIdx == null || activeColIdx < 0) setActiveColIdx(0);
+                        }}
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            onChange={(e)=>toggleSelectRow(idx, e.target.checked)}
+                            checked={selectedRowIdxSet.has(idx)}
+                          />
+                        </td>
                         {schema.map((col, ci) => (
-                          <td key={`${idx}-${col.id || col.key || col.name}`} className="px-4 py-3 border-r border-gray-300" style={{ width: col.width ? `${col.width}px` : undefined }} onClick={()=> setActiveColIdx(ci)}>
-                            {renderEditableCell(r, col, idx)}
+                          <td
+                            key={`${idx}-${col.id || col.key || col.name}`}
+                            className="px-2 py-1 border-r border-gray-300"
+                            style={{ width: col.width ? `${col.width}px` : undefined }}
+                            onClick={(e)=> { e.stopPropagation(); setSelectedRowIndex(idx); setActiveColIdx(ci); }}
+                            onDoubleClick={(e)=> { e.stopPropagation(); setSelectedRowIndex(idx); setActiveColIdx(ci); startEditingCell(idx, ci); }}
+                          >
+                            {renderEditableCell(r, col, idx, ci)}
                           </td>
                         ))}
                       </tr>
@@ -1406,6 +1791,224 @@ export default function TableEditor() {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={()=>setShowImportModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{ await importFrom(importSource, importFilters); setShowImportModal(false); }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Options Modal */}
+      {showStatusOptionsModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+          onClick={(e)=>{ if (e.target === e.currentTarget) closeStatusOptions(); }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-semibold text-gray-900">Customize status options</h3>
+              <button onClick={closeStatusOptions} className="text-gray-500 hover:text-gray-700"><i className="fas fa-times"></i></button>
+            </div>
+            <div className="text-sm text-gray-600 mb-4">
+              These options will appear in the dropdown for this status column.
+            </div>
+
+            <div className="flex gap-2 mb-3">
+              <input
+                value={statusOptionsInput}
+                onChange={(e)=> setStatusOptionsInput(e.target.value)}
+                onKeyDown={(e)=> {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const v = String(statusOptionsInput || '').trim();
+                    if (!v) return;
+                    const next = normalizeStatusOptions([...(statusOptionsDraft || []), v]);
+                    setStatusOptionsDraft(next);
+                    setStatusOptionsInput('');
+                  }
+                }}
+                placeholder="Add an option (e.g., Interviewing)"
+                className="flex-1 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+              />
+              <button
+                onClick={()=> {
+                  const v = String(statusOptionsInput || '').trim();
+                  if (!v) return;
+                  const next = normalizeStatusOptions([...(statusOptionsDraft || []), v]);
+                  setStatusOptionsDraft(next);
+                  setStatusOptionsInput('');
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              {(statusOptionsDraft || []).length === 0 ? (
+                <div className="px-4 py-4 text-sm text-gray-500">No options yet. Add your first status above.</div>
+              ) : (
+                <div className="divide-y">
+                  {(statusOptionsDraft || []).map((opt, idx) => (
+                    <div key={`${opt}_${idx}`} className="px-4 py-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-gray-800 truncate">{opt}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          disabled={idx === 0}
+                          onClick={()=> {
+                            const next = [...(statusOptionsDraft || [])];
+                            const tmp = next[idx - 1];
+                            next[idx - 1] = next[idx];
+                            next[idx] = tmp;
+                            setStatusOptionsDraft(next);
+                          }}
+                          className="px-2 py-1 text-gray-600 hover:text-gray-900 disabled:opacity-30"
+                          title="Move up"
+                        >
+                          <i className="fas fa-arrow-up"></i>
+                        </button>
+                        <button
+                          disabled={idx === (statusOptionsDraft || []).length - 1}
+                          onClick={()=> {
+                            const next = [...(statusOptionsDraft || [])];
+                            const tmp = next[idx + 1];
+                            next[idx + 1] = next[idx];
+                            next[idx] = tmp;
+                            setStatusOptionsDraft(next);
+                          }}
+                          className="px-2 py-1 text-gray-600 hover:text-gray-900 disabled:opacity-30"
+                          title="Move down"
+                        >
+                          <i className="fas fa-arrow-down"></i>
+                        </button>
+                        <button
+                          onClick={()=> setStatusOptionsDraft((statusOptionsDraft || []).filter((_, i) => i !== idx))}
+                          className="px-2 py-1 text-red-600 hover:text-red-700"
+                          title="Remove"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={()=> setStatusOptionsDraft(normalizeStatusOptions(DEFAULT_STATUS_OPTIONS))}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Reset to defaults
+              </button>
+              <div className="flex gap-3">
+                <button onClick={closeStatusOptions} className="px-4 py-2 border rounded-lg">Cancel</button>
+                <button onClick={saveStatusOptions} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Command Palette (⌘K) */}
+      {showCommandPalette && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-24"
+          onClick={(e)=>{ if (e.target === e.currentTarget) { setShowCommandPalette(false); setCommandQuery(''); } }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center gap-2">
+              <i className="fas fa-search text-gray-400"></i>
+              <input
+                ref={commandInputRef}
+                value={commandQuery}
+                onChange={(e)=> setCommandQuery(e.target.value)}
+                onKeyDown={(e)=> {
+                  if (e.key === 'Escape') { e.preventDefault(); setShowCommandPalette(false); setCommandQuery(''); }
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const first = (filteredCommands || [])[0];
+                    if (first?.run) {
+                      setShowCommandPalette(false);
+                      setCommandQuery('');
+                      try { first.run(); } catch {}
+                    }
+                  }
+                }}
+                placeholder="Search actions…"
+                className="flex-1 outline-none text-sm py-2"
+              />
+              <div className="text-xs text-gray-400">Esc</div>
+            </div>
+            <div className="max-h-[360px] overflow-auto">
+              {(filteredCommands || []).length === 0 ? (
+                <div className="px-4 py-6 text-sm text-gray-500">No matching actions.</div>
+              ) : (
+                <div className="divide-y">
+                  {(filteredCommands || []).slice(0, 12).map((cmd) => (
+                    <button
+                      key={cmd.id}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between gap-4"
+                      onClick={() => {
+                        setShowCommandPalette(false);
+                        setCommandQuery('');
+                        try { cmd.run(); } catch {}
+                      }}
+                    >
+                      <div className="text-sm text-gray-900">{cmd.title}</div>
+                      {cmd.shortcut ? <div className="text-xs text-gray-500">{cmd.shortcut}</div> : <div className="text-xs text-gray-400"></div>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
+              <div>Tip: press <span className="font-medium">Enter</span> to run the first result</div>
+              <div className="text-gray-400">⌘K</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Overlay (?) */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+          onClick={(e)=>{ if (e.target === e.currentTarget) setShowShortcuts(false); }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Keyboard shortcuts</h3>
+              <button onClick={()=>setShowShortcuts(false)} className="text-gray-500 hover:text-gray-700"><i className="fas fa-times"></i></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border rounded-lg p-4">
+                <div className="text-xs font-medium text-gray-500 mb-2">GLOBAL</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between"><span>Open command palette</span><span className="text-gray-600">⌘K / Ctrl+K</span></div>
+                  <div className="flex items-center justify-between"><span>Show shortcuts</span><span className="text-gray-600">?</span></div>
+                  <div className="flex items-center justify-between"><span>Close dialogs / menus</span><span className="text-gray-600">Esc</span></div>
+                </div>
+              </div>
+              <div className="border rounded-lg p-4">
+                <div className="text-xs font-medium text-gray-500 mb-2">ROWS & CELLS</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between"><span>Move selection</span><span className="text-gray-600">← ↑ → ↓</span></div>
+                  <div className="flex items-center justify-between"><span>Next / previous cell</span><span className="text-gray-600">Tab / Shift+Tab</span></div>
+                  <div className="flex items-center justify-between"><span>Edit selected cell</span><span className="text-gray-600">Enter</span></div>
+                  <div className="flex items-center justify-between"><span>Cancel editing</span><span className="text-gray-600">Esc</span></div>
+                  <div className="flex items-center justify-between"><span>Add row</span><span className="text-gray-600">⌘Enter / Ctrl+Enter</span></div>
+                  <div className="flex items-center justify-between"><span>Delete selected rows</span><span className="text-gray-600">Del</span></div>
+                  <div className="flex items-center justify-between"><span>Clear active cell</span><span className="text-gray-600">Del</span></div>
+                </div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Note: Delete/Clear only triggers when you’re not actively typing in an input.
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button onClick={()=>setShowShortcuts(false)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Done</button>
             </div>
           </div>
         </div>
