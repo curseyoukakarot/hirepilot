@@ -19,11 +19,11 @@ export default function TableEditor() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
   const [collabProfiles, setCollabProfiles] = useState({}); // user_id -> { id,email,name,avatar_url,team_id,role }
+  const [guestInvites, setGuestInvites] = useState([]); // [{ email, role, status }]
   const [canManageAccess, setCanManageAccess] = useState(false);
   const [addingUserId, setAddingUserId] = useState('');
   const [addingRole, setAddingRole] = useState('view');
-  const [shareSearch, setShareSearch] = useState('');
-  const [shareResults, setShareResults] = useState([]);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -275,9 +275,13 @@ export default function TableEditor() {
       setShareLoading(true);
       const data = await apiFetch(`${backendBase}/api/tables/${id}/collaborators-unified`);
       const collabs = Array.isArray(data?.collaborators) ? data.collaborators : [];
-      setCollaborators(collabs.map((c)=>({ user_id: String(c.user_id), role: (String(c.role)==='edit'?'edit':'view') })));
+      // Only member collaborators are represented in custom_tables.collaborators (user_id + role)
+      const members = collabs.filter((c)=>String(c?.kind||'') !== 'guest' && c?.user_id);
+      const guests = collabs.filter((c)=>String(c?.kind||'') === 'guest' && c?.email);
+      setGuestInvites(guests.map((g)=>({ email: String(g.email).toLowerCase(), role: (String(g.role)==='edit'?'edit':'view'), status: String(g.status||'pending') })));
+      setCollaborators(members.map((c)=>({ user_id: String(c.user_id), role: (String(c.role)==='edit'?'edit':'view') })));
       const map = {};
-      for (const c of collabs) {
+      for (const c of members) {
         if (c?.user?.id) {
           map[String(c.user.id)] = {
             id: String(c.user.id),
@@ -303,27 +307,6 @@ export default function TableEditor() {
     if (!showShare) return;
     loadShareState();
   }, [showShare, id]);
-
-  // Search any recruiter user to share with (backend-enforced recruiter-only)
-  useEffect(() => {
-    if (!showShare) return;
-    const q = String(shareSearch || '').trim();
-    if (!q) { setShareResults([]); return; }
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      try {
-        const resp = await apiFetch(`${backendBase}/api/tables/users/search?q=${encodeURIComponent(q)}`);
-        const users = Array.isArray(resp?.users) ? resp.users : [];
-        if (cancelled) return;
-        // Filter out existing collaborators and self/team duplicates
-        const existing = new Set((collaborators || []).map(c => String(c.user_id)));
-        setShareResults(users.filter(u => u?.id && !existing.has(String(u.id))));
-      } catch {
-        if (!cancelled) setShareResults([]);
-      }
-    }, 250);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [shareSearch, showShare, collaborators, teamMembers]);
 
   // Realtime presence stub
   useEffect(() => {
@@ -1224,134 +1207,133 @@ export default function TableEditor() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Add collaborator</label>
-                <div className="mb-2">
-                  <input
-                    value={shareSearch}
-                    onChange={(e)=>setShareSearch(e.target.value)}
-                    placeholder="Search any recruiter user by email or name…"
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                  {(() => {
-                    const q = String(shareSearch || '').trim();
-                    const isEmail = q.includes('@') && q.includes('.');
-                    if (!q) return null;
-                    if (shareResults.length > 0) return null;
-                    if (!isEmail) return null;
-                    return (
-                      <div className="mt-2 text-xs text-gray-500">
-                        No recruiter user found for <span className="font-medium">{q}</span>. (They must already have an `app.thehirepilot.com` account.)
-                      </div>
-                    );
-                  })()}
-                  {shareResults.length > 0 && (
-                    <div className="mt-2 max-h-44 overflow-auto border rounded-lg divide-y">
-                      {shareResults.slice(0, 20).map((u)=>(
-                        <button
-                          key={u.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onClick={()=>{
-                            setAddingUserId(String(u.id));
-                            setShareSearch(String(u.email || u.name || ''));
-                            setShareResults([]);
-                          }}
-                        >
-                          <div className="text-sm font-medium text-gray-900 truncate">{u.name || u.email || u.id}</div>
-                          <div className="text-xs text-gray-500 truncate">{u.email || ''}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
                 <div className="flex items-center gap-2">
-                  <select value={addingUserId} onChange={(e)=>setAddingUserId(e.target.value)} className="flex-1 px-3 py-2 border rounded-lg">
-                    <option value="">Select user</option>
-                    {teamMembers
-                      .filter(m => !(collaborators||[]).some(c => String(c.user_id) === String(m.id)))
-                      .map((m)=>(
-                        <option key={m.id} value={m.id}>{m.full_name || [m.first_name,m.last_name].filter(Boolean).join(' ') || m.email || m.id}</option>
-                      ))}
-                    {shareResults.length > 0 && (
-                      <optgroup label="Other recruiter users">
-                        {shareResults.slice(0, 20).map((u)=>(
-                          <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                  <input
+                    value={inviteEmail}
+                    onChange={(e)=>setInviteEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="flex-1 px-3 py-2 border rounded-lg"
+                  />
                   <select value={addingRole} onChange={(e)=>setAddingRole(e.target.value)} className="px-3 py-2 border rounded-lg">
                     <option value="view">View</option>
                     <option value="edit">Edit</option>
                   </select>
-                  <button onClick={async ()=>{
-                    try {
-                      let uid = String(addingUserId || '').trim();
-                      const q = String(shareSearch || '').trim();
-
-                      // If no selected user, attempt to resolve from typed value (email or unique match)
-                      if (!uid && q) {
-                        const isEmail = q.includes('@') && q.includes('.');
-                        const resolveUrl = isEmail
-                          ? `${backendBase}/api/tables/users/resolve?email=${encodeURIComponent(q.toLowerCase())}`
-                          : `${backendBase}/api/tables/users/resolve?q=${encodeURIComponent(q)}`;
-                        const resolved = await apiFetch(resolveUrl);
-                        uid = String(resolved?.user?.id || '').trim();
-                        if (uid) {
-                          setCollabProfiles((prev)=>({ ...(prev||{}), [uid]: resolved.user }));
-                          setAddingUserId(uid);
-                        }
+                  <button
+                    onClick={async ()=>{
+                      const email = String(inviteEmail || '').trim();
+                      if (!email) { window.alert('Enter an email address'); return; }
+                      try {
+                        setShareLoading(true);
+                        await apiFetch(`${backendBase}/api/tables/${id}/guest-invite`, {
+                          method: 'POST',
+                          body: JSON.stringify({ email, role: addingRole }),
+                        });
+                        setInviteEmail('');
+                        await loadShareState();
+                      } catch (e) {
+                        console.error('Failed to invite collaborator', e);
+                        window.alert('Failed to invite collaborator. Make sure you are a team admin and the email is not a jobseeker account.');
+                      } finally {
+                        setShareLoading(false);
                       }
-
-                      if (!uid) {
-                        window.alert('Select a user, or type a recruiter email and try again.');
-                        return;
-                      }
-
-                      setCollaborators(prev => {
-                        const arr = Array.isArray(prev) ? prev : [];
-                        if (arr.some(x => String(x.user_id) === uid)) return arr;
-                        return [...arr, { user_id: uid, role: (addingRole === 'edit' ? 'edit' : 'view') }];
-                      });
-
-                      setAddingUserId('');
-                      setShareSearch('');
-                      setShareResults([]);
-                    } catch (e) {
-                      console.error('Failed to resolve/add collaborator', e);
-                      window.alert('Could not find that recruiter user. If you typed a name, please pick from the dropdown. If you typed an email, make sure it’s an existing recruiter account.');
-                    }
-                  }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Add</button>
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  >
+                    Send Invite
+                  </button>
                 </div>
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-700 mb-2">People with access</div>
                 <div className="divide-y border rounded-lg">
-                  {(collaborators||[]).map((c, i) => {
+                  {(() => {
+                    const list = [];
+                    // members
+                    for (let i = 0; i < (collaborators||[]).length; i++) {
+                      const c = (collaborators||[])[i];
                     const member = teamMembers.find(m => String(m.id) === String(c.user_id));
-                    const external = collabProfiles[String(c.user_id)];
-                    const display = member?.full_name || (member ? [member.first_name, member.last_name].filter(Boolean).join(' ') : '') || external?.name || member?.email || external?.email || c.user_id;
-                    const email = member?.email || external?.email || '';
-                    return (
-                      <div key={`${c.user_id}-${i}`} className="flex items-center justify-between p-3">
+                      const external = collabProfiles[String(c.user_id)];
+                      const display = member?.full_name || (member ? [member.first_name, member.last_name].filter(Boolean).join(' ') : '') || external?.name || member?.email || external?.email || c.user_id;
+                      const email = member?.email || external?.email || '';
+                      list.push(
+                        <div key={`member-${c.user_id}-${i}`} className="flex items-center justify-between p-3">
+                          <div className="min-w-0">
+                            <div className="text-gray-900 font-medium truncate">{display}</div>
+                            <div className="text-xs text-gray-500 truncate">{email}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select value={c.role} onChange={async (e)=>{
+                              const val = e.target.value === 'edit' ? 'edit' : 'view';
+                              const next = (collaborators||[]).map((x, idx) => idx===i ? { ...x, role: val } : x);
+                              setCollaborators(next);
+                              try {
+                                await apiFetch(`${backendBase}/api/tables/${id}/collaborators`, { method: 'POST', body: JSON.stringify({ collaborators: next }) });
+                                await loadShareState();
+                              } catch {}
+                            }} className="px-2 py-1 border rounded">
+                              <option value="view">View</option>
+                              <option value="edit">Edit</option>
+                            </select>
+                            <button onClick={async ()=>{
+                              const next = (collaborators||[]).filter((_, idx)=> idx!==i);
+                              setCollaborators(next);
+                              try {
+                                await apiFetch(`${backendBase}/api/tables/${id}/collaborators`, { method: 'POST', body: JSON.stringify({ collaborators: next }) });
+                                await loadShareState();
+                              } catch {}
+                            }} className="text-gray-500 hover:text-red-600 p-2"><i className="fas fa-trash"></i></button>
+                          </div>
+                        </div>
+                      );
+                    }
+                    // Guests are shown from loadShareState via backend (not stored in collaborators[])
+                    // We'll show them in a separate block below using a simple fetch.
+                    return list;
+                  })()}
+                  {(!collaborators || collaborators.length === 0) && <div className="p-3 text-sm text-gray-500">No collaborators yet.</div>}
+                </div>
+                {guestInvites.length > 0 && (
+                  <div className="mt-3 border rounded-lg divide-y">
+                    <div className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-50">Pending invites</div>
+                    {guestInvites.map((g, idx)=>(
+                      <div key={`${g.email}-${idx}`} className="flex items-center justify-between p-3">
                         <div className="min-w-0">
-                          <div className="text-gray-900 font-medium truncate">{display}</div>
-                          <div className="text-xs text-gray-500 truncate">{email}</div>
+                          <div className="text-gray-900 font-medium truncate">{g.email}</div>
+                          <div className="text-xs text-gray-500 truncate">{g.status === 'accepted' ? 'Accepted' : 'Pending'}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <select value={c.role} onChange={(e)=>{
-                            const val = e.target.value === 'edit' ? 'edit' : 'view';
-                            setCollaborators(prev => prev.map((x, idx) => idx===i ? { ...x, role: val } : x));
-                          }} className="px-2 py-1 border rounded">
+                          <select
+                            value={g.role}
+                            onChange={async (e)=>{
+                              const role = e.target.value === 'edit' ? 'edit' : 'view';
+                              setGuestInvites(prev => prev.map((x,i)=> i===idx ? { ...x, role } : x));
+                              try {
+                                await apiFetch(`${backendBase}/api/tables/${id}/guest-invite`, { method:'POST', body: JSON.stringify({ email: g.email, role }) });
+                                await loadShareState();
+                              } catch {}
+                            }}
+                            className="px-2 py-1 border rounded"
+                          >
                             <option value="view">View</option>
                             <option value="edit">Edit</option>
                           </select>
-                          <button onClick={()=> setCollaborators(prev => prev.filter((_, idx)=> idx!==i))} className="text-gray-500 hover:text-red-600 p-2"><i className="fas fa-trash"></i></button>
+                          <button
+                            title="Remove invite"
+                            onClick={async ()=>{
+                              try {
+                                await apiFetch(`${backendBase}/api/tables/${id}/guest-invite?email=${encodeURIComponent(g.email)}`, { method:'DELETE' });
+                                await loadShareState();
+                              } catch {}
+                            }}
+                            className="text-gray-500 hover:text-red-600 p-2"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
-                  {(!collaborators || collaborators.length === 0) && <div className="p-3 text-sm text-gray-500">No collaborators yet.</div>}
-                </div>
+                    ))}
+                  </div>
+                )}
                 {shareLoading && <div className="mt-2 text-xs text-gray-500">Loading access…</div>}
               </div>
             </div>
@@ -1359,10 +1341,7 @@ export default function TableEditor() {
               <button onClick={()=>setShowShare(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{
                 try {
-                  await apiFetch(`${backendBase}/api/tables/${id}/collaborators`, {
-                    method: 'POST',
-                    body: JSON.stringify({ collaborators }),
-                  });
+                  // Member collaborators updates are already persisted on change; no-op save for compatibility.
                   await loadShareState();
                   setShowShare(false);
                 } catch (e) {

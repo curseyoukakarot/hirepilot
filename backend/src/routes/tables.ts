@@ -150,6 +150,39 @@ function parseCollaborators(raw: any): Array<{ user_id: string; role: 'view' | '
   return out;
 }
 
+async function getTableById(id: string): Promise<{ id: string; name: string | null; user_id: string; collaborators: any } | null> {
+  const { data } = await supabase
+    .from('custom_tables')
+    .select('id,name,user_id,collaborators')
+    .eq('id', id)
+    .maybeSingle();
+  if (!data?.id) return null;
+  return {
+    id: String((data as any).id),
+    name: (data as any).name ?? null,
+    user_id: String((data as any).user_id),
+    collaborators: (data as any).collaborators,
+  };
+}
+
+async function upsertTableCollaborator(tableId: string, userId: string, role: 'view' | 'edit'): Promise<void> {
+  const table = await getTableById(tableId);
+  if (!table) throw new Error('not_found');
+  const existing = Array.isArray(table.collaborators) ? table.collaborators : [];
+  const mergedMap = new Map<string, { user_id: string; role: 'view' | 'edit' }>();
+  for (const c of existing) {
+    const uid = String((c as any)?.user_id || '').trim();
+    if (!uid) continue;
+    mergedMap.set(uid, { user_id: uid, role: (String((c as any)?.role || '').toLowerCase() === 'edit' ? 'edit' : 'view') });
+  }
+  mergedMap.set(String(userId), { user_id: String(userId), role });
+  const merged = Array.from(mergedMap.values());
+  await supabase
+    .from('custom_tables')
+    .update({ collaborators: merged, updated_at: new Date().toISOString() })
+    .eq('id', tableId);
+}
+
 // GET /api/tables/users/search?q=...
 // Recruiter-only user search for sharing tables.
 router.get('/users/search', requireAuth, async (req: Request, res: Response) => {
@@ -308,6 +341,169 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
   }
 });
 
+// POST /api/tables/:id/guest-invite
+// Body: { email: string, role: 'view'|'edit' }
+// Mirrors Job REQ "guest invite" UX: invite by email without needing to search/select a user.
+router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const inviterId = (req as any).user?.id as string | undefined;
+    if (!inviterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const me = await getMe(inviterId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const { id } = req.params;
+    const email = String((req.body || {}).email || '').trim().toLowerCase();
+    const roleIn = String((req.body || {}).role || '').toLowerCase();
+    const role: 'view' | 'edit' = roleIn === 'edit' ? 'edit' : 'view';
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+
+    // Only team_admin / super_admin can invite
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
+
+    const table = await getTableById(id);
+    if (!table) return res.status(404).json({ error: 'not_found' });
+
+    // team_admin can only manage tables owned by their team
+    if (!isSuper) {
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', table.user_id).maybeSingle();
+      const ownerTeam = (ownerRow as any)?.team_id || null;
+      if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
+    }
+
+    // If email belongs to an existing public.users user, grant access immediately via collaborators[]
+    const existingUserResp = await runUsersQueryWithFallback<any>(async (cols) => {
+      const resp = await supabase.from('users').select(cols).ilike('email', email).maybeSingle();
+      return { data: resp.data, error: resp.error };
+    });
+    let existingUser = existingUserResp.data as any;
+
+    // Fallback: Auth lookup by email (handles auth-only accounts) and upsert public.users
+    if (!existingUser?.id) {
+      const authUser = await authAdminLookupByEmail(email);
+      existingUser = authUser ? await ensurePublicUserFromAuth(authUser) : null;
+    }
+
+    // Reject jobseeker accounts
+    if (existingUser?.id && isJobSeekerRole(existingUser?.role)) {
+      return res.status(400).json({ error: 'jobseeker_not_allowed' });
+    }
+
+    if (existingUser?.id) {
+      await upsertTableCollaborator(id, String(existingUser.id), role);
+      // Clean up any pending guest invite rows for this table/email
+      try {
+        await supabase.from('table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
+      } catch {}
+
+      // Notify existing user (best-effort)
+      try {
+        const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+        const { data: inviter } = await supabase.from('users').select('email').eq('id', inviterId).maybeSingle();
+        const inviterName = inviter?.email || 'a teammate';
+        const subject = `You were added to a Table on HirePilot`;
+        const html = `
+          <p>${inviterName} added you as a collaborator to the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
+          <p><a href="${appUrl}/tables/${id}/edit">Open the table</a></p>
+        `;
+        const { sendEmail } = await import('../../services/emailService');
+        await sendEmail(email, subject, subject, html);
+      } catch {}
+
+      return res.json({ kind: 'member', user_id: String(existingUser.id), role });
+    }
+
+    // Guest path: create/update pending invite row (no account yet)
+    const { data: existingInvite } = await supabase
+      .from('table_guest_collaborators')
+      .select('id')
+      .eq('table_id', id)
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingInvite?.id) {
+      const { data: upd, error } = await supabase
+        .from('table_guest_collaborators')
+        .update({ invited_by: inviterId, role, status: 'pending', updated_at: new Date().toISOString() })
+        .eq('id', existingInvite.id)
+        .select('*')
+        .maybeSingle();
+      if (error) return res.status(500).json({ error: error.message });
+      // Best-effort email invite
+      try {
+        const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+        const subject = `You were invited to collaborate on a Table in HirePilot`;
+        const html = `
+          <p>You were invited to collaborate on the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
+          <p>Create/sign in to your recruiter account, then open: <a href="${appUrl}/tables/${id}/edit">${appUrl}/tables/${id}/edit</a></p>
+        `;
+        const { sendEmail } = await import('../../services/emailService');
+        await sendEmail(email, subject, subject, html);
+      } catch {}
+      return res.json({ kind: 'guest', email, role, status: (upd as any)?.status || 'pending' });
+    }
+
+    const { data: ins, error: insErr } = await supabase
+      .from('table_guest_collaborators')
+      .insert({ table_id: id, email, role, invited_by: inviterId, status: 'pending', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .select('*')
+      .maybeSingle();
+    if (insErr) return res.status(500).json({ error: insErr.message });
+
+    // Best-effort email invite
+    try {
+      const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+      const subject = `You were invited to collaborate on a Table in HirePilot`;
+      const html = `
+        <p>You were invited to collaborate on the table <strong>${table.name || 'Untitled Table'}</strong>.</p>
+        <p>Create/sign in to your recruiter account, then open: <a href="${appUrl}/tables/${id}/edit">${appUrl}/tables/${id}/edit</a></p>
+      `;
+      const { sendEmail } = await import('../../services/emailService');
+      await sendEmail(email, subject, subject, html);
+    } catch {}
+
+    return res.json({ kind: 'guest', email, role, status: (ins as any)?.status || 'pending' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'invite_failed' });
+  }
+});
+
+// DELETE /api/tables/:id/guest-invite?email=...
+// Removes a pending guest invite (email-based).
+router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const inviterId = (req as any).user?.id as string | undefined;
+    if (!inviterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const me = await getMe(inviterId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
+
+    const { id } = req.params;
+    const email = String((req.query as any)?.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+
+    const table = await getTableById(id);
+    if (!table) return res.status(404).json({ error: 'not_found' });
+
+    if (!isSuper) {
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', table.user_id).maybeSingle();
+      const ownerTeam = (ownerRow as any)?.team_id || null;
+      if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
+    }
+
+    await supabase.from('table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'delete_failed' });
+  }
+});
+
 // GET /api/tables/:id/collaborators-unified
 router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -318,16 +514,11 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
 
     const { id } = req.params;
-    const { data: table, error: tableErr } = await supabase
-      .from('custom_tables')
-      .select('id,name,user_id,collaborators')
-      .eq('id', id)
-      .maybeSingle();
-    if (tableErr) return res.status(500).json({ error: tableErr.message });
+    const table = await getTableById(id);
     if (!table) return res.status(404).json({ error: 'not_found' });
 
-    const ownerId = String((table as any).user_id);
-    const collabs = parseCollaborators((table as any).collaborators);
+    const ownerId = String(table.user_id);
+    const collabs = parseCollaborators(table.collaborators);
     const isOwner = ownerId === userId;
     const isExisting = collabs.some((c) => String(c.user_id) === userId);
     if (!(isOwner || isExisting)) return res.status(403).json({ error: 'access_denied' });
@@ -355,16 +546,32 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     const byId = new Map<string, UserLite>(((users || []) as any[]).map((u: any) => [String(u.id), u]));
 
     const owner = byId.get(ownerId) || ({ id: ownerId, email: null } as any);
-    const collaborators = collabs.map((c) => ({
+    const memberCollaborators = collabs.map((c) => ({
+      kind: 'member',
       user_id: c.user_id,
       role: c.role,
       user: byId.get(String(c.user_id)) || ({ id: c.user_id, email: null } as any),
     }));
 
+    // Include pending guest invites
+    let guests: any[] = [];
+    try {
+      const { data: guestRows } = await supabase
+        .from('table_guest_collaborators')
+        .select('email,role,status')
+        .eq('table_id', id);
+      guests = (guestRows || []).map((g: any) => ({
+        kind: 'guest',
+        email: String(g.email || '').toLowerCase(),
+        role: String(g.role || 'view') === 'edit' ? 'edit' : 'view',
+        status: String(g.status || 'pending'),
+      }));
+    } catch {}
+
     return res.json({
-      table: { id: String((table as any).id), name: (table as any).name || null, owner_id: ownerId },
+      table: { id: String(table.id), name: table.name || null, owner_id: ownerId },
       owner,
-      collaborators,
+      collaborators: [...memberCollaborators, ...guests],
       can_manage_access: canManageAccess,
     });
   } catch (e: any) {

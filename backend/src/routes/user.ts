@@ -257,6 +257,56 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
           .update({ status: 'accepted', user_id: userId, updated_at: new Date().toISOString() })
           .eq('email', userEmail)
           .eq('status', 'pending');
+
+        // Accept any pending table guest invites for this email:
+        // - mark invite accepted
+        // - add user_id to custom_tables.collaborators so the table appears in /tables
+        try {
+          // Skip accepting if this user is a job seeker
+          const { data: meRow } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+          const meRole = String((meRow as any)?.role || '').toLowerCase();
+          const isJobSeeker = meRole.startsWith('job_seeker');
+          if (!isJobSeeker) {
+            const { data: pendingInvites } = await supabase
+              .from('table_guest_collaborators')
+              .select('id,table_id,role')
+              .eq('email', userEmail)
+              .eq('status', 'pending');
+            for (const inv of (pendingInvites || [])) {
+              const tableId = String((inv as any).table_id || '');
+              if (!tableId) continue;
+              const role = String((inv as any).role || 'view') === 'edit' ? 'edit' : 'view';
+              try {
+                // Merge into collaborators json array
+                const { data: tableRow } = await supabase
+                  .from('custom_tables')
+                  .select('id,collaborators')
+                  .eq('id', tableId)
+                  .maybeSingle();
+                if (!tableRow?.id) continue;
+                const existing = Array.isArray((tableRow as any).collaborators) ? (tableRow as any).collaborators : [];
+                const map = new Map<string, any>();
+                for (const c of existing) {
+                  const uid = String((c as any)?.user_id || '').trim();
+                  if (!uid) continue;
+                  map.set(uid, { user_id: uid, role: (String((c as any)?.role || '').toLowerCase() === 'edit' ? 'edit' : 'view') });
+                }
+                map.set(String(userId), { user_id: String(userId), role });
+                const merged = Array.from(map.values());
+                await supabase
+                  .from('custom_tables')
+                  .update({ collaborators: merged, updated_at: new Date().toISOString() })
+                  .eq('id', tableId);
+              } catch {}
+            }
+            // Mark invites accepted (best-effort)
+            await supabase
+              .from('table_guest_collaborators')
+              .update({ status: 'accepted', user_id: userId, updated_at: new Date().toISOString() })
+              .eq('email', userEmail)
+              .eq('status', 'pending');
+          }
+        } catch {}
       } catch (inviteError) {
         console.warn('[ONBOARDING] Failed to update team invite status:', inviteError);
         // Don't fail the onboarding completion if invite update fails
