@@ -32,6 +32,7 @@ export default function TableEditor() {
   const [importSource, setImportSource] = useState('/leads');
   const [importFilters, setImportFilters] = useState({ status: '', startDate: '', endDate: '', limit: 1000, importAll: false });
   const [columnMenuIdx, setColumnMenuIdx] = useState(null);
+  const [columnMenuPos, setColumnMenuPos] = useState(null); // { top:number, left:number }
   const [editColName, setEditColName] = useState('');
   const [editColType, setEditColType] = useState('text');
   const [selectedRowIdxSet, setSelectedRowIdxSet] = useState(new Set());
@@ -758,13 +759,16 @@ export default function TableEditor() {
       try {
         if (!menuRef.current) {
           setColumnMenuIdx(null);
+          setColumnMenuPos(null);
           return;
         }
         if (!menuRef.current.contains(e.target)) {
           setColumnMenuIdx(null);
+          setColumnMenuPos(null);
         }
       } catch {
         setColumnMenuIdx(null);
+        setColumnMenuPos(null);
       }
     };
     if (columnMenuIdx !== null) {
@@ -1352,86 +1356,35 @@ export default function TableEditor() {
                               </button>
                             )}
                             <i className="fas fa-grip-vertical text-gray-500 cursor-move" title="Drag to reorder"></i>
-                            <button className="ml-1 text-gray-400 hover:text-gray-600" onClick={(e)=>{ e.stopPropagation(); setColumnMenuIdx(columnMenuIdx===ci?null:ci); setEditColName(col.name); setEditColType(col.type); setEditCurrency((col && col.currency) ? col.currency : 'USD'); }}>
+                            <button
+                              className="ml-1 text-gray-400 hover:text-gray-600"
+                              onClick={(e)=> {
+                                e.stopPropagation();
+                                const nextIdx = columnMenuIdx === ci ? null : ci;
+                                if (nextIdx === null) {
+                                  setColumnMenuIdx(null);
+                                  setColumnMenuPos(null);
+                                  return;
+                                }
+                                setColumnMenuIdx(nextIdx);
+                                setEditColName(col.name);
+                                setEditColType(col.type);
+                                setEditCurrency((col && col.currency) ? col.currency : 'USD');
+                                try {
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  const menuW = 224; // w-56
+                                  const pad = 8;
+                                  const left = Math.max(pad, Math.min((window.innerWidth || 0) - menuW - pad, (r.right - menuW)));
+                                  const top = Math.min((window.innerHeight || 0) - pad, r.bottom + 8);
+                                  setColumnMenuPos({ top, left });
+                                } catch {
+                                  setColumnMenuPos({ top: 80, left: 80 });
+                                }
+                              }}
+                            >
                               <i className="fas fa-ellipsis-h"></i>
                             </button>
                           </div>
-                          {/* Column actions menu */}
-                          {columnMenuIdx === ci && (
-                            <div ref={menuRef} className="absolute right-2 top-9 z-50 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
-                              <div className="py-1">
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={(e)=>{ 
-                                    e.stopPropagation(); 
-                                    setActiveColIdx(ci); 
-                                    setInlineEditIdx(ci);
-                                    setInlineEditName(col.name);
-                                    setColumnMenuIdx(null);
-                                  }}
-                                >
-                                  Edit column…
-                                </button>
-                                <div className="border-t border-gray-200 my-1"></div>
-                                <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500">Change type</div>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'text'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
-                                >
-                                  Text
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'number'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
-                                >
-                                  Number
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'money', (schema[ci] && schema[ci].currency) ? schema[ci].currency : 'USD'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
-                                >
-                                  Money
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'date'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
-                                >
-                                  Date
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(ci, 'status'); setActiveColIdx(ci); setColumnMenuIdx(null); }}
-                                >
-                                  Status
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                                  onClick={async (e)=>{ 
-                                    e.stopPropagation(); 
-                                    await changeColumnTypeAt(ci, 'formula', (schema[ci] && schema[ci].currency) ? schema[ci].currency : undefined); 
-                                    setActiveColIdx(ci); 
-                                    setColumnMenuIdx(null); 
-                                    openFormulaBuilder(ci);
-                                  }}
-                                >
-                                  Formula…
-                                </button>
-                                <div className="border-t border-gray-200 my-1"></div>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                                  onClick={async (e)=>{ 
-                                    e.stopPropagation(); 
-                                    setColumnMenuIdx(null);
-                                    let ok = true;
-                                    try { ok = window.confirm(`Delete column “${col.name}”? This cannot be undone.`); } catch {}
-                                    if (ok) { await deleteColumnAt(ci); }
-                                  }}
-                                >
-                                  Delete column
-                                </button>
-                              </div>
-                            </div>
-                          )}
                           {/* Resizer */}
                           <span
                             className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent"
@@ -1792,6 +1745,100 @@ export default function TableEditor() {
               <button onClick={()=>setShowImportModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               <button onClick={async()=>{ await importFrom(importSource, importFilters); setShowImportModal(false); }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Import</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Column Actions Menu (fixed overlay to avoid table stacking issues) */}
+      {columnMenuIdx !== null && schema?.[columnMenuIdx] && columnMenuPos && (
+        <div
+          ref={menuRef}
+          className="fixed z-[9999] w-56 rounded-lg border border-gray-200 bg-white shadow-lg"
+          style={{ top: `${columnMenuPos.top}px`, left: `${columnMenuPos.left}px` }}
+          onClick={(e)=> e.stopPropagation()}
+        >
+          <div className="py-1">
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={(e)=>{ 
+                e.stopPropagation(); 
+                setActiveColIdx(columnMenuIdx); 
+                setInlineEditIdx(columnMenuIdx);
+                setInlineEditName(schema[columnMenuIdx].name);
+                setColumnMenuIdx(null);
+                setColumnMenuPos(null);
+              }}
+            >
+              Edit column…
+            </button>
+            <div className="border-t border-gray-200 my-1"></div>
+            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500">Change type</div>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'text'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
+            >
+              Text
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'number'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
+            >
+              Number
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ 
+                e.stopPropagation();
+                const cur = (schema[columnMenuIdx] && schema[columnMenuIdx].currency) ? schema[columnMenuIdx].currency : 'USD';
+                await changeColumnTypeAt(columnMenuIdx, 'money', cur);
+                setActiveColIdx(columnMenuIdx);
+                setColumnMenuIdx(null);
+                setColumnMenuPos(null);
+              }}
+            >
+              Money
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'date'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
+            >
+              Date
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'status'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
+            >
+              Status
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onClick={async (e)=>{ 
+                e.stopPropagation(); 
+                const cur = (schema[columnMenuIdx] && schema[columnMenuIdx].currency) ? schema[columnMenuIdx].currency : undefined;
+                await changeColumnTypeAt(columnMenuIdx, 'formula', cur);
+                setActiveColIdx(columnMenuIdx);
+                setColumnMenuIdx(null);
+                setColumnMenuPos(null);
+                openFormulaBuilder(columnMenuIdx);
+              }}
+            >
+              Formula…
+            </button>
+            <div className="border-t border-gray-200 my-1"></div>
+            <button
+              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              onClick={async (e)=>{ 
+                e.stopPropagation(); 
+                const colName = schema?.[columnMenuIdx]?.name || 'column';
+                setColumnMenuIdx(null);
+                setColumnMenuPos(null);
+                let ok = true;
+                try { ok = window.confirm(`Delete column “${colName}”? This cannot be undone.`); } catch {}
+                if (ok) { await deleteColumnAt(columnMenuIdx); }
+              }}
+            >
+              Delete column
+            </button>
           </div>
         </div>
       )}
