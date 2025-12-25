@@ -726,8 +726,20 @@ export default function TableEditor() {
       }
       return { ...(c || {}), status_options: cleaned };
     });
-    setSchema(nextSchema);
-    await persistSchemaRows(nextSchema, rows);
+    // Persist schema only (avoid overwriting data_json) and read back the canonical schema_json.
+    try {
+      setSchema(nextSchema);
+      const { data, error } = await supabase
+        .from('custom_tables')
+        .update({ schema_json: nextSchema, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('schema_json')
+        .maybeSingle();
+      if (!error && data?.schema_json) {
+        const normalized = normalizeSchema(Array.isArray(data.schema_json) ? data.schema_json : nextSchema);
+        setSchema(normalized);
+      }
+    } catch {}
     addActivity(`Updated status options for ${colLabel(col)}`);
     closeStatusOptions();
   };
