@@ -6,7 +6,9 @@ import { evaluate as mathEvaluate } from 'mathjs';
 export default function TableEditor() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || '';
+  // IMPORTANT: in production the backend lives at api.thehirepilot.com (not the Vercel app domain).
+  // If VITE_BACKEND_URL isn't set, default to the canonical API host.
+  const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
   const [tableName, setTableName] = useState('Untitled Table');
   const [lastSavedName, setLastSavedName] = useState('Untitled Table');
   const [saving, setSaving] = useState(false);
