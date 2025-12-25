@@ -1327,50 +1327,50 @@ export default function TableEditor() {
               </div>
             )}
             <div className="relative">
-              <button id="add-column-btn" disabled={isReadOnly} onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
+              <button id="add-column-btn" disabled={isReadOnly} onClick={() => setColumnMenuOpen(v=>!v)} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 dark:text-gray-100">
                 <i className="fas fa-plus text-sm"></i>
                 Add Column
                 <i className="fas fa-chevron-down text-xs"></i>
               </button>
-              <div id="column-dropdown" className={`${columnMenuOpen ? '' : 'hidden'} absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50`}>
+              <div id="column-dropdown" className={`${columnMenuOpen ? '' : 'hidden'} absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50`}>
                 <div className="p-2">
-                  <div className="text-xs font-medium text-gray-500 mb-2">COLUMN TYPES</div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">COLUMN TYPES</div>
                   <div className="space-y-1">
-                    <button onClick={()=>handleAddColumn('text')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-font text-gray-400"></i>Text</button>
-                    <button onClick={()=>handleAddColumn('status')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-circle text-purple-400"></i>Status</button>
-                    <button onClick={()=>handleAddColumn('number')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-hashtag text-gray-400"></i>Number</button>
-                    <button onClick={()=>handleAddColumn('money')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-dollar-sign text-green-600"></i>Money</button>
-                    <button onClick={()=>handleAddColumn('date')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calendar text-gray-400"></i>Date</button>
-                    <button onClick={()=>handleAddColumn('formula')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center gap-2"><i className="fas fa-calculator text-gray-400"></i>Formula</button>
+                    <button onClick={()=>handleAddColumn('text')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-font text-gray-400"></i>Text</button>
+                    <button onClick={()=>handleAddColumn('status')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-circle text-purple-400"></i>Status</button>
+                    <button onClick={()=>handleAddColumn('number')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-hashtag text-gray-400"></i>Number</button>
+                    <button onClick={()=>handleAddColumn('money')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-dollar-sign text-green-600"></i>Money</button>
+                    <button onClick={()=>handleAddColumn('date')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-calendar text-gray-400"></i>Date</button>
+                    <button onClick={()=>handleAddColumn('formula')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-900 dark:text-gray-100"><i className="fas fa-calculator text-gray-400"></i>Formula</button>
                   </div>
                   <div className="border-t mt-2 pt-2">
-                    <div className="text-xs font-medium text-gray-500 mb-2">FROM APP SOURCES</div>
-                    <button onClick={()=>{ setImportSource('/deals'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">FROM APP SOURCES</div>
+                    <button onClick={()=>{ setImportSource('/deals'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-300 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /deals
                     </button>
-                    <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-300 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /leads
                     </button>
-                    <button onClick={()=>{ setImportSource('/candidates'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/candidates'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-300 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /candidates
                     </button>
-                    <button onClick={()=>{ setImportSource('/campaigns'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/campaigns'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-300 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /campaigns
                     </button>
-                    <button onClick={()=>{ setImportSource('/jobs'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 text-purple-600 flex items-center gap-2">
+                    <button onClick={()=>{ setImportSource('/jobs'); setShowImportModal(true); }} className="w-full text-left px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-300 flex items-center gap-2">
                       <i className="fas fa-database text-purple-400"></i>Import from /jobs
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            <button onClick={handleAddRow} disabled={isReadOnly} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
+            <button onClick={handleAddRow} disabled={isReadOnly} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 dark:text-gray-100">
               <i className="fas fa-plus text-sm"></i>Add Row
             </button>
             <button onClick={bulkDeleteSelected} disabled={!selectedRowIdxSet.size || isReadOnly} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${(!selectedRowIdxSet.size || isReadOnly) ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-red-700 border-red-300 hover:bg-red-50'}`}>
               <i className="fas fa-trash"></i>Delete Selected
             </button>
-            <button disabled={isReadOnly} onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
+            <button disabled={isReadOnly} onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 dark:text-gray-100">
               <i className="fas fa-upload text-sm"></i>Import Data
             </button>
             <div className="flex items-center gap-2 ml-auto">
@@ -1868,13 +1868,13 @@ export default function TableEditor() {
       {columnMenuIdx !== null && schema?.[columnMenuIdx] && columnMenuPos && (
         <div
           ref={menuRef}
-          className="fixed z-[9999] w-56 rounded-lg border border-gray-200 bg-white shadow-lg"
+          className="fixed z-[9999] w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg"
           style={{ top: `${columnMenuPos.top}px`, left: `${columnMenuPos.left}px` }}
           onClick={(e)=> e.stopPropagation()}
         >
           <div className="py-1">
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={(e)=>{ 
                 e.stopPropagation(); 
                 setActiveColIdx(columnMenuIdx); 
@@ -1886,22 +1886,22 @@ export default function TableEditor() {
             >
               Edit column…
             </button>
-            <div className="border-t border-gray-200 my-1"></div>
-            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500">Change type</div>
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Change type</div>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'text'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
             >
               Text
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'number'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
             >
               Number
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ 
                 e.stopPropagation();
                 const cur = (schema[columnMenuIdx] && schema[columnMenuIdx].currency) ? schema[columnMenuIdx].currency : 'USD';
@@ -1914,19 +1914,19 @@ export default function TableEditor() {
               Money
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'date'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
             >
               Date
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ e.stopPropagation(); await changeColumnTypeAt(columnMenuIdx, 'status'); setActiveColIdx(columnMenuIdx); setColumnMenuIdx(null); setColumnMenuPos(null); }}
             >
               Status
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               onClick={async (e)=>{ 
                 e.stopPropagation(); 
                 const cur = (schema[columnMenuIdx] && schema[columnMenuIdx].currency) ? schema[columnMenuIdx].currency : undefined;
@@ -1939,9 +1939,9 @@ export default function TableEditor() {
             >
               Formula…
             </button>
-            <div className="border-t border-gray-200 my-1"></div>
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
             <button
-              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
               onClick={async (e)=>{ 
                 e.stopPropagation(); 
                 const colName = schema?.[columnMenuIdx]?.name || 'column';
@@ -2079,8 +2079,8 @@ export default function TableEditor() {
           className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-24"
           onClick={(e)=>{ if (e.target === e.currentTarget) { setShowCommandPalette(false); setCommandQuery(''); } }}
         >
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
-            <div className="px-4 py-3 border-b flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
               <i className="fas fa-search text-gray-400"></i>
               <input
                 ref={commandInputRef}
@@ -2099,7 +2099,7 @@ export default function TableEditor() {
                   }
                 }}
                 placeholder="Search actions…"
-                className="flex-1 outline-none text-sm py-2"
+                className="flex-1 outline-none text-sm py-2 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
               />
               <div className="text-xs text-gray-400">Esc</div>
             </div>
@@ -2111,21 +2111,21 @@ export default function TableEditor() {
                   {(filteredCommands || []).slice(0, 12).map((cmd) => (
                     <button
                       key={cmd.id}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between gap-4"
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-4 text-gray-900 dark:text-gray-100"
                       onClick={() => {
                         setShowCommandPalette(false);
                         setCommandQuery('');
                         try { cmd.run(); } catch {}
                       }}
                     >
-                      <div className="text-sm text-gray-900">{cmd.title}</div>
+                      <div className="text-sm">{cmd.title}</div>
                       {cmd.shortcut ? <div className="text-xs text-gray-500">{cmd.shortcut}</div> : <div className="text-xs text-gray-400"></div>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <div className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
+            <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
               <div>Tip: press <span className="font-medium">Enter</span> to run the first result</div>
               <div className="text-gray-400">⌘K</div>
             </div>
@@ -2227,7 +2227,7 @@ export default function TableEditor() {
                         chips.push({ label: 'AVG(all numeric)', expr: `AVG(${allVars})` });
                       }
                       return chips.map((c, i) => (
-                        <button key={i} className="px-2 py-1 border rounded text-sm hover:bg-gray-50" onClick={()=>setFormulaExpr(c.expr)}>{c.label}</button>
+                        <button key={i} className="px-2 py-1 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700 dark:text-gray-100" onClick={()=>setFormulaExpr(c.expr)}>{c.label}</button>
                       ));
                     })()}
                   </div>
@@ -2235,9 +2235,9 @@ export default function TableEditor() {
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-2">Insert columns</label>
-                <div className="max-h-48 overflow-auto border rounded p-2">
+                <div className="max-h-48 overflow-auto border rounded p-2 dark:border-gray-700">
                   {schema.map((c, i) => (
-                    <button key={i} className="px-2 py-1 mr-2 mb-2 border rounded text-sm hover:bg-gray-50" onClick={()=>{
+                    <button key={i} className="px-2 py-1 mr-2 mb-2 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700 dark:text-gray-100" onClick={()=>{
                       const v = toVarName(colLabel(c));
                       setFormulaExpr(f => f ? `${f} ${v}` : v);
                     }}>{toVarName(colLabel(c))}</button>
