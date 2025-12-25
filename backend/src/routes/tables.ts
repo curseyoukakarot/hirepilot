@@ -154,6 +154,12 @@ function parseCollaborators(raw: any): Array<{ user_id: string; role: 'view' | '
 // Recruiter-only user search for sharing tables.
 router.get('/users/search', requireAuth, async (req: Request, res: Response) => {
   try {
+    // Avoid browser/proxy caching confusing the UI
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Vary', 'Authorization');
+
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -173,14 +179,12 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
         .select(cols)
         .limit(Math.min(100, limit * 3));
 
-      query = query.or(
-        [
-          `email.ilike.${term}`,
-          `full_name.ilike.${term}`,
-          `first_name.ilike.${term}`,
-          `last_name.ilike.${term}`,
-        ].join(',')
-      );
+      // Only reference columns that exist in this environment (schema drift safe)
+      const ors: string[] = [`email.ilike.${term}`];
+      if (cols.includes('full_name')) ors.push(`full_name.ilike.${term}`);
+      if (cols.includes('first_name')) ors.push(`first_name.ilike.${term}`);
+      if (cols.includes('last_name')) ors.push(`last_name.ilike.${term}`);
+      query = query.or(ors.join(','));
       const resp = await query.order('email', { ascending: true });
       return { data: resp.data, error: resp.error };
     });
@@ -228,6 +232,12 @@ router.get('/users/search', requireAuth, async (req: Request, res: Response) => 
 // Resolves a single recruiter-side user for share-by-typing flows.
 router.get('/users/resolve', requireAuth, async (req: Request, res: Response) => {
   try {
+    // Avoid browser/proxy caching confusing the UI
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Vary', 'Authorization');
+
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -259,14 +269,13 @@ router.get('/users/resolve', requireAuth, async (req: Request, res: Response) =>
         const resp = await supabase
           .from('users')
           .select(cols)
-          .or(
-            [
-              `email.ilike.${term}`,
-              `full_name.ilike.${term}`,
-              `first_name.ilike.${term}`,
-              `last_name.ilike.${term}`,
-            ].join(',')
-          )
+          .or((() => {
+            const ors: string[] = [`email.ilike.${term}`];
+            if (cols.includes('full_name')) ors.push(`full_name.ilike.${term}`);
+            if (cols.includes('first_name')) ors.push(`first_name.ilike.${term}`);
+            if (cols.includes('last_name')) ors.push(`last_name.ilike.${term}`);
+            return ors.join(',');
+          })())
           .limit(5);
         return { data: resp.data, error: resp.error };
       });
