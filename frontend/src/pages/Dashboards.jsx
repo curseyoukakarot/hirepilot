@@ -12,6 +12,15 @@ const Plotly = PlotlyImport?.default || PlotlyImport;
 
 export default function Dashboards() {
   const navigate = useNavigate();
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareDash, setShareDash] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCanManage, setShareCanManage] = useState(false);
+  const [shareMembers, setShareMembers] = useState([]); // [{ user_id, role, user }]
+  const [shareGuests, setShareGuests] = useState([]); // [{ email, role, status }]
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('view');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [tables, setTables] = useState([]);
   const [loadingTables, setLoadingTables] = useState(false);
@@ -57,6 +66,14 @@ export default function Dashboards() {
   const [templateTableId, setTemplateTableId] = useState('');
 
   const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+  const apiFetch = async (url, init = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const headers = { 'Content-Type': 'application/json', ...(init.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const resp = await fetch(url, { ...init, headers, credentials: 'include' });
+    if (!resp.ok) throw new Error(await resp.text());
+    return resp.json();
+  };
   const mapRangeToWidgetRange = (range, rangeStartDate) => {
     if (range === 'last_7_days') return { range: '7d' };
     if (range === 'last_30_days') return { range: '30d' };
@@ -385,16 +402,88 @@ export default function Dashboards() {
   const loadDashboards = useCallback(async () => {
     try {
       setDashboardsLoading(true);
-      const { data } = await supabase
+      const userResp = await supabase.auth.getUser();
+      const uid = userResp?.data?.user?.id || null;
+      setCurrentUserId(uid);
+
+      const computePerms = (rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        return list.map((d) => {
+          const ownerId = String(d?.user_id || '');
+          const collabs = Array.isArray(d?.collaborators) ? d.collaborators : [];
+          const myRole = (uid && collabs.find((c) => String(c?.user_id || '') === String(uid))?.role) || '';
+          const canEdit = Boolean(uid && (String(uid) === ownerId || String(myRole).toLowerCase() === 'edit'));
+          const canDelete = Boolean(uid && String(uid) === ownerId);
+          return { ...d, canEdit, canDelete };
+        });
+      };
+
+      const full = await supabase
+        .from('user_dashboards')
+        .select('id, layout, updated_at, user_id, collaborators')
+        .order('updated_at', { ascending: false });
+
+      if (!full.error) {
+        setDashboards(computePerms(full.data || []));
+        return;
+      }
+
+      if (String(full.error?.code || '') === '42703') {
+        // collaborators column not deployed yet
+        const minimal = await supabase
+          .from('user_dashboards')
+          .select('id, layout, updated_at, user_id')
+          .order('updated_at', { ascending: false });
+        setDashboards(computePerms(minimal.data || []));
+        return;
+      }
+
+      // Fallback (old environments)
+      const fallback = await supabase
         .from('user_dashboards')
         .select('id, layout, updated_at')
         .order('updated_at', { ascending: false });
-      setDashboards(Array.isArray(data) ? data : []);
+      setDashboards(Array.isArray(fallback.data) ? fallback.data : []);
     } catch {
       setDashboards([]);
     } finally {
       setDashboardsLoading(false);
     }
+  }, []);
+
+  const openShare = useCallback(async (dashboard) => {
+    try {
+      if (!dashboard?.id) return;
+      setShareOpen(true);
+      setShareDash(dashboard);
+      setShareLoading(true);
+      setInviteEmail('');
+      setInviteRole('view');
+      const data = await apiFetch(`${backendBase}/api/dashboards/${dashboard.id}/collaborators-unified`);
+      setShareCanManage(Boolean(data?.can_manage_access));
+      const collabs = Array.isArray(data?.collaborators) ? data.collaborators : [];
+      const members = collabs.filter((c)=>String(c?.kind||'') !== 'guest' && c?.user_id);
+      const guests = collabs.filter((c)=>String(c?.kind||'') === 'guest' && c?.email);
+      setShareMembers(members.map((m)=>({ user_id: String(m.user_id), role: (String(m.role)==='edit'?'edit':'view'), user: m.user || null })));
+      setShareGuests(guests.map((g)=>({ email: String(g.email).toLowerCase(), role: (String(g.role)==='edit'?'edit':'view'), status: String(g.status||'pending') })));
+    } catch (e) {
+      console.error('Failed to open share modal', e);
+      toast.error('Could not load dashboard sharing settings (admin only).');
+      setShareOpen(false);
+      setShareDash(null);
+    } finally {
+      setShareLoading(false);
+    }
+  }, [backendBase]);
+
+  const closeShare = useCallback(() => {
+    setShareOpen(false);
+    setShareDash(null);
+    setShareMembers([]);
+    setShareGuests([]);
+    setInviteEmail('');
+    setInviteRole('view');
+    setShareCanManage(false);
   }, []);
 
   const closeModal = useCallback(() => {
@@ -425,14 +514,16 @@ export default function Dashboards() {
   }, []);
 
   const toggleSelectDashboard = useCallback((id) => {
+    const dash = dashboards.find((d) => d.id === id);
+    if (dash && dash.canDelete === false) return; // only owners can bulk-select for delete
     setSelectedDashIds((prev) => (
       prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
     ));
-  }, []);
+  }, [dashboards]);
 
   const selectAllDashboards = useCallback((checked) => {
     if (checked) {
-      setSelectedDashIds(dashboards.map((d) => d.id));
+      setSelectedDashIds(dashboards.filter((d) => d.canDelete).map((d) => d.id));
     } else {
       setSelectedDashIds([]);
     }
@@ -1384,8 +1475,202 @@ export default function Dashboards() {
         onDeleteSelected={deleteSelectedDashboards}
         onView={viewDashboard}
         onEdit={startEditDashboard}
+        onShare={openShare}
         onDelete={handleDeleteDashboard}
       />
+
+      {/* Share Dashboard Modal */}
+      <AnimatePresence>
+        {shareOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e)=>{ if (e.target === e.currentTarget) closeShare(); }}
+          >
+            <motion.div
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl p-6 border border-slate-200 dark:border-slate-700"
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 12, opacity: 0 }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Dashboard Access</h3>
+                <button onClick={closeShare} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Invite collaborator</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={inviteEmail}
+                      onChange={(e)=>setInviteEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="flex-1 px-3 py-2 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                      disabled={!shareCanManage}
+                    />
+                    <select
+                      value={inviteRole}
+                      onChange={(e)=>setInviteRole(e.target.value)}
+                      className="px-3 py-2 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                      disabled={!shareCanManage}
+                    >
+                      <option value="view">View</option>
+                      <option value="edit">Edit</option>
+                    </select>
+                    <button
+                      disabled={!shareCanManage || shareLoading}
+                      onClick={async ()=>{
+                        const email = String(inviteEmail || '').trim();
+                        if (!email) { toast.error('Enter an email'); return; }
+                        try {
+                          setShareLoading(true);
+                          await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/guest-invite`, {
+                            method: 'POST',
+                            body: JSON.stringify({ email, role: inviteRole })
+                          });
+                          setInviteEmail('');
+                          // reload
+                          const data = await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/collaborators-unified`);
+                          setShareCanManage(Boolean(data?.can_manage_access));
+                          const collabs = Array.isArray(data?.collaborators) ? data.collaborators : [];
+                          const members = collabs.filter((c)=>String(c?.kind||'') !== 'guest' && c?.user_id);
+                          const guests = collabs.filter((c)=>String(c?.kind||'') === 'guest' && c?.email);
+                          setShareMembers(members.map((m)=>({ user_id: String(m.user_id), role: (String(m.role)==='edit'?'edit':'view'), user: m.user || null })));
+                          setShareGuests(guests.map((g)=>({ email: String(g.email).toLowerCase(), role: (String(g.role)==='edit'?'edit':'view'), status: String(g.status||'pending') })));
+                          toast.success('Invite sent');
+                        } catch (e) {
+                          console.error(e);
+                          toast.error('Failed to invite collaborator');
+                        } finally {
+                          setShareLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                      Send Invite
+                    </button>
+                  </div>
+                  {!shareCanManage && (
+                    <div className="mt-2 text-xs text-slate-500">Only team admins can manage dashboard sharing.</div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">People with access</div>
+                  <div className="divide-y border rounded-lg dark:border-slate-700">
+                    {shareMembers.map((m, i) => (
+                      <div key={`${m.user_id}-${i}`} className="flex items-center justify-between p-3">
+                        <div className="min-w-0">
+                          <div className="text-slate-900 dark:text-slate-100 font-medium truncate">
+                            {m?.user?.full_name || [m?.user?.first_name, m?.user?.last_name].filter(Boolean).join(' ') || m?.user?.email || m.user_id}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate">{m?.user?.email || ''}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={m.role}
+                            disabled={!shareCanManage}
+                            onChange={async (e)=>{
+                              const val = e.target.value === 'edit' ? 'edit' : 'view';
+                              const next = shareMembers.map((x, idx)=> idx===i ? { ...x, role: val } : x);
+                              setShareMembers(next);
+                              try {
+                                await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/collaborators`, {
+                                  method: 'POST',
+                                  body: JSON.stringify({ collaborators: next.map(x=>({ user_id: x.user_id, role: x.role })) })
+                                });
+                                toast.success('Access updated');
+                              } catch { toast.error('Failed to update access'); }
+                            }}
+                            className="px-2 py-1 border rounded dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                          >
+                            <option value="view">View</option>
+                            <option value="edit">Edit</option>
+                          </select>
+                          <button
+                            disabled={!shareCanManage}
+                            onClick={async ()=>{
+                              const next = shareMembers.filter((_, idx)=> idx!==i);
+                              setShareMembers(next);
+                              try {
+                                await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/collaborators`, {
+                                  method: 'POST',
+                                  body: JSON.stringify({ collaborators: next.map(x=>({ user_id: x.user_id, role: x.role })) })
+                                });
+                                toast.success('Removed');
+                              } catch { toast.error('Failed to remove'); }
+                            }}
+                            className="text-slate-500 hover:text-red-600 p-2 disabled:opacity-60"
+                            title="Remove"
+                          >
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!shareMembers.length && <div className="p-3 text-sm text-slate-500">No collaborators yet.</div>}
+                  </div>
+
+                  {shareGuests.length > 0 && (
+                    <div className="mt-3 border rounded-lg divide-y dark:border-slate-700">
+                      <div className="px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40">Pending invites</div>
+                      {shareGuests.map((g, idx)=>(
+                        <div key={`${g.email}-${idx}`} className="flex items-center justify-between p-3">
+                          <div className="min-w-0">
+                            <div className="text-slate-900 dark:text-slate-100 font-medium truncate">{g.email}</div>
+                            <div className="text-xs text-slate-500 truncate">{g.status === 'accepted' ? 'Accepted' : 'Pending'}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={g.role}
+                              disabled={!shareCanManage}
+                              onChange={async (e)=>{
+                                const role = e.target.value === 'edit' ? 'edit' : 'view';
+                                setShareGuests(prev => prev.map((x,i)=> i===idx ? { ...x, role } : x));
+                                try {
+                                  await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/guest-invite`, { method:'POST', body: JSON.stringify({ email: g.email, role }) });
+                                  toast.success('Invite updated');
+                                } catch { toast.error('Failed to update invite'); }
+                              }}
+                              className="px-2 py-1 border rounded dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                            >
+                              <option value="view">View</option>
+                              <option value="edit">Edit</option>
+                            </select>
+                            <button
+                              disabled={!shareCanManage}
+                              onClick={async ()=>{
+                                try {
+                                  await apiFetch(`${backendBase}/api/dashboards/${shareDash?.id}/guest-invite?email=${encodeURIComponent(g.email)}`, { method:'DELETE' });
+                                  setShareGuests(prev => prev.filter((_, i)=> i!==idx));
+                                  toast.success('Invite removed');
+                                } catch { toast.error('Failed to remove invite'); }
+                              }}
+                              className="text-slate-500 hover:text-red-600 p-2 disabled:opacity-60"
+                              title="Remove invite"
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={closeShare} className="px-4 py-2 border rounded-lg dark:border-slate-700 dark:text-slate-100">Close</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1399,10 +1684,12 @@ function SavedDashboards({
   onDeleteSelected,
   onView,
   onEdit,
+  onShare,
   onDelete
 }) {
   const [menuOpenId, setMenuOpenId] = useState(null);
-  const allSelected = items.length > 0 && selectedIds.length === items.length;
+  const deletable = items.filter((d) => d?.canDelete);
+  const allSelected = deletable.length > 0 && selectedIds.length === deletable.length;
   const handleSelectAllChange = (e) => onToggleAll?.(e.target.checked);
   const handleDeleteSelected = () => onDeleteSelected?.();
   const toggleMenu = (id, e) => {
@@ -1449,7 +1736,14 @@ function SavedDashboards({
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Updated {new Date(d.updated_at).toLocaleString()}</p>
               </div>
               <div className="flex items-center gap-2">
-                <input type="checkbox" className="w-4 h-4" checked={selectedIds.includes(d.id)} onChange={(e) => { e.stopPropagation(); onToggle?.(d.id); }} />
+                <input
+                  type="checkbox"
+                  className="w-4 h-4"
+                  disabled={!d?.canDelete}
+                  checked={selectedIds.includes(d.id)}
+                  onChange={(e) => { e.stopPropagation(); onToggle?.(d.id); }}
+                  title={d?.canDelete ? 'Select for bulk delete' : 'Only the owner can delete dashboards'}
+                />
                 <button onClick={(e) => toggleMenu(d.id, e)} className="text-slate-400 hover:text-slate-200">
                   <i className="fa-solid fa-ellipsis-vertical"></i>
                 </button>
@@ -1462,8 +1756,13 @@ function SavedDashboards({
             {menuOpenId === d.id && (
               <div className="absolute right-4 top-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg w-40 z-20">
                 <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onView?.(d); }}>View</button>
-                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async (e)=>{ e.stopPropagation(); closeMenu(); await onEdit?.(d); }}>Edit</button>
-                <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onDelete?.(d.id); }}>Delete</button>
+                {d?.canEdit ? (
+                  <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async (e)=>{ e.stopPropagation(); closeMenu(); await onEdit?.(d); }}>Edit</button>
+                ) : null}
+                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onShare?.(d); }}>Share</button>
+                {d?.canDelete ? (
+                  <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-slate-800" onClick={(e)=>{ e.stopPropagation(); closeMenu(); onDelete?.(d.id); }}>Delete</button>
+                ) : null}
               </div>
             )}
           </div>

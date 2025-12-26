@@ -6,6 +6,114 @@ import { runWidgetQuery, resolveColumn, type TableColumn, type WidgetQueryInput 
 
 const router = express.Router();
 
+// -------------------- Sharing helpers (recruiter-only) --------------------
+const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
+const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url';
+const USER_SELECT_TINY = 'id,email,role';
+
+function normRole(role: any): string {
+  return String(role || '').toLowerCase().replace(/\s|-/g, '_');
+}
+
+function isJobSeekerRole(role: any): boolean {
+  return normRole(role).startsWith('job_seeker');
+}
+
+function displayName(u: any): string {
+  const full = String(u?.full_name || '').trim();
+  if (full) return full;
+  const composed = [u?.first_name, u?.last_name].filter(Boolean).join(' ').trim();
+  if (composed) return composed;
+  return String(u?.email || u?.id || 'User');
+}
+
+async function runUsersQueryWithFallback<T>(
+  build: (selectCols: string) => Promise<{ data: T; error: any }>
+): Promise<{ data: T; error: any }> {
+  const selects = [USER_SELECT_FULL, USER_SELECT_MIN, USER_SELECT_TINY];
+  let last: { data: any; error: any } = { data: null, error: null };
+  for (const cols of selects) {
+    const resp = await build(cols);
+    last = resp as any;
+    if (!resp?.error) return resp as any;
+    if (String(resp.error?.code || '') !== '42703') return resp as any;
+  }
+  return last as any;
+}
+
+async function getMe(userId: string): Promise<{ id: string; role: string; team_id: string | null; email: string | null }> {
+  const meResp = await runUsersQueryWithFallback<any>(async (_cols) => {
+    // minimal stable subset
+    const resp = await supabase.from('users').select('id,role,team_id,email').eq('id', userId).maybeSingle();
+    return { data: resp.data, error: resp.error };
+  });
+  const data = (meResp as any)?.data;
+  return {
+    id: userId,
+    role: String((data as any)?.role || ''),
+    team_id: (data as any)?.team_id || null,
+    email: (data as any)?.email || null,
+  };
+}
+
+function parseCollaborators(raw: any): Array<{ user_id: string; role: 'view' | 'edit' }> {
+  const arr = Array.isArray(raw) ? raw : [];
+  const out: Array<{ user_id: string; role: 'view' | 'edit' }> = [];
+  const seen = new Set<string>();
+  for (const c of arr) {
+    const uid = String((c as any)?.user_id || '').trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    const role = (String((c as any)?.role || '').toLowerCase() === 'edit') ? 'edit' : 'view';
+    out.push({ user_id: uid, role });
+  }
+  return out;
+}
+
+async function getDashboardById(id: string): Promise<{ id: string; user_id: string; layout: any; collaborators: any; updated_at: any } | null> {
+  // collaborators may not exist in old envs; treat missing as empty list
+  const { data, error } = await supabase
+    .from('user_dashboards')
+    .select('id,user_id,layout,updated_at,collaborators')
+    .eq('id', id)
+    .maybeSingle();
+  if (error && String((error as any)?.code || '') === '42703') {
+    const { data: d2 } = await supabase
+      .from('user_dashboards')
+      .select('id,user_id,layout,updated_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (!d2?.id) return null;
+    return { id: String(d2.id), user_id: String((d2 as any).user_id), layout: (d2 as any).layout, collaborators: [], updated_at: (d2 as any).updated_at };
+  }
+  if (!data?.id) return null;
+  return {
+    id: String((data as any).id),
+    user_id: String((data as any).user_id),
+    layout: (data as any).layout,
+    collaborators: Array.isArray((data as any).collaborators) ? (data as any).collaborators : [],
+    updated_at: (data as any).updated_at,
+  };
+}
+
+async function upsertDashboardCollaborator(dashboardId: string, userId: string, role: 'view' | 'edit'): Promise<void> {
+  const dash = await getDashboardById(dashboardId);
+  if (!dash) throw new Error('not_found');
+  const existing = Array.isArray(dash.collaborators) ? dash.collaborators : [];
+  const map = new Map<string, { user_id: string; role: 'view' | 'edit' }>();
+  for (const c of existing) {
+    const uid = String((c as any)?.user_id || '').trim();
+    if (!uid) continue;
+    map.set(uid, { user_id: uid, role: (String((c as any)?.role || '').toLowerCase() === 'edit' ? 'edit' : 'view') });
+  }
+  map.set(String(userId), { user_id: String(userId), role });
+  const merged = Array.from(map.values());
+  await supabase
+    .from('user_dashboards')
+    .update({ collaborators: merged, updated_at: new Date().toISOString() })
+    .eq('id', dashboardId);
+}
+
 async function canAccessTable(userId: string, tableId: string): Promise<boolean> {
   try {
     const { data } = await supabase
@@ -134,6 +242,289 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'query_failed' });
+  }
+});
+
+// -------------------- Dashboard sharing endpoints --------------------
+
+// GET /api/dashboards/:id/collaborators-unified
+router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const me = await getMe(userId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const { id } = req.params;
+    const dash = await getDashboardById(id);
+    if (!dash) return res.status(404).json({ error: 'not_found' });
+
+    const collabs = parseCollaborators(dash.collaborators);
+    const isOwner = dash.user_id === userId;
+    const isExisting = collabs.some((c) => String(c.user_id) === userId);
+    if (!(isOwner || isExisting)) return res.status(403).json({ error: 'access_denied' });
+
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    let ownerTeam: string | null = null;
+    try {
+      const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {
+        const resp = await supabase.from('users').select(cols).eq('id', dash.user_id).maybeSingle();
+        return { data: resp.data, error: resp.error };
+      });
+      ownerTeam = (ownerRowResp.data as any)?.team_id || null;
+    } catch {}
+    const canManageAccess = Boolean(isSuper || (isTeamAdmin && me.team_id && ownerTeam && me.team_id === ownerTeam));
+
+    const ids = Array.from(new Set([dash.user_id, ...collabs.map((c) => c.user_id)]));
+    const usersResp = ids.length
+      ? await runUsersQueryWithFallback<any[]>(async (cols) => {
+          const resp = await supabase.from('users').select(cols).in('id', ids);
+          return { data: resp.data, error: resp.error };
+        })
+      : ({ data: [], error: null } as any);
+    const byId = new Map((usersResp.data || []).map((u: any) => [String(u.id), u]));
+    const owner = byId.get(String(dash.user_id)) || ({ id: dash.user_id, email: null } as any);
+    const memberCollaborators = collabs.map((c) => ({
+      kind: 'member',
+      user_id: c.user_id,
+      role: c.role,
+      user: byId.get(String(c.user_id)) || ({ id: c.user_id, email: null } as any),
+    }));
+
+    let guests: any[] = [];
+    try {
+      const { data: guestRows } = await supabase
+        .from('dashboard_guest_collaborators')
+        .select('email,role,status')
+        .eq('dashboard_id', id);
+      guests = (guestRows || []).map((g: any) => ({
+        kind: 'guest',
+        email: String(g.email || '').toLowerCase(),
+        role: String(g.role || 'view') === 'edit' ? 'edit' : 'view',
+        status: String(g.status || 'pending'),
+      }));
+    } catch {}
+
+    return res.json({
+      dashboard: { id: dash.id, name: String((dash.layout as any)?.name || '').trim() || 'Custom Dashboard', owner_id: dash.user_id },
+      owner,
+      collaborators: [...memberCollaborators, ...guests],
+      can_manage_access: canManageAccess,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+// POST /api/dashboards/:id/collaborators  { collaborators: [{ user_id, role }] }
+router.post('/:id/collaborators', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const actorId = (req as any).user?.id as string | undefined;
+    if (!actorId) return res.status(401).json({ error: 'unauthorized' });
+    const me = await getMe(actorId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
+
+    const { id } = req.params;
+    const dash = await getDashboardById(id);
+    if (!dash) return res.status(404).json({ error: 'not_found' });
+
+    if (!isSuper) {
+      const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {
+        const resp = await supabase.from('users').select(cols).eq('id', dash.user_id).maybeSingle();
+        return { data: resp.data, error: resp.error };
+      });
+      const ownerTeam = (ownerRowResp.data as any)?.team_id || null;
+      if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
+    }
+
+    const incoming = Array.isArray((req.body as any)?.collaborators) ? (req.body as any).collaborators : [];
+    const cleaned = parseCollaborators(incoming).filter((c) => c.user_id !== dash.user_id);
+    const targetIds = cleaned.map((c) => c.user_id);
+    if (targetIds.length > 100) return res.status(400).json({ error: 'too_many_collaborators' });
+    if (targetIds.length) {
+      const targetsResp = await runUsersQueryWithFallback<any[]>(async (cols) => {
+        const resp = await supabase.from('users').select(cols).in('id', targetIds);
+        return { data: resp.data, error: resp.error };
+      });
+      if (targetsResp.error) return res.status(500).json({ error: targetsResp.error.message || String(targetsResp.error) });
+      const byId = new Map((targetsResp.data || []).map((t: any) => [String(t.id), t]));
+      const invalid = targetIds.filter((tid) => {
+        const t = byId.get(String(tid));
+        if (!t) return true;
+        if (isJobSeekerRole((t as any).role)) return true;
+        return false;
+      });
+      if (invalid.length) return res.status(400).json({ error: 'invalid_collaborators', invalid_user_ids: invalid });
+    }
+
+    const { data: updated, error } = await supabase
+      .from('user_dashboards')
+      .update({ collaborators: cleaned, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ dashboard: updated });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+// POST /api/dashboards/:id/guest-invite  { email, role }
+router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const inviterId = (req as any).user?.id as string | undefined;
+    if (!inviterId) return res.status(401).json({ error: 'unauthorized' });
+    const me = await getMe(inviterId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
+
+    const { id } = req.params;
+    const email = String((req.body || {}).email || '').trim().toLowerCase();
+    const roleIn = String((req.body || {}).role || '').toLowerCase();
+    const role: 'view' | 'edit' = roleIn === 'edit' ? 'edit' : 'view';
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+
+    const dash = await getDashboardById(id);
+    if (!dash) return res.status(404).json({ error: 'not_found' });
+
+    if (!isSuper) {
+      const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {
+        const resp = await supabase.from('users').select(cols).eq('id', dash.user_id).maybeSingle();
+        return { data: resp.data, error: resp.error };
+      });
+      const ownerTeam = (ownerRowResp.data as any)?.team_id || null;
+      if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
+    }
+
+    // If email belongs to an existing public.users user, grant access immediately
+    const existingUserResp = await runUsersQueryWithFallback<any>(async (cols) => {
+      const resp = await supabase.from('users').select(cols).ilike('email', email).maybeSingle();
+      return { data: resp.data, error: resp.error };
+    });
+    const existingUser = existingUserResp.data as any;
+    if (existingUser?.id && isJobSeekerRole(existingUser?.role)) return res.status(400).json({ error: 'jobseeker_not_allowed' });
+    if (existingUser?.id) {
+      await upsertDashboardCollaborator(id, String(existingUser.id), role);
+      try { await supabase.from('dashboard_guest_collaborators').delete().eq('dashboard_id', id).eq('email', email); } catch {}
+
+      // best-effort email (simple)
+      try {
+        const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+        const name = String((dash.layout as any)?.name || '').trim() || 'Custom Dashboard';
+        const subject = `You were added to "${name}" on HirePilot`;
+        const inviterDisplay = me.email || 'a teammate';
+        const html = `
+          <p>Hi,</p>
+          <p>${inviterDisplay} added you as a collaborator to the dashboard <strong>${name}</strong>.</p>
+          <p>No action is required. The dashboard will now appear in your Dashboards list.</p>
+          <p><a href="${appUrl}/dashboards/${id}">Open the dashboard</a></p>
+          <p style="color:#888;font-size:12px;margin-top:16px">You received this because your email (${email}) is a HirePilot account.</p>
+        `;
+        const { sendEmail } = await import('../../services/emailService');
+        await sendEmail(email, subject, subject, html);
+      } catch {}
+
+      return res.json({ kind: 'member', user_id: String(existingUser.id), role });
+    }
+
+    // Guest invite row (pending)
+    const { data: existingInvite } = await supabase
+      .from('dashboard_guest_collaborators')
+      .select('id')
+      .eq('dashboard_id', id)
+      .eq('email', email)
+      .maybeSingle();
+    if (existingInvite?.id) {
+      const { data: upd, error } = await supabase
+        .from('dashboard_guest_collaborators')
+        .update({ invited_by: inviterId, role, status: 'pending', updated_at: new Date().toISOString() })
+        .eq('id', existingInvite.id)
+        .select('*')
+        .maybeSingle();
+      if (error) return res.status(500).json({ error: error.message });
+      try {
+        const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+        const name = String((dash.layout as any)?.name || '').trim() || 'Custom Dashboard';
+        const subject = `You're invited to collaborate on "${name}" on HirePilot`;
+        const html = `
+          <p>Hi,</p>
+          <p>You were invited to collaborate on the dashboard <strong>${name}</strong>.</p>
+          <p>To access it, create/sign in to your HirePilot recruiter account using this email address, and the dashboard will appear in your Dashboards list.</p>
+          <p><a href="${appUrl}/dashboards/${id}">Open the dashboard</a></p>
+          <p style="color:#888;font-size:12px;margin-top:16px">You received this invite because someone shared a dashboard with ${email}.</p>
+        `;
+        const { sendEmail } = await import('../../services/emailService');
+        await sendEmail(email, subject, subject, html);
+      } catch {}
+      return res.json({ kind: 'guest', email, role, status: (upd as any)?.status || 'pending' });
+    }
+
+    const { data: ins, error: insErr } = await supabase
+      .from('dashboard_guest_collaborators')
+      .insert({ dashboard_id: id, email, role, invited_by: inviterId, status: 'pending', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .select('*')
+      .maybeSingle();
+    if (insErr) return res.status(500).json({ error: insErr.message });
+    try {
+      const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+      const name = String((dash.layout as any)?.name || '').trim() || 'Custom Dashboard';
+      const subject = `You're invited to collaborate on "${name}" on HirePilot`;
+      const html = `
+        <p>Hi,</p>
+        <p>You were invited to collaborate on the dashboard <strong>${name}</strong>.</p>
+        <p>To access it, create/sign in to your HirePilot recruiter account using this email address, and the dashboard will appear in your Dashboards list.</p>
+        <p><a href="${appUrl}/dashboards/${id}">Open the dashboard</a></p>
+        <p style="color:#888;font-size:12px;margin-top:16px">You received this invite because someone shared a dashboard with ${email}.</p>
+      `;
+      const { sendEmail } = await import('../../services/emailService');
+      await sendEmail(email, subject, subject, html);
+    } catch {}
+    return res.json({ kind: 'guest', email, role, status: (ins as any)?.status || 'pending' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'invite_failed' });
+  }
+});
+
+// DELETE /api/dashboards/:id/guest-invite?email=...
+router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const actorId = (req as any).user?.id as string | undefined;
+    if (!actorId) return res.status(401).json({ error: 'unauthorized' });
+    const me = await getMe(actorId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const isSuper = ['super_admin', 'superadmin'].includes(normRole(me.role));
+    const isTeamAdmin = normRole(me.role) === 'team_admin';
+    if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
+
+    const { id } = req.params;
+    const email = String((req.query as any)?.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+
+    const dash = await getDashboardById(id);
+    if (!dash) return res.status(404).json({ error: 'not_found' });
+    if (!isSuper) {
+      const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {
+        const resp = await supabase.from('users').select(cols).eq('id', dash.user_id).maybeSingle();
+        return { data: resp.data, error: resp.error };
+      });
+      const ownerTeam = (ownerRowResp.data as any)?.team_id || null;
+      if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
+    }
+
+    await supabase.from('dashboard_guest_collaborators').delete().eq('dashboard_id', id).eq('email', email);
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'delete_failed' });
   }
 });
 

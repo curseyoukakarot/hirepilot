@@ -307,6 +307,55 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
               .eq('status', 'pending');
           }
         } catch {}
+
+        // Accept any pending dashboard guest invites for this email:
+        // - mark invite accepted
+        // - add user_id to user_dashboards.collaborators so the dashboard appears in /dashboards
+        try {
+          const { data: meRow2 } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+          const meRole2 = String((meRow2 as any)?.role || '').toLowerCase();
+          const isJobSeeker2 = meRole2.startsWith('job_seeker');
+          if (!isJobSeeker2) {
+            const { data: pendingDashInvites } = await supabase
+              .from('dashboard_guest_collaborators')
+              .select('id,dashboard_id,role')
+              .eq('email', userEmail)
+              .eq('status', 'pending');
+            for (const inv of (pendingDashInvites || [])) {
+              const dashId = String((inv as any).dashboard_id || '');
+              if (!dashId) continue;
+              const role = String((inv as any).role || 'view') === 'edit' ? 'edit' : 'view';
+              try {
+                const { data: dashRow, error: dashErr } = await supabase
+                  .from('user_dashboards')
+                  .select('id,collaborators')
+                  .eq('id', dashId)
+                  .maybeSingle();
+                // Handle environments where collaborators column isn't deployed yet
+                if (dashErr && String((dashErr as any).code || '') === '42703') continue;
+                if (!dashRow?.id) continue;
+                const existing = Array.isArray((dashRow as any).collaborators) ? (dashRow as any).collaborators : [];
+                const map = new Map<string, any>();
+                for (const c of existing) {
+                  const uid = String((c as any)?.user_id || '').trim();
+                  if (!uid) continue;
+                  map.set(uid, { user_id: uid, role: (String((c as any)?.role || '').toLowerCase() === 'edit' ? 'edit' : 'view') });
+                }
+                map.set(String(userId), { user_id: String(userId), role });
+                const merged = Array.from(map.values());
+                await supabase
+                  .from('user_dashboards')
+                  .update({ collaborators: merged, updated_at: new Date().toISOString() })
+                  .eq('id', dashId);
+              } catch {}
+            }
+            await supabase
+              .from('dashboard_guest_collaborators')
+              .update({ status: 'accepted', user_id: userId, updated_at: new Date().toISOString() })
+              .eq('email', userEmail)
+              .eq('status', 'pending');
+          }
+        } catch {}
       } catch (inviteError) {
         console.warn('[ONBOARDING] Failed to update team invite status:', inviteError);
         // Don't fail the onboarding completion if invite update fails
