@@ -6,6 +6,16 @@ import PlotlyImport from 'plotly.js-dist-min';
 
 const Plotly = PlotlyImport?.default || PlotlyImport;
 
+const getDashboardIdFromPath = () => {
+  try {
+    const path = String(window?.location?.pathname || '');
+    const m = path.match(/\/dashboards\/([0-9a-fA-F-]{36})/);
+    return m ? String(m[1]) : '';
+  } catch {
+    return '';
+  }
+};
+
 // -------------------- Minimal SVG charts (Plotly-free fallback / default) --------------------
 function SimpleLineChart({ series, keys, colors, height = 320, showLegend = true }) {
   const rows = Array.isArray(series) ? series : [];
@@ -323,12 +333,13 @@ function ExecOverviewCommandCenter() {
       const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
       const rangeStart = rangeToStartDate(range);
       const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+      const dashboardId = getDashboardIdFromPath();
 
       const query = async (payload) => {
         const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ ...payload, ...(dashboardId ? { dashboard_id: dashboardId } : {}) })
         });
         if (!resp.ok) throw new Error('Failed to query dashboard data');
         return resp.json();
@@ -728,10 +739,12 @@ function PipelineHealthCommandCenter() {
 
       // Trend series (cash required)
       if (cashCol) {
+        const dashboardId = getDashboardIdFromPath();
         const cashResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify({
+            ...(dashboardId ? { dashboard_id: dashboardId } : {}),
             table_id: tableId,
             metrics: [{ alias: 'Cash', agg: 'SUM', column_id: cashCol }],
             date_column_id: dateCol,
@@ -952,12 +965,14 @@ function CostDriversCommandCenter() {
       const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
       const rangeStart = rangeToStartDate(range);
       const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+      const dashboardId = getDashboardIdFromPath();
 
       // Total cost via query engine (respects range)
       const totalResp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
+          ...(dashboardId ? { dashboard_id: dashboardId } : {}),
           table_id: tableId,
           metrics: [{ alias: 'Cost', agg: 'SUM', column_id: costCol }],
           time_bucket: 'none',
@@ -1022,6 +1037,7 @@ function CostDriversCommandCenter() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify({
+            ...(dashboardId ? { dashboard_id: dashboardId } : {}),
             table_id: tableId,
             metrics: [{ alias: 'Cost', agg: 'SUM', column_id: costCol }],
             date_column_id: dateCol,
@@ -1252,12 +1268,13 @@ function NetProfitOutlookCommandCenter() {
       const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
       const rangeStart = rangeToStartDate(range);
       const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+      const dashboardId = getDashboardIdFromPath();
 
       const query = async (payload) => {
         const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeader },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ ...payload, ...(dashboardId ? { dashboard_id: dashboardId } : {}) })
         });
         if (!resp.ok) throw new Error('Failed to query dashboard data');
         return resp.json();
@@ -1493,6 +1510,7 @@ function SingleTablePremiumCommandCenter() {
       const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
       const rangeStart = rangeToStartDate(range);
       const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
+      const dashboardId = getDashboardIdFromPath();
 
       // KPI totals (up to 4)
       const kpiMetrics = metricList.slice(0, 4).map(m => ({
@@ -1504,6 +1522,7 @@ function SingleTablePremiumCommandCenter() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
+          ...(dashboardId ? { dashboard_id: dashboardId } : {}),
           table_id: tableId,
           metrics: kpiMetrics,
           time_bucket: 'none',
@@ -1527,6 +1546,7 @@ function SingleTablePremiumCommandCenter() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify({
+            ...(dashboardId ? { dashboard_id: dashboardId } : {}),
             table_id: tableId,
             metrics: trendMetrics,
             date_column_id: dateCol,
@@ -2002,6 +2022,7 @@ function DashboardDetailLegacy() {
           const canUseWidgetQuery = sources.length === 1 && Array.isArray(metrics) && metrics.length > 0;
           if (canUseWidgetQuery) {
             try {
+              const dashboardId = getDashboardIdFromPath();
               const tableId = sources[0]?.tableId;
               const tbMapped = tb === 'none' ? 'none' : (tb || 'month');
               const rangeCfg = mapRangeToWidgetRange(range, rangeStart);
@@ -2015,6 +2036,7 @@ function DashboardDetailLegacy() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
+                  ...(dashboardId ? { dashboard_id: dashboardId } : {}),
                   table_id: tableId,
                   metrics: widgetMetrics,
                   date_column_id: dateColumnId,
@@ -2055,8 +2077,9 @@ function DashboardDetailLegacy() {
           if (!traces.length) {
             for (const m of (Array.isArray(metrics) ? metrics : [])) {
               try {
+                const dashboardId = getDashboardIdFromPath();
                 const columnId = m.column_id || m.columnId;
-                const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                const r = await fetch(`${backendBase}/api/dashboards/${dashboardId || 'any'}/widgets/any/preview`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', ...authHeader },
                   body: JSON.stringify({
@@ -2091,7 +2114,8 @@ function DashboardDetailLegacy() {
           // Optional formula series
           if (formulaExpr) {
             try {
-              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              const dashboardId = getDashboardIdFromPath();
+              const r = await fetch(`${backendBase}/api/dashboards/${dashboardId || 'any'}/widgets/any/preview`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
@@ -2128,6 +2152,7 @@ function DashboardDetailLegacy() {
           // Prefer universal widget query for KPI row when single-table.
           if (sources.length === 1 && Array.isArray(metrics) && metrics.length) {
             try {
+              const dashboardId = getDashboardIdFromPath();
               const rangeCfg = mapRangeToWidgetRange(range, rangeStart);
               const widgetMetrics = (metrics || []).map((m) => ({
                 alias: m.alias,
@@ -2138,6 +2163,7 @@ function DashboardDetailLegacy() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
+                  ...(dashboardId ? { dashboard_id: dashboardId } : {}),
                   table_id: sources[0]?.tableId,
                   metrics: widgetMetrics,
                   time_bucket: 'none',
@@ -2159,8 +2185,9 @@ function DashboardDetailLegacy() {
           if (!k.length) {
             for (const m of (Array.isArray(metrics) ? metrics : [])) {
               try {
+                const dashboardId = getDashboardIdFromPath();
                 const columnId = m.column_id || m.columnId;
-                const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+                const r = await fetch(`${backendBase}/api/dashboards/${dashboardId || 'any'}/widgets/any/preview`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', ...authHeader },
                   body: JSON.stringify({
@@ -2181,7 +2208,8 @@ function DashboardDetailLegacy() {
           }
           if (formulaExpr) {
             try {
-              const r = await fetch(`${backendBase}/api/dashboards/any/widgets/any/preview`, {
+              const dashboardId = getDashboardIdFromPath();
+              const r = await fetch(`${backendBase}/api/dashboards/${dashboardId || 'any'}/widgets/any/preview`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({

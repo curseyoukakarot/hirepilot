@@ -131,11 +131,41 @@ async function canAccessTable(userId: string, tableId: string): Promise<boolean>
   } catch { return false; }
 }
 
+async function canAccessDashboard(userId: string, dashboardId: string): Promise<boolean> {
+  try {
+    const dash = await getDashboardById(dashboardId);
+    if (!dash) return false;
+    if (String(dash.user_id) === String(userId)) return true;
+    const collabs = parseCollaborators(dash.collaborators);
+    return collabs.some((c) => String(c.user_id) === String(userId));
+  } catch {
+    return false;
+  }
+}
+
+async function canAccessDashboardTable(userId: string, dashboardId: string, tableId: string): Promise<boolean> {
+  try {
+    const dash = await getDashboardById(dashboardId);
+    if (!dash) return false;
+    const hasDashAccess =
+      String(dash.user_id) === String(userId)
+      || parseCollaborators(dash.collaborators).some((c) => String(c.user_id) === String(userId));
+    if (!hasDashAccess) return false;
+
+    const sources = Array.isArray((dash.layout as any)?.sources) ? (dash.layout as any).sources : [];
+    const referenced = sources.some((s: any) => String(s?.tableId || s?.table_id || '').trim() === String(tableId));
+    return referenced;
+  } catch {
+    return false;
+  }
+}
+
 // POST /api/dashboards/:id/widgets/:widgetId/preview
 router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'unauthorized' }); return; }
+    const dashboardId = String(req.params?.id || '').trim();
     const cfg = req.body || {};
     const type = String(cfg?.type || '').toLowerCase();
     // Accept both tranche-1 chart/metric and tranche-2 formula types; here we focus on formula types
@@ -147,7 +177,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
     if (!sources.length) { res.status(400).json({ error: 'sources_required' }); return; }
     // Access checks
     for (const s of sources) {
-      const ok = await canAccessTable(userId, s.tableId);
+      const ok = await canAccessTable(userId, s.tableId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId));
       if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId: s.tableId }); return; }
     }
     const joins: JoinSpec[] | undefined = Array.isArray(cfg.joins) ? cfg.joins : undefined;
@@ -192,10 +222,11 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'unauthorized' }); return; }
-    const cfg = (req.body || {}) as Partial<WidgetQueryInput>;
+    const cfg = (req.body || {}) as Partial<WidgetQueryInput> & { dashboard_id?: string };
     const tableId = String(cfg.table_id || '').trim();
     if (!tableId) { res.status(400).json({ error: 'table_id_required' }); return; }
-    const ok = await canAccessTable(userId, tableId);
+    const dashboardId = String((cfg as any)?.dashboard_id || '').trim();
+    const ok = await canAccessTable(userId, tableId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId) : false);
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
