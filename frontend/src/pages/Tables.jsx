@@ -9,6 +9,8 @@ export default function Tables() {
   const [loading, setLoading] = useState(true);
   const [menuOpenId, setMenuOpenId] = useState(null);
   const [duplicatingId, setDuplicatingId] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState('');
+  const [profileName, setProfileName] = useState('Profile');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,6 +72,39 @@ export default function Tables() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) return;
+        const meta = user.user_metadata || {};
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('avatar_url, first_name, last_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        const nameParts = [
+          userProfile?.first_name || meta.first_name || meta.firstName || '',
+          userProfile?.last_name || meta.last_name || meta.lastName || ''
+        ].filter(Boolean);
+        const derivedDisplayName = nameParts.join(' ').trim() || meta.full_name || meta.name || user?.email || 'User';
+        const avatarCandidate =
+          userProfile?.avatar_url ||
+          meta.avatar_url ||
+          meta.photo_url ||
+          meta.profile_image_url ||
+          meta.picture ||
+          meta.image ||
+          null;
+        const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedDisplayName)}&background=random`;
+        setProfileName(derivedDisplayName);
+        setProfilePhoto(avatarCandidate || fallbackAvatar);
+      } catch (e) {
+        console.warn('Failed to load profile avatar', e);
+      }
+    })();
   }, []);
 
   const numberFmt = useMemo(() => new Intl.NumberFormat('en-US'), []);
@@ -168,7 +203,11 @@ export default function Tables() {
                 <input type="text" placeholder="Search tables..." className="w-80 px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                 <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
               </div>
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Avatar" className="w-10 h-10 rounded-full" />
+              <img
+                src={profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileName || 'User')}&background=random`}
+                alt={profileName || 'Profile'}
+                className="w-10 h-10 rounded-full object-cover"
+              />
             </div>
           </div>
         </header>
