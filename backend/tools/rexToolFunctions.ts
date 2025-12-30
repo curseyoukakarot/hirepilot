@@ -1451,6 +1451,7 @@ export function listZapierEndpoints() {
   return {
     actions: {
       createOrUpdateLead: `${base}/api/zapier/leads`,
+      addLeadTag: `${base}/api/zapier/leads/{leadId}/tags`,
       enrichLead: `${base}/api/zapier/enrich`,
       testEvent: `${base}/api/zapier/test-event`
     },

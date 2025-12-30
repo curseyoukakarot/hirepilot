@@ -93,6 +93,88 @@ router.post('/enrich', apiKeyAuth, async (req: ApiRequest, res: Response) => {
 });
 
 /**
+ * Add a tag to an existing lead (by lead id) for the API-key user.
+ * This avoids needing a session-authenticated PATCH /api/leads/:id call from Zapier.
+ *
+ * POST /api/zapier/leads/:id/tags
+ * Body: { "tag": "aiinfra" }
+ */
+router.post('/leads/:id/tags', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const leadId = String(req.params.id || '').trim();
+    const tagRaw = (req.body as any)?.tag;
+    const tag = String(tagRaw ?? '').trim();
+
+    if (!leadId) return res.status(400).json({ error: 'Missing lead id' });
+    if (!tag) return res.status(400).json({ error: 'Missing tag' });
+
+    // Fetch lead, ensure ownership by API-key user
+    const { data: lead, error: fetchErr } = await supabaseDb
+      .from('leads')
+      .select('id,user_id,tags,status,created_at,updated_at,name,title,company,email,phone,linkedin_url,location')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if ((lead as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    const prevTags: string[] = Array.isArray((lead as any).tags) ? (lead as any).tags : [];
+    const prevLc = new Set(prevTags.map(t => String(t ?? '').trim().toLowerCase()).filter(Boolean));
+
+    // If already present (case-insensitive), return current lead unchanged.
+    if (prevLc.has(tag.toLowerCase())) {
+      return res.status(200).json({ lead, added: false, tag, tags: prevTags });
+    }
+
+    const nextTags = [...prevTags, tag];
+    const now = new Date().toISOString();
+    const { data: updated, error: updErr } = await supabaseDb
+      .from('leads')
+      .update({ tags: nextTags, updated_at: now })
+      .eq('id', leadId)
+      .eq('user_id', userId)
+      .select('*')
+      .maybeSingle();
+    if (updErr) throw updErr;
+    if (!updated) return res.status(404).json({ error: 'Lead not found' });
+
+    // Emit Zapier events (consistent with session-auth lead update behavior)
+    try {
+      await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData }) => {
+        emitZapEvent({
+          userId,
+          eventType: ZAP_EVENT_TYPES.LEAD_UPDATED,
+          eventData: createLeadEventData(updated, { updated_fields: ['tags'] }),
+          sourceTable: 'leads',
+          sourceId: (updated as any).id
+        });
+        emitZapEvent({
+          userId,
+          eventType: ZAP_EVENT_TYPES.LEAD_TAG_ADDED,
+          eventData: createLeadEventData(updated, {
+            tag,
+            action: 'tag_added',
+            tags: nextTags,
+            previous_tags: prevTags,
+            added_tags: [tag]
+          }),
+          sourceTable: 'leads',
+          sourceId: (updated as any).id
+        });
+      });
+    } catch (e) {
+      console.warn('[Zapier] emit tag events failed', (e as any)?.message || e);
+    }
+
+    return res.status(200).json({ lead: updated, added: true, tag, tags: nextTags });
+  } catch (err: any) {
+    console.error('[Zapier] /leads/:id/tags error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
  * Polling trigger for new leads. Zapier will hit this with a `since` ISO timestamp.
  * Returns leads created after that timestamp (default: last 15 minutes).
  */
