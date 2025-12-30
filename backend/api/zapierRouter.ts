@@ -214,6 +214,51 @@ router.get('/triggers/events', apiKeyAuth, async (req: ApiRequest, res: Response
 });
 
 /**
+ * List unique lead tags for the authenticated (API-key) user.
+ * Useful for Zapier dropdowns / validation.
+ *
+ * GET /api/zapier/lead-tags
+ * Optional query:
+ *  - q: substring filter (case-insensitive)
+ *  - limit: max tags to return (default 200, max 1000)
+ */
+router.get('/lead-tags', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const q = String((req.query.q as any) ?? '').trim().toLowerCase();
+    const limit = Math.max(1, Math.min(1000, Number((req.query.limit as any) ?? 200)));
+
+    // Fetch tags only; avoid pulling entire lead rows.
+    // Note: tags appears to be stored as array/json on leads.
+    const { data, error } = await supabaseDb
+      .from('leads')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(5000);
+    if (error) throw error;
+
+    const set = new Set<string>();
+    for (const row of data || []) {
+      const tags = (row as any)?.tags;
+      if (!Array.isArray(tags)) continue;
+      for (const t of tags) {
+        const s = String(t ?? '').trim();
+        if (!s) continue;
+        if (q && !s.toLowerCase().includes(q)) continue;
+        set.add(s);
+      }
+    }
+
+    const tags = Array.from(set).sort((a, b) => a.localeCompare(b)).slice(0, limit);
+    return res.status(200).json({ tags, meta: { q: q || null, limit, returned: tags.length } });
+  } catch (err: any) {
+    console.error('[Zapier] /lead-tags error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
  * Polling trigger: leads whose status was updated (pipeline stage change)
  * after a provided `since` ISO timestamp. Zapier can use this to fire
  * workflows when a lead moves stages. Optional query param `stage`

@@ -1463,6 +1463,9 @@ export function listZapierEndpoints() {
       newLead: `${base}/api/zapier/triggers/new-leads`,
       pipelineStageChanged: `${base}/api/zapier/triggers/pipeline-stage-changes`
     },
+    lookups: {
+      leadTags: `${base}/api/zapier/lead-tags`
+    },
     eventTypes: {
       leads: [
         'lead_created', 'lead_updated', 'lead_converted', 
