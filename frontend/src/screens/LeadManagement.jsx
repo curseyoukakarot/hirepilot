@@ -17,11 +17,24 @@ import { replaceTokens } from '../utils/tokenReplace';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useCampaignOptions } from '../hooks/useCampaignOptions';
+import HtmlPreviewModal from '../components/HtmlPreviewModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+const looksLikeHtml = (s) => {
+  if (!s) return false;
+  const str = String(s);
+  return /<!doctype\s+html/i.test(str) || /<\/?[a-z][\s\S]*>/i.test(str);
+};
+
+const toEmailHtml = (body) => {
+  if (!body) return '';
+  const str = String(body);
+  return looksLikeHtml(str) ? str : str.replace(/\n/g, '<br/>');
+};
 
 function LeadManagement() {
   const { isFree } = usePlan();
@@ -68,6 +81,7 @@ function LeadManagement() {
   const [bulkIsSending, setBulkIsSending] = useState(false);
   const [bulkIsSavingTemplate, setBulkIsSavingTemplate] = useState(false);
   const [bulkPreviewModes, setBulkPreviewModes] = useState({});
+  const [bulkPreviewModalLeadId, setBulkPreviewModalLeadId] = useState(null);
   const tagInputRefs = useRef({});
   const [tagEditLeadId, setTagEditLeadId] = useState(null);
   const [tagInputValue, setTagInputValue] = useState('');
@@ -1416,6 +1430,30 @@ function LeadManagement() {
     } finally { setLsLoading(false); }
   };
 
+  // Bulk HTML preview modal derived values
+  const bulkPreviewLead = bulkPreviewModalLeadId ? (leads || []).find(l => l.id === bulkPreviewModalLeadId) : null;
+  const bulkPreviewModalTitle = bulkPreviewLead ? `Bulk Send Preview: ${bulkPreviewLead.name || bulkPreviewLead.email || bulkPreviewLead.id}` : 'Bulk Send Preview';
+  const bulkPreviewModalSubject = (() => {
+    if (!bulkPreviewLead || !bulkSelectedTemplate) return '';
+    return replaceTokens(bulkSelectedTemplate.subject || '', {
+      Candidate: {
+        FirstName: bulkPreviewLead.name ? String(bulkPreviewLead.name).split(' ')[0] : '',
+        LastName: bulkPreviewLead.name ? String(bulkPreviewLead.name).split(' ').slice(1).join(' ') : '',
+        Company: bulkPreviewLead.company || '',
+        Job: bulkPreviewLead.title || '',
+        Email: bulkPreviewLead.email || '',
+        LinkedIn: bulkPreviewLead.linkedin_url || ''
+      },
+      first_name: bulkPreviewLead.first_name || (bulkPreviewLead.name ? String(bulkPreviewLead.name).split(' ')[0] : ''),
+      last_name: bulkPreviewLead.last_name || (bulkPreviewLead.name ? String(bulkPreviewLead.name).split(' ').slice(1).join(' ') : ''),
+      full_name: bulkPreviewLead.name || '',
+      company: bulkPreviewLead.company || '',
+      title: bulkPreviewLead.title || '',
+      email: bulkPreviewLead.email || ''
+    });
+  })();
+  const bulkPreviewModalHtml = bulkPreviewLead ? toEmailHtml(bulkMessages[bulkPreviewLead.id] || '') : '';
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b0f17]">
       <ToastContainer
@@ -1429,6 +1467,13 @@ function LeadManagement() {
         draggable
         pauseOnHover
         theme="light"
+      />
+      <HtmlPreviewModal
+        isOpen={!!bulkPreviewModalLeadId}
+        title={bulkPreviewModalTitle}
+        subject={bulkPreviewModalSubject}
+        html={bulkPreviewModalHtml}
+        onClose={() => setBulkPreviewModalLeadId(null)}
       />
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
@@ -2398,13 +2443,21 @@ function LeadManagement() {
                         >
                           {bulkPreviewModes[lead.id] ? 'Edit' : 'Preview'}
                         </button>
+                        <button
+                          className="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50"
+                          type="button"
+                          onClick={() => setBulkPreviewModalLeadId(lead.id)}
+                          title="Open full HTML preview"
+                        >
+                          Open Preview
+                        </button>
                       </div>
                       {bulkPreviewModes[lead.id] ? (
                         <div
                           className="w-full border rounded px-3 py-2 mt-1 text-sm bg-gray-50 whitespace-pre-wrap"
                           style={{ minHeight: '72px' }}
                           dangerouslySetInnerHTML={{
-                            __html: (bulkMessages[lead.id] || '').replace(/\n/g, '<br/>'),
+                            __html: toEmailHtml(bulkMessages[lead.id] || ''),
                           }}
                         />
                       ) : (

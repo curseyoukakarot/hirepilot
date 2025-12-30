@@ -86,7 +86,8 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       }
     }
     
-    body = body.replace(/\n/g, '<br/>');
+    const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    if (!looksLikeHtml(body)) body = body.replace(/\n/g, '<br/>');
 
     // Get user's SendGrid API key and default sender
     const { data, error } = await supabaseDb
@@ -241,7 +242,8 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       }
     }
     
-    body = body.replace(/\n/g, '<br/>');
+    const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    if (!looksLikeHtml(body)) body = body.replace(/\n/g, '<br/>');
 
     console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
 
@@ -374,7 +376,8 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
       }
     }
     
-    body = body.replace(/\n/g, '<br/>');
+    const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    if (!looksLikeHtml(body)) body = body.replace(/\n/g, '<br/>');
 
     console.log(`[sendViaOutlook] Sending email to ${lead.email} with subject: ${subject}`);
     

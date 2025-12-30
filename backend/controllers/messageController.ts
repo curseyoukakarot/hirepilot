@@ -122,8 +122,12 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
     }
 
-    // Convert plain text newlines to <br/> to preserve spacing in HTML emails
-    finalHtml = finalHtml.replace(/\n/g, '<br/>');
+    // Convert plain text newlines to <br/> to preserve spacing in HTML emails.
+    // IMPORTANT: Don't do this for real HTML templates, or it will inject <br/> into markup.
+    const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    if (!looksLikeHtml(finalHtml)) {
+      finalHtml = finalHtml.replace(/\n/g, '<br/>');
+    }
     console.log('[sendMessage] Final HTML processed, length:', finalHtml.length);
 
     // Fetch the user's integration details for the selected provider

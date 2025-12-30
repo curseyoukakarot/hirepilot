@@ -118,7 +118,10 @@ export class MessageScheduler {
       }
 
       // Use unified provider sender (supports sendgrid, gmail/google, outlook)
-      const htmlBody = message.content.replace(/\n/g, '<br/>');
+      // Avoid injecting <br/> into real HTML templates.
+      const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+      const rawBody = String((message as any)?.content || '');
+      const htmlBody = looksLikeHtml(rawBody) ? rawBody : rawBody.replace(/\n/g, '<br/>');
       const bccList = (message.bcc || '')
         .split(/[,;\n]/)
         .map(addr => addr.trim())

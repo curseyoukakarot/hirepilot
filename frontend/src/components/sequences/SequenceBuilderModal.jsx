@@ -4,20 +4,35 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
+import HtmlPreviewModal from '../HtmlPreviewModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+
+const looksLikeHtml = (s) => {
+  if (!s) return false;
+  const str = String(s);
+  return /<!doctype\s+html/i.test(str) || /<\/?[a-z][\s\S]*>/i.test(str);
+};
+
+const toEmailHtml = (body) => {
+  if (!body) return '';
+  const str = String(body);
+  return looksLikeHtml(str) ? str : str.replace(/\n/g, '<br/>');
+};
 
 export default function SequenceBuilderModal({ isOpen, onClose, initialSequence, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [stopOnReply, setStopOnReply] = useState(true);
+  const [htmlMode, setHtmlMode] = useState(false);
   const [sendWindowStart, setSendWindowStart] = useState('');
   const [sendWindowEnd, setSendWindowEnd] = useState('');
   const [throttlePerHour, setThrottlePerHour] = useState('');
   const [steps, setSteps] = useState([{ step_order: 1, subject: '', body: '', delay_days: 0, delay_hours: 0, send_only_business_days: false }]);
   const [previewStart, setPreviewStart] = useState(new Date());
   const [timezone, setTimezone] = useState('America/Chicago');
+  const [previewStepIndex, setPreviewStepIndex] = useState(null); // number | 'all' | null
 
   useEffect(() => {
     if (initialSequence) {
@@ -134,6 +149,30 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <HtmlPreviewModal
+        isOpen={previewStepIndex !== null}
+        title={
+          previewStepIndex === 'all'
+            ? `Tiered Template Preview: ${name || 'Untitled'}`
+            : `Step ${Number(previewStepIndex) + 1} Preview`
+        }
+        subject={
+          previewStepIndex === 'all'
+            ? ''
+            : (steps?.[Number(previewStepIndex)]?.subject || '')
+        }
+        html={
+          previewStepIndex === 'all'
+            ? (steps || []).map((s, idx) => (
+                `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #eee;">
+                  <div style="font-weight:600;margin-bottom:6px;">Step ${idx + 1}${s.subject ? ` — ${String(s.subject).replace(/</g,'&lt;')}` : ''}</div>
+                  <div>${toEmailHtml(s.body || '')}</div>
+                </div>`
+              )).join('')
+            : toEmailHtml(steps?.[Number(previewStepIndex)]?.body || '')
+        }
+        onClose={() => setPreviewStepIndex(null)}
+      />
       <div className="bg-white rounded-2xl p-6 w-full max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold">{initialSequence ? 'Edit Tiered Template' : 'New Tiered Template'}</h3>
@@ -166,6 +205,20 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
             <input id="stop-reply" type="checkbox" className="h-4 w-4" checked={stopOnReply} onChange={e => setStopOnReply(e.target.checked)} />
             <label htmlFor="stop-reply" className="text-sm text-gray-700">Stop on reply</label>
           </div>
+          <div className="col-span-2 flex items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input id="html-mode" type="checkbox" className="h-4 w-4" checked={htmlMode} onChange={e => setHtmlMode(e.target.checked)} />
+              HTML mode (paste raw HTML into step bodies)
+            </label>
+            <button
+              type="button"
+              className="px-3 py-2 border rounded text-sm hover:bg-gray-50"
+              onClick={() => setPreviewStepIndex('all')}
+              disabled={!steps?.length}
+            >
+              Preview All Steps
+            </button>
+          </div>
         </div>
 
         {/* Steps editor */}
@@ -175,6 +228,14 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
               <div className="flex items-center justify-between mb-3">
                 <div className="font-medium">Step {idx + 1}</div>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="px-2 py-1 border rounded hover:bg-gray-50"
+                    onClick={() => setPreviewStepIndex(idx)}
+                    title="Preview this step"
+                  >
+                    Preview
+                  </button>
                   <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={() => moveStep(idx, 'up')}><FaArrowUp /></button>
                   <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={() => moveStep(idx, 'down')}><FaArrowDown /></button>
                   <button className="px-2 py-1 border rounded text-red-600 hover:bg-red-50" onClick={() => removeStep(idx)}><FaTrash /></button>
@@ -231,6 +292,11 @@ export default function SequenceBuilderModal({ isOpen, onClose, initialSequence,
                 <div className="col-span-2">
                   <label className="block text-sm text-gray-700 mb-1">Body</label>
                   <textarea className="w-full border rounded-lg px-3 py-2" rows={4} value={s.body} onChange={e => setSteps(prev => prev.map((p,i) => i===idx ? { ...p, body: e.target.value } : p))} placeholder="Use {{first_name}}, {{company}}, etc." />
+                  {htmlMode && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      HTML mode is enabled — paste full HTML here (tables, inline styles, etc.). Tokens like <code>{"{{Candidate.FirstName}}"}</code> still work.
+                    </div>
+                  )}
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
                   <input id={`biz-${idx}`} type="checkbox" className="h-4 w-4" checked={s.send_only_business_days} onChange={e => setSteps(prev => prev.map((p,i) => i===idx ? { ...p, send_only_business_days: e.target.checked } : p))} />

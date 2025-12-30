@@ -249,6 +249,8 @@ export async function processSequenceStepRuns(){
       // Render content
       const body = personalizeMessage(step.body || '', leadRes);
       const subject = step.subject ? personalizeMessage(step.subject, leadRes) : undefined;
+      const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+      const bodyHtml = looksLikeHtml(body) ? body : body.replace(/\n/g, '<br/>');
 
       // Determine provider for this enrollment if specified; else fall back to default service
       let sent = false;
@@ -265,13 +267,14 @@ export async function processSequenceStepRuns(){
         sent = await sendViaProvider(
           preferredProvider as any,
           leadRes,
-          body,
+          bodyHtml,
           leadRes.user_id,
           subj,
           enrollmentBcc.length ? { bcc: enrollmentBcc } : undefined
         );
       } else {
         const ep = await import('../services/emailProviderService');
+        // emailProviderService already guards against mangling HTML; pass original body for template detection.
         sent = await ep.sendEmail(leadRes, body, leadRes.user_id, subject);
       }
 

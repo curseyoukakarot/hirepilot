@@ -20,20 +20,22 @@ export async function sendEmail(
 ): Promise<boolean> {
   // Ensure placeholders are replaced regardless of upstream processing.
   const templated = personalizeMessage(message, lead);
+  const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+  const toEmailHtml = (s: string) => (looksLikeHtml(s) ? s : s.replace(/\n/g, '<br/>'));
   // Prefer explicit subject when provided (from sequence builder/scheduler)
   let subject = explicitSubject && explicitSubject.trim().length > 0 ? explicitSubject.trim() : 'Message from HirePilot';
   // If no explicit subject was provided, attempt legacy parsing of first line
+  let body = templated;
   if (!explicitSubject) {
-    const lines = templated.split('\n');
+    const lines = body.split('\n');
     if (lines.length > 1 && lines[0].length < 100 && !lines[0].includes('<')) {
       subject = lines[0].trim();
-      message = lines.slice(1).join('\n').trim();
+      body = lines.slice(1).join('\n').trim();
     }
   }
-  // Convert plain newlines to <br/> for HTML content
-  const processedMessage = templated === message
-    ? message.replace(/\n/g, '<br/>')
-    : message.replace(/\n/g, '<br/>');
+
+  // Convert plain newlines to <br/> for HTML emails, but avoid mangling real HTML templates.
+  const processedMessage = toEmailHtml(body);
   
   try {
     // Prefer SendGrid if configured; else fall back to Google

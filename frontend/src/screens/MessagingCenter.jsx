@@ -11,12 +11,25 @@ import { replaceTokens } from '../utils/tokenReplace';
 import SequencesTab from '../components/sequences/SequencesTab';
 import { usePlan } from '../context/PlanContext';
 import SequenceBuilderModal from '../components/sequences/SequenceBuilderModal';
+import HtmlPreviewModal from '../components/HtmlPreviewModal';
 
 // Backend base URL (same env var used elsewhere)
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+
+const looksLikeHtml = (s) => {
+  if (!s) return false;
+  const str = String(s);
+  return /<!doctype\s+html/i.test(str) || /<\/?[a-z][\s\S]*>/i.test(str);
+};
+
+const toEmailHtml = (body) => {
+  if (!body) return '';
+  const str = String(body);
+  return looksLikeHtml(str) ? str : str.replace(/\n/g, '<br/>');
+};
 
 const baseFolders = [
   { name: 'Inbox', icon: <FaInbox /> },
@@ -60,6 +73,10 @@ export default function MessagingCenter() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showComposerPreview, setShowComposerPreview] = useState(false);
+  const [composerHtmlMode, setComposerHtmlMode] = useState(false);
+  const [templateHtmlMode, setTemplateHtmlMode] = useState(false);
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [activeSubtab, setActiveSubtab] = useState('Templates');
   const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
@@ -397,6 +414,7 @@ export default function MessagingCenter() {
     setTemplateSubject('');
     setTemplateType('email');
     setTemplateContent('');
+    setTemplateHtmlMode(false);
     setShowTemplateEditor(true);
   };
 
@@ -406,6 +424,7 @@ export default function MessagingCenter() {
     setTemplateSubject(template.subject);
     setTemplateType((template.subject||'')==='linkedin_request' ? 'linkedin_request' : 'email');
     setTemplateContent(template.content);
+    setTemplateHtmlMode(false);
     setShowTemplateEditor(true);
   };
 
@@ -537,7 +556,7 @@ export default function MessagingCenter() {
 
       const personalizedBody = replaceTokens(messageBody, data);
       const personalizedSubject = replaceTokens(subjectField, data);
-      const htmlBody = personalizedBody.replace(/\n/g, '<br/>');
+      const htmlBody = toEmailHtml(personalizedBody);
 
       // Send via backend API (will also store the message)
       const response = await fetch(`${API_BASE_URL}/message/send`, {
@@ -810,6 +829,7 @@ export default function MessagingCenter() {
     setSubjectField('');
     setMessageBody('');
     setSelectedLead(null);
+    setComposerHtmlMode(false);
   };
 
   // Ensure only one compose form is rendered at a time
@@ -822,6 +842,50 @@ export default function MessagingCenter() {
 
   return (
     <div className="flex h-screen bg-base-50 dark:bg-gray-900 font-inter">
+      <HtmlPreviewModal
+        isOpen={showComposerPreview}
+        title="Single Send Preview"
+        subject={replaceTokens(subjectField || '', selectedLead ? {
+          Candidate: {
+            FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+            LastName: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+            Company: selectedLead.company || '',
+            Job: selectedLead.title || '',
+            Email: selectedLead.email || ''
+          },
+          first_name: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+          last_name: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+          full_name: selectedLead.name || '',
+          company: selectedLead.company || '',
+          title: selectedLead.title || '',
+          email: selectedLead.email || ''
+        } : {})}
+        html={toEmailHtml(replaceTokens(messageBody || '', selectedLead ? {
+          Candidate: {
+            FirstName: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+            LastName: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+            Company: selectedLead.company || '',
+            Job: selectedLead.title || '',
+            Email: selectedLead.email || ''
+          },
+          first_name: selectedLead.name ? selectedLead.name.split(' ')[0] : '',
+          last_name: selectedLead.name ? selectedLead.name.split(' ').slice(1).join(' ') : '',
+          full_name: selectedLead.name || '',
+          company: selectedLead.company || '',
+          title: selectedLead.title || '',
+          email: selectedLead.email || ''
+        } : {}))}
+        onClose={() => setShowComposerPreview(false)}
+      />
+
+      <HtmlPreviewModal
+        isOpen={showTemplatePreview}
+        title={editingTemplate ? `Template Preview: ${templateName || editingTemplate?.name || ''}` : `Template Preview: ${templateName || ''}`}
+        subject={templateType === 'email' ? (templateSubject || '') : ''}
+        html={toEmailHtml(templateContent || '')}
+        onClose={() => setShowTemplatePreview(false)}
+      />
+
       {/* Prompt Modal */}
       {showPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
@@ -986,14 +1050,41 @@ export default function MessagingCenter() {
               {templateType === 'email' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={templateHtmlMode}
+                        onChange={(e) => setTemplateHtmlMode(e.target.checked)}
+                      />
+                      HTML mode (paste raw HTML)
+                    </label>
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm"
+                      onClick={() => setShowTemplatePreview(true)}
+                      disabled={!templateContent?.trim?.()}
+                    >
+                      Preview
+                    </button>
+                  </div>
                   <div className="border border-gray-300 rounded-md shadow-sm">
-                    <ReactQuill
-                      theme="snow"
-                      value={templateContent}
-                      onChange={setTemplateContent}
-                      className="min-h-[300px]"
-                      modules={quillModules}
-                    />
+                    {templateHtmlMode ? (
+                      <textarea
+                        className="w-full min-h-[300px] p-3 font-mono text-sm outline-none"
+                        value={templateContent}
+                        onChange={(e) => setTemplateContent(e.target.value)}
+                        placeholder="Paste your full HTML here (e.g., <html>...</html> or a fragment like <table>...</table>). Tokens like {{Candidate.FirstName}} are supported."
+                      />
+                    ) : (
+                      <ReactQuill
+                        theme="snow"
+                        value={templateContent}
+                        onChange={setTemplateContent}
+                        className="min-h-[300px]"
+                        modules={quillModules}
+                      />
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1020,6 +1111,16 @@ export default function MessagingCenter() {
               >
                 Cancel
               </button>
+              {templateType === 'email' && (
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                  onClick={() => setShowTemplatePreview(true)}
+                  disabled={!templateContent.trim()}
+                >
+                  Preview
+                </button>
+              )}
               <button
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 onClick={handleSaveTemplate}
@@ -1460,15 +1561,42 @@ export default function MessagingCenter() {
                 )}
               </div>
               {/* Message Body (Rich Editor) */}
+              <div className="mb-2 flex items-center justify-between">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={composerHtmlMode}
+                    onChange={(e) => setComposerHtmlMode(e.target.checked)}
+                  />
+                  HTML mode (paste raw HTML)
+                </label>
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm disabled:opacity-50"
+                  onClick={() => setShowComposerPreview(true)}
+                  disabled={!messageBody?.trim?.()}
+                >
+                  Preview
+                </button>
+              </div>
               <div className="mb-6 border border-gray-300 rounded-b-md shadow-sm">
-                <ReactQuill
-                  ref={quillRef}
-                  theme="snow"
-                  value={messageBody}
-                  onChange={handleBodyChange}
-                  className="min-h-[200px]"
-                  modules={quillModules}
-                />
+                {composerHtmlMode ? (
+                  <textarea
+                    className="w-full min-h-[220px] p-3 font-mono text-sm outline-none"
+                    value={messageBody}
+                    onChange={(e) => handleBodyChange(e.target.value)}
+                    placeholder="Paste your full HTML here. Tokens like {{Candidate.FirstName}} are supported."
+                  />
+                ) : (
+                  <ReactQuill
+                    ref={quillRef}
+                    theme="snow"
+                    value={messageBody}
+                    onChange={handleBodyChange}
+                    className="min-h-[200px]"
+                    modules={quillModules}
+                  />
+                )}
               </div>
               {/* Actions */}
               <div className="flex items-center justify-between mt-4">
@@ -1487,6 +1615,14 @@ export default function MessagingCenter() {
                     onClick={handleSaveDraft}
                   >
                     Save as Draft
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => setShowComposerPreview(true)}
+                    disabled={!messageBody?.trim?.()}
+                  >
+                    Preview
                   </button>
                   <button
                     type="button"

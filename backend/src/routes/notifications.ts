@@ -258,7 +258,8 @@ If no strong subject, set subject to "Re: ${lastOutboundSubject || replySubject 
     });
     const content = r.choices?.[0]?.message?.content || '';
     let subject = fallbackSubject;
-    let html = fallbackBody.replace(/\n/g, '<br/>');
+    const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    let html = looksLikeHtml(fallbackBody) ? fallbackBody : fallbackBody.replace(/\n/g, '<br/>');
     try {
       const parsed = JSON.parse(content);
       if (parsed?.subject) subject = String(parsed.subject);
@@ -271,7 +272,8 @@ If no strong subject, set subject to "Re: ${lastOutboundSubject || replySubject 
     }
     return { subject, html, calendlyUrl };
   } catch {
-    return { subject: fallbackSubject, html: fallbackBody.replace(/\n/g, '<br/>'), calendlyUrl };
+    const looksLikeHtml2 = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    return { subject: fallbackSubject, html: looksLikeHtml2(fallbackBody) ? fallbackBody : fallbackBody.replace(/\n/g, '<br/>'), calendlyUrl };
   }
 }
 

@@ -166,7 +166,11 @@ export async function sendFromUser(
   userId: string,
   opts: { to: string; subject?: string; html?: string; text?: string; provider?: 'sendgrid'|'google'|'gmail'|'outlook' }
 ): Promise<{ ok: boolean; used?: string; reason?: string }> {
-  const htmlBody = (opts.html || (opts.text ? opts.text.replace(/\n/g, '<br/>') : '') || '').trim();
+  const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+  const htmlBody = (opts.html
+    ? String(opts.html)
+    : (opts.text ? (looksLikeHtml(opts.text) ? String(opts.text) : String(opts.text).replace(/\n/g, '<br/>')) : '')
+  ).trim();
   if (!htmlBody) return { ok: false, reason: 'empty_body' };
   const pseudoLead = { id: null, email: opts.to, campaign_id: null } as any;
   const order: Array<'sendgrid'|'google'|'gmail'|'outlook'> = opts.provider

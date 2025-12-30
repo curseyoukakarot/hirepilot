@@ -345,9 +345,11 @@ server.registerCapabilities({
           const current = await deductCredits(userId, 0, true);
           if (Number(current || 0) < totalCreditsNeeded) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded}.`);
 
+          const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
           for (const L of list) {
             const subj = personalizeMessage(tpl.subject || 'Message', L);
-            const htmlBody = personalizeMessage(tpl.content || '', L).replace(/\n/g, '<br/>');
+            const raw = personalizeMessage(tpl.content || '', L);
+            const htmlBody = looksLikeHtml(raw) ? raw : raw.replace(/\n/g, '<br/>');
             await supabase.from('scheduled_messages').insert({
               user_id: userId,
               lead_id: L.id,
@@ -651,8 +653,10 @@ server.registerCapabilities({
           if (!finalBody) finalBody = '';
         }
 
-        // Convert line breaks to HTML breaks for proper email formatting
-        const htmlBody = finalBody.replace(/\n/g, '<br/>');
+        // Convert line breaks to HTML breaks for proper email formatting.
+        // Avoid injecting <br/> into real HTML templates.
+        const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+        const htmlBody = looksLikeHtml(finalBody) ? finalBody : finalBody.replace(/\n/g, '<br/>');
         
         // Send via the selected provider
         if (selectedSender.provider === 'sendgrid') {
@@ -843,7 +847,8 @@ server.registerCapabilities({
         // 3) Personalize subject and body
         const subject = personalizeMessage(template.subject || 'Message', leadRow).trim();
         const body = personalizeMessage(template.content || '', leadRow);
-        const htmlBody = body.replace(/\n/g, '<br/>');
+        const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+        const htmlBody = looksLikeHtml(body) ? body : body.replace(/\n/g, '<br/>');
 
         // 4) Choose provider and send
         const { listSenders } = require('../../tools/rexToolFunctions');
@@ -1209,9 +1214,11 @@ server.registerCapabilities({
         // Queue messages via existing scheduler flow
         const { messageScheduler } = await import('../../workers/messageScheduler');
         const when = scheduled_for ? new Date(scheduled_for) : new Date();
+        const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
         for (const L of list) {
           const subject = personalizeMessage(tpl.subject || 'Message', L);
-          const html = personalizeMessage(tpl.content || '', L).replace(/\n/g, '<br/>');
+          const raw = personalizeMessage(tpl.content || '', L);
+          const html = looksLikeHtml(raw) ? raw : raw.replace(/\n/g, '<br/>');
           await supabase
             .from('scheduled_messages')
             .insert({
