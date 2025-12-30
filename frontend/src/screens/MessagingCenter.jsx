@@ -25,6 +25,20 @@ const looksLikeHtml = (s) => {
   return /<!doctype\s+html/i.test(str) || /<\/?[a-z][\s\S]*>/i.test(str);
 };
 
+// Heuristic for "full" HTML email templates (doctype/head/style/table layouts).
+// These are commonly mangled by rich editors like Quill, so we prefer raw HTML mode.
+const looksLikeFullHtmlDoc = (s) => {
+  if (!s) return false;
+  const str = String(s);
+  return (
+    /<!doctype\s+html/i.test(str) ||
+    /<html[\s>]/i.test(str) ||
+    /<head[\s>]/i.test(str) ||
+    /<style[\s>]/i.test(str) ||
+    /<table[\s>]/i.test(str)
+  );
+};
+
 const toEmailHtml = (body) => {
   if (!body) return '';
   const str = String(body);
@@ -404,6 +418,8 @@ export default function MessagingCenter() {
       email: selectedLead.email || ''
     } : {};
     setMessageBody(replaceTokens(template.content, data));
+    // Keep the composer in raw HTML mode for full HTML templates to avoid Quill stripping styles/tables.
+    setComposerHtmlMode(looksLikeFullHtmlDoc(template.content));
     setShowTemplateModal(false);
   };
 
@@ -424,7 +440,8 @@ export default function MessagingCenter() {
     setTemplateSubject(template.subject);
     setTemplateType((template.subject||'')==='linkedin_request' ? 'linkedin_request' : 'email');
     setTemplateContent(template.content);
-    setTemplateHtmlMode(false);
+    // Auto-enable raw HTML mode for full HTML templates so Quill doesn't strip formatting on edit.
+    setTemplateHtmlMode(looksLikeFullHtmlDoc(template.content));
     setShowTemplateEditor(true);
   };
 
@@ -1054,8 +1071,15 @@ export default function MessagingCenter() {
                     <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                       <input
                         type="checkbox"
-                        checked={templateHtmlMode}
-                        onChange={(e) => setTemplateHtmlMode(e.target.checked)}
+                        checked={templateHtmlMode || looksLikeFullHtmlDoc(templateContent)}
+                        onChange={(e) => {
+                          const next = e.target.checked;
+                          if (!next && looksLikeFullHtmlDoc(templateContent)) {
+                            const ok = window.confirm('This template looks like a full HTML email (tables/styles). Switching off HTML mode may strip formatting. Continue?');
+                            if (!ok) return;
+                          }
+                          setTemplateHtmlMode(next);
+                        }}
                       />
                       HTML mode (paste raw HTML)
                     </label>
@@ -1069,7 +1093,7 @@ export default function MessagingCenter() {
                     </button>
                   </div>
                   <div className="border border-gray-300 rounded-md shadow-sm">
-                    {templateHtmlMode ? (
+                    {(templateHtmlMode || looksLikeFullHtmlDoc(templateContent)) ? (
                       <textarea
                         className="w-full min-h-[300px] p-3 font-mono text-sm outline-none"
                         value={templateContent}
@@ -1565,8 +1589,15 @@ export default function MessagingCenter() {
                 <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
-                    checked={composerHtmlMode}
-                    onChange={(e) => setComposerHtmlMode(e.target.checked)}
+                    checked={composerHtmlMode || looksLikeFullHtmlDoc(messageBody)}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      if (!next && looksLikeFullHtmlDoc(messageBody)) {
+                        const ok = window.confirm('This message looks like a full HTML email (tables/styles). Switching off HTML mode may strip formatting. Continue?');
+                        if (!ok) return;
+                      }
+                      setComposerHtmlMode(next);
+                    }}
                   />
                   HTML mode (paste raw HTML)
                 </label>
@@ -1580,7 +1611,7 @@ export default function MessagingCenter() {
                 </button>
               </div>
               <div className="mb-6 border border-gray-300 rounded-b-md shadow-sm">
-                {composerHtmlMode ? (
+                {(composerHtmlMode || looksLikeFullHtmlDoc(messageBody)) ? (
                   <textarea
                     className="w-full min-h-[220px] p-3 font-mono text-sm outline-none"
                     value={messageBody}
