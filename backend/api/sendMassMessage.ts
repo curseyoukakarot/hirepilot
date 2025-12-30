@@ -489,15 +489,20 @@ export default async function handler(req: Request, res: Response) {
         continue;
       }
 
+      // Always run server-side personalization so tokens like {{Candidate.FirstName}} are replaced
+      // consistently across providers (SendGrid/Gmail/Outlook) and across clients.
+      const rawContent = String(content || '');
+      const personalizedContent = personalizeMessage(rawContent, lead);
+
       // Use provider-specific sending if channel is specified, otherwise fall back to emailProviderService
       let sent = false;
       const bccList = normalizeBccList(bcc);
 
       if (ch && ['sendgrid', 'google', 'gmail', 'outlook'].includes(ch)) {
-        sent = await sendViaProvider(lead, content, uid, ch, tId, bccList);
+        sent = await sendViaProvider(lead, personalizedContent, uid, ch, tId, bccList);
       } else {
         console.log(`[sendMassMessage] No valid provider specified (${ch}), using emailProviderService`);
-        sent = await sendEmail(lead, content, uid);
+        sent = await sendEmail(lead, personalizedContent, uid);
       }
 
       // Only insert into messages table if provider-specific sending didn't already do it
@@ -507,7 +512,7 @@ export default async function handler(req: Request, res: Response) {
           user_id: uid,
           template_id: tId,
           channel: ch || null,
-          content,
+          content: personalizedContent,
           status: 'failed',
         });
       }

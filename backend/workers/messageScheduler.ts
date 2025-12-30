@@ -121,7 +121,10 @@ export class MessageScheduler {
       // Avoid injecting <br/> into real HTML templates.
       const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
       const rawBody = String((message as any)?.content || '');
-      const htmlBody = looksLikeHtml(rawBody) ? rawBody : rawBody.replace(/\n/g, '<br/>');
+      // Apply token replacement server-side so scheduled bulk messages don't send raw tokens.
+      const { personalizeMessage } = await import('../utils/messageUtils');
+      const personalizedBody = personalizeMessage(rawBody, lead as any);
+      const htmlBody = looksLikeHtml(personalizedBody) ? personalizedBody : personalizedBody.replace(/\n/g, '<br/>');
       const bccList = (message.bcc || '')
         .split(/[,;\n]/)
         .map(addr => addr.trim())
