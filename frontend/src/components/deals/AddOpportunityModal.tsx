@@ -16,6 +16,7 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
   const [billingType, setBillingType] = useState<string>('');
   const [stage, setStage] = useState<string>('Pipeline');
   const [tag, setTag] = useState<string>('');
+  const [forecastDate, setForecastDate] = useState<string>(''); // YYYY-MM-DD
   const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = useCallback(async () => {
@@ -26,7 +27,7 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
       const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ title, client_id: clientId, value: Number(value)||0, billing_type: billingType, stage, tag: tag || null })
+        body: JSON.stringify({ title, client_id: clientId, value: Number(value)||0, billing_type: billingType, stage, tag: tag || null, forecast_date: forecastDate || null })
       });
       if (resp.ok) {
         toast.success('Opportunity created');
@@ -37,7 +38,7 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               event_type: 'opportunity_created',
-              details: { title, amount, billing_type: billingType, stage },
+              details: { title, amount, billing_type: billingType, stage, forecast_date: forecastDate || null },
             })
           });
         } catch {}
@@ -46,11 +47,11 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
         toast.error('Failed to create opportunity');
       }
       onClose();
-      setTitle(''); setClientId(''); setValue(''); setBillingType(''); setStage('Pipeline'); setTag('');
+      setTitle(''); setClientId(''); setValue(''); setBillingType(''); setStage('Pipeline'); setTag(''); setForecastDate('');
     } finally {
       setSubmitting(false);
     }
-  }, [title, clientId, value, billingType, stage, tag, onCreated, onClose]);
+  }, [title, clientId, value, billingType, stage, tag, forecastDate, onCreated, onClose]);
 
   if (!open) return null;
 
@@ -99,6 +100,16 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
               <option>Close Won</option>
               <option>Closed Lost</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Forecast Close Date</label>
+            <input
+              type="date"
+              className="w-full border rounded-md px-3 py-2"
+              value={forecastDate}
+              onChange={(e)=>setForecastDate(e.target.value)}
+            />
+            <div className="mt-1 text-xs text-gray-500">Optional — helps you forecast when this opportunity may close.</div>
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Tag</label>

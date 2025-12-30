@@ -225,6 +225,12 @@ export default function OpportunityDetail() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
                       <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{opp.billing_type || '—'}</span>
                     </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Forecast Close Date</label>
+                      <p className="text-gray-900">
+                        {opp.forecast_date ? new Date(`${String(opp.forecast_date).split('T')[0]}T00:00:00`).toLocaleDateString() : '—'}
+                      </p>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>

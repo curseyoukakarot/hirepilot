@@ -55,7 +55,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     let base = supabase
       .from('opportunities')
-      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag');
+      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date');
 
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
@@ -877,9 +877,22 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewOpportunities(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { title, client_id, stage, value, billing_type, tag } = req.body || {};
+    const { title, client_id, stage, value, billing_type, tag, forecast_date: forecastDateRaw } = req.body || {};
+    let forecast_date: string | null = null;
+    if (forecastDateRaw === null || forecastDateRaw === undefined || forecastDateRaw === '') {
+      forecast_date = null;
+    } else if (typeof forecastDateRaw === 'string') {
+      // Store date-only (YYYY-MM-DD) even if client sent a full ISO timestamp
+      forecast_date = forecastDateRaw.slice(0, 10);
+      // basic shape check
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(forecast_date)) {
+        res.status(400).json({ error: 'invalid_forecast_date' }); return;
+      }
+    } else {
+      res.status(400).json({ error: 'invalid_forecast_date' }); return;
+    }
     const nowIso = new Date().toISOString();
-    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
+    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
     const { data, error } = await supabase.from('opportunities').insert(insert).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
@@ -904,6 +917,19 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
     const up: any = {};
     const fields = ['title','client_id','stage','value','billing_type','status','owner_id','tag'];
     for (const f of fields) if (req.body?.[f] !== undefined) up[f] = req.body[f];
+    // forecast_date supports explicit null to clear
+    if (req.body?.forecast_date !== undefined) {
+      const raw = req.body.forecast_date;
+      if (raw === null || raw === '') {
+        up.forecast_date = null;
+      } else if (typeof raw === 'string') {
+        const d = raw.slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { res.status(400).json({ error: 'invalid_forecast_date' }); return; }
+        up.forecast_date = d;
+      } else {
+        res.status(400).json({ error: 'invalid_forecast_date' }); return;
+      }
+    }
     up.updated_at = new Date().toISOString() as any;
     const { data, error } = await supabase.from('opportunities').update(up).eq('id', id).select('*').maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }

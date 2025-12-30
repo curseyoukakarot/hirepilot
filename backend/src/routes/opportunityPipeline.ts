@@ -68,7 +68,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
     let base = supabase
       .from('opportunities')
-      .select('id,title,value,stage,client_id,owner_id,created_at');
+      .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
     if (!isSuper) {
       if (isTeamAdmin && tId) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', tId);

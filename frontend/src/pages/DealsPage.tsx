@@ -936,6 +936,17 @@ export default function DealsPage() {
   );
 
   const currency = (n: number) => (isFinite(n as any) ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '$0');
+  const formatDateOnly = (d: any): string => {
+    if (!d) return '—';
+    const s = String(d);
+    const datePart = s.includes('T') ? s.split('T')[0] : s;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      const parsed = new Date(s);
+      return isNaN(parsed as any) ? '—' : parsed.toLocaleDateString();
+    }
+    // Avoid timezone shifts by treating it as a local midnight date
+    return new Date(`${datePart}T00:00:00`).toLocaleDateString();
+  };
   const totalPipeline = opps.reduce((s, o) => s + (Number(o.value) || 0), 0);
   const engagementTypesData = useMemo(() => {
     if (revSource !== 'closewon') return revByType;
@@ -1008,6 +1019,7 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Client</th>
                   <th className="p-4 text-left">Tag</th>
                   <th className="p-4 text-left">Status</th>
+                  <th className="p-4 text-left">Forecast Date</th>
                   <th className="p-4 text-right">Value ($)</th>
                   <th className="p-4 text-left">Job REQ(s)</th>
                   <th className="p-4 text-left">Owner</th>
@@ -1017,9 +1029,9 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {oppLoading ? (
-                  <tr><td colSpan={10} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                  <tr><td colSpan={11} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
-                  <tr><td colSpan={10} className="p-6 text-center text-gray-500">No opportunities</td></tr>
+                  <tr><td colSpan={11} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -1041,6 +1053,7 @@ export default function DealsPage() {
                         )}
                       </td>
                       <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-200">{o.stage || 'Pipeline'}</span></td>
+                      <td className="p-4 text-gray-700 dark:text-gray-200">{formatDateOnly((o as any).forecast_date)}</td>
                       <td className="p-4 text-right font-medium">{currency(Number(o.value)||0)}</td>
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1">
@@ -1109,7 +1122,10 @@ export default function DealsPage() {
                          draggable
                          onDragStart={(e)=>handleCardDragStart(e, it, col.stage)}>
                       <div className="font-semibold text-sm mb-1 text-gray-800">{it.title}</div>
-                      <div className="text-xs text-gray-500 mb-2">{(it.client?.name || it.client?.domain || '—')} • {currency(Number(it.value)||0)}</div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {(it.client?.name || it.client?.domain || '—')} • {currency(Number(it.value)||0)}
+                        {it.forecast_date ? ` • Forecast ${formatDateOnly(it.forecast_date)}` : ''}
+                      </div>
                       <div className="flex items-center justify-between">
                         <div className="w-6 h-6 rounded-full bg-gray-200" />
                         <span className="text-xs text-gray-400">{new Date(it.created_at).toLocaleDateString()}</span>
