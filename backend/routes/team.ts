@@ -174,14 +174,92 @@ router.get('/test-connection', async (req: Request, res: Response) => {
 async function resolveCurrentUser(req: Request): Promise<User | null> {
   try {
     const authUser = (req as any).auth?.user as User | undefined;
-    if (authUser) return authUser;
+    if (authUser) {
+      // Best-effort: auto-accept team invite + backfill team membership on first authenticated request
+      try {
+        const email = String((authUser as any).email || '').toLowerCase();
+        if (email) {
+          const { data: invite } = await supabaseDb
+            .from('team_invites')
+            .select('id, team_id, invited_by, expires_at, status, created_at')
+            .eq('email', email)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const inviteId = (invite as any)?.id || null;
+          let teamId = (invite as any)?.team_id || null;
+          const invitedBy = (invite as any)?.invited_by || null;
+          if (!teamId && invitedBy) {
+            try {
+              const { data: inviterRow } = await supabaseDb.from('users').select('team_id').eq('id', invitedBy).maybeSingle();
+              teamId = (inviterRow as any)?.team_id || null;
+            } catch {}
+          }
+          if (inviteId) {
+            await safeUpdateTeamInviteById(inviteId, { status: 'accepted', updated_at: new Date().toISOString() });
+            if (teamId) {
+              try {
+                await supabaseDb.from('users').upsert({ id: authUser.id, email: authUser.email, team_id: teamId } as any, { onConflict: 'id' });
+              } catch {}
+              try {
+                await supabaseDb
+                  .from('team_members')
+                  .upsert([{ team_id: teamId, user_id: authUser.id }], { onConflict: 'team_id,user_id' } as any);
+              } catch {}
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[team] auto-accept invite in resolveCurrentUser failed', e);
+      }
+      return authUser;
+    }
     const plainUser = (req as any).user as { id: string; email?: string } | undefined;
     if (plainUser && plainUser.id) {
       // Build a minimal User-like object for downstream usage
-      return {
+      const u = {
         id: plainUser.id,
         email: (plainUser as any).email || undefined,
       } as unknown as User;
+      try {
+        const email = String((u as any).email || '').toLowerCase();
+        if (email) {
+          const { data: invite } = await supabaseDb
+            .from('team_invites')
+            .select('id, team_id, invited_by, created_at')
+            .eq('email', email)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const inviteId = (invite as any)?.id || null;
+          let teamId = (invite as any)?.team_id || null;
+          const invitedBy = (invite as any)?.invited_by || null;
+          if (!teamId && invitedBy) {
+            try {
+              const { data: inviterRow } = await supabaseDb.from('users').select('team_id').eq('id', invitedBy).maybeSingle();
+              teamId = (inviterRow as any)?.team_id || null;
+            } catch {}
+          }
+          if (inviteId) {
+            await safeUpdateTeamInviteById(inviteId, { status: 'accepted', updated_at: new Date().toISOString() });
+            if (teamId) {
+              try {
+                await supabaseDb.from('users').upsert({ id: u.id, email: (u as any).email, team_id: teamId } as any, { onConflict: 'id' });
+              } catch {}
+              try {
+                await supabaseDb
+                  .from('team_members')
+                  .upsert([{ team_id: teamId, user_id: u.id }], { onConflict: 'team_id,user_id' } as any);
+              } catch {}
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[team] auto-accept invite for plain user failed', e);
+      }
+      return u;
     }
     const bearer = req.headers.authorization?.split(' ')[1];
     if (bearer) {
@@ -190,7 +268,47 @@ async function resolveCurrentUser(req: Request): Promise<User | null> {
         console.warn('[team] resolveCurrentUser getUser error', error);
         return null;
       }
-      return (data as any)?.user || null;
+      const u = (data as any)?.user || null;
+      if (u?.id) {
+        try {
+          const email = String((u as any).email || '').toLowerCase();
+          if (email) {
+            const { data: invite } = await supabaseDb
+              .from('team_invites')
+              .select('id, team_id, invited_by, created_at')
+              .eq('email', email)
+              .eq('status', 'pending')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const inviteId = (invite as any)?.id || null;
+            let teamId = (invite as any)?.team_id || null;
+            const invitedBy = (invite as any)?.invited_by || null;
+            if (!teamId && invitedBy) {
+              try {
+                const { data: inviterRow } = await supabaseDb.from('users').select('team_id').eq('id', invitedBy).maybeSingle();
+                teamId = (inviterRow as any)?.team_id || null;
+              } catch {}
+            }
+            if (inviteId) {
+              await safeUpdateTeamInviteById(inviteId, { status: 'accepted', updated_at: new Date().toISOString() });
+              if (teamId) {
+                try {
+                  await supabaseDb.from('users').upsert({ id: u.id, email: (u as any).email, team_id: teamId } as any, { onConflict: 'id' });
+                } catch {}
+                try {
+                  await supabaseDb
+                    .from('team_members')
+                    .upsert([{ team_id: teamId, user_id: u.id }], { onConflict: 'team_id,user_id' } as any);
+                } catch {}
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[team] auto-accept invite for bearer user failed', e);
+        }
+      }
+      return u;
     }
     return null;
   } catch (e) {
@@ -204,6 +322,19 @@ function isInviteExpired(expiresAt?: string | null) {
   const expires = new Date(expiresAt).getTime();
   if (Number.isNaN(expires)) return false;
   return expires < Date.now();
+}
+
+async function safeUpdateTeamInviteById(inviteId: string, update: Record<string, any>) {
+  // Some environments don't have team_invites.updated_at; retry without it if needed.
+  const first = await supabaseDb.from('team_invites').update(update as any).eq('id', inviteId);
+  if (!first.error) return;
+  if ((first.error as any).code === '42703' && Object.prototype.hasOwnProperty.call(update, 'updated_at')) {
+    const { updated_at, ...rest } = update as any;
+    const second = await supabaseDb.from('team_invites').update(rest as any).eq('id', inviteId);
+    if (second.error) throw second.error;
+    return;
+  }
+  throw first.error;
 }
 
 // Public: GET /api/team/invite/:token → used by join page to display invite metadata
@@ -230,10 +361,7 @@ router.get('/invite/:token', async (req: Request, res: Response) => {
     if (invite.status === 'pending' && isInviteExpired(invite.expires_at)) {
       currentStatus = 'expired';
       try {
-        await supabaseDb
-          .from('team_invites')
-          .update({ status: 'expired', updated_at: new Date().toISOString() })
-          .eq('id', token);
+        await safeUpdateTeamInviteById(token, { status: 'expired', updated_at: new Date().toISOString() });
       } catch (expireErr) {
         console.warn('[team invite] failed to auto-expire invite', expireErr);
       }
@@ -841,14 +969,13 @@ router.post('/invite/resend', async (req: AuthenticatedRequest, res: Response) =
 
     // Update invite status and timestamp
     console.log('Updating invite status...');
-    await supabaseDb
-      .from('team_invites')
-      .update({ 
-        updated_at: new Date().toISOString(),
-        status: 'pending',
-        expires_at: resendExpiresAt
-      })
-      .eq('id', inviteId);
+    await safeUpdateTeamInviteById(inviteId, {
+      updated_at: new Date().toISOString(),
+      status: 'pending',
+      expires_at: resendExpiresAt,
+      // Backfill team_id on older invites that were created before team_id was stored
+      team_id: teamId || (invite as any)?.team_id || null
+    });
 
     // Send notification
     await sendTeamNotify('member_joined', invite.invited_by, {
@@ -901,10 +1028,7 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
     }
 
     if (isInviteExpired(invite.expires_at)) {
-      await supabaseDb
-        .from('team_invites')
-        .update({ status: 'expired', updated_at: new Date().toISOString() })
-        .eq('id', token);
+      await safeUpdateTeamInviteById(token, { status: 'expired', updated_at: new Date().toISOString() });
       res.status(410).json({ message: 'Invite has expired. Please ask your admin to resend a new invite.' });
       return;
     }
@@ -1014,16 +1138,24 @@ router.post('/invite/:token/accept', async (req: Request, res: Response) => {
       console.warn('[invite accept] failed to update user profile', profileErr);
     }
 
+    // Best-effort: ensure team membership row exists for RLS-backed features
+    if (resolvedTeamId) {
+      try {
+        await supabaseDb
+          .from('team_members')
+          .upsert([{ team_id: resolvedTeamId, user_id: targetUserId }], { onConflict: 'team_id,user_id' } as any);
+      } catch (memberErr) {
+        const code = (memberErr as any)?.code;
+        if (code !== '42P01') {
+          console.warn('[invite accept] failed to upsert team_members', memberErr);
+        }
+      }
+    }
+
     await syncAuthMetadata(targetUserId, resolvedRole, resolvedPlan, { team_id: resolvedTeamId || invite.team_id || null });
 
     try {
-      await supabaseDb
-        .from('team_invites')
-        .update({
-          status: 'accepted',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', token);
+      await safeUpdateTeamInviteById(token, { status: 'accepted', updated_at: new Date().toISOString() });
     } catch (inviteUpdateErr) {
       console.warn('[invite accept] failed to update invite status', inviteUpdateErr);
     }

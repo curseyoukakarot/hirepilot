@@ -61,6 +61,69 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       first_name: (user.user_metadata as any)?.first_name,
       last_name: (user.user_metadata as any)?.last_name,
     };
+
+    // Best-effort: if this user has a pending team invite, accept it on first auth'd request.
+    // This keeps the UI consistent (invites stop showing "Pending" once the user logs in)
+    // and ensures membership tables are populated even if the user doesn't complete onboarding.
+    try {
+      const email = (user.email || '').toLowerCase();
+      if (email) {
+        const { data: invite } = await supabase
+          .from('team_invites')
+          .select('id, team_id, invited_by, expires_at, status')
+          .eq('email', email)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const inviteId = (invite as any)?.id || null;
+        let teamId = (invite as any)?.team_id || null;
+        const invitedBy = (invite as any)?.invited_by || null;
+        const expiresAt = (invite as any)?.expires_at || null;
+        const expired = expiresAt ? new Date(expiresAt).getTime() < Date.now() : false;
+
+        // If invite doesn't have team_id populated (older rows), infer it from inviter's users.team_id
+        if (!teamId && invitedBy) {
+          try {
+            const { data: inviterRow } = await supabase.from('users').select('team_id').eq('id', invitedBy).maybeSingle();
+            teamId = (inviterRow as any)?.team_id || null;
+          } catch {}
+        }
+
+        // If the user can authenticate, we treat the invite as accepted (even if expired).
+        // Expiration is primarily for the join-link UX; the account/password was already provisioned.
+        if (inviteId) {
+          // Some envs don't have team_invites.updated_at; retry without it if missing.
+          const upd = await supabase
+            .from('team_invites')
+            .update({ status: 'accepted', updated_at: new Date().toISOString() } as any)
+            .eq('id', inviteId);
+          if (upd.error && (upd.error as any).code === '42703') {
+            await supabase.from('team_invites').update({ status: 'accepted' } as any).eq('id', inviteId);
+          } else if (upd.error) {
+            throw upd.error;
+          }
+
+          if (teamId) {
+            // Ensure public.users exists and has team_id set
+            await supabase
+              .from('users')
+              .upsert({ id: user.id, email: user.email, team_id: teamId } as any, { onConflict: 'id' });
+
+            // Ensure team_members exists (if table exists in env)
+            try {
+              await supabase
+                .from('team_members')
+                .upsert([{ team_id: teamId, user_id: user.id }], { onConflict: 'team_id,user_id' } as any);
+            } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      // Never block the request on invite housekeeping
+      console.warn('[auth] invite auto-accept failed', e);
+    }
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

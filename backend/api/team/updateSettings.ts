@@ -3,6 +3,24 @@ import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
 import { getUserTeamContext } from './teamContext';
 
+async function resolveTeamAdminId(params: { teamId: string | null; requesterId: string; requesterRole: string | null }) {
+  const normalized = String(params.requesterRole || '').toLowerCase();
+  if (['admin', 'team_admin', 'super_admin', 'superadmin'].includes(normalized)) return params.requesterId;
+  if (!params.teamId) return params.requesterId;
+  try {
+    const { data } = await supabaseDb
+      .from('users')
+      .select('id')
+      .eq('team_id', params.teamId)
+      .in('role', ['admin', 'team_admin', 'super_admin', 'superadmin'] as any)
+      .limit(1)
+      .maybeSingle();
+    return (data as any)?.id || params.requesterId;
+  } catch {
+    return params.requesterId;
+  }
+}
+
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
@@ -29,7 +47,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     }
 
     // Determine role-based permissions
-    const normalizedRole = String(role || '').toLowerCase();
+    const normalizedRole = String(role || req.user.role || '').toLowerCase();
     const adminRoles = ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'];
     const memberRoles = [...adminRoles, 'member', 'recruitpro', 'recruit_pro'];
     const isAdminRole = adminRoles.includes(normalizedRole);
@@ -40,12 +58,15 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
+    const teamAdminId = await resolveTeamAdminId({ teamId, requesterId: req.user.id, requesterRole: normalizedRole });
+
     // Build update payload (write both keys for compatibility with mixed schema)
     const updateData: any = {
-      team_id: teamId,
-      team_admin_id: req.user.id,
       updated_at: new Date().toISOString()
     };
+    // These may not exist in all envs; we will retry with column-aware fallbacks.
+    updateData.team_id = teamId;
+    updateData.team_admin_id = teamAdminId;
 
     if (shareLeads !== undefined) updateData.share_leads = shareLeads;
     if (shareCandidates !== undefined) updateData.share_candidates = shareCandidates;
@@ -104,15 +125,30 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     // Try upsert using newer schema (PK team_admin_id). If the constraint/column
     // doesn't exist, fall back to legacy schema (PK team_id).
-    let { error: updateError } = await supabaseDb
-      .from('team_settings')
-      .upsert(updateData, { onConflict: 'team_admin_id' });
+    const tryUpsert = async (payload: any, onConflict: string) => {
+      const { error } = await supabaseDb.from('team_settings').upsert(payload, { onConflict } as any);
+      return error as any;
+    };
+
+    // Attempt #1: team_admin_id schema
+    let updateError: any = await tryUpsert(updateData, 'team_admin_id');
     if (updateError && (updateError.code === '42P10' || updateError.code === '42703')) {
-      // 42P10: no matching unique/exclusion constraint; 42703: column does not exist
-      const retry = await supabaseDb
-        .from('team_settings')
-        .upsert(updateData, { onConflict: 'team_id' });
-      updateError = retry.error as any;
+      // Attempt #2: team_id schema
+      updateError = await tryUpsert(updateData, 'team_id');
+    }
+    if (updateError && (updateError.code === '42703' || updateError.code === '42P01')) {
+      // Columns may differ between environments; strip key columns and retry with the other one.
+      const msg = String(updateError.message || '');
+      const missingTeamId = msg.includes('team_id') && msg.includes('does not exist');
+      const missingTeamAdminId = msg.includes('team_admin_id') && msg.includes('does not exist');
+
+      if (missingTeamId) {
+        const { team_id, ...rest } = updateData;
+        updateError = await tryUpsert(rest, 'team_admin_id');
+      } else if (missingTeamAdminId) {
+        const { team_admin_id, ...rest } = updateData;
+        updateError = await tryUpsert(rest, 'team_id');
+      }
     }
 
     if (updateError) {

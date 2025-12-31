@@ -241,16 +241,58 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
     // Update any pending team invites for this user to 'accepted' status
     if (userEmail) {
       try {
-        await supabase
+        // Some envs don't have team_invites.updated_at; retry without it if missing.
+        const firstTry = await supabase
           .from('team_invites')
-          .update({ 
-            status: 'accepted',
-            updated_at: new Date().toISOString()
-          })
+          .update({ status: 'accepted', updated_at: new Date().toISOString() } as any)
           .eq('email', userEmail)
           .eq('status', 'pending');
+        if (firstTry.error && (firstTry.error as any).code === '42703') {
+          await supabase
+            .from('team_invites')
+            .update({ status: 'accepted' } as any)
+            .eq('email', userEmail)
+            .eq('status', 'pending');
+        } else if (firstTry.error) {
+          throw firstTry.error;
+        }
         
         console.log(`[ONBOARDING] Updated team invite status to 'accepted' for user: ${userEmail}`);
+
+        // If this user was invited to a team, best-effort link them to that team for
+        // both legacy (`users.team_id`) and RLS-backed (`team_members`) membership.
+        try {
+          const { data: latestInvite } = await supabase
+            .from('team_invites')
+            .select('team_id, invited_by')
+            .eq('email', userEmail)
+            .in('status', ['accepted', 'pending', 'expired'] as any)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const invitedTeamId = (latestInvite as any)?.team_id || null;
+          if (invitedTeamId) {
+            // Ensure users.team_id is set
+            try {
+              const { data: meRow } = await supabase.from('users').select('team_id').eq('id', userId).maybeSingle();
+              const currentTeamId = (meRow as any)?.team_id || null;
+              if (!currentTeamId) {
+                await supabase.from('users').update({ team_id: invitedTeamId, updated_at: new Date().toISOString() }).eq('id', userId);
+              }
+            } catch {}
+
+            // Ensure team_members row exists (if table exists in this env)
+            try {
+              await supabase
+                .from('team_members')
+                .upsert([{ team_id: invitedTeamId, user_id: userId }], { onConflict: 'team_id,user_id' } as any);
+            } catch (memberErr) {
+              const code = (memberErr as any)?.code;
+              if (code !== '42P01') console.warn('[ONBOARDING] Failed to upsert team_members', memberErr);
+            }
+          }
+        } catch {}
+
         // Accept any pending job guest invites for this email
         await supabase
           .from('job_guest_collaborators')

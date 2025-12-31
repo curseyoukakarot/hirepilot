@@ -3,6 +3,24 @@ import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
 import { getUserTeamContext } from './teamContext';
 
+async function resolveTeamAdminId(params: { teamId: string | null; requesterId: string; requesterRole: string | null }) {
+  const normalized = String(params.requesterRole || '').toLowerCase();
+  if (['admin', 'team_admin', 'super_admin', 'superadmin'].includes(normalized)) return params.requesterId;
+  if (!params.teamId) return params.requesterId;
+  try {
+    const { data } = await supabaseDb
+      .from('users')
+      .select('id')
+      .eq('team_id', params.teamId)
+      .in('role', ['admin', 'team_admin', 'super_admin', 'superadmin'] as any)
+      .limit(1)
+      .maybeSingle();
+    return (data as any)?.id || params.requesterId;
+  } catch {
+    return params.requesterId;
+  }
+}
+
 const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
   try {
     if (!req.user?.id) {
@@ -10,18 +28,42 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { teamId } = await getUserTeamContext(req.user.id);
+    const { teamId, role } = await getUserTeamContext(req.user.id);
     if (!teamId) {
       res.status(403).json({ error: 'User not part of a team' });
       return;
     }
 
-    // Get team settings
-    const { data: settings, error: settingsError } = await supabaseDb
+    const teamAdminId = await resolveTeamAdminId({
+      teamId,
+      requesterId: req.user.id,
+      requesterRole: String(role || req.user.role || '')
+    });
+
+    // Get team settings (support both schemas: keyed by team_id OR team_admin_id)
+    let settings: any = null;
+    let settingsError: any = null;
+    const attemptByTeamId = await supabaseDb
       .from('team_settings')
-      .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
+      .select(
+        'share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
+      )
       .eq('team_id', teamId)
-      .single();
+      .maybeSingle();
+    settings = attemptByTeamId.data as any;
+    settingsError = attemptByTeamId.error as any;
+    if (settingsError && (settingsError.code === '42703' || String(settingsError.message || '').includes('team_id'))) {
+      // team_id column doesn't exist → try admin-scoped schema
+      const attemptByAdmin = await supabaseDb
+        .from('team_settings')
+        .select(
+          'share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
+        )
+        .eq('team_admin_id', teamAdminId)
+        .maybeSingle();
+      settings = attemptByAdmin.data as any;
+      settingsError = attemptByAdmin.error as any;
+    }
 
     if (settingsError && settingsError.code !== 'PGRST116') {
       throw settingsError;
