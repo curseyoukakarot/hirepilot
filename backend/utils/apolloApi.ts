@@ -10,6 +10,11 @@ export interface ApolloSearchParams {
   person_titles?: string[];
   person_locations?: string[];
   q_keywords?: string;
+  /**
+   * Optional org-domain filter. Not all Apollo endpoints support this field,
+   * but we pass it through when provided (useful for company-specific searches).
+   */
+  q_organization_domains?: string[];
   email_statuses?: string[];
   page: number;
   per_page: number;
@@ -63,6 +68,7 @@ interface Lead {
   emailStatus: string;
   title: string;
   company?: string;
+  organization?: ApolloRecord['organization'];
   linkedinUrl?: string;
   city: string;
   state: string;
@@ -224,6 +230,11 @@ export async function searchPeople(params: ApolloSearchParams) {
     // Add keywords if provided
     if (params.q_keywords) {
       requestBody.q_keywords = params.q_keywords;
+    }
+
+    // Optional organization domain filter (best-effort; Apollo may ignore/deny on some plans)
+    if (params.q_organization_domains && params.q_organization_domains.length > 0) {
+      requestBody.q_organization_domains = params.q_organization_domains;
     }
 
     console.log('[Apollo] Making search request with CORRECT API format:', {
@@ -496,6 +507,7 @@ export async function searchAndEnrichPeople(params: ApolloSearchParams) {
         emailStatus: enriched?.email_status || 'unknown',
         title: enriched?.title || hit.title || hit.job_title || '',  // Handle both title formats
         company: enriched?.organization?.name || hit.organization?.name || hit.company?.name || '',
+        organization: enriched?.organization,
         linkedinUrl: enriched?.linkedin_url || hit.linkedin_url,
         city: enriched?.city || hit.city || '',
         state: enriched?.state || hit.state || '',

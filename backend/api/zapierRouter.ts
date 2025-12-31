@@ -5,8 +5,241 @@ import { supabaseDb } from '../lib/supabase';
 import { EVENT_TYPES } from '../src/lib/events';
 import enrichLead from './enrichLead';
 import zapierTestRouter from './zapierTestEvent';
+import axios from 'axios';
 
 const router = Router();
+
+function normalizeDomain(input: string): string {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0]
+    .split('?')[0]
+    .split('#')[0];
+}
+
+async function ensureIdempotent(key: string): Promise<boolean> {
+  const idemKey = String(key || '').trim();
+  if (!idemKey) return true;
+  const { data, error } = await supabaseDb
+    .from('webhook_idem')
+    .insert({ idem_key: idemKey })
+    .select('idem_key')
+    .maybeSingle();
+  if (error && (error as any).code === '23505') return false; // duplicate
+  if (error) throw error;
+  return !!(data as any)?.idem_key;
+}
+
+async function getApolloApiKeyForUser(userId: string): Promise<string | null> {
+  // Prefer shared super-admin key (platform billing), then platform key, then user key.
+  if (process.env.SUPER_ADMIN_APOLLO_API_KEY) return process.env.SUPER_ADMIN_APOLLO_API_KEY;
+  if (process.env.HIREPILOT_APOLLO_API_KEY) return process.env.HIREPILOT_APOLLO_API_KEY;
+  try {
+    const { data } = await supabaseDb
+      .from('user_settings')
+      .select('apollo_api_key')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const k = String((data as any)?.apollo_api_key || '').trim();
+    return k ? k : null;
+  } catch {
+    return null;
+  }
+}
+
+async function apolloSearchOrganization(apiKey: string, args: { companyName?: string; companyDomain?: string; perPage?: number }) {
+  const companyName = String(args.companyName || '').trim();
+  const companyDomain = normalizeDomain(args.companyDomain || '');
+  const per_page = Math.max(1, Math.min(25, Number(args.perPage || 5)));
+
+  const urls = [
+    'https://api.apollo.io/api/v1/organizations/search',
+    'https://api.apollo.io/v1/organizations/search'
+  ];
+
+  const params: any = { page: 1, per_page };
+  if (companyName) params.q_organization_name = companyName;
+  if (companyDomain) {
+    // Apollo uses slightly different filter names across versions/plans; send a few best-effort hints.
+    params.q_organization_domain = companyDomain;
+    params.q_organization_domains = [companyDomain];
+  }
+
+  let lastErr: any = null;
+  for (const url of urls) {
+    try {
+      const resp = await axios.get(url, {
+        params: {
+          ...params,
+          // Some Apollo routes require api_key in query; include for compatibility even though we also send header.
+          api_key: apiKey
+        },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'X-Api-Key': apiKey
+        },
+        timeout: 15000
+      });
+      const orgs = (resp.data?.organizations || resp.data?.organizations?.organizations || []) as any[];
+      return { orgs, raw: resp.data };
+    } catch (e: any) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Apollo organization search failed');
+}
+
+async function upsertLeadForUser(userId: string, payload: { name: string; email?: string | null; title?: string | null; company?: string | null; linkedin_url?: string | null; location?: string | null; source?: string | null; enrichment_data?: any; enrichment_source?: string | null; tags?: string[] }) {
+  const email = String(payload.email || '').trim().toLowerCase();
+  const linkedinUrl = String(payload.linkedin_url || '').trim();
+
+  // Prefer de-dupe by (user_id, email) when available; fallback to linkedin_url when email is missing.
+  let existing: any = null;
+  if (email) {
+    const { data } = await supabaseDb
+      .from('leads')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('email', email)
+      .maybeSingle();
+    existing = data || null;
+  } else if (linkedinUrl) {
+    const { data } = await supabaseDb
+      .from('leads')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('linkedin_url', linkedinUrl)
+      .maybeSingle();
+    existing = data || null;
+  }
+
+  const row: any = {
+    user_id: userId,
+    name: payload.name,
+    email: email || '',
+    title: payload.title ?? null,
+    company: payload.company ?? null,
+    linkedin_url: linkedinUrl || null,
+    location: payload.location ?? null,
+    source: payload.source ?? null,
+    enrichment_source: payload.enrichment_source ?? null,
+    enrichment_data: payload.enrichment_data ?? null,
+    tags: Array.isArray(payload.tags) ? payload.tags : undefined,
+    updated_at: new Date().toISOString()
+  };
+
+  if (existing?.id) {
+    const { data: upd, error } = await supabaseDb.from('leads').update(row).eq('id', existing.id).select('*').single();
+    if (error) throw error;
+    return { lead: upd, created: false };
+  }
+
+  const { data: ins, error } = await supabaseDb.from('leads').insert([{ ...row, created_at: new Date().toISOString() }]).select('*').single();
+  if (error) throw error;
+  return { lead: ins, created: true };
+}
+
+async function upsertClientForUser(userId: string, payload: { name: string; domain?: string | null; industry?: string | null; revenue?: number | null; location?: string | null; org_meta?: any }) {
+  const domainNorm = payload.domain ? normalizeDomain(payload.domain) : '';
+  let existing: any = null;
+
+  if (domainNorm) {
+    const { data } = await supabaseDb
+      .from('clients')
+      .select('*')
+      .eq('owner_id', userId)
+      .eq('domain', domainNorm)
+      .maybeSingle();
+    existing = data || null;
+  }
+
+  if (!existing) {
+    // Fallback match by name (best-effort)
+    const { data } = await supabaseDb
+      .from('clients')
+      .select('*')
+      .eq('owner_id', userId)
+      .ilike('name', payload.name)
+      .maybeSingle();
+    existing = data || null;
+  }
+
+  const patch: any = {
+    name: payload.name || null,
+    domain: domainNorm || payload.domain || null,
+    industry: payload.industry ?? null,
+    revenue: payload.revenue ?? null,
+    location: payload.location ?? null,
+    org_meta: payload.org_meta ?? null,
+    owner_id: userId
+  };
+
+  if (existing?.id) {
+    const { data: upd, error } = await supabaseDb
+      .from('clients')
+      .update(patch)
+      .eq('id', existing.id)
+      .eq('owner_id', userId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { client: upd, created: false };
+  }
+
+  const { data: ins, error } = await supabaseDb
+    .from('clients')
+    .insert({ ...patch, created_at: new Date().toISOString() })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return { client: ins, created: true };
+}
+
+async function createOpportunityIfMissing(userId: string, args: { clientId: string; companyName: string; idempotencyKey?: string | null; rssUrl?: string | null }) {
+  const idemKey = String(args.idempotencyKey || '').trim();
+  if (idemKey) {
+    const ok = await ensureIdempotent(`opportunity:${idemKey}`);
+    if (!ok) return { opportunity: null, created: false, deduped: true };
+  }
+
+  // Avoid spamming: if an "rss" deal exists for this client in the last 30 days, don't create another.
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: existing } = await supabaseDb
+    .from('opportunities')
+    .select('id,title,created_at')
+    .eq('owner_id', userId)
+    .eq('client_id', args.clientId)
+    .eq('tag', 'rss')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) return { opportunity: existing, created: false, deduped: false };
+
+  const nowIso = new Date().toISOString();
+  const title = args.companyName ? `Potential client: ${args.companyName}` : 'Potential client';
+  const { data: ins, error } = await supabaseDb
+    .from('opportunities')
+    .insert({
+      title,
+      client_id: args.clientId,
+      stage: 'Pipeline',
+      status: 'open',
+      tag: 'rss',
+      owner_id: userId,
+      created_at: nowIso,
+      updated_at: nowIso
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return { opportunity: ins, created: true, deduped: false };
+}
 
 /**
  * Create or update a lead via Zapier / Make.
@@ -90,6 +323,155 @@ router.post('/enrich', apiKeyAuth, async (req: ApiRequest, res: Response) => {
   } catch {}
   // Reuse existing enrichLead handler for DRYness
   return enrichLead(req as any, res);
+});
+
+/**
+ * RSS → Company → CEO intake.
+ *
+ * POST /api/zapier/intake/company-ceo
+ * Headers: X-API-Key
+ * Body:
+ *  - idempotency_key?: string (recommended; de-dupes both lead + opportunity creation)
+ *  - company_name: string
+ *  - company_domain?: string
+ *  - rss_url?: string
+ *  - rss_title?: string
+ *  - tags?: string[] (applied to the CEO lead)
+ */
+router.post('/intake/company-ceo', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const body: any = req.body || {};
+    const idempotency_key = String(body.idempotency_key || '').trim();
+    const company_name = String(body.company_name || '').trim();
+    const company_domain = String(body.company_domain || '').trim();
+    const rss_url = body.rss_url ? String(body.rss_url) : null;
+    const rss_title = body.rss_title ? String(body.rss_title) : null;
+    const tags = Array.isArray(body.tags) ? body.tags.map((t: any) => String(t || '').trim()).filter(Boolean) : [];
+
+    if (!company_name && !company_domain) {
+      return res.status(400).json({ error: 'company_name or company_domain required' });
+    }
+
+    if (idempotency_key) {
+      const ok = await ensureIdempotent(`intake:${idempotency_key}`);
+      if (!ok) return res.status(200).json({ deduped: true });
+    }
+
+    const apolloKey = await getApolloApiKeyForUser(userId);
+    if (!apolloKey) {
+      return res.status(400).json({ error: 'No Apollo API key available for this user (or platform)' });
+    }
+
+    // 1) Company search (Apollo org search) and client upsert
+    const { orgs } = await apolloSearchOrganization(apolloKey, { companyName: company_name, companyDomain: company_domain, perPage: 5 });
+    const topOrg = Array.isArray(orgs) && orgs.length ? orgs[0] : null;
+
+    const orgName = String(topOrg?.name || company_name || company_domain || '').trim() || 'Untitled Company';
+    const orgDomain = normalizeDomain(String(topOrg?.website_url || topOrg?.domain || company_domain || ''));
+    const orgIndustry = topOrg?.industry ? String(topOrg.industry) : null;
+    const orgLocation = topOrg?.primary_location
+      ? [topOrg.primary_location.city, topOrg.primary_location.state, topOrg.primary_location.country].filter(Boolean).join(', ')
+      : (topOrg?.headquarters_location ? String(topOrg.headquarters_location) : null);
+    const orgRevenue = (() => {
+      const raw = topOrg?.estimated_annual_revenue || topOrg?.revenue || null;
+      if (!raw) return null;
+      const s = String(raw).toUpperCase().trim();
+      const mult = s.endsWith('B') ? 1_000_000_000 : s.endsWith('M') ? 1_000_000 : s.endsWith('K') ? 1_000 : 1;
+      const cleaned = s.replace(/[^0-9.]/g, '');
+      const n = Number(cleaned);
+      if (Number.isNaN(n)) return null;
+      return Math.round(n * mult);
+    })();
+
+    const { client } = await upsertClientForUser(userId, {
+      name: orgName,
+      domain: orgDomain || null,
+      industry: orgIndustry,
+      revenue: orgRevenue,
+      location: orgLocation,
+      org_meta: topOrg ? { apollo: { organization: topOrg, rss: { url: rss_url, title: rss_title } } } : { rss: { url: rss_url, title: rss_title } }
+    });
+
+    // 2) Create a Deal/Opportunity (best-effort)
+    const opp = await createOpportunityIfMissing(userId, { clientId: client.id, companyName: orgName, idempotencyKey: idempotency_key || null, rssUrl: rss_url });
+
+    // 3) CEO search and lead upsert
+    const { searchAndEnrichPeople } = await import('../utils/apolloApi');
+    const ceoSearch = await searchAndEnrichPeople({
+      api_key: apolloKey,
+      person_titles: ['CEO'],
+      q_keywords: orgDomain ? `${orgName} ${orgDomain}` : orgName,
+      q_organization_domains: orgDomain ? [orgDomain] : undefined,
+      page: 1,
+      per_page: 50
+    } as any);
+
+    const candidates = (ceoSearch.leads || []) as any[];
+    const orgNameLc = orgName.toLowerCase();
+    const orgDomainLc = orgDomain ? orgDomain.toLowerCase() : '';
+
+    const filtered = candidates.filter((p) => {
+      const companyLc = String(p.company || '').toLowerCase();
+      const websiteLc = String(p.organization?.website_url || p.organization?.domain || '').toLowerCase();
+      const websiteNorm = websiteLc ? normalizeDomain(websiteLc) : '';
+      if (orgDomainLc && websiteNorm && websiteNorm === orgDomainLc) return true;
+      if (orgNameLc && companyLc && (companyLc === orgNameLc || companyLc.includes(orgNameLc) || orgNameLc.includes(companyLc))) return true;
+      return false;
+    });
+
+    const pick = (filtered.length ? filtered : candidates)
+      .sort((a, b) => {
+        // Prefer having an email, then having a linkedin url
+        const ae = a.email ? 1 : 0;
+        const be = b.email ? 1 : 0;
+        if (ae !== be) return be - ae;
+        const al = a.linkedinUrl ? 1 : 0;
+        const bl = b.linkedinUrl ? 1 : 0;
+        return bl - al;
+      })[0];
+
+    let leadResult: any = null;
+    if (pick) {
+      const fullName = `${String(pick.firstName || '').trim()} ${String(pick.lastName || '').trim()}`.trim() || 'CEO';
+      const leadTags = Array.from(new Set(['ceo', 'rss', ...tags].map(t => String(t || '').trim()).filter(Boolean)));
+      leadResult = await upsertLeadForUser(userId, {
+        name: fullName,
+        email: pick.email || null,
+        title: pick.title || 'CEO',
+        company: orgName,
+        linkedin_url: pick.linkedinUrl || null,
+        location: [pick.city, pick.state, pick.country].filter(Boolean).join(', ') || null,
+        source: 'rss_company_ceo',
+        enrichment_source: 'apollo',
+        enrichment_data: {
+          apollo: {
+            person_id: pick.id,
+            organization: pick.organization || null,
+            matched_company: { name: orgName, domain: orgDomain || null }
+          },
+          rss: { url: rss_url, title: rss_title }
+        },
+        tags: leadTags
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      client,
+      opportunity: opp.opportunity,
+      ceo_lead: leadResult?.lead || null,
+      meta: {
+        org_found: !!topOrg,
+        ceo_found: !!pick,
+        candidates_seen: candidates.length,
+        candidates_matched: filtered.length
+      }
+    });
+  } catch (err: any) {
+    console.error('[Zapier] /intake/company-ceo error:', err?.response?.data || err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
 });
 
 /**
