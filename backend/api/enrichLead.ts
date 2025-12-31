@@ -80,26 +80,49 @@ export default async function enrichLead(req: Request, res: Response) {
     }
 
     // Prepare Apollo API request (use strings for fields Apollo expects as strings)
-    const searchParams: any = { api_key: apolloApiKey };
-    if (lead.email) searchParams.q_people_email = String(lead.email).toLowerCase();
-    const firstName = lead.first_name || lead.firstName;
-    const lastName = lead.last_name || lead.lastName;
-    const fullName = lead.name || [firstName, lastName].filter(Boolean).join(' ');
-    if (fullName) searchParams.q_people_name = String(fullName).toLowerCase();
-    if (lead.title) searchParams.q_organization_titles = String(lead.title).toLowerCase();
-    if (lead.company) searchParams.q_organization_name = String(lead.company).toLowerCase();
+    const firstName = String(lead.first_name || lead.firstName || '').trim();
+    const lastName = String(lead.last_name || lead.lastName || '').trim();
+    const fullName = String(lead.name || '').trim() || [firstName, lastName].filter(Boolean).join(' ');
+    const company = String(lead.company || '').trim();
+    const linkedinUrl = String(lead.linkedin_url || lead.linkedin || lead.linkedinUrl || '').trim();
 
-    // Call Apollo API
-    const response = await axios.get(`${APOLLO_API_URL}/people/search`, {
-      params: searchParams
-    });
+    // Apollo Match API is more reliable than legacy people/search and supports linkedin_url matching.
+    // This also avoids Apollo returning 422 for unknown/unsupported query params.
+    const matchBody: any = {
+      reveal_personal_emails: true
+    };
+    if (firstName) matchBody.first_name = firstName;
+    if (lastName) matchBody.last_name = lastName;
+    if (!firstName && !lastName && fullName) matchBody.person_name = fullName;
+    if (company) matchBody.organization_name = company;
+    if (linkedinUrl) matchBody.linkedin_url = linkedinUrl;
+    if (lead.email) matchBody.email = String(lead.email).trim().toLowerCase();
 
-    if (!response.data || !response.data.people || response.data.people.length === 0) {
+    // Require at least one strong identifier; otherwise Apollo will (rightfully) fail.
+    if (!matchBody.linkedin_url && !matchBody.email && !matchBody.person_name && !(matchBody.first_name && matchBody.last_name)) {
+      return res.status(400).json({
+        error: 'Lead is missing required fields for enrichment (need linkedin_url, email, or name)'
+      });
+    }
+
+    const response = await axios.post(
+      // NOTE: Apollo’s newer endpoints often live under /api/v1
+      'https://api.apollo.io/api/v1/people/match',
+      matchBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apolloApiKey
+        },
+        timeout: 15000
+      }
+    );
+
+    const person = response.data?.person || null;
+    if (!person) {
       res.status(404).json({ error: 'No enrichment data found' });
       return;
     }
-
-    const enrichmentData = response.data.people[0];
 
     // If user doesn't have their own Apollo key, deduct credits
     if (!hasOwnApolloKey) {
@@ -119,13 +142,39 @@ export default async function enrichLead(req: Request, res: Response) {
     }
 
     // Update lead with enrichment data
+    const patch: any = {
+      updated_at: new Date().toISOString()
+    };
+
+    // Only set email if Apollo returned a real one
+    if (person.email && !String(person.email).startsWith('email_not_unlocked')) {
+      patch.email = person.email;
+    }
+    // Prefer sanitized_number when available
+    const phone = person.phone_numbers?.[0]?.sanitized_number || person.phone || null;
+    if (phone) patch.phone = phone;
+    if (person.linkedin_url) patch.linkedin_url = person.linkedin_url;
+
+    // Preserve existing enrichment_data shape; store Apollo payload under enrichment_data.apollo
+    patch.enrichment_data = {
+      ...(lead.enrichment_data || {}),
+      apollo: {
+        person_id: person.id,
+        organization: person.organization || null,
+        location: person.location || null,
+        seniority: person.seniority || null,
+        department: person.department || null,
+        subdepartments: person.subdepartments || null,
+        skills: person.skills || null,
+        linkedin_url: person.linkedin_url || null,
+        enriched_at: new Date().toISOString()
+      }
+    };
+    patch.enriched_at = new Date().toISOString();
+
     const { data: updatedLead, error: updateLeadError } = await supabase
       .from('leads')
-      .update({
-        enrichment_data: enrichmentData,
-        enriched_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .update(patch)
       .eq('id', lead_id)
       .select()
       .single();
@@ -147,7 +196,8 @@ export default async function enrichLead(req: Request, res: Response) {
     });
 
     res.status(200).json({ 
-      enrichment_data: enrichmentData,
+      enrichment_data: patch.enrichment_data,
+      apollo_person: person,
       credits_used: hasOwnApolloKey ? 0 : 1,
       remaining_credits: hasOwnApolloKey ? userCredits?.remaining_credits : userCredits.remaining_credits - 1
     });
