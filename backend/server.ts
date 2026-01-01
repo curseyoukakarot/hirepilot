@@ -83,6 +83,7 @@ import contactsRouter from './src/routes/contacts';
 import clientsRouterModule from './src/routes/clients';
 import opportunitiesRouter from './src/routes/opportunities';
 import tablesRouter from './src/routes/tables';
+import publicTablesRouter from './src/routes/publicTables';
 import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
@@ -515,6 +516,7 @@ app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
 app.use('/api/public/apply', require('./api/public/apply').default);
+app.use('/api/public/tables', publicTablesRouter);
 // Offr Group public chatbot + lead capture
 app.use('/api', offrWebsiteRouter);
 app.use('/api/phantombuster', runPhantomRouter);
