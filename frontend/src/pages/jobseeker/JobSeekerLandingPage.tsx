@@ -491,7 +491,7 @@ export default function JobSeekerLandingPage() {
           <motion.div {...stagger} className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
             {[
               { icon: <FaRegFileAlt />, title: 'Resume rewrite', description: "Transform your resume into a compelling story that hiring managers can't ignore." },
-              { icon: <FaLinkedin />, title: 'LinkedIn rewrite', description: 'Optimize your LinkedIn profile to attract recruiters and showcase your value.' },
+              { icon: <FaLinkedin />, title: 'Automated outreach to hiring managers', description: 'Automated outreach to hiring managers via email or LinkedIn.' },
               { icon: <FaEnvelope />, title: 'Outreach scripts', description: 'Craft personalized messages that get hiring managers to respond and engage.' },
               { icon: <FaCrosshairs />, title: 'Hiring manager targeting', description: 'Find the right people to contact and learn how to approach them effectively.' },
               { icon: <FaComments />, title: 'Interview prep', description: 'Practice answers, learn company insights, and prepare for any interview scenario.' },
