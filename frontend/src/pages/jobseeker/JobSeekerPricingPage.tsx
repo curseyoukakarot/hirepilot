@@ -166,20 +166,20 @@ export default function JobSeekerPricingPage() {
                     <span className="text-gray-400"> / month</span>
                   </div>
                   <p className="text-gray-400 mb-8">
-                    Everything you need to start landing interviews — no credit card.
+                    Everything you need to start landing conversations and interviews — no credit card.
                   </p>
                 </div>
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-4">Includes</h4>
                   <ul className="space-y-3 text-sm">
                     {[
-                      'REX AI career assistant (chat anytime)',
-                      'Chrome extension for LinkedIn research',
-                      'Outreach from your own email inbox',
-                      'Bulk email outreach (starter limits)',
-                      'Apollo sourcing (included)',
-                      'LinkedIn & Sales Navigator sourcing',
-                      '50 credits/month included',
+                      'REX AI career assistant (chat anytime for search, strategy, and message ideas)',
+                      'Chrome extension for LinkedIn research and contact discovery',
+                      'Outreach from your own email inbox (Gmail, Outlook, etc.)',
+                      'Bulk email outreach with starter limits so you can test campaigns safely',
+                      'Apollo sourcing included for contact data on target companies and roles',
+                      'LinkedIn & Sales Navigator sourcing support to find decision makers and referrers',
+                      '50 credits/month included to power AI sourcing and outreach tasks',
                     ].map((item) => (
                       <li key={item} className="flex items-start">
                         <i className="fas fa-check text-green-400 mt-1 mr-3" />
@@ -191,9 +191,9 @@ export default function JobSeekerPricingPage() {
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-3">Best for</h4>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li>• Early-stage job seekers</li>
-                    <li>• Exploring new roles</li>
-                    <li>• Testing direct outreach</li>
+                    <li>• Early-stage job seekers validating their story and target roles</li>
+                    <li>• Exploring new roles without going all‑in yet</li>
+                    <li>• Testing direct outreach and seeing if conversations start to open up</li>
                   </ul>
                 </div>
                 <button
@@ -222,18 +222,20 @@ export default function JobSeekerPricingPage() {
                         : `or ${formatUsd(planPrice('pro', 'annual'))}/yr billed annually`}
                     </div>
                   </div>
-                  <p className="text-gray-400 mb-8">Everything in Free — plus professional positioning tools.</p>
+                  <p className="text-gray-400 mb-8">
+                    Turn warm outreach into a polished professional presence that gets taken seriously.
+                  </p>
                 </div>
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-4">Everything in Free, plus</h4>
                   <ul className="space-y-3 text-sm">
                     {[
-                      'Resume Builder (AI rewrite + scoring)',
-                      'Landing Page Builder (shareable profile)',
-                      'Resume scoring & optimization',
-                      'Job Prep tools (interview, outreach refinement)',
-                      'Zapier integrations',
-                      'Higher monthly credit limits',
+                      'Resume Builder (AI rewrite + scoring) to rebuild your resume in seconds with modern templates',
+                      'Landing Page Builder (shareable portfolio/profile) to showcase projects, wins, and social proof',
+                      'Resume and profile scoring & optimization to highlight strengths for specific roles',
+                      'Job prep tools for interview practice, outreach refinement, and objection handling',
+                      'Zapier integrations to plug HirePilot into your existing tools and workflows',
+                      '250 credits/month included so you can scale targeted outreach each week',
                     ].map((item) => (
                       <li key={item} className="flex items-start">
                         <i className="fas fa-check text-green-400 mt-1 mr-3" />
@@ -245,9 +247,9 @@ export default function JobSeekerPricingPage() {
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-3">Best for</h4>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li>• Active job seekers</li>
-                    <li>• Career pivots</li>
-                    <li>• Mid–senior professionals</li>
+                    <li>• Active job seekers running a serious, structured search</li>
+                    <li>• Career pivots who need to reposition their story for a new function or industry</li>
+                    <li>• Mid–senior professionals who want to look “recruiter-ready” on first contact</li>
                   </ul>
                 </div>
                 <button
@@ -277,19 +279,21 @@ export default function JobSeekerPricingPage() {
                         : `or ${formatUsd(planPrice('elite', 'annual'))}/yr billed annually`}
                     </div>
                   </div>
-                  <p className="text-gray-300 mb-8">The full recruiter-grade job search system.</p>
+                  <p className="text-gray-300 mb-8">
+                    The full recruiter-grade job search system for people who want to run their search like a pipeline.
+                  </p>
                 </div>
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-4">Everything in Pro, plus</h4>
                   <ul className="space-y-3 text-sm">
                     {[
-                      'Premium resume templates',
-                      'Premium landing page templates',
-                      'Custom domain (yourname.com)',
-                      'White-labeled public landing page',
-                      'Advanced automation & Agent Mode',
-                      'Priority feature access',
-                      'Highest credit limits',
+                      'Premium resume templates tuned for senior and executive roles',
+                      'Premium landing page templates that feel like a personal “candidate microsite”',
+                      'Custom domain (yourname.com) so your profile looks like a polished personal brand',
+                      'White-labeled public landing page to share with recruiters, boards, and warm intros',
+                      'Advanced automation & Agent Mode to let the system handle more sourcing and follow‑ups for you',
+                      'Priority feature access and support so you’re first in line for new capabilities',
+                      '500 credits/month included for sustained, multi-channel outreach in competitive markets',
                     ].map((item) => (
                       <li key={item} className="flex items-start">
                         <i className="fas fa-check text-yellow-400 mt-1 mr-3" />
@@ -301,9 +305,9 @@ export default function JobSeekerPricingPage() {
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-3">Best for</h4>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li>• Executives & founders</li>
-                    <li>• Highly competitive markets</li>
-                    <li>• People who want maximum leverage</li>
+                    <li>• Executives & founders who need a premium, on-brand search experience</li>
+                    <li>• Highly competitive markets where differentiation and speed matter most</li>
+                    <li>• People who want maximum leverage and to treat their search like a revenue pipeline</li>
                   </ul>
                 </div>
                 <button
