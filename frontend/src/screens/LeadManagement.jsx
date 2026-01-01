@@ -18,6 +18,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useCampaignOptions } from '../hooks/useCampaignOptions';
 import HtmlPreviewModal from '../components/HtmlPreviewModal';
+import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -109,6 +110,7 @@ function LeadManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showSelectMenu, setShowSelectMenu] = useState(false);
   const [isLeadsLoading, setIsLeadsLoading] = useState(true);
+  const [showAddToTableModal, setShowAddToTableModal] = useState(false);
 
   // Bulk tagging state
   useEffect(() => {
@@ -1676,6 +1678,14 @@ function LeadManagement() {
           >
             <FaLinkIcon /> Attach to Campaign
           </button>
+          <button
+            className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0}
+            onClick={() => setShowAddToTableModal(true)}
+            title="Add selected leads to a custom table"
+          >
+            Add to table
+          </button>
           {!isFree && (
           <button
             className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-50 text-purple-700 border-purple-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
@@ -2951,6 +2961,14 @@ function LeadManagement() {
         onClose={() => setShowAttachToCampaignModal(false)}
         leadIds={attachLeadIds}
         onSuccess={handleAttachSuccess}
+      />
+
+      <BulkAddToTableModal
+        open={showAddToTableModal}
+        onClose={() => setShowAddToTableModal(false)}
+        entity="leads"
+        ids={selectedLeadIds}
+        onSuccess={() => setSelectedLeadIds([])}
       />
     </div>
   );

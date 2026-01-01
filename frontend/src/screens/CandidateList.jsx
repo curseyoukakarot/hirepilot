@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabaseClient';
 import { downloadCSV } from '../utils/csvExport';
 import ResumeWizard from '../components/ResumeWizard';
 import CsvImportCandidatesModal from '../components/candidates/CsvImportCandidatesModal';
+import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
 // Helper function to safely parse enrichment title - fixes temporal dead zone issues
 const parseEnrichmentTitle = (enrichmentData) => {
@@ -80,6 +81,7 @@ export default function CandidateList() {
   const [uploadingResumeForId, setUploadingResumeForId] = useState(null);
   // Add Candidate modal state
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
+  const [showAddToTableModal, setShowAddToTableModal] = useState(false);
   const [newCandidate, setNewCandidate] = useState({ first_name: '', last_name: '', email: '', phone: '', title: '', linkedin_url: '', status: 'sourced' });
   const [creatingCandidate, setCreatingCandidate] = useState(false);
   const navigate = useNavigate();
@@ -712,6 +714,13 @@ export default function CandidateList() {
               <button type="button" className="text-gray-500 hover:underline" onClick={clearSelection}>Clear</button>
             </div>
             <div className="flex gap-2">
+              <button
+                className="border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-lg px-4 py-2"
+                onClick={() => setShowAddToTableModal(true)}
+                title="Add selected candidates to a custom table"
+              >
+                Add to table
+              </button>
               <select className="px-3 py-2 border rounded-lg" onChange={(e) => { if (e.target.value) bulkChangeStatus(e.target.value); e.target.value=''; }}>
                 <option value="">Change Status…</option>
                 <option value="sourced">Sourced</option>
@@ -1225,6 +1234,14 @@ export default function CandidateList() {
           </div>
         </div>
       )}
+
+      <BulkAddToTableModal
+        open={showAddToTableModal}
+        onClose={() => setShowAddToTableModal(false)}
+        entity="candidates"
+        ids={Array.from(selectedIds)}
+        onSuccess={() => setSelectedIds(new Set())}
+      />
     </div>
   );
 }

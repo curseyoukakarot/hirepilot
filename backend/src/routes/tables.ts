@@ -671,6 +671,458 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
   }
 });
 
+// POST /api/tables/:id/bulk-add
+// Body: { entity: 'leads'|'candidates'|'opportunities'|'clients'|'contacts', ids: string[] }
+// Recruiter-side only. Appends rows into custom_tables.data_json and expands schema_json as needed.
+router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const me = await getMe(userId);
+    if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const { id: tableId } = req.params as any;
+    const body = (req.body && typeof req.body === 'string') ? JSON.parse(req.body) : (req.body || {});
+
+    const normalizeEntity = (raw: any): 'leads'|'candidates'|'opportunities'|'clients'|'contacts'|null => {
+      const v = String(raw || '').trim().toLowerCase();
+      if (!v) return null;
+      if (v === 'lead' || v === '/leads') return 'leads';
+      if (v === 'candidate' || v === '/candidates') return 'candidates';
+      if (v === 'deal' || v === 'deals' || v === '/deals' || v === 'opportunity' || v === 'opportunities' || v === '/opportunities') return 'opportunities';
+      if (v === 'client' || v === 'clients' || v === '/clients') return 'clients';
+      if (v === 'contact' || v === 'contacts' || v === 'decision_maker' || v === 'decisionmakers') return 'contacts';
+      return null;
+    };
+
+    const entity = normalizeEntity(body.entity || body.source || body.type);
+    if (!entity) return res.status(400).json({ error: 'invalid_entity' });
+
+    const idsIn = Array.isArray(body.ids) ? body.ids : [];
+    const ids = Array.from(new Set(idsIn.map((x: any) => String(x || '').trim()).filter(Boolean)));
+    if (!ids.length) return res.status(400).json({ error: 'missing_ids' });
+    if (ids.length > 1000) return res.status(400).json({ error: 'too_many_ids', limit: 1000 });
+
+    const { data: table, error: tableErr } = await supabase
+      .from('custom_tables')
+      .select('id,name,user_id,collaborators,schema_json,data_json,import_sources')
+      .eq('id', tableId)
+      .maybeSingle();
+    if (tableErr) return res.status(500).json({ error: tableErr.message });
+    if (!table) return res.status(404).json({ error: 'not_found' });
+
+    const ownerId = String((table as any).user_id);
+    const collabs = parseCollaborators((table as any).collaborators);
+    const canEdit = ownerId === userId || collabs.some((c) => String(c.user_id) === userId && c.role === 'edit');
+    if (!canEdit) return res.status(403).json({ error: 'access_denied' });
+
+    const existingSources: string[] = Array.isArray((table as any).import_sources)
+      ? (table as any).import_sources.map((s: any) => String(s || '').toLowerCase()).filter(Boolean)
+      : [];
+    if (existingSources.length && !existingSources.includes(entity)) {
+      return res.status(409).json({ error: 'table_source_mismatch', existing_sources: existingSources, requested: entity });
+    }
+
+    // ---- helpers for schema/rows ----
+    const colLabelAny = (c: any) => String(c?.label || c?.name || c?.key || '').trim();
+    const norm = (s: any) => String(s || '').trim().toLowerCase();
+    const ensureCol = (schema: any[], label: string, type: any) => {
+      const key = norm(label);
+      if (!key) return schema;
+      const exists = (schema || []).some((c) => norm(colLabelAny(c)) === key);
+      if (exists) return schema;
+      return [...(schema || []), { name: label, type }];
+    };
+
+    const existingSchema = Array.isArray((table as any).schema_json) ? (table as any).schema_json : [];
+    const existingRows = Array.isArray((table as any).data_json) ? (table as any).data_json : [];
+
+    const recordIdCol = 'Record ID';
+    const recordTypeCol = 'Record Type';
+    const existingRecordIds = new Set(
+      existingRows
+        .map((r: any) => (r && (r[recordIdCol] ?? r[norm(recordIdCol)] ?? r['hp_record_id'] ?? r['id'])) || null)
+        .filter(Boolean)
+        .map((v: any) => String(v))
+    );
+
+    const chunk = <T,>(arr: T[], size: number) => {
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+
+    // Team sharing helpers (for leads/candidates visibility)
+    type TeamSharingSettings = {
+      share_leads: boolean;
+      share_candidates: boolean;
+      allow_team_editing: boolean;
+      team_admin_view_pool: boolean;
+    };
+    const DEFAULT_TEAM_SETTINGS: TeamSharingSettings = {
+      share_leads: false,
+      share_candidates: false,
+      allow_team_editing: false,
+      team_admin_view_pool: true,
+    };
+    const fetchTeamSettingsForTeam = async (teamId?: string | null): Promise<TeamSharingSettings> => {
+      if (!teamId) return DEFAULT_TEAM_SETTINGS;
+      const { data } = await supabase
+        .from('team_settings')
+        .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool')
+        .eq('team_id', teamId)
+        .maybeSingle();
+      return {
+        share_leads: !!(data as any)?.share_leads,
+        share_candidates: !!(data as any)?.share_candidates,
+        allow_team_editing: !!(data as any)?.allow_team_editing,
+        team_admin_view_pool:
+          (data as any)?.team_admin_view_pool === undefined || (data as any)?.team_admin_view_pool === null
+            ? true
+            : !!(data as any)?.team_admin_view_pool,
+      };
+    };
+
+    const viewer = await supabase.from('users').select('team_id, role').eq('id', userId).maybeSingle();
+    const viewerTeamId = (viewer.data as any)?.team_id || null;
+    const viewerRole = String((viewer.data as any)?.role || '').toLowerCase();
+    const isTeamAdmin = viewerRole === 'team_admin';
+    const isAdmin = ['admin', 'team_admin', 'super_admin', 'superadmin'].includes(viewerRole);
+
+    const teamSharing = viewerTeamId ? await fetchTeamSettingsForTeam(viewerTeamId) : DEFAULT_TEAM_SETTINGS;
+    let teamUserIds: string[] = [];
+    if (viewerTeamId) {
+      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', viewerTeamId);
+      teamUserIds = (teamUsers || []).map((u: any) => String(u.id)).filter(Boolean);
+    }
+
+    const fetchVisibleLeads = async (): Promise<any[]> => {
+      const fields = 'id,name,email,company,title,status,linkedin_url,phone,location,city,state,country,source,tags,created_at,updated_at,user_id,shared';
+      let q: any = supabase.from('leads').select(fields).in('id', ids);
+      if (viewerTeamId && teamUserIds.length > 0) {
+        const otherTeamMembers = teamUserIds.filter((tid) => tid !== userId);
+        if (isAdmin) {
+          if (teamSharing.team_admin_view_pool) q = q.in('user_id', Array.from(new Set([userId, ...teamUserIds])));
+          else q = q.eq('user_id', userId);
+        } else if (teamSharing.share_leads) {
+          q = q.in('user_id', Array.from(new Set([userId, ...teamUserIds])));
+        } else {
+          if (otherTeamMembers.length > 0) {
+            q = q.or(`user_id.eq.${userId},and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+          } else {
+            q = q.eq('user_id', userId);
+          }
+        }
+      } else {
+        q = q.eq('user_id', userId);
+      }
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return data || [];
+    };
+
+    const fetchVisibleCandidates = async (): Promise<any[]> => {
+      const fields = 'id,first_name,last_name,name,email,title,linkedin_url,status,phone,location,source,created_at,updated_at,user_id,shared,job_assigned';
+      let q: any = supabase.from('candidates').select(fields).in('id', ids);
+      if (viewerTeamId && teamUserIds.length > 0) {
+        const otherTeamMembers = teamUserIds.filter((tid) => tid !== userId);
+        if (isAdmin) {
+          if (teamSharing.team_admin_view_pool) q = q.in('user_id', Array.from(new Set([userId, ...teamUserIds])));
+          else q = q.eq('user_id', userId);
+        } else if (teamSharing.share_candidates) {
+          q = q.in('user_id', Array.from(new Set([userId, ...teamUserIds])));
+        } else {
+          if (otherTeamMembers.length > 0) {
+            q = q.or(`user_id.eq.${userId},and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+          } else {
+            q = q.eq('user_id', userId);
+          }
+        }
+      } else {
+        q = q.eq('user_id', userId);
+      }
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return data || [];
+    };
+
+    const fetchOpportunities = async (): Promise<any[]> => {
+      const fields = 'id,title,value,billing_type,stage,status,owner_id,client_id,created_at,forecast_date';
+      let q: any = supabase.from('opportunities').select(fields).in('id', ids);
+      // Mirror opportunities route: super admins scoped to self by default; team_admin can view team pool; others scoped to self.
+      if (['super_admin','superadmin'].includes(viewerRole)) {
+        q = q.eq('owner_id', userId);
+      } else if (isTeamAdmin && viewerTeamId) {
+        const idsTeam = teamUserIds.length ? teamUserIds : [userId];
+        q = q.in('owner_id', idsTeam);
+      } else {
+        q = q.eq('owner_id', userId);
+      }
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return data || [];
+    };
+
+    const fetchClients = async (): Promise<any[]> => {
+      const fields = 'id,name,domain,industry,revenue,location,stage,notes,created_at,owner_id';
+      // Mirror clients route: always scope to authenticated user
+      const { data, error } = await supabase.from('clients').select(fields).in('id', ids).eq('owner_id', userId);
+      if (error) throw new Error(error.message);
+      return data || [];
+    };
+
+    const fetchContacts = async (): Promise<any[]> => {
+      const fields = 'id,client_id,name,title,email,phone,owner_id,created_at';
+      // Safer-than-existing route: scope to owner_id for bulk export into tables
+      const { data, error } = await supabase.from('contacts').select(fields).in('id', ids).eq('owner_id', userId);
+      if (error) throw new Error(error.message);
+      return data || [];
+    };
+
+    // ---- build mapped rows + schema defaults ----
+    const toLeadRow = (l: any) => {
+      const parts = [l?.city, l?.state, l?.country].filter(Boolean);
+      const loc = parts.length ? parts.join(', ') : (l?.location || '');
+      return {
+        [recordTypeCol]: 'Lead',
+        [recordIdCol]: String(l.id),
+        Name: l?.name || '',
+        Email: l?.email || '',
+        Company: l?.company || '',
+        Title: l?.title || '',
+        Status: l?.status || '',
+        LinkedIn: l?.linkedin_url || '',
+        Phone: l?.phone || '',
+        Location: loc,
+        Source: l?.source || '',
+        Tags: Array.isArray(l?.tags) ? l.tags.join(', ') : (l?.tags || ''),
+        Created: l?.created_at || null,
+        Updated: l?.updated_at || null,
+      };
+    };
+
+    const toCandidateRow = (c: any) => {
+      const fullName = (c?.name || [c?.first_name, c?.last_name].filter(Boolean).join(' ')).trim();
+      return {
+        [recordTypeCol]: 'Candidate',
+        [recordIdCol]: String(c.id),
+        Name: fullName || '',
+        Email: c?.email || '',
+        Title: c?.title || '',
+        Status: c?.status || '',
+        Job: c?.job_assigned || '',
+        LinkedIn: c?.linkedin_url || '',
+        Phone: c?.phone || '',
+        Location: c?.location || '',
+        Source: c?.source || '',
+        Created: c?.created_at || null,
+        Updated: c?.updated_at || null,
+      };
+    };
+
+    const toClientRow = (cl: any) => ({
+      [recordTypeCol]: 'Client',
+      [recordIdCol]: String(cl.id),
+      'Client Name': cl?.name || '',
+      Domain: cl?.domain || '',
+      Industry: cl?.industry || '',
+      Revenue: (cl?.revenue ?? null),
+      Location: cl?.location || '',
+      Stage: cl?.stage || '',
+      Notes: cl?.notes || '',
+      Created: cl?.created_at || null,
+    });
+
+    const toContactRow = (dm: any, clientName: string) => ({
+      [recordTypeCol]: 'Contact',
+      [recordIdCol]: String(dm.id),
+      Name: dm?.name || '',
+      Title: dm?.title || '',
+      Email: dm?.email || '',
+      Phone: dm?.phone || '',
+      Client: clientName || '',
+      Created: dm?.created_at || null,
+    });
+
+    const toOppRow = (o: any, clientName: string, ownerName: string) => ({
+      [recordTypeCol]: 'Opportunity',
+      [recordIdCol]: String(o.id),
+      'Deal Title': o?.title || '',
+      Client: clientName || '',
+      Value: (o?.value ?? null),
+      Stage: o?.stage || '',
+      Status: o?.status || '',
+      'Billing Type': o?.billing_type || '',
+      'Forecast Date': o?.forecast_date || null,
+      Owner: ownerName || '',
+      Created: o?.created_at || null,
+    });
+
+    const defaultSchemaForEntity = (ent: string) => {
+      const base = [
+        { name: recordTypeCol, type: 'text' },
+        { name: recordIdCol, type: 'text' },
+      ] as any[];
+      if (ent === 'leads') {
+        return [...base,
+          { name: 'Name', type: 'text' },
+          { name: 'Email', type: 'text' },
+          { name: 'Company', type: 'text' },
+          { name: 'Title', type: 'text' },
+          { name: 'Status', type: 'status' },
+          { name: 'LinkedIn', type: 'text' },
+          { name: 'Phone', type: 'text' },
+          { name: 'Location', type: 'text' },
+          { name: 'Source', type: 'text' },
+          { name: 'Tags', type: 'text' },
+          { name: 'Created', type: 'date' },
+          { name: 'Updated', type: 'date' },
+        ];
+      }
+      if (ent === 'candidates') {
+        return [...base,
+          { name: 'Name', type: 'text' },
+          { name: 'Email', type: 'text' },
+          { name: 'Title', type: 'text' },
+          { name: 'Status', type: 'status' },
+          { name: 'Job', type: 'text' },
+          { name: 'LinkedIn', type: 'text' },
+          { name: 'Phone', type: 'text' },
+          { name: 'Location', type: 'text' },
+          { name: 'Source', type: 'text' },
+          { name: 'Created', type: 'date' },
+          { name: 'Updated', type: 'date' },
+        ];
+      }
+      if (ent === 'clients') {
+        return [...base,
+          { name: 'Client Name', type: 'text' },
+          { name: 'Domain', type: 'text' },
+          { name: 'Industry', type: 'text' },
+          { name: 'Revenue', type: 'number' },
+          { name: 'Location', type: 'text' },
+          { name: 'Stage', type: 'status' },
+          { name: 'Notes', type: 'text' },
+          { name: 'Created', type: 'date' },
+        ];
+      }
+      if (ent === 'contacts') {
+        return [...base,
+          { name: 'Name', type: 'text' },
+          { name: 'Title', type: 'text' },
+          { name: 'Email', type: 'text' },
+          { name: 'Phone', type: 'text' },
+          { name: 'Client', type: 'text' },
+          { name: 'Created', type: 'date' },
+        ];
+      }
+      // opportunities
+      return [...base,
+        { name: 'Deal Title', type: 'text' },
+        { name: 'Client', type: 'text' },
+        { name: 'Value', type: 'number' },
+        { name: 'Stage', type: 'status' },
+        { name: 'Status', type: 'status' },
+        { name: 'Billing Type', type: 'text' },
+        { name: 'Forecast Date', type: 'date' },
+        { name: 'Owner', type: 'text' },
+        { name: 'Created', type: 'date' },
+      ];
+    };
+
+    let newRows: any[] = [];
+
+    if (entity === 'leads') {
+      const leads = await fetchVisibleLeads();
+      newRows = leads.map(toLeadRow);
+    } else if (entity === 'candidates') {
+      const cands = await fetchVisibleCandidates();
+      newRows = cands.map(toCandidateRow);
+    } else if (entity === 'clients') {
+      const clients = await fetchClients();
+      newRows = clients.map(toClientRow);
+    } else if (entity === 'contacts') {
+      const contacts = await fetchContacts();
+      const clientIds = Array.from(new Set(contacts.map((c: any) => c.client_id).filter(Boolean).map(String)));
+      const { data: clientRows } = clientIds.length
+        ? await supabase.from('clients').select('id,name,domain').in('id', clientIds)
+        : ({ data: [] as any[] } as any);
+      const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
+      newRows = contacts.map((dm: any) => toContactRow(dm, byClientId.get(String(dm.client_id)) || ''));
+    } else {
+      const opps = await fetchOpportunities();
+      const clientIds = Array.from(new Set(opps.map((o: any) => o.client_id).filter(Boolean).map(String)));
+      const ownerIds = Array.from(new Set(opps.map((o: any) => o.owner_id).filter(Boolean).map(String)));
+      const [{ data: clientRows }, { data: ownerRows }] = await Promise.all([
+        clientIds.length ? supabase.from('clients').select('id,name,domain').in('id', clientIds) : Promise.resolve({ data: [] as any[] }),
+        ownerIds.length ? supabase.from('users').select('id,first_name,last_name,email').in('id', ownerIds) : Promise.resolve({ data: [] as any[] }),
+      ] as any);
+      const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
+      const byOwnerId = new Map<string, string>((ownerRows || []).map((u: any) => [String(u.id), String(([u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || ''))]));
+      newRows = opps.map((o: any) => toOppRow(o, byClientId.get(String(o.client_id)) || '', byOwnerId.get(String(o.owner_id)) || ''));
+    }
+
+    // Dedup by Record ID
+    const dedupedToAdd: any[] = [];
+    let skipped = 0;
+    for (const r of newRows) {
+      const rid = r?.[recordIdCol] ? String(r[recordIdCol]) : '';
+      if (rid && existingRecordIds.has(rid)) { skipped += 1; continue; }
+      if (rid) existingRecordIds.add(rid);
+      dedupedToAdd.push(r);
+    }
+
+    // Build schema: if empty, start with defaults for this entity; else keep existing and ensure any missing columns.
+    let nextSchema: any[] = (existingSchema && existingSchema.length) ? [...existingSchema] : defaultSchemaForEntity(entity);
+    // Always ensure base id/type columns exist
+    nextSchema = ensureCol(nextSchema, recordTypeCol, 'text');
+    nextSchema = ensureCol(nextSchema, recordIdCol, 'text');
+    // Ensure columns for any new row keys
+    const allKeys = Array.from(new Set(dedupedToAdd.flatMap((r: any) => Object.keys(r || {}))));
+    const typeHint = (k: string) => {
+      const kk = norm(k);
+      if (kk.includes('created') || kk.includes('updated') || kk.includes('date')) return 'date';
+      if (kk.includes('value') || kk.includes('revenue') || kk.includes('amount')) return 'number';
+      if (kk === 'status' || kk === 'stage') return 'status';
+      return 'text';
+    };
+    for (const k of allKeys) {
+      if (!k) continue;
+      nextSchema = ensureCol(nextSchema, k, typeHint(k));
+    }
+
+    const nextRows = [...existingRows, ...dedupedToAdd];
+    const nextSources = existingSources.includes(entity) ? existingSources : [...existingSources, entity];
+    if (!nextSources.length) nextSources.push(entity);
+
+    const { data: updated, error: updErr } = await supabase
+      .from('custom_tables')
+      .update({
+        schema_json: nextSchema,
+        data_json: nextRows,
+        import_sources: nextSources,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', tableId)
+      .select('id,name,import_sources')
+      .maybeSingle();
+    if (updErr) return res.status(500).json({ error: updErr.message });
+
+    return res.json({
+      success: true,
+      table: updated,
+      entity,
+      requested: ids.length,
+      mapped: newRows.length,
+      added: dedupedToAdd.length,
+      skipped,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'bulk_add_failed' });
+  }
+});
+
 export default router;
 
 

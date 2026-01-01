@@ -8,6 +8,7 @@ import { PieChart, Pie, Cell } from 'recharts';
 import DealLogActivityModal from '../components/deals/DealLogActivityModal';
 import DealsActivityList from '../components/deals/DealsActivityList';
 import ClientActivities from '../components/deals/ClientActivities';
+import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
 declare global {
   interface ImportMeta {
@@ -38,6 +39,9 @@ export default function DealsPage() {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientDraft, setClientDraft] = useState<any>({});
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+  const [selectedOppIds, setSelectedOppIds] = useState<Set<string>>(new Set());
+  const [showAddToTable, setShowAddToTable] = useState<{ entity: 'clients'|'contacts'|'opportunities'; ids: string[] } | null>(null);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactDraft, setContactDraft] = useState<any>({});
   const [oppLoading, setOppLoading] = useState(false);
@@ -78,6 +82,12 @@ export default function DealsPage() {
   // Removed modal caret refs
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
+
+  const clearDealSelections = () => {
+    setSelectedClientIds(new Set());
+    setSelectedContactIds(new Set());
+    setSelectedOppIds(new Set());
+  };
 
   useEffect(() => {
     (async () => {
@@ -744,6 +754,35 @@ export default function DealsPage() {
         <button className="text-sm text-gray-600 dark:text-gray-300">Filters</button>
       </div>
       {clientsView === 'decisionMakers' ? (
+        selectedContactIds.size > 0 && (
+          <div className="mb-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between">
+            <div className="text-sm text-gray-700 flex items-center gap-3">
+              <span>{selectedContactIds.size} selected</span>
+              <button type="button" className="text-gray-500 hover:underline" onClick={() => setSelectedContactIds(new Set())}>Clear</button>
+            </div>
+            <div className="flex gap-2">
+              <button className="border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-lg px-4 py-2" onClick={() => setShowAddToTable({ entity: 'contacts', ids: Array.from(selectedContactIds) })}>
+                Add to table
+              </button>
+            </div>
+          </div>
+        )
+      ) : (
+        selectedClientIds.size > 0 && (
+          <div className="mb-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between">
+            <div className="text-sm text-gray-700 flex items-center gap-3">
+              <span>{selectedClientIds.size} selected</span>
+              <button type="button" className="text-gray-500 hover:underline" onClick={() => setSelectedClientIds(new Set())}>Clear</button>
+            </div>
+            <div className="flex gap-2">
+              <button className="border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-lg px-4 py-2" onClick={() => setShowAddToTable({ entity: 'clients', ids: Array.from(selectedClientIds) })}>
+                Add to table
+              </button>
+            </div>
+          </div>
+        )
+      )}
+      {clientsView === 'decisionMakers' ? (
         <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
           {contactsLoading ? (
             <div className="p-6 text-gray-500 text-sm">Loading…</div>
@@ -768,7 +807,7 @@ export default function DealsPage() {
                 </thead>
                 <tbody className="divide-y dark:divide-gray-800">
                   {contacts.length === 0 ? (
-                    <tr><td colSpan={7} className="p-6 text-gray-500">No decision makers yet</td></tr>
+                    <tr><td colSpan={9} className="p-6 text-gray-500">No decision makers yet</td></tr>
                   ) : contacts.map((dm: any) => {
                     const client = clients.find((c: any) => c.id === dm.client_id);
                     return (
@@ -840,6 +879,24 @@ export default function DealsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                 <tr>
+                  <th className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredClients.length > 0 && filteredClients.every((c:any) => selectedClientIds.has(c.id))}
+                      onChange={(e) => {
+                        const ids = filteredClients.map((c:any) => c.id);
+                        if (e.target.checked) {
+                          setSelectedClientIds(prev => new Set([...Array.from(prev), ...ids]));
+                        } else {
+                          setSelectedClientIds(prev => {
+                            const next = new Set(prev);
+                            ids.forEach((id: string) => next.delete(id));
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="p-4 text-left">Company</th>
                   <th className="p-4 text-left">Logo</th>
                   <th className="p-4 text-left">Status</th>
@@ -853,7 +910,7 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {filteredClients.length === 0 ? (
-                  <tr><td colSpan={8} className="p-6 text-gray-500">No clients yet</td></tr>
+                  <tr><td colSpan={10} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr
@@ -866,6 +923,20 @@ export default function DealsPage() {
                         setExpandedClientId(prev => prev===c.id? null : c.id);
                       }}
                     >
+                      <td className="p-4 w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedClientIds.has(c.id)}
+                          onChange={(e) => {
+                            setSelectedClientIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(c.id); else next.delete(c.id);
+                              return next;
+                            });
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{c.name || c.domain || '—'}</td>
                       <td className="p-4">
                         {(() => { const u = getClientLogo(c); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()}
@@ -908,7 +979,7 @@ export default function DealsPage() {
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
-                        <td colSpan={8} className="p-5 bg-gray-50 dark:bg-gray-900/40">
+                        <td colSpan={10} className="p-5 bg-gray-50 dark:bg-gray-900/40">
                           <ClientRowEditor
                             client={c}
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
@@ -1010,11 +1081,34 @@ export default function DealsPage() {
       </div>
       {oppView==='table' ? (
         <div className="bg-white dark:bg-gray-900/60 border dark:border-white/10 rounded-xl overflow-hidden">
+          {selectedOppIds.size > 0 && (
+            <div className="m-4 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between">
+              <div className="text-sm text-gray-700 flex items-center gap-3">
+                <span>{selectedOppIds.size} selected</span>
+                <button type="button" className="text-gray-500 hover:underline" onClick={() => setSelectedOppIds(new Set())}>Clear</button>
+              </div>
+              <div className="flex gap-2">
+                <button className="border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-lg px-4 py-2" onClick={() => setShowAddToTable({ entity: 'opportunities', ids: Array.from(selectedOppIds) })}>
+                  Add to table
+                </button>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
                 <tr>
-                  <th className="p-4 w-12"><input type="checkbox" /></th>
+                  <th className="p-4 w-12">
+                    <input
+                      type="checkbox"
+                      checked={opps.length > 0 && opps.every((o:any) => selectedOppIds.has(o.id))}
+                      onChange={(e) => {
+                        const ids = (opps || []).map((o:any) => o.id);
+                        if (e.target.checked) setSelectedOppIds(new Set(ids));
+                        else setSelectedOppIds(new Set());
+                      }}
+                    />
+                  </th>
                   <th className="p-4 text-left">Opportunity Title</th>
                   <th className="p-4 text-left">Client</th>
                   <th className="p-4 text-left">Tag</th>
@@ -1035,7 +1129,19 @@ export default function DealsPage() {
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="p-4"><input type="checkbox" /></td>
+                      <td className="p-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedOppIds.has(o.id)}
+                          onChange={(e) => {
+                            setSelectedOppIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(o.id); else next.delete(o.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </td>
                       <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{o.title}</td>
                       <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
                       <td className="p-4">
@@ -1338,6 +1444,19 @@ export default function DealsPage() {
           setExpandedClientId(prev=>prev); // keep open
         }} />
       )}
+
+      <BulkAddToTableModal
+        open={!!showAddToTable}
+        onClose={() => setShowAddToTable(null)}
+        entity={(showAddToTable?.entity || 'clients') as any}
+        ids={(showAddToTable?.ids || []) as any}
+        onSuccess={() => {
+          if (showAddToTable?.entity === 'clients') setSelectedClientIds(new Set());
+          if (showAddToTable?.entity === 'contacts') setSelectedContactIds(new Set());
+          if (showAddToTable?.entity === 'opportunities') setSelectedOppIds(new Set());
+          setShowAddToTable(null);
+        }}
+      />
     </div>
   );
 }
