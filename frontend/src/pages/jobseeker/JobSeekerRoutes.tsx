@@ -29,6 +29,8 @@ import HiringManagerWizardPage from './HiringManagerWizardPage';
 import ImpersonationBanner from '../../components/ImpersonationBanner';
 import { supabase } from '../../lib/supabaseClient';
 import AuthCallback from '../AuthCallback';
+import JobSeekerRootPage from './JobSeekerRootPage';
+import PublicLandingPage from './PublicLandingPage';
 
 function LoadingFallback() {
   return (
@@ -195,7 +197,8 @@ export default function JobSeekerRoutes() {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<JobSeekerLandingPage />} />
+          <Route path="/" element={<JobSeekerRootPage />} />
+          <Route path="/p/:slug" element={<PublicLandingPage />} />
           <Route path="/pricing" element={<JobSeekerPricingPage />} />
           <Route path="/login" element={<JobSeekerLogin />} />
           <Route path="/signup" element={<JobSeekerSignup />} />
@@ -258,7 +261,8 @@ export default function JobSeekerRoutes() {
             <Route path="/billing" element={<BillingScreen />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* If a request comes in on a custom domain with a deep link, keep it on the public landing page. */}
+          <Route path="*" element={<JobSeekerRootPage />} />
         </Routes>
       </Suspense>
     </>

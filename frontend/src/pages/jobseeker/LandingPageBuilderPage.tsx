@@ -5,6 +5,7 @@ import {
   FaCheck,
   FaCode,
   FaLink,
+  FaGlobe,
   FaRotateLeft,
   FaWandMagicSparkles,
   FaArrowUpRightFromSquare,
@@ -12,6 +13,9 @@ import {
 } from 'react-icons/fa6';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
+import { usePlan } from '../../context/PlanContext';
 
 type Tone = 'Confident' | 'Warm' | 'Direct' | 'Story-driven';
 type SectionKey = 'about' | 'experience' | 'caseStudies' | 'testimonials' | 'contact';
@@ -366,6 +370,10 @@ const caseStudySnippet = `
 </section>`;
 
 export default function LandingPageBuilderPage() {
+  const { role: accountRole } = usePlan();
+  const roleLc = String(accountRole || '').toLowerCase().replace(/\s|-/g, '_');
+  const isElite = ['super_admin', 'admin', 'team_admin', 'team_admins', 'job_seeker_elite'].includes(roleLc);
+
   const [heroFocus, setHeroFocus] = useState(
     'Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR.'
   );
@@ -388,6 +396,24 @@ export default function LandingPageBuilderPage() {
   const [selectedThemeName, setSelectedThemeName] = useState<string>('Minimal Clean');
   const [themeWrapperHtml, setThemeWrapperHtml] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
+  const [landingPageId, setLandingPageId] = useState<string | null>(null);
+
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
+  const [domainInput, setDomainInput] = useState('');
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [domainInstructions, setDomainInstructions] = useState<any | null>(null);
+  const [domainActionLoading, setDomainActionLoading] = useState<string | null>(null);
+
+  const saveLandingPage = useCallback(
+    async (next: { slug: string; html: string; published: boolean }) => {
+      const resp = await apiPost('/api/landing-pages/upsert', next, { requireAuth: true });
+      const lp = resp?.landingPage;
+      if (lp?.id) setLandingPageId(lp.id);
+      return lp;
+    },
+    []
+  );
   const markPublished = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -411,6 +437,27 @@ export default function LandingPageBuilderPage() {
   const [slugSaved, setSlugSaved] = useState(false);
   const [htmlSaved, setHtmlSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Load any saved landing page draft for this user (best-effort)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await apiGet('/api/landing-pages/me', { requireAuth: true });
+        const lp = resp?.landingPage;
+        if (!lp || cancelled) return;
+        if (lp?.id) setLandingPageId(lp.id);
+        if (lp?.slug) setSlug(String(lp.slug));
+        if (typeof lp?.published === 'boolean') setIsPublished(Boolean(lp.published));
+        if (lp?.html) setHtmlContent(String(lp.html));
+      } catch {
+        // non-blocking
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const wrapWithTheme = useCallback((content: string, wrapper: string | null) => {
     const base = wrapper || '';
@@ -486,17 +533,110 @@ export default function LandingPageBuilderPage() {
     regenerateIdea();
   }, [name, role, heroFocus, heroSubtext, tones, calendly]);
 
-  const handleSaveSlug = () => {
+  const handleSaveSlug = async () => {
     const cleaned = slug.trim().replace(/\s+/g, '-').toLowerCase() || 'your-page';
     setSlug(cleaned);
-    setSlugSaved(true);
-    setTimeout(() => setSlugSaved(false), 1500);
+    try {
+      const htmlToSave = htmlContent || buildHtml();
+      await saveLandingPage({ slug: cleaned, html: htmlToSave, published: Boolean(isPublished) });
+      setSlugSaved(true);
+      setTimeout(() => setSlugSaved(false), 1500);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save slug');
+    }
   };
 
-  const handleSaveHtml = () => {
-    setHtmlSaved(true);
-    setTimeout(() => setHtmlSaved(false), 1200);
+  const handleSaveHtml = async () => {
+    try {
+      const htmlToSave = htmlContent || buildHtml();
+      await saveLandingPage({ slug, html: htmlToSave, published: Boolean(isPublished) });
+      setHtmlSaved(true);
+      setTimeout(() => setHtmlSaved(false), 1200);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save HTML');
+    }
   };
+
+  const loadDomains = useCallback(
+    async (lpId: string) => {
+      setDomainsLoading(true);
+      try {
+        const resp = await apiGet(`/api/landing-domains/by-landing-page/${encodeURIComponent(lpId)}`, { requireAuth: true });
+        setDomains(Array.isArray(resp?.domains) ? resp.domains : []);
+      } catch (e: any) {
+        toast.error(e?.message || 'Failed to load domains');
+      } finally {
+        setDomainsLoading(false);
+      }
+    },
+    []
+  );
+
+  const openDomainModal = useCallback(async () => {
+    setDomainModalOpen(true);
+    setDomainInstructions(null);
+    if (!isElite) return;
+    try {
+      const htmlToSave = htmlContent || buildHtml();
+      const lp = await saveLandingPage({ slug, html: htmlToSave, published: Boolean(isPublished) });
+      const lpId = lp?.id || landingPageId;
+      if (lpId) await loadDomains(lpId);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to initialize domains');
+    }
+  }, [buildHtml, htmlContent, isElite, isPublished, landingPageId, loadDomains, saveLandingPage, slug]);
+
+  const requestDomain = useCallback(async () => {
+    if (!isElite) return;
+    const lpId = landingPageId;
+    if (!lpId) return toast.error('Save your landing page first');
+    const d = String(domainInput || '').trim();
+    if (!d) return toast.error('Enter a domain');
+    setDomainActionLoading('request');
+    try {
+      const resp = await apiPost('/api/landing-domains/request', { landing_page_id: lpId, domain: d }, { requireAuth: true });
+      setDomainInstructions(resp?.instructions || null);
+      setDomainInput('');
+      await loadDomains(lpId);
+      toast.success('Domain requested — add the TXT record, then verify.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to request domain');
+    } finally {
+      setDomainActionLoading(null);
+    }
+  }, [domainInput, isElite, landingPageId, loadDomains]);
+
+  const verifyDomain = useCallback(async (domain: string) => {
+    if (!isElite) return;
+    const lpId = landingPageId;
+    if (!lpId) return;
+    setDomainActionLoading(`verify:${domain}`);
+    try {
+      await apiPost('/api/landing-domains/verify', { domain }, { requireAuth: true });
+      await loadDomains(lpId);
+      toast.success('Verified — domain is now active.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Not verified yet (DNS may still be propagating)');
+    } finally {
+      setDomainActionLoading(null);
+    }
+  }, [isElite, landingPageId, loadDomains]);
+
+  const removeDomain = useCallback(async (id: string) => {
+    if (!isElite) return;
+    const lpId = landingPageId;
+    if (!lpId) return;
+    setDomainActionLoading(`remove:${id}`);
+    try {
+      await apiDelete(`/api/landing-domains/${encodeURIComponent(id)}`, { requireAuth: true });
+      await loadDomains(lpId);
+      toast.success('Domain removed.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to remove domain');
+    } finally {
+      setDomainActionLoading(null);
+    }
+  }, [isElite, landingPageId, loadDomains]);
 
   const regenerateIdea = () => {
     const parts = [
@@ -523,7 +663,7 @@ export default function LandingPageBuilderPage() {
     }
   };
 
-  const buildHtml = () => {
+  function buildHtml() {
     const safeName = name?.trim() || 'Your Name Here';
     const safeEmail = email?.trim() || 'you@example.com';
     const safeCalendly = calendly?.trim() || '#';
@@ -556,7 +696,7 @@ export default function LandingPageBuilderPage() {
     // contact display
     html = html.replace(/Schedule time here/g, calendly ? 'Schedule time here' : 'Add your Calendly link');
     return html;
-  };
+  }
 
   return (
     <div className="bg-[#020617] text-slate-100 font-sans">
@@ -603,6 +743,19 @@ export default function LandingPageBuilderPage() {
                 </button>
                 {slugSaved && <span className="text-[10px] text-emerald-400">Saved</span>}
               </div>
+              <button
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition ${
+                  isElite
+                    ? 'bg-slate-800/50 border-slate-700/50 text-slate-200 hover:bg-slate-800'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-500'
+                }`}
+                onClick={openDomainModal}
+                title={isElite ? 'Custom Domain (Elite)' : 'Custom Domain (Elite only)'}
+              >
+                <FaGlobe className="text-[12px]" />
+                <span>Custom Domain</span>
+                {!isElite && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">Elite</span>}
+              </button>
               <span
                 className={`text-[10px] font-medium px-2 py-1 rounded-full border ${
                   isPublished
@@ -615,8 +768,15 @@ export default function LandingPageBuilderPage() {
               <button
                 className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
                 onClick={async () => {
-                  setIsPublished(true);
-                  await markPublished();
+                  try {
+                    const htmlToSave = htmlContent || buildHtml();
+                    await saveLandingPage({ slug, html: htmlToSave, published: true });
+                    setIsPublished(true);
+                    await markPublished();
+                    toast.success('Published');
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Publish failed');
+                  }
                 }}
               >
                 Publish
@@ -888,6 +1048,137 @@ export default function LandingPageBuilderPage() {
           </div>
         </main>
       </div>
+
+      {/* Custom Domain Modal (Elite) */}
+      {domainModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur p-5">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-100">Custom Domain</div>
+                <div className="text-[11px] text-slate-400">
+                  Serve your landing page at your own domain (white-labeled). {isElite ? '' : 'Elite required.'}
+                </div>
+              </div>
+              <button
+                className="px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-200 hover:bg-slate-800 transition text-xs"
+                onClick={() => setDomainModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            {!isElite ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+                <div className="text-sm font-semibold text-slate-100 mb-1">Upgrade to Job Seeker Elite</div>
+                <div className="text-xs text-slate-400 mb-4">
+                  Custom domains are available on Elite so you can fully white-label your landing page.
+                </div>
+                <Link
+                  to="/pricing"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
+                >
+                  View plans
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-200 mb-2">Add a domain</div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      value={domainInput}
+                      onChange={(e) => setDomainInput(e.target.value)}
+                      placeholder="yourname.com or profile.yourname.com"
+                      className="flex-1 px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                    />
+                    <button
+                      className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition disabled:opacity-60"
+                      onClick={requestDomain}
+                      disabled={domainActionLoading === 'request'}
+                    >
+                      {domainActionLoading === 'request' ? 'Requesting…' : 'Request'}
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-2">
+                    After requesting, we’ll show a TXT record to prove ownership. Also make sure your domain points to Vercel so HTTPS works.
+                  </div>
+                </div>
+
+                {domainInstructions?.name && domainInstructions?.value && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div className="text-xs font-semibold text-slate-200 mb-2">DNS verification (TXT)</div>
+                    <div className="grid gap-2 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-slate-400">Name</span>
+                        <span className="text-slate-200 font-mono break-all">{domainInstructions.name}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-slate-400">Value</span>
+                        <span className="text-slate-200 font-mono break-all">{domainInstructions.value}</span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-2">
+                      Add this record, wait for propagation (often 1–10 minutes), then click Verify on the domain below.
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-slate-200">Connected domains</div>
+                    <button
+                      className="px-3 py-1.5 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-200 hover:bg-slate-800 transition text-xs disabled:opacity-60"
+                      onClick={() => landingPageId && loadDomains(landingPageId)}
+                      disabled={domainsLoading}
+                    >
+                      {domainsLoading ? 'Refreshing…' : 'Refresh'}
+                    </button>
+                  </div>
+                  {domainsLoading ? (
+                    <div className="text-xs text-slate-500">Loading…</div>
+                  ) : domains.length ? (
+                    <div className="space-y-2">
+                      {domains.map((d) => (
+                        <div key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="text-xs text-slate-100 font-mono break-all">{d.domain}</div>
+                            <div className="text-[10px] text-slate-500">
+                              Status: <span className="text-slate-300">{d.status}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium transition disabled:opacity-60"
+                              onClick={() => verifyDomain(String(d.domain))}
+                              disabled={domainActionLoading === `verify:${d.domain}`}
+                            >
+                              {domainActionLoading === `verify:${d.domain}` ? 'Verifying…' : 'Verify'}
+                            </button>
+                            <button
+                              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 hover:border-rose-500 hover:text-rose-300 text-[11px] font-medium transition disabled:opacity-60"
+                              onClick={() => removeDomain(String(d.id))}
+                              disabled={domainActionLoading === `remove:${d.id}`}
+                            >
+                              {domainActionLoading === `remove:${d.id}` ? 'Removing…' : 'Remove'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-500">No domains yet.</div>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-slate-500 text-center">
+                  Once active, your landing page will be available at <span className="text-slate-300 font-mono">https://your-domain/</span>.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

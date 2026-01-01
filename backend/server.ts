@@ -95,6 +95,8 @@ import rexUploadsRouter from './src/routes/rexUploads';
 const resumePdfRouter = require('./src/routes/resumePdf').default;
 import resumeTemplatesRouter from './src/routes/resumeTemplates';
 import landingThemesRouter from './src/routes/landingThemes';
+import landingPagesRouter from './src/routes/landingPages';
+import landingDomainsRouter from './src/routes/landingDomains';
 import onboardingRouter from './src/routes/onboarding';
 import appOnboardingRouter from './src/routes/appOnboarding';
 import zapierActionsRouter from './src/routes/zapierActions';
@@ -503,6 +505,9 @@ app.use('/api/jobs/resume', resumePdfRouter);
 // Job seeker Elite template/theme selectors (auth required; Elite enforced on select endpoints)
 app.use('/api/resume-templates', resumeTemplatesRouter);
 app.use('/api/landing-themes', landingThemesRouter);
+// Job seeker landing pages + custom domains
+app.use('/api/landing-pages', landingPagesRouter);
+app.use('/api/landing-domains', landingDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
   app.use('/api', apiRouter);
