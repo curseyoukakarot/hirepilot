@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
-import { nanoid } from 'nanoid';
 import dns from 'dns';
+import crypto from 'crypto';
 
 const router = express.Router();
 const dnsPromises = dns.promises;
@@ -80,6 +80,12 @@ async function resolveTxtWithTimeout(name: string, timeoutMs = 2500): Promise<st
 
 function buildVerificationName(domain: string) {
   return `_hirepilot-verify.${domain}`;
+}
+
+function generateVerificationToken() {
+  // Node builtin, safe for CommonJS/ts-node on Railway (avoids ESM-only nanoid)
+  // 18 bytes -> 24 chars base64url (roughly), good entropy and DNS-safe
+  return crypto.randomBytes(18).toString('base64url');
 }
 
 // GET /api/landing-domains/resolve?host=example.com (public)
@@ -169,7 +175,7 @@ router.post('/request', requireAuthUnified as any, async (req: Request, res: Res
       return res.status(409).json({ error: 'domain_taken' });
     }
 
-    const token = nanoid(24);
+    const token = generateVerificationToken();
     const verificationName = buildVerificationName(domain);
     const verificationValue = token;
 
