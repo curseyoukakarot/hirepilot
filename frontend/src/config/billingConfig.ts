@@ -27,7 +27,7 @@ export const BILLING_CONFIG: BillingConfig = {
     },
     pro: {
       name: 'Job Seeker Pro',
-      credits: 350,
+      credits: 250,
       features: [
         'AI resume + landing builder',
         'Job prep chat with saved context',
@@ -44,7 +44,7 @@ export const BILLING_CONFIG: BillingConfig = {
     },
     elite: {
       name: 'Job Seeker Elite',
-      credits: 1000,
+      credits: 500,
       features: [
         'Everything in Pro',
         'Unlimited AI iterations',

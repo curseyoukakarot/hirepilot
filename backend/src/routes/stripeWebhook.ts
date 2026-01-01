@@ -51,6 +51,34 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
       .eq('id', userRow.id);
     return { userId: userRow.id, nextRole };
   }
+
+  async function upsertJobSeekerCredits(userId: string, role: string) {
+    try {
+      const credits =
+        role === 'job_seeker_free'
+          ? 50
+          : (PRICING_CONFIG as any)?.[role]?.credits;
+      if (typeof credits !== 'number' || credits <= 0) return;
+
+      const now = new Date().toISOString();
+
+      // Source of truth: user_credits (used by /api/credits/status)
+      await supabaseAdmin
+        .from('user_credits')
+        .upsert(
+          { user_id: userId, total_credits: credits, used_credits: 0, remaining_credits: credits, last_updated: now } as any,
+          { onConflict: 'user_id' }
+        );
+
+      // Keep users table in sync (used by /api/user/plan and some gating)
+      await supabaseAdmin
+        .from('users')
+        .update({ monthly_credits: credits, remaining_credits: credits, plan_updated_at: now } as any)
+        .eq('id', userId);
+    } catch (e) {
+      console.error('[stripe webhook] upsertJobSeekerCredits error', e);
+    }
+  }
   async function upsertReferralFromMeta(meta: any, stripeCustomerId?: string) {
     const affiliateId = meta?.affiliate_id;
     const planType = meta?.plan_type as 'DIY'|'DFY'|undefined;
@@ -92,7 +120,10 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
 
       // Map paid checkout to role/plan
       try {
-        await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+        const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+        if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
+          await upsertJobSeekerCredits(result.userId, result.nextRole);
+        }
       } catch (e) {
         console.error('[stripe webhook] setUserRoleFromStripe error (checkout.session.completed)', e);
       }
@@ -128,7 +159,10 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
 
       // Map recurring invoice to role/plan
       try {
-        await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+        const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+        if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
+          await upsertJobSeekerCredits(result.userId, result.nextRole);
+        }
       } catch (e) {
         console.error('[stripe webhook] setUserRoleFromStripe error (invoice.paid)', e);
       }

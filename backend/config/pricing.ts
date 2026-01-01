@@ -125,7 +125,7 @@ export const PRICING_CONFIG: PricingConfig = {
   ,
   job_seeker_pro: {
     name: 'Job Seeker Pro',
-    credits: 350,
+    credits: 250,
     features: [
       'AI resume + landing builder',
       'Job prep chat with saved context',
@@ -136,13 +136,13 @@ export const PRICING_CONFIG: PricingConfig = {
       annual: resolveJobSeekerPriceId('JS_PRO', 'ANNUAL')
     },
     prices: {
-      monthly: 39,
-      annual: 399
+      monthly: 19.99,
+      annual: 199
     }
   },
   job_seeker_elite: {
     name: 'Job Seeker Elite',
-    credits: 1000,
+    credits: 500,
     features: [
       'Everything in Pro',
       'Unlimited AI iterations',
@@ -153,8 +153,8 @@ export const PRICING_CONFIG: PricingConfig = {
       annual: resolveJobSeekerPriceId('JS_ELITE', 'ANNUAL')
     },
     prices: {
-      monthly: 59,
-      annual: 549
+      monthly: 39,
+      annual: 399
     }
   }
 };
