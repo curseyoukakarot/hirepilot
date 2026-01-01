@@ -38,8 +38,8 @@ export const BILLING_CONFIG: BillingConfig = {
         annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_PRO_ANNUAL || ''
       },
       prices: {
-        monthly: 39,
-        annual: 399
+        monthly: 19.99,
+        annual: 199
       }
     },
     elite: {
@@ -55,8 +55,8 @@ export const BILLING_CONFIG: BillingConfig = {
         annual: import.meta.env.VITE_STRIPE_PRICE_ID_JS_ELITE_ANNUAL || ''
       },
       prices: {
-        monthly: 59,
-        annual: 549
+        monthly: 39,
+        annual: 399
       }
     }
   }

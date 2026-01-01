@@ -10,16 +10,6 @@ import DealsActivityList from '../components/deals/DealsActivityList';
 import ClientActivities from '../components/deals/ClientActivities';
 import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
-declare global {
-  interface ImportMeta {
-    env: {
-      VITE_SUPABASE_URL: string;
-      VITE_SUPABASE_ANON_KEY: string;
-      VITE_BACKEND_URL: string;
-    }
-  }
-}
-
 type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
 type OppView = 'table' | 'pipeline';

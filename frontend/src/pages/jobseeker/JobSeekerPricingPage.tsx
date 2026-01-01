@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
 import { BILLING_CONFIG } from '../../config/billingConfig';
 import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
 import PublicFooter from '../../components/PublicFooter';
 
 type Interval = 'monthly' | 'annual';
+type PaidPlanKey = 'pro' | 'elite';
 
 export default function JobSeekerPricingPage() {
   const navigate = useNavigate();
@@ -77,13 +77,36 @@ export default function JobSeekerPricingPage() {
     [interval, planIdMap, priceIds]
   );
 
-  const priceLabel = (plan: 'pro' | 'elite') => {
-    if (interval === 'monthly') return plan === 'pro' ? '$39' : '$59';
-    return plan === 'pro' ? '$33.33' : '$46';
-  };
+  const formatUsd = useCallback((amount: number) => {
+    const hasCents = Math.round(amount * 100) % 100 !== 0;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: hasCents ? 2 : 0,
+    }).format(amount);
+  }, []);
 
-  const annualSubtext = (plan: 'pro' | 'elite') =>
-    plan === 'pro' ? 'Per month, billed annually ($399/yr)' : 'Per month, billed annually ($549/yr)';
+  const planPrice = useCallback(
+    (plan: PaidPlanKey, which: Interval) => {
+      const val = jobSeekerPlans?.[plan]?.prices?.[which];
+      return typeof val === 'number' ? val : 0;
+    },
+    [jobSeekerPlans]
+  );
+
+  const savingsBannerText = useMemo(() => {
+    const plans: PaidPlanKey[] = ['pro', 'elite'];
+    const maxSavings = plans.reduce((acc, p) => {
+      const monthly = planPrice(p, 'monthly');
+      const annual = planPrice(p, 'annual');
+      const savings = monthly * 12 - annual;
+      return Math.max(acc, savings);
+    }, 0);
+    const rounded = Math.max(0, Math.round(maxSavings));
+    if (!rounded) return null;
+    return `Save up to ${formatUsd(rounded)}/year`;
+  }, [formatUsd, planPrice]);
 
   return (
     <div className="bg-gray-950 text-gray-100 font-inter min-h-screen">
@@ -125,7 +148,7 @@ export default function JobSeekerPricingPage() {
                 >
                   Annual
                 </button>
-                <span className="ml-3 text-sm text-green-400 font-medium">Save up to $159/year</span>
+                {savingsBannerText && <span className="ml-3 text-sm text-green-400 font-medium">{savingsBannerText}</span>}
               </div>
             </div>
           </div>
@@ -189,10 +212,14 @@ export default function JobSeekerPricingPage() {
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Pro</h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-white">{priceLabel('pro')}</span>
-                    <span className="text-gray-400"> / month</span>
+                    <span className="text-4xl font-bold text-white">
+                      {formatUsd(interval === 'monthly' ? planPrice('pro', 'monthly') : planPrice('pro', 'annual'))}
+                    </span>
+                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
                     <div className="text-sm text-gray-400 mt-1">
-                      {interval === 'annual' ? annualSubtext('pro') : 'or $33.33/mo billed annually ($399/yr)'}
+                      {interval === 'annual'
+                        ? `Equivalent to ${formatUsd(planPrice('pro', 'annual') / 12)}/mo (billed annually)`
+                        : `or ${formatUsd(planPrice('pro', 'annual'))}/yr billed annually`}
                     </div>
                   </div>
                   <p className="text-gray-400 mb-8">Everything in Free — plus professional positioning tools.</p>
@@ -240,10 +267,14 @@ export default function JobSeekerPricingPage() {
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-white mb-2">Job Seeker Elite</h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-white">{priceLabel('elite')}</span>
-                    <span className="text-gray-400"> / month</span>
+                    <span className="text-4xl font-bold text-white">
+                      {formatUsd(interval === 'monthly' ? planPrice('elite', 'monthly') : planPrice('elite', 'annual'))}
+                    </span>
+                    <span className="text-gray-400"> / {interval === 'monthly' ? 'month' : 'year'}</span>
                     <div className="text-sm text-gray-400 mt-1">
-                      {interval === 'annual' ? annualSubtext('elite') : 'or $46/mo billed annually ($549/yr)'}
+                      {interval === 'annual'
+                        ? `Equivalent to ${formatUsd(planPrice('elite', 'annual') / 12)}/mo (billed annually)`
+                        : `or ${formatUsd(planPrice('elite', 'annual'))}/yr billed annually`}
                     </div>
                   </div>
                   <p className="text-gray-300 mb-8">The full recruiter-grade job search system.</p>
