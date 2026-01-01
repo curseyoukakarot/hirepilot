@@ -37,6 +37,11 @@ r.post('/session', async (req, res) => {
       metadata.referral_code = affiliate.code;
     }
 
+    const normalizedPlanId = String(planId || '').toLowerCase();
+    const shouldApplyTrial =
+      (plan_type === 'job_seeker' || !plan_type) &&
+      ['job_seeker_pro', 'job_seeker_elite'].includes(normalizedPlanId);
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: price_id, quantity: 1 }],
@@ -44,6 +49,7 @@ r.post('/session', async (req, res) => {
       cancel_url,
       allow_promotion_codes: true,
       metadata,
+      ...(shouldApplyTrial ? { subscription_data: { trial_period_days: 7 } } : {}),
     });
 
     res.json({ id: session.id, url: session.url });

@@ -221,6 +221,7 @@ export default function JobSeekerPricingPage() {
                         ? `Equivalent to ${formatUsd(planPrice('pro', 'annual') / 12)}/mo (billed annually)`
                         : `or ${formatUsd(planPrice('pro', 'annual'))}/yr billed annually`}
                     </div>
+                    <div className="text-sm text-green-400 mt-2 font-medium">7-day free trial • Cancel anytime</div>
                   </div>
                   <p className="text-gray-400 mb-8">
                     Turn warm outreach into a polished professional presence that gets taken seriously.
@@ -278,6 +279,7 @@ export default function JobSeekerPricingPage() {
                         ? `Equivalent to ${formatUsd(planPrice('elite', 'annual') / 12)}/mo (billed annually)`
                         : `or ${formatUsd(planPrice('elite', 'annual'))}/yr billed annually`}
                     </div>
+                    <div className="text-sm text-green-400 mt-2 font-medium">7-day free trial • Cancel anytime</div>
                   </div>
                   <p className="text-gray-300 mb-8">
                     The full recruiter-grade job search system for people who want to run their search like a pipeline.
