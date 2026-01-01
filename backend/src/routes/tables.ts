@@ -688,8 +688,8 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
     const normalizeEntity = (raw: any): 'leads'|'candidates'|'opportunities'|'clients'|'contacts'|null => {
       const v = String(raw || '').trim().toLowerCase();
       if (!v) return null;
-      if (v === 'lead' || v === '/leads') return 'leads';
-      if (v === 'candidate' || v === '/candidates') return 'candidates';
+      if (v === 'lead' || v === 'leads' || v === '/leads') return 'leads';
+      if (v === 'candidate' || v === 'candidates' || v === '/candidates') return 'candidates';
       if (v === 'deal' || v === 'deals' || v === '/deals' || v === 'opportunity' || v === 'opportunities' || v === '/opportunities') return 'opportunities';
       if (v === 'client' || v === 'clients' || v === '/clients') return 'clients';
       if (v === 'contact' || v === 'contacts' || v === 'decision_maker' || v === 'decisionmakers') return 'contacts';
