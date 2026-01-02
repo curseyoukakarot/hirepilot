@@ -219,12 +219,24 @@ export async function summarizeJobItems(jobId: string): Promise<{ success: numbe
   return { success, failed, skipped, total };
 }
 
-export async function countConnectRequestsSince(workspaceId: string, sinceIso: string): Promise<number> {
+export async function countUserConnectRequestsSince(workspaceId: string, userId: string, sinceIso: string): Promise<number> {
+  // sniper_job_items does not store created_by; derive via jobs created by this user.
+  const { data: jobs, error: jobsErr } = await sniperSupabaseDb
+    .from('sniper_jobs')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('created_by', userId)
+    .gte('created_at', sinceIso);
+  if (jobsErr) throw jobsErr;
+  const jobIds = (jobs || []).map((r: any) => String(r.id)).filter(Boolean);
+  if (!jobIds.length) return 0;
+
   const { count, error } = await sniperSupabaseDb
     .from('sniper_job_items')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId)
     .eq('action_type', 'connect')
+    .in('job_id', jobIds)
     .gte('created_at', sinceIso);
   if (error) throw error;
   return Number(count || 0);

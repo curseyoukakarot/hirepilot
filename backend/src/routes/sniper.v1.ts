@@ -8,7 +8,7 @@ import {
   getJob,
   getLastJobForTarget,
   getTarget,
-  countConnectRequestsSince,
+  countUserConnectRequestsSince,
   countJobItems,
   insertJobItems,
   listJobItems,
@@ -296,10 +296,10 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
 
     const provider = 'airtop' as any;
 
-    // Hard cap: 20 connect requests per UTC day per workspace (shared across bulk + single)
+    // Hard cap: 20 connect requests per UTC day per user (shared across bulk + single)
     const dayStart = new Date();
     dayStart.setUTCHours(0, 0, 0, 0);
-    const usedToday = await countConnectRequestsSince(workspaceId, dayStart.toISOString());
+    const usedToday = await countUserConnectRequestsSince(workspaceId, userId, dayStart.toISOString());
     const DAILY_CONNECT_LIMIT = 20;
     const remaining = Math.max(0, DAILY_CONNECT_LIMIT - usedToday);
     if (remaining <= 0) {
