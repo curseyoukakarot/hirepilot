@@ -80,6 +80,7 @@ import fieldsHandler from './api/fields';
 import { supabaseAdmin } from './lib/supabaseAdmin';
 import { notifySlack } from './lib/slack';
 import { runFullBackfillLoop, processBatchSoftTimed } from './workers/emailAttributionCore';
+import { sniperV1Router } from './src/routes/sniper.v1';
 
 // LinkedIn session admin router
 const linkedinSessionAdmin = require('./api/linkedinSessionAdmin');
@@ -92,6 +93,11 @@ export type ApiHandler = (req: ApiRequest, res: Response) => Promise<void>;
 
 // Health check endpoint for Railway
 router.get('/health', healthCheck);
+
+// Sniper v1 API (targets/jobs/actions/settings/auth)
+// Mounted here (in addition to server-level mounting) to ensure /api/sniper/* is always registered
+// in deployments where apiRouter is the canonical /api entrypoint.
+router.use('/sniper', sniperV1Router);
 
 // List Slack channels for the authenticated user's workspace (via bot token)
 router.get('/slack/channels', requireAuthFlag, async (req, res) => {
