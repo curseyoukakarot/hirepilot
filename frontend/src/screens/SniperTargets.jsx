@@ -1,152 +1,259 @@
-import React, { useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../lib/api';
-import { toast } from 'react-hot-toast';
+import React, { useEffect, useState } from "react";
+import { apiGet, apiPost } from "../lib/api";
+
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function Toast({ show, message, type }) {
+  if (!show) return null;
+  return (
+    <div className="fixed top-5 right-5 z-[9999]">
+      <div
+        className={cx(
+          "rounded-lg border px-4 py-3 shadow-xl backdrop-blur",
+          "bg-slate-950/80 border-slate-800 text-slate-100",
+          type === "success" && "border-emerald-700/60",
+          type === "error" && "border-rose-700/60",
+          type === "info" && "border-sky-700/60"
+        )}
+      >
+        <div className="text-sm font-semibold">{message}</div>
+      </div>
+    </div>
+  );
+}
+
+function formatDate(ts) {
+  if (!ts) return "—";
+  try {
+    return new Date(ts).toLocaleString();
+  } catch {
+    return "—";
+  }
+}
+
+function StatusPill({ status }) {
+  const s = status || "—";
+  const cls =
+    s === "success"
+      ? "border-emerald-700/50 text-emerald-200"
+      : s === "failed"
+        ? "border-rose-700/50 text-rose-200"
+        : s === "running"
+          ? "border-sky-700/50 text-sky-200"
+          : s === "queued"
+            ? "border-amber-700/50 text-amber-200"
+            : "border-slate-800 text-slate-300";
+  return (
+    <span className={cx("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold", cls)}>
+      {s}
+    </span>
+  );
+}
 
 export default function SniperTargets() {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState(null);
-  const [postUrl, setPostUrl] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [postUrl, setPostUrl] = useState("");
+  const [workingId, setWorkingId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "", type: "info" });
+
+  const showToast = (message, type = "info") => {
+    setToast({ show: true, message, type });
+    window.setTimeout(() => setToast({ show: false, message: "", type: "info" }), 2200);
+  };
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/sniper/targets');
-      setTargets(data?.targets || data || []);
+      const data = await apiGet("/api/sniper/targets");
+      // v1 returns an array; fall back to { targets } if older shape appears
+      setTargets(Array.isArray(data) ? data : data?.targets || []);
     } catch (e) {
-      toast.error(e.message || 'Failed to load targets');
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const runNow = async (t) => {
-    setSavingId(t.id);
-    try {
-      await apiPost(`/api/sniper/targets/${t.id}/run`, { limit: 200 });
-      toast.success('Prospecting queued');
-    } catch (e) {
-      toast.error(e.message || 'Failed to queue run');
-    }
-    setSavingId(null);
-  };
-
-  const pause = async (t) => {
-    setSavingId(t.id);
-    try {
-      await apiPost(`/api/sniper/targets/${t.id}/pause`);
-      toast.success('Paused');
-      await load();
-    } catch (e) {
-      toast.error(e.message || 'Failed to pause');
+      showToast(`Failed to load targets: ${e?.message || "Unknown error"}`, "error");
     } finally {
-      setSavingId(null);
+      setLoading(false);
     }
   };
 
-  const resume = async (t) => {
-    setSavingId(t.id);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const createAndRun = async () => {
+    const url = String(postUrl || "").trim();
+    if (!url) return showToast("Paste a LinkedIn post URL.", "info");
+    setWorkingId("create");
     try {
-      await apiPost(`/api/sniper/targets/${t.id}/resume`);
-      toast.success('Resumed');
+      showToast("Target created. Run queued…", "info");
+      await apiPost("/api/sniper/targets", {
+        type: "linkedin_post_engagement",
+        post_url: url,
+        auto_run: true,
+      });
+      setPostUrl("");
       await load();
+      showToast("Run queued.", "success");
     } catch (e) {
-      toast.error(e.message || 'Failed to resume');
+      showToast(`Create failed: ${e?.message || "Unknown error"}`, "error");
     } finally {
-      setSavingId(null);
+      setWorkingId(null);
     }
   };
 
-  const createTarget = async () => {
-    const url = postUrl.trim();
-    if (!url) return toast.error('Paste a LinkedIn post URL');
-    setCreating(true);
+  const runNow = async (id) => {
+    setWorkingId(id);
     try {
-      await apiPost('/api/sniper/targets', { post_url: url, auto_run: true });
-      toast.success('Target created');
-      setPostUrl('');
+      showToast("Run queued…", "info");
+      await apiPost(`/api/sniper/targets/${id}/run`, { limit: 200 });
       await load();
+      showToast("Run queued.", "success");
     } catch (e) {
-      toast.error(e.message || 'Failed to create target');
+      showToast(`Run failed: ${e?.message || "Unknown error"}`, "error");
     } finally {
-      setCreating(false);
+      setWorkingId(null);
+    }
+  };
+
+  const pause = async (id) => {
+    setWorkingId(id);
+    try {
+      await apiPost(`/api/sniper/targets/${id}/pause`, {});
+      await load();
+      showToast("Paused.", "success");
+    } catch (e) {
+      showToast(`Pause failed: ${e?.message || "Unknown error"}`, "error");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const resume = async (id) => {
+    setWorkingId(id);
+    try {
+      await apiPost(`/api/sniper/targets/${id}/resume`, {});
+      await load();
+      showToast("Resumed.", "success");
+    } catch (e) {
+      showToast(`Resume failed: ${e?.message || "Unknown error"}`, "error");
+    } finally {
+      setWorkingId(null);
     }
   };
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-semibold">Sniper Targets</h1>
-        <button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={load} disabled={loading}>Refresh</button>
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-2xl font-bold text-slate-100">Sniper Targets</div>
+          <div className="mt-1 text-sm text-slate-400">
+            Create a target from a LinkedIn post. Sniper will collect likers/commenters and store them as results.
+          </div>
+        </div>
+
+        <button
+          onClick={load}
+          className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+          disabled={loading}
+        >
+          Refresh
+        </button>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
-        <div className="text-sm font-medium mb-2">Create target (LinkedIn post likers/commenters)</div>
-        <div className="flex gap-2">
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
+        <div className="text-sm font-semibold text-slate-200">Create target (LinkedIn post likers/commenters)</div>
+        <div className="mt-3 flex gap-3">
           <input
-            className="flex-1 border rounded px-3 py-2 text-sm"
-            placeholder="https://www.linkedin.com/posts/..."
             value={postUrl}
             onChange={(e) => setPostUrl(e.target.value)}
+            placeholder="https://www.linkedin.com/posts/..."
+            className="flex-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none"
           />
-          <button className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50" onClick={createTarget} disabled={creating}>
-            {creating ? 'Creating…' : 'Create + Run'}
+          <button
+            onClick={createAndRun}
+            disabled={workingId === "create"}
+            className={cx(
+              "rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-500",
+              workingId === "create" && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            {workingId === "create" ? "Creating…" : "Create + Run"}
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <div>Loading…</div>
-      ) : (
-        <div className="overflow-x-auto bg-white border rounded-lg">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-4 py-2">Type</th>
-                <th className="text-left px-4 py-2">Post URL</th>
-                <th className="text-left px-4 py-2">Status</th>
-                <th className="text-left px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {targets.map(t => (
-                <tr key={t.id} className="border-t">
-                  <td className="px-4 py-2 capitalize">{t.type || 'linkedin_post_engagement'}</td>
-                  <td className="px-4 py-2 truncate max-w-xs">
-                    {t.post_url || ''}
-                  </td>
-                  <td className="px-4 py-2">{t.status}</td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="px-3 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
-                        onClick={() => runNow(t)}
-                        disabled={savingId === t.id || t.status !== 'active'}
-                      >
-                        Run now
-                      </button>
-                      {t.status === 'active' ? (
-                        <button className="px-3 py-1 text-white bg-slate-700 rounded hover:bg-slate-800 disabled:opacity-50" onClick={() => pause(t)} disabled={savingId === t.id}>
-                          Pause
-                        </button>
-                      ) : (
-                        <button className="px-3 py-1 text-white bg-emerald-700 rounded hover:bg-emerald-800 disabled:opacity-50" onClick={() => resume(t)} disabled={savingId === t.id}>
-                          Resume
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {targets.length === 0 && (
-            <div className="p-4 text-gray-500">No targets yet. Create one above.</div>
-          )}
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/40 overflow-hidden">
+        <div className="grid grid-cols-12 gap-0 border-b border-slate-800 bg-slate-950/60 px-5 py-3 text-xs font-semibold text-slate-400">
+          <div className="col-span-2">Type</div>
+          <div className="col-span-5">Post URL</div>
+          <div className="col-span-2">Last Run</div>
+          <div className="col-span-1">Leads</div>
+          <div className="col-span-2 text-right">Actions</div>
         </div>
-      )}
+
+        {loading ? (
+          <div className="px-5 py-6 text-sm text-slate-400">Loading…</div>
+        ) : targets.length === 0 ? (
+          <div className="px-5 py-10 text-sm text-slate-400">No targets yet.</div>
+        ) : (
+          <div className="divide-y divide-slate-800">
+            {targets.map((t) => (
+              <div key={t.id} className="grid grid-cols-12 items-center px-5 py-4">
+                <div className="col-span-2 text-sm font-semibold text-slate-100">{t.type || "linkedin_post_engagement"}</div>
+                <div className="col-span-5">
+                  <a href={t.post_url} target="_blank" rel="noreferrer" className="text-sm text-slate-200 hover:underline">
+                    {t.post_url}
+                  </a>
+                  <div className="mt-1 flex items-center gap-2">
+                    <StatusPill status={t.last_run_status} />
+                    <span className="text-xs text-slate-500">{t.status}</span>
+                  </div>
+                </div>
+                <div className="col-span-2 text-sm text-slate-300">{formatDate(t.last_run_at)}</div>
+                <div className="col-span-1 text-sm font-semibold text-slate-100">{t.last_run_leads_found ?? "—"}</div>
+                <div className="col-span-2 flex justify-end gap-2">
+                  <a
+                    href="/sniper/activity"
+                    className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                  >
+                    View results
+                  </a>
+                  <button
+                    disabled={workingId === t.id}
+                    onClick={() => runNow(t.id)}
+                    className={cx(
+                      "rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                      workingId === t.id && "opacity-70 cursor-not-allowed"
+                    )}
+                  >
+                    Run now
+                  </button>
+                  {t.status === "active" ? (
+                    <button
+                      disabled={workingId === t.id}
+                      onClick={() => pause(t.id)}
+                      className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700"
+                    >
+                      Pause
+                    </button>
+                  ) : (
+                    <button
+                      disabled={workingId === t.id}
+                      onClick={() => resume(t.id)}
+                      className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700"
+                    >
+                      Resume
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
