@@ -418,7 +418,7 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
       import('react-dom/client').then(({ createRoot }) => {
           const root = createRoot(sccMount);
         const loader = flags.sniperV1
-          ? import('./SniperControlCenterV1.jsx')
+          ? import('./SniperControlCenterV1')
           : import('./SniperControlCenter.jsx');
         loader.then(({ default: SniperControlCenter }) => {
           root.render(<SniperControlCenter />);
