@@ -15,9 +15,19 @@ function requireAirtop() {
   if (!airtopEnabled()) throw new Error('AIRTOP provider disabled');
 }
 
+function sanitizeAirtopProfileName(name: string): string {
+  // Airtop expects "alphanumeric with hyphen" (no underscores).
+  // Keep it stable + readable; collapse invalid runs to single hyphen.
+  return String(name)
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80) || 'hp-li-profile';
+}
+
 function deriveProfileName(userId: string, workspaceId: string): string {
   // Airtop profiles are scoped to our org; use a stable name per (workspace,user)
-  return `hp_li_${workspaceId}_${userId}`;
+  return sanitizeAirtopProfileName(`hp-li-${workspaceId}-${userId}`);
 }
 
 async function connectAirtopPlaywright(session: any) {
