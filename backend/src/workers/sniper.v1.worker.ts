@@ -52,6 +52,16 @@ export const sniperV1Worker = new Worker(
     }
 
     const settings = await fetchSniperV1Settings(jobRow.workspace_id);
+    if (!settings.cloud_engine_enabled) {
+      await updateJob(jobId, {
+        status: 'failed',
+        error_code: 'cloud_engine_disabled',
+        error_message: 'Cloud Engine is disabled. Use Chrome Extension.',
+        finished_at: new Date().toISOString()
+      } as any);
+      await decrementConcurrency(jobRow.workspace_id, 'linkedin');
+      return { skipped: true, reason: 'cloud_engine_disabled' };
+    }
     const provider = getProvider(jobRow.provider || settings.provider_preference);
 
     // Guardrail: global active hours

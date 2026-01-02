@@ -29,6 +29,15 @@ function getWorkspaceId(req: ApiRequest, userId: string): string {
   return teamId ? String(teamId) : userId;
 }
 
+async function requireCloudEngineEnabledOr409(workspaceId: string, res: Response): Promise<boolean> {
+  const s = await fetchSniperV1Settings(workspaceId);
+  if (!s.cloud_engine_enabled) {
+    res.status(409).json({ error: 'Cloud Engine is disabled. Use Chrome Extension.' });
+    return false;
+  }
+  return true;
+}
+
 export const sniperV1Router = Router();
 sniperV1Router.use(requireAuth as any);
 
@@ -38,6 +47,7 @@ sniperV1Router.post('/targets', async (req: ApiRequest, res: Response) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
 
     const schema = z.object({
       post_url: z.string().url(),
@@ -54,8 +64,7 @@ sniperV1Router.post('/targets', async (req: ApiRequest, res: Response) => {
     const target = await createTarget({ workspace_id: workspaceId, created_by: userId, name, post_url: postUrl });
 
     if (parsed.data.auto_run) {
-      const settings = await fetchSniperV1Settings(workspaceId);
-      const provider = (parsed.data.provider || settings.provider_preference) as any;
+      const provider = 'airtop' as any;
       const job = await createJob({
         workspace_id: workspaceId,
         created_by: userId,
@@ -111,6 +120,7 @@ sniperV1Router.post('/targets/:id/run', async (req: ApiRequest, res: Response) =
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
 
     const targetId = String(req.params.id);
     const target = await getTarget(targetId);
@@ -125,8 +135,7 @@ sniperV1Router.post('/targets/:id/run', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const settings = await fetchSniperV1Settings(workspaceId);
-    const provider = (parsed.data.provider || settings.provider_preference) as any;
+    const provider = 'airtop' as any;
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
@@ -158,8 +167,8 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const settings = await fetchSniperV1Settings(workspaceId);
-    const provider = (parsed.data.provider || settings.provider_preference) as any;
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
+    const provider = 'airtop' as any;
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -231,6 +240,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
 
     const schema = z.object({
       provider: z.enum(['airtop', 'local_playwright']).optional(),
@@ -241,8 +251,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const settings = await fetchSniperV1Settings(workspaceId);
-    const provider = (parsed.data.provider || settings.provider_preference) as any;
+    const provider = 'airtop' as any;
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -276,6 +285,7 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
 
     const schema = z.object({
       provider: z.enum(['airtop', 'local_playwright']).optional(),
@@ -286,8 +296,7 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const settings = await fetchSniperV1Settings(workspaceId);
-    const provider = (parsed.data.provider || settings.provider_preference) as any;
+    const provider = 'airtop' as any;
 
     const job = await createJob({
       workspace_id: workspaceId,
