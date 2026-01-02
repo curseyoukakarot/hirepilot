@@ -52,6 +52,7 @@ sniperV1Router.post('/targets', async (req: ApiRequest, res: Response) => {
     if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
 
     const schema = z.object({
+      type: z.string().optional(),
       post_url: z.string().url(),
       name: z.string().min(1).max(160).optional(),
       auto_run: z.boolean().optional().default(true),
