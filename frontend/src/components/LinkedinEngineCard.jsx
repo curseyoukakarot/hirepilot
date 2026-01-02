@@ -10,8 +10,8 @@ const ENGINE_OPTIONS = [
   },
   {
     value: 'brightdata_cloud',
-    title: 'Cloud Engine (Bright Data)',
-    description: 'Use HirePilot’s cloud worker (Bright Data Browser) to send invites and messages on your behalf.'
+    title: 'Cloud Engine (Airtop)',
+    description: 'Use HirePilot’s cloud engine (Airtop) to send invites and messages on your behalf.'
   }
 ];
 
@@ -63,14 +63,14 @@ export default function LinkedinEngineCard() {
       if (!brightDataEnabled) {
         return (
           <div className="mt-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-            Bright Data Browser API is disabled in this environment. Configure BRIGHTDATA_BROWSER_* variables to enable Cloud Engine.
+            Airtop is disabled in this environment. Configure AIRTOP_API_KEY and enable AIRTOP_PROVIDER_ENABLED to use Cloud Engine.
           </div>
         );
       }
       if (!hasCookie) {
         return (
           <div className="mt-3 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-            Upload a valid LinkedIn cookie to run Cloud Engine automations.
+            Connect LinkedIn to run Cloud Engine automations (use the Sniper Control Center tab for embedded login).
           </div>
         );
       }
