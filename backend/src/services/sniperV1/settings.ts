@@ -1,4 +1,4 @@
-import { supabaseDb } from '../../lib/supabase';
+import { sniperSupabaseDb } from './supabase';
 
 export type ProviderName = 'airtop' | 'local_playwright';
 
@@ -31,7 +31,7 @@ export const DEFAULT_SNIPER_V1_SETTINGS: Omit<SniperV1Settings, 'workspace_id'> 
 };
 
 export async function fetchSniperV1Settings(workspaceId: string): Promise<SniperV1Settings> {
-  const { data } = await supabaseDb
+  const { data } = await sniperSupabaseDb
     .from('sniper_settings')
     .select('workspace_id,provider_preference,max_actions_per_day,max_actions_per_hour,min_delay_seconds,max_delay_seconds,active_hours_json,timezone,safety_mode')
     .eq('workspace_id', workspaceId)
@@ -65,7 +65,7 @@ export async function upsertSniperV1Settings(workspaceId: string, patch: Partial
   };
   // Remove undefined so we don't overwrite with nulls accidentally
   Object.keys(row).forEach((k) => row[k] === undefined && delete row[k]);
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_settings')
     .upsert(row, { onConflict: 'workspace_id' })
     .select('*')
@@ -112,7 +112,7 @@ export function isWithinActiveHours(now: Date, settings: SniperV1Settings): bool
 }
 
 export async function countActionsSince(workspaceId: string, sinceIso: string): Promise<number> {
-  const { count } = await supabaseDb
+  const { count } = await sniperSupabaseDb
     .from('sniper_job_items')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId)

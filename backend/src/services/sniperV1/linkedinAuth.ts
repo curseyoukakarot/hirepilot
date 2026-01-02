@@ -1,4 +1,4 @@
-import { supabaseDb } from '../../lib/supabase';
+import { sniperSupabaseDb } from './supabase';
 
 export type UserLinkedInAuthRow = {
   user_id: string;
@@ -12,7 +12,7 @@ export type UserLinkedInAuthRow = {
 };
 
 export async function getUserLinkedinAuth(userId: string, workspaceId: string): Promise<UserLinkedInAuthRow | null> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('user_linkedin_auth')
     .select('*')
     .eq('user_id', userId)
@@ -24,7 +24,7 @@ export async function getUserLinkedinAuth(userId: string, workspaceId: string): 
 
 export async function upsertUserLinkedinAuth(userId: string, workspaceId: string, patch: Partial<UserLinkedInAuthRow>) {
   const row: any = { user_id: userId, workspace_id: workspaceId, ...patch, updated_at: new Date().toISOString() };
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('user_linkedin_auth')
     .upsert(row, { onConflict: 'user_id,workspace_id' } as any)
     .select('*')
@@ -52,7 +52,7 @@ export async function createAirtopAuthSession(row: {
   airtop_window_id: string;
   airtop_profile_name: string;
 }): Promise<AirtopAuthSessionRow> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_airtop_auth_sessions')
     .insert({
       ...row,
@@ -65,13 +65,13 @@ export async function createAirtopAuthSession(row: {
 }
 
 export async function getAirtopAuthSession(id: string): Promise<AirtopAuthSessionRow | null> {
-  const { data, error } = await supabaseDb.from('sniper_airtop_auth_sessions').select('*').eq('id', id).maybeSingle();
+  const { data, error } = await sniperSupabaseDb.from('sniper_airtop_auth_sessions').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
   return (data as any) || null;
 }
 
 export async function markAirtopAuthSession(id: string, status: AirtopAuthSessionRow['status']) {
-  const { error } = await supabaseDb
+  const { error } = await sniperSupabaseDb
     .from('sniper_airtop_auth_sessions')
     .update({ status })
     .eq('id', id);

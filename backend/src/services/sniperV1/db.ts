@@ -1,4 +1,4 @@
-import { supabaseDb } from '../../lib/supabase';
+import { sniperSupabaseDb } from './supabase';
 
 export type SniperTargetRow = {
   id: string;
@@ -59,7 +59,7 @@ export async function createTarget(input: {
   post_url: string;
   settings_json?: any;
 }): Promise<SniperTargetRow> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_targets')
     .insert({
       workspace_id: input.workspace_id,
@@ -77,7 +77,7 @@ export async function createTarget(input: {
 }
 
 export async function listTargets(workspaceId: string): Promise<SniperTargetRow[]> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_targets')
     .select('*')
     .eq('workspace_id', workspaceId)
@@ -87,12 +87,12 @@ export async function listTargets(workspaceId: string): Promise<SniperTargetRow[
 }
 
 export async function setTargetStatus(targetId: string, status: 'active' | 'paused') {
-  const { error } = await supabaseDb.from('sniper_targets').update({ status }).eq('id', targetId);
+  const { error } = await sniperSupabaseDb.from('sniper_targets').update({ status }).eq('id', targetId);
   if (error) throw error;
 }
 
 export async function getTarget(targetId: string): Promise<SniperTargetRow | null> {
-  const { data, error } = await supabaseDb.from('sniper_targets').select('*').eq('id', targetId).maybeSingle();
+  const { data, error } = await sniperSupabaseDb.from('sniper_targets').select('*').eq('id', targetId).maybeSingle();
   if (error) throw error;
   return (data as any) || null;
 }
@@ -105,7 +105,7 @@ export async function createJob(input: {
   provider: SniperProvider;
   input_json: any;
 }): Promise<SniperJobRow> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_jobs')
     .insert({
       workspace_id: input.workspace_id,
@@ -124,7 +124,7 @@ export async function createJob(input: {
 }
 
 export async function listJobs(workspaceId: string, limit = 50): Promise<SniperJobRow[]> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_jobs')
     .select('*')
     .eq('workspace_id', workspaceId)
@@ -135,13 +135,13 @@ export async function listJobs(workspaceId: string, limit = 50): Promise<SniperJ
 }
 
 export async function getJob(jobId: string): Promise<SniperJobRow | null> {
-  const { data, error } = await supabaseDb.from('sniper_jobs').select('*').eq('id', jobId).maybeSingle();
+  const { data, error } = await sniperSupabaseDb.from('sniper_jobs').select('*').eq('id', jobId).maybeSingle();
   if (error) throw error;
   return (data as any) || null;
 }
 
 export async function updateJob(jobId: string, patch: Partial<SniperJobRow>) {
-  const { error } = await supabaseDb.from('sniper_jobs').update(patch as any).eq('id', jobId);
+  const { error } = await sniperSupabaseDb.from('sniper_jobs').update(patch as any).eq('id', jobId);
   if (error) throw error;
 }
 
@@ -164,12 +164,12 @@ export async function insertJobItems(items: Array<{
     status: it.status ?? 'queued',
     result_json: it.result_json ?? null
   }));
-  const { error } = await supabaseDb.from('sniper_job_items').insert(rows as any);
+  const { error } = await sniperSupabaseDb.from('sniper_job_items').insert(rows as any);
   if (error) throw error;
 }
 
 export async function listJobItems(jobId: string, limit = 500): Promise<SniperJobItemRow[]> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_job_items')
     .select('*')
     .eq('job_id', jobId)
@@ -180,12 +180,12 @@ export async function listJobItems(jobId: string, limit = 500): Promise<SniperJo
 }
 
 export async function updateJobItem(itemId: string, patch: Partial<SniperJobItemRow>) {
-  const { error } = await supabaseDb.from('sniper_job_items').update(patch as any).eq('id', itemId);
+  const { error } = await sniperSupabaseDb.from('sniper_job_items').update(patch as any).eq('id', itemId);
   if (error) throw error;
 }
 
 export async function summarizeJobItems(jobId: string): Promise<{ success: number; failed: number; skipped: number; total: number }> {
-  const { data, error } = await supabaseDb
+  const { data, error } = await sniperSupabaseDb
     .from('sniper_job_items')
     .select('status')
     .eq('job_id', jobId);
