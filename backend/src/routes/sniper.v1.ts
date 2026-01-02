@@ -225,7 +225,12 @@ sniperV1Router.get('/jobs', async (req: ApiRequest, res: Response) => {
     const workspaceId = getWorkspaceId(req, userId);
     const limit = Math.min(Number(req.query.limit || '50'), 200);
     const jobs = await listJobs(workspaceId, limit);
-    return res.json({ jobs });
+    return res.json(
+      (jobs || []).map((j: any) => ({
+        ...j,
+        status: j.status === 'succeeded' ? 'success' : j.status
+      }))
+    );
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_list_jobs' });
   }
@@ -260,7 +265,7 @@ sniperV1Router.get('/jobs/:id/items', async (req: ApiRequest, res: Response) => 
 
     const limit = Math.min(Number(req.query.limit || '500'), 2000);
     const items = await listJobItems(id, limit);
-    return res.json({ items });
+    return res.json(items || []);
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_items' });
   }
