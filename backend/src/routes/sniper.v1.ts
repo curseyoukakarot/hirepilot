@@ -6,7 +6,9 @@ import {
   createJob,
   createTarget,
   getJob,
+  getLastJobForTarget,
   getTarget,
+  countJobItems,
   insertJobItems,
   listJobItems,
   listJobs,
@@ -89,7 +91,37 @@ sniperV1Router.get('/targets', async (req: ApiRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
     const targets = await listTargets(workspaceId);
-    return res.json({ targets });
+    const enriched = await Promise.all(
+      targets.map(async (t) => {
+        try {
+          const lastJob = await getLastJobForTarget(t.id);
+          if (!lastJob) {
+            return {
+              ...t,
+              last_run_status: null,
+              last_run_at: null,
+              last_run_leads_found: null
+            };
+          }
+          const leadsFound = await countJobItems(lastJob.id);
+          return {
+            ...t,
+            last_run_status: lastJob.status === 'succeeded' ? 'success' : lastJob.status,
+            last_run_at: lastJob.finished_at || lastJob.started_at || lastJob.created_at,
+            last_run_leads_found: leadsFound
+          };
+        } catch {
+          return {
+            ...t,
+            last_run_status: null,
+            last_run_at: null,
+            last_run_leads_found: null
+          };
+        }
+      })
+    );
+    // Return array for v1 UI
+    return res.json(enriched);
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_list_targets' });
   }

@@ -86,6 +86,27 @@ export async function listTargets(workspaceId: string): Promise<SniperTargetRow[
   return (data || []) as any;
 }
 
+export async function getLastJobForTarget(targetId: string): Promise<SniperJobRow | null> {
+  const { data, error } = await sniperSupabaseDb
+    .from('sniper_jobs')
+    .select('*')
+    .eq('target_id', targetId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as any) || null;
+}
+
+export async function countJobItems(jobId: string): Promise<number> {
+  const { count, error } = await sniperSupabaseDb
+    .from('sniper_job_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', jobId);
+  if (error) throw error;
+  return Number(count || 0);
+}
+
 export async function setTargetStatus(targetId: string, status: 'active' | 'paused') {
   const { error } = await sniperSupabaseDb.from('sniper_targets').update({ status }).eq('id', targetId);
   if (error) throw error;
