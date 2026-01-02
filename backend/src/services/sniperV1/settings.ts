@@ -1,4 +1,4 @@
-import { supabaseDb } from '../lib/supabase';
+import { supabaseDb } from '../../lib/supabase';
 
 export type ProviderName = 'airtop' | 'local_playwright';
 
