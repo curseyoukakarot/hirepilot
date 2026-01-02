@@ -1,9 +1,12 @@
 import { sniperSupabaseDb } from './supabase';
 
 export type ProviderName = 'airtop' | 'local_playwright';
+export type SniperProviderMode = 'airtop' | 'extension_only';
 
 export type SniperV1Settings = {
   workspace_id: string;
+  cloud_engine_enabled: boolean;
+  provider: SniperProviderMode;
   provider_preference: ProviderName;
   max_actions_per_day: number;
   max_actions_per_hour: number;
@@ -20,6 +23,8 @@ export type SniperV1Settings = {
 };
 
 export const DEFAULT_SNIPER_V1_SETTINGS: Omit<SniperV1Settings, 'workspace_id'> = {
+  cloud_engine_enabled: false,
+  provider: 'extension_only',
   provider_preference: (String(process.env.SNIPER_PROVIDER_DEFAULT || 'airtop').toLowerCase() === 'local_playwright' ? 'local_playwright' : 'airtop'),
   max_actions_per_day: 120,
   max_actions_per_hour: 30,
@@ -33,7 +38,7 @@ export const DEFAULT_SNIPER_V1_SETTINGS: Omit<SniperV1Settings, 'workspace_id'> 
 export async function fetchSniperV1Settings(workspaceId: string): Promise<SniperV1Settings> {
   const { data } = await sniperSupabaseDb
     .from('sniper_settings')
-    .select('workspace_id,provider_preference,max_actions_per_day,max_actions_per_hour,min_delay_seconds,max_delay_seconds,active_hours_json,timezone,safety_mode')
+    .select('workspace_id,cloud_engine_enabled,provider,provider_preference,max_actions_per_day,max_actions_per_hour,min_delay_seconds,max_delay_seconds,active_hours_json,timezone,safety_mode')
     .eq('workspace_id', workspaceId)
     .maybeSingle();
 
@@ -54,6 +59,8 @@ export async function fetchSniperV1Settings(workspaceId: string): Promise<Sniper
 export async function upsertSniperV1Settings(workspaceId: string, patch: Partial<SniperV1Settings>) {
   const row: any = {
     workspace_id: workspaceId,
+    cloud_engine_enabled: patch.cloud_engine_enabled,
+    provider: patch.provider,
     provider_preference: patch.provider_preference,
     max_actions_per_day: patch.max_actions_per_day,
     max_actions_per_hour: patch.max_actions_per_hour,

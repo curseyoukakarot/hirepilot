@@ -322,8 +322,19 @@ sniperV1Router.get('/settings', async (req: ApiRequest, res: Response) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
-    const settings = await fetchSniperV1Settings(workspaceId);
-    return res.json(settings);
+    const s = await fetchSniperV1Settings(workspaceId);
+    return res.json({
+      cloud_engine_enabled: Boolean(s.cloud_engine_enabled),
+      provider: (s.cloud_engine_enabled ? 'airtop' : 'extension_only'),
+      max_actions_per_day: s.max_actions_per_day,
+      max_actions_per_hour: s.max_actions_per_hour,
+      min_delay_seconds: s.min_delay_seconds,
+      max_delay_seconds: s.max_delay_seconds,
+      active_hours_start: String(s.active_hours_json?.start || '09:00'),
+      active_hours_end: String(s.active_hours_json?.end || '17:00'),
+      timezone: s.timezone,
+      safety_mode: Boolean(s.safety_mode)
+    });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_settings' });
   }
@@ -336,20 +347,45 @@ sniperV1Router.put('/settings', async (req: ApiRequest, res: Response) => {
     const workspaceId = getWorkspaceId(req, userId);
 
     const schema = z.object({
-      provider_preference: z.enum(['airtop', 'local_playwright']).optional(),
-      max_actions_per_day: z.number().int().min(1).max(5000).optional(),
-      max_actions_per_hour: z.number().int().min(1).max(500).optional(),
-      min_delay_seconds: z.number().int().min(1).max(600).optional(),
-      max_delay_seconds: z.number().int().min(1).max(1800).optional(),
-      active_hours_json: z.any().optional(),
-      timezone: z.string().optional(),
-      safety_mode: z.boolean().optional()
+      cloud_engine_enabled: z.boolean(),
+      provider: z.enum(['airtop', 'extension_only']),
+      max_actions_per_day: z.number().int().min(1).max(5000),
+      max_actions_per_hour: z.number().int().min(1).max(500),
+      min_delay_seconds: z.number().int().min(1).max(600),
+      max_delay_seconds: z.number().int().min(1).max(1800),
+      active_hours_start: z.string().regex(/^\d{2}:\d{2}$/),
+      active_hours_end: z.string().regex(/^\d{2}:\d{2}$/),
+      timezone: z.string().min(1),
+      safety_mode: z.boolean()
     });
-    const parsed = schema.safeParse(req.body || {});
+    const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const updated = await upsertSniperV1Settings(workspaceId, { workspace_id: workspaceId, ...parsed.data } as any);
-    return res.json({ ok: true, settings: updated });
+    const existing = await fetchSniperV1Settings(workspaceId);
+
+    const cloudEnabled = Boolean(parsed.data.cloud_engine_enabled);
+    const patch: any = {
+      workspace_id: workspaceId,
+      cloud_engine_enabled: cloudEnabled,
+      provider: cloudEnabled ? 'airtop' : 'extension_only',
+      // v1 execution provider_preference is forced to airtop when cloud is enabled
+      provider_preference: cloudEnabled ? 'airtop' : existing.provider_preference,
+      max_actions_per_day: parsed.data.max_actions_per_day,
+      max_actions_per_hour: parsed.data.max_actions_per_hour,
+      min_delay_seconds: parsed.data.min_delay_seconds,
+      max_delay_seconds: parsed.data.max_delay_seconds,
+      timezone: parsed.data.timezone,
+      safety_mode: parsed.data.safety_mode,
+      active_hours_json: {
+        days: existing.active_hours_json?.days || [1, 2, 3, 4, 5],
+        start: parsed.data.active_hours_start,
+        end: parsed.data.active_hours_end,
+        runOnWeekends: Boolean(existing.active_hours_json?.runOnWeekends)
+      }
+    };
+
+    await upsertSniperV1Settings(workspaceId, patch);
+    return res.json({ ok: true });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_update_settings' });
   }
@@ -362,12 +398,17 @@ sniperV1Router.post('/linkedin/auth/start', async (req: ApiRequest, res: Respons
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
 
+    const settings = await fetchSniperV1Settings(workspaceId);
+    if (!settings.cloud_engine_enabled) {
+      return res.status(409).json({ error: 'Cloud Engine is disabled. Use Chrome Extension.' });
+    }
+
     // Embedded auth is Airtop-only (no user Airtop accounts; platform API key only)
     const provider = getProvider('airtop');
     if (!provider.startLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
 
     const out = await provider.startLinkedInAuth({ userId, workspaceId });
-    return res.json(out);
+    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: out.airtop_profile_id });
   } catch (e: any) {
     const msg = String(e?.message || '');
     if (msg.includes('AIRTOP provider disabled')) {
@@ -391,6 +432,11 @@ sniperV1Router.post('/linkedin/auth/complete', async (req: ApiRequest, res: Resp
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    if (!settings.cloud_engine_enabled) {
+      return res.status(409).json({ error: 'Cloud Engine is disabled. Use Chrome Extension.' });
+    }
 
     const schema = z.object({ auth_session_id: z.string().uuid() });
     const parsed = schema.safeParse(req.body);
@@ -424,10 +470,11 @@ sniperV1Router.get('/linkedin/auth/status', async (req: ApiRequest, res: Respons
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
     const row = await getUserLinkedinAuth(userId, workspaceId);
+    const connected = Boolean(row?.status === 'ok' && row?.airtop_profile_id);
     return res.json({
-      status: row?.status || 'needs_reauth',
-      airtop_profile_id: row?.airtop_profile_id || null,
-      airtop_last_auth_at: row?.airtop_last_auth_at || null
+      connected,
+      profile_id: row?.airtop_profile_id || null,
+      last_checked_at: new Date().toISOString()
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_auth_status' });
