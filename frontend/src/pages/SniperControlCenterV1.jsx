@@ -138,8 +138,8 @@ export default function SniperControlCenterV1() {
           value={settings.provider_preference}
           onChange={(e) => setSettings((s) => ({ ...s, provider_preference: e.target.value }))}
         >
-          <option value="airtop">Airtop (recommended)</option>
-          <option value="local_playwright">Local Playwright (fallback)</option>
+          <option value="airtop">Airtop (embedded login)</option>
+          <option value="local_playwright">Chrome Extension (li_at cookie)</option>
         </select>
       </div>
 

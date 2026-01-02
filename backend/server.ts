@@ -624,11 +624,11 @@ app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
     void sniperV1Worker;
   } else {
     // Legacy Sniper routes
-    registerSniperRoutes(app);
+  registerSniperRoutes(app);
     // Boot legacy sniper worker (BullMQ)
-    void sniperWorker;
+  void sniperWorker;
     // Boot legacy sniper opener worker (BullMQ)
-    void sniperOpenerWorker;
+  void sniperOpenerWorker;
   }
   // (webhook route mounted earlier before body parsers)
 app.get('/api/campaigns/all/performance', requireAuthFlag, (req, res) => {
@@ -680,17 +680,17 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api', remoteSessionsRouter);
   if (!SNIPER_V1_ENABLED) {
     // Legacy / experimental sniper APIs (disabled for v1 launch)
-    app.use('/api', sniperApiRouter);
+  app.use('/api', sniperApiRouter);
     if (SNIPER_INTELLIGENCE_ENABLED) {
-      app.use('/api', sniperDiscoveryApiRouter);
+  app.use('/api', sniperDiscoveryApiRouter);
       // Start Sniper Intelligence workers (discovery, apollo).
       try { require('./src/workers/sniper.discovery.worker'); } catch {}
       try { require('./src/workers/sniper.apollo.worker'); } catch {}
     }
     // Legacy sniper settings router (account-based). Sniper v1 has /api/sniper/settings.
-    app.use('/api', sniperSettingsRouter);
+  app.use('/api', sniperSettingsRouter);
     // Boot legacy sniper jobs worker (stub system)
-    void sniperJobsWorker;
+  void sniperJobsWorker;
   }
   // Affiliates + payouts APIs (require auth)
   app.use('/api/public-checkout', publicCheckoutRouter);

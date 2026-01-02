@@ -390,23 +390,24 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
       import('react-dom/client').then(({ createRoot }) => {
         const root = createRoot(mount);
         root.render(
-          flags.sniperV1 ? (
-            <div className="space-y-3">
+          <div className="space-y-6">
+            {flags.sniperV1 && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <div className="text-sm font-semibold text-blue-900">Sniper v1</div>
                 <div className="text-sm text-blue-800 mt-1">
-                  LinkedIn authentication is now handled via Airtop inside the Sniper Control Center tab.
+                  Choose your LinkedIn automation provider in the <b>Sniper Control Center</b> tab:
+                  <ul className="list-disc ml-5 mt-2">
+                    <li><b>Airtop</b>: embedded login (recommended)</li>
+                    <li><b>Chrome Extension</b>: paste your <code>li_at</code> cookie below</li>
+                  </ul>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <LinkedinEngineCard />
-              <RemoteSessionConnect />
-              <LinkedInCookieCard />
-              <RemoteActionTestCard />
-            </div>
-          )
+            )}
+            <LinkedinEngineCard />
+            <RemoteSessionConnect />
+            <LinkedInCookieCard />
+            <RemoteActionTestCard />
+          </div>
         );
       });
     }
@@ -415,7 +416,7 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     const sccMount = document.getElementById('sniper-control-center-mount');
     if (sccMount) {
       import('react-dom/client').then(({ createRoot }) => {
-        const root = createRoot(sccMount);
+          const root = createRoot(sccMount);
         const loader = flags.sniperV1
           ? import('./SniperControlCenterV1.jsx')
           : import('./SniperControlCenter.jsx');
