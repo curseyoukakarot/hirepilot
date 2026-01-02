@@ -6,12 +6,14 @@ export default function SniperTargets() {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [postUrl, setPostUrl] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await apiGet('/api/sniper/targets');
-      setTargets(data || []);
+      setTargets(data?.targets || data || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load targets');
     }
@@ -20,49 +22,81 @@ export default function SniperTargets() {
 
   useEffect(() => { load(); }, []);
 
-  const toggleOpener = async (t) => {
+  const runNow = async (t) => {
     setSavingId(t.id);
     try {
-      await apiPost(`/api/sniper/targets/${t.id}/opener`, {
-        send_opener: !t.send_opener,
-        opener_subject: t.opener_subject || null,
-        opener_body: t.opener_body || null
-      });
-      toast.success(!t.send_opener ? 'Opener enabled' : 'Opener disabled');
-      await load();
+      await apiPost(`/api/sniper/targets/${t.id}/run`, { limit: 200 });
+      toast.success('Prospecting queued');
     } catch (e) {
-      toast.error(e.message || 'Failed to update opener');
+      toast.error(e.message || 'Failed to queue run');
     }
     setSavingId(null);
   };
 
-  const updateCap = async (t, cap) => {
+  const pause = async (t) => {
     setSavingId(t.id);
     try {
-      const daily_cap = Math.max(5, Math.min(50, parseInt(cap || t.daily_cap, 10)));
-      await apiPost(`/api/sniper/targets/${t.id}/opener-cap`, { daily_cap });
-      toast.success('Daily cap updated');
+      await apiPost(`/api/sniper/targets/${t.id}/pause`);
+      toast.success('Paused');
       await load();
     } catch (e) {
-      toast.error(e.message || 'Failed to update cap');
+      toast.error(e.message || 'Failed to pause');
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   };
 
-  const sendBatchNow = async (t) => {
+  const resume = async (t) => {
     setSavingId(t.id);
     try {
-      await apiPost(`/api/sniper/targets/${t.id}/capture-now`);
-      toast.success('Capture queued; opener will follow if enabled');
+      await apiPost(`/api/sniper/targets/${t.id}/resume`);
+      toast.success('Resumed');
+      await load();
     } catch (e) {
-      toast.error(e.message || 'Failed to trigger capture');
+      toast.error(e.message || 'Failed to resume');
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
+  };
+
+  const createTarget = async () => {
+    const url = postUrl.trim();
+    if (!url) return toast.error('Paste a LinkedIn post URL');
+    setCreating(true);
+    try {
+      await apiPost('/api/sniper/targets', { post_url: url, auto_run: true });
+      toast.success('Target created');
+      setPostUrl('');
+      await load();
+    } catch (e) {
+      toast.error(e.message || 'Failed to create target');
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">Sniper Targets</h1>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="text-2xl font-semibold">Sniper Targets</h1>
+        <button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={load} disabled={loading}>Refresh</button>
+      </div>
+
+      <div className="bg-white border rounded-lg p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Create target (LinkedIn post likers/commenters)</div>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 border rounded px-3 py-2 text-sm"
+            placeholder="https://www.linkedin.com/posts/..."
+            value={postUrl}
+            onChange={(e) => setPostUrl(e.target.value)}
+          />
+          <button className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50" onClick={createTarget} disabled={creating}>
+            {creating ? 'Creating…' : 'Create + Run'}
+          </button>
+        </div>
+      </div>
+
       {loading ? (
         <div>Loading…</div>
       ) : (
@@ -71,55 +105,45 @@ export default function SniperTargets() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-4 py-2">Type</th>
-                <th className="text-left px-4 py-2">Post / Keyword</th>
+                <th className="text-left px-4 py-2">Post URL</th>
                 <th className="text-left px-4 py-2">Status</th>
-                <th className="text-left px-4 py-2">Send opener</th>
-                <th className="text-left px-4 py-2">Daily opener cap</th>
                 <th className="text-left px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {targets.map(t => (
                 <tr key={t.id} className="border-t">
-                  <td className="px-4 py-2 capitalize">{t.type}</td>
+                  <td className="px-4 py-2 capitalize">{t.type || 'linkedin_post_engagement'}</td>
                   <td className="px-4 py-2 truncate max-w-xs">
-                    {t.type === 'keyword' ? (t.keyword_match || '') : (t.post_url || '')}
+                    {t.post_url || ''}
                   </td>
                   <td className="px-4 py-2">{t.status}</td>
                   <td className="px-4 py-2">
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" checked={!!t.send_opener} onChange={() => toggleOpener(t)} disabled={savingId === t.id} />
-                      <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all relative peer-checked:bg-green-500"></div>
-                    </label>
-                  </td>
-                  <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={5}
-                        max={50}
-                        defaultValue={t.daily_cap || 15}
-                        className="w-20 border rounded px-2 py-1"
-                        onBlur={(e) => updateCap(t, e.target.value)}
-                        disabled={savingId === t.id}
-                      />
+                      <button
+                        className="px-3 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+                        onClick={() => runNow(t)}
+                        disabled={savingId === t.id || t.status !== 'active'}
+                      >
+                        Run now
+                      </button>
+                      {t.status === 'active' ? (
+                        <button className="px-3 py-1 text-white bg-slate-700 rounded hover:bg-slate-800 disabled:opacity-50" onClick={() => pause(t)} disabled={savingId === t.id}>
+                          Pause
+                        </button>
+                      ) : (
+                        <button className="px-3 py-1 text-white bg-emerald-700 rounded hover:bg-emerald-800 disabled:opacity-50" onClick={() => resume(t)} disabled={savingId === t.id}>
+                          Resume
+                        </button>
+                      )}
                     </div>
-                  </td>
-                  <td className="px-4 py-2">
-                    <button
-                      className="px-3 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
-                      onClick={() => sendBatchNow(t)}
-                      disabled={savingId === t.id}
-                    >
-                      Send batch now
-                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {targets.length === 0 && (
-            <div className="p-4 text-gray-500">No targets yet. Start one from REX or via API.</div>
+            <div className="p-4 text-gray-500">No targets yet. Create one above.</div>
           )}
         </div>
       )}

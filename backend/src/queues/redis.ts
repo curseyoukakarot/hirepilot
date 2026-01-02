@@ -13,6 +13,7 @@ export const campaignQueue = new Queue('campaignQueue', { connection });
 export const sniperQueue = new Queue('sniper:capture', { connection });
 export const sniperOpenerQueue = new Queue('sniper:opener', { connection });
 export const sniperJobsQueue = new Queue('sniper:jobs', { connection });
+export const sniperV1Queue = new Queue('sniper:v1', { connection });
 export const candidateEnrichQueue = new Queue('candidate:enrich', { connection });
 export const LINKEDIN_REMOTE_ACTION_QUEUE = 'linkedin:remote_action';
 export const linkedinRemoteActionQueue = new Queue(LINKEDIN_REMOTE_ACTION_QUEUE, { connection });

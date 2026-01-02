@@ -289,14 +289,6 @@ export class DecodoClient {
   }
 
   /**
-   * ZoomInfo company scrape helper.
-   */
-  async scrapeZoomInfoCompany(url: string): Promise<{ html?: string; results?: any }> {
-    // Re-use universal scraper
-    return this.scrapeUniversal({ url, headless: 'html' });
-  }
-
-  /**
    * Scrape Sales Navigator search results with LinkedIn authentication
    */
   async scrapeSalesNavigatorSearch(searchUrl: string, page: number = 1, linkedinCookie?: string): Promise<string> {
@@ -381,7 +373,4 @@ export async function scrapeUniversal(params: { url: string; headless?: 'html' |
 }
 export async function createTikTokTask(params: { target: string; url: string; extraParams?: Record<string, any> }) {
   return getDecodoClient().createTikTokTask(params);
-}
-export async function scrapeZoomInfoCompany(url: string) {
-  return getDecodoClient().scrapeZoomInfoCompany(url);
 }

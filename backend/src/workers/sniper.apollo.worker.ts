@@ -7,15 +7,14 @@ type ApolloJob = {
   userId: string;
   company_name: string;
   company_domain: string | null;
-  contacts: Array<{ full_name: string; job_title: string; location: string | null; zoominfo_sniper_result_id?: string | null }>;
+  contacts: Array<{ full_name: string; job_title: string; location: string | null }>;
   max_contacts: number;
-  zoominfo_enabled: boolean;
 };
 
 export const apolloDecisionMakerWorker = new Worker<ApolloJob>(
   'sniper:apollo_decision_makers',
   async (job) => {
-    const { runId, userId, company_name, contacts, max_contacts, zoominfo_enabled } = job.data;
+    const { runId, userId, company_name, contacts, max_contacts } = job.data;
 
     try {
       // Get Apollo key (shared if available)
@@ -26,7 +25,7 @@ export const apolloDecisionMakerWorker = new Worker<ApolloJob>(
       }
       if (!apolloApiKey) {
         // No Apollo; skip
-        return { enriched: 0, zoominfoCharged: false };
+        return { enriched: 0 };
       }
 
       // Derive search parameters
@@ -48,21 +47,6 @@ export const apolloDecisionMakerWorker = new Worker<ApolloJob>(
       // Update sniper_results and upsert leads
       let updated = 0;
       for (const en of enriched) {
-        // Find corresponding zoominfo result by name/title if provided
-        const zr = await matchZoominfoResult(runId, userId, company_name, en);
-        if (zr) {
-          await supabaseDb
-            .from('sniper_results')
-            .update({
-              normalized: {
-                ...(zr.normalized || {}),
-                email: en.email || null,
-                phone: null,
-                linkedin_url: en.linkedinUrl || (en as any).linkedin_url || null
-              }
-            } as any)
-            .eq('id', zr.id);
-        }
         // Upsert into global leads table
         await upsertLead(userId, {
           name: `${en.firstName} ${en.lastName}`.trim(),
@@ -71,29 +55,14 @@ export const apolloDecisionMakerWorker = new Worker<ApolloJob>(
           company: company_name,
           location: [en.city, en.state, en.country].filter(Boolean).join(', '),
           linkedin_url: en.linkedinUrl || (en as any).linkedin_url || null,
-          origin: zr ? 'sniper_zoominfo_enriched' : 'sniper_apollo_decision_maker',
+          origin: 'sniper_apollo_decision_maker',
           origin_run_id: runId,
-          origin_source: zr ? 'zoominfo' : 'apollo'
+          origin_source: 'apollo'
         });
         updated += 1;
       }
 
-      // ZoomInfo credit logic: charge +1 if zoominfo_enabled and at least one email found and at least one zoominfo result exists
-      let zoominfoCharged = false;
-      if (zoominfo_enabled) {
-        const hasZoominfoCandidates = contacts.some((c) => !!c.zoominfo_sniper_result_id);
-        if (hasZoominfoCandidates && enriched.length > 0) {
-          try {
-            const { CreditService } = await import('../../services/creditService');
-            await CreditService.deductCredits(job.data.userId, 1, 'api_usage', `ZoomInfo company unlock: ${company_name}`);
-            zoominfoCharged = true;
-          } catch (e) {
-            // Non-fatal
-          }
-        }
-      }
-
-      return { enriched: updated, zoominfoCharged };
+      return { enriched: updated };
     } catch (e: any) {
       // Non-fatal: let job fail to retry if configured by queue
       throw e;
@@ -113,28 +82,6 @@ function uniqueTitles(titles: string[]): string[] {
     ['Head of', 'Director', 'VP', 'Manager'].forEach((p) => set.add(p));
   }
   return Array.from(set);
-}
-
-async function matchZoominfoResult(runId: string, userId: string, company: string, en: any): Promise<{ id: string; normalized: any } | null> {
-  try {
-    const { data } = await supabaseDb
-      .from('sniper_results')
-      .select('id, normalized')
-      .eq('run_id', runId)
-      .eq('user_id', userId)
-      .eq('source_type', 'zoominfo_decision_maker');
-    const nameLc = `${String(en.firstName || '').toLowerCase()} ${String(en.lastName || '').toLowerCase()}`.trim();
-    const titleLc = String(en.title || '').toLowerCase();
-    const cand = (data || []).find((r: any) => {
-      const rn = String(r?.normalized?.full_name || '').toLowerCase();
-      const rt = String(r?.normalized?.job_title || '').toLowerCase();
-      const rc = String(r?.normalized?.company_name || '').toLowerCase();
-      return rc.includes(company.toLowerCase()) && (rn.includes(nameLc) || rt.includes(titleLc));
-    });
-    return cand || null;
-  } catch {
-    return null;
-  }
 }
 
 async function upsertLead(userId: string, p: {

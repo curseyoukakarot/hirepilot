@@ -25,7 +25,6 @@ export default function SniperIntelligence() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
-  const [useZoomInfo, setUseZoomInfo] = useState(false);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -58,7 +57,6 @@ export default function SniperIntelligence() {
   }, [runId]);
 
   const jobRows = useMemo(() => results.filter(r => ['indeed_job','zip_job','google_job'].includes(r.source_type)), [results]);
-  const dmRows = useMemo(() => results.filter(r => r.source_type === 'zoominfo_decision_maker'), [results]);
   const tiktokRows = useMemo(() => results.filter(r => r.source_type.startsWith('tiktok_')), [results]);
 
   async function startJobDiscovery() {
@@ -92,23 +90,6 @@ export default function SniperIntelligence() {
     setLoading(false);
   }
 
-  async function enrichDecisionMakers() {
-    if (!runId) return;
-    const ids = Array.from(selectedIds);
-    setLoading(true);
-    try {
-      await apiFetch(`/api/sniper/runs/${runId}/enrich_decision_makers`, {
-        method: 'POST',
-        body: JSON.stringify({ job_ids: ids, use_zoominfo: !!useZoomInfo, max_contacts_per_company: 3 })
-      });
-      alert('Enrichment queued');
-      setTab('decision_makers');
-    } catch (e) {
-      alert(e.message || 'Failed to queue enrichment');
-    }
-    setLoading(false);
-  }
-
   const toggleSelected = (id) => {
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -122,7 +103,6 @@ export default function SniperIntelligence() {
       <div className="flex gap-3 mb-4">
         <button className={`px-3 py-2 rounded ${tab==='jobs'?'bg-blue-600':'bg-slate-700'}`} onClick={()=>setTab('jobs')}>Jobs</button>
         <button className={`px-3 py-2 rounded ${tab==='tiktok'?'bg-blue-600':'bg-slate-700'}`} onClick={()=>setTab('tiktok')}>TikTok</button>
-        <button className={`px-3 py-2 rounded ${tab==='decision_makers'?'bg-blue-600':'bg-slate-700'}`} onClick={()=>setTab('decision_makers')}>Decision Makers</button>
         <button className={`px-3 py-2 rounded ${tab==='logs'?'bg-blue-600':'bg-slate-700'}`} onClick={()=>setTab('logs')}>Logs/Credits</button>
       </div>
 
@@ -146,13 +126,7 @@ export default function SniperIntelligence() {
               <input className="bg-slate-800 p-2 rounded" value={location} onChange={(e)=>setLocation(e.target.value)} placeholder="Baltimore, MD" />
             </div>
             <button className="px-3 py-2 bg-blue-600 rounded" onClick={startJobDiscovery} disabled={loading}>{loading ? 'Starting...' : 'Run Discovery'}</button>
-            <div className="flex items-center gap-2 ml-auto">
-              <label className="text-sm text-gray-300 flex items-center gap-2">
-                <input type="checkbox" checked={useZoomInfo} onChange={(e)=>setUseZoomInfo(e.target.checked)} />
-                Use ZoomInfo (+1/company on email found)
-              </label>
-              <button className="px-3 py-2 bg-emerald-600 rounded disabled:opacity-50" onClick={enrichDecisionMakers} disabled={selectedIds.size===0 || !runId || loading}>Find Decision Makers</button>
-            </div>
+            <div className="ml-auto text-xs text-gray-400">Decision-maker enrichment is deprecated for v1.</div>
           </div>
 
           <div className="rounded border border-slate-700 overflow-hidden">
@@ -248,40 +222,6 @@ export default function SniperIntelligence() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {tab === 'decision_makers' && (
-        <div className="rounded border border-slate-700 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-800">
-              <tr>
-                <th className="text-left p-2">Name</th>
-                <th className="text-left p-2">Title</th>
-                <th className="text-left p-2">Company</th>
-                <th className="text-left p-2">Location</th>
-                <th className="text-left p-2">Email</th>
-                <th className="text-left p-2">LinkedIn</th>
-                <th className="text-left p-2">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dmRows.map((r) => (
-                <tr key={r.id} className="border-t border-slate-700">
-                  <td className="p-2">{r.normalized?.full_name}</td>
-                  <td className="p-2">{r.normalized?.job_title}</td>
-                  <td className="p-2">{r.normalized?.company_name}</td>
-                  <td className="p-2">{r.normalized?.location || '-'}</td>
-                  <td className="p-2">{r.normalized?.email || '-'}</td>
-                  <td className="p-2">{r.normalized?.linkedin_url ? <a className="text-blue-400" href={r.normalized?.linkedin_url} target="_blank" rel="noreferrer">Open</a> : '-'}</td>
-                  <td className="p-2">ZoomInfo + Apollo</td>
-                </tr>
-              ))}
-              {dmRows.length === 0 && (
-                <tr><td colSpan={7} className="p-4 text-center text-gray-400">{polling ? 'Loading...' : 'No results yet'}</td></tr>
-              )}
-            </tbody>
-          </table>
         </div>
       )}
 

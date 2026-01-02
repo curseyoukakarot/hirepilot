@@ -174,12 +174,10 @@ import { bootLinkedinWorker } from './services/linkedin-remote/queue/workers/lin
 import remoteSessionsRouter from './src/routes/remoteSessions';
 import sniperApiRouter from './src/routes/sniper.api';
 import sniperDiscoveryApiRouter from './src/routes/sniper.discovery.api';
-// Start Sniper workers (discovery, zoominfo, apollo)
-import './src/workers/sniper.discovery.worker';
-import './src/workers/sniper.zoominfo.worker';
-import './src/workers/sniper.apollo.worker';
 import sniperSettingsRouter from './src/routes/sniper.settings';
 import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
+import sniperV1Router from './src/routes/sniper.v1';
+import { sniperV1Worker } from './src/workers/sniper.v1.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
@@ -210,6 +208,8 @@ if (enableSentry && process.env.SENTRY_DSN) {
   }
 }
 const PORT = process.env.PORT || 8080;
+const SNIPER_V1_ENABLED = String(process.env.SNIPER_V1_ENABLED || 'false').toLowerCase() === 'true';
+const SNIPER_INTELLIGENCE_ENABLED = String(process.env.SNIPER_INTELLIGENCE_ENABLED || 'false').toLowerCase() === 'true';
 
 // Health check route (before CORS)
 app.get('/health', (_, res) => {
@@ -618,12 +618,18 @@ app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
 });
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
-  // Sniper routes
-  registerSniperRoutes(app);
-  // Boot sniper worker (BullMQ)
-  void sniperWorker;
-  // Boot sniper opener worker (BullMQ)
-  void sniperOpenerWorker;
+  // Sniper v1 routes/workers (feature-flagged)
+  if (SNIPER_V1_ENABLED) {
+    app.use('/api/sniper', sniperV1Router);
+    void sniperV1Worker;
+  } else {
+    // Legacy Sniper routes
+    registerSniperRoutes(app);
+    // Boot legacy sniper worker (BullMQ)
+    void sniperWorker;
+    // Boot legacy sniper opener worker (BullMQ)
+    void sniperOpenerWorker;
+  }
   // (webhook route mounted earlier before body parsers)
 app.get('/api/campaigns/all/performance', requireAuthFlag, (req, res) => {
   (req.params as any).id = 'all';
@@ -672,11 +678,20 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   app.use('/api/stripe', stripeRouter);
   // Remote session storage & testing
   app.use('/api', remoteSessionsRouter);
-  app.use('/api', sniperApiRouter);
-  app.use('/api', sniperDiscoveryApiRouter);
-  app.use('/api', sniperSettingsRouter);
-  // Boot new sniper jobs worker
-  void sniperJobsWorker;
+  if (!SNIPER_V1_ENABLED) {
+    // Legacy / experimental sniper APIs (disabled for v1 launch)
+    app.use('/api', sniperApiRouter);
+    if (SNIPER_INTELLIGENCE_ENABLED) {
+      app.use('/api', sniperDiscoveryApiRouter);
+      // Start Sniper Intelligence workers (discovery, apollo).
+      try { require('./src/workers/sniper.discovery.worker'); } catch {}
+      try { require('./src/workers/sniper.apollo.worker'); } catch {}
+    }
+    // Legacy sniper settings router (account-based). Sniper v1 has /api/sniper/settings.
+    app.use('/api', sniperSettingsRouter);
+    // Boot legacy sniper jobs worker (stub system)
+    void sniperJobsWorker;
+  }
   // Affiliates + payouts APIs (require auth)
   app.use('/api/public-checkout', publicCheckoutRouter);
   app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);

@@ -54,6 +54,7 @@
         "skipDownload": true
     },
     "dependencies": {
+        "@airtop/sdk": "^1.0.0",
         "@microsoft/microsoft-graph-client": "^3.0.7",
         "@modelcontextprotocol/sdk": "^1.13.1",
         "@prisma/client": "6.12.0",

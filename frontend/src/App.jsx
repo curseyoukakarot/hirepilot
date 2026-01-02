@@ -61,6 +61,7 @@ import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
 import SniperTargets from './screens/SniperTargets';
+import { flags } from './config/flags';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
 import AffiliateSettings from './pages/partners/AffiliateSettings';
@@ -120,6 +121,7 @@ const TestGmail = lazy(() => import("./pages/TestGmail"));
 const SequenceDetail = lazy(() => import("./pages/sequences/SequenceDetail"));
 const SniperSettings = lazy(() => import("./pages/SniperSettings"));
 const SniperIntelligence = lazy(() => import("./screens/SniperIntelligence"));
+const SniperActivity = lazy(() => import("./screens/SniperActivity"));
 
 // Lazy load screens
 const SigninScreen = lazy(() => import("./screens/SigninScreen"));
@@ -789,7 +791,8 @@ function InnerApp() {
               <Route path="/apply/:jobId/success" element={<ApplySuccess />} />
               <Route path="/sniper" element={<SniperTargets />} />
               <Route path="/sniper/settings" element={<SniperSettings />} />
-              <Route path="/sniper-intelligence" element={<SniperIntelligence />} />
+              {flags.sniperV1 && <Route path="/sniper/activity" element={<SniperActivity />} />}
+              {flags.sniperIntelligence && !flags.sniperV1 && <Route path="/sniper-intelligence" element={<SniperIntelligence />} />}
               {/* Agent Mode Center and drawers */}
               <Route path="/agent" element={<AgentModeCenter />}>
                 <Route path="campaign/:id" element={<CampaignDetailDrawer />} />

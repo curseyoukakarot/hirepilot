@@ -10,7 +10,6 @@ import { isBrightDataEnabled } from '../config/brightdata';
 const router = Router();
 
 const discoveryQueue = new Queue('sniper:discovery', { connection });
-const zoominfoQueue = new Queue('sniper:zoominfo_enrich', { connection });
 const apolloQueue = new Queue('sniper:apollo_decision_makers', { connection });
 
 type ApiRequest = Request & { user?: { id: string } };
@@ -194,12 +193,11 @@ router.post('/sniper/runs/:id/enrich_decision_makers', requireAuth as any, async
     const schema = z.object({
       company_filters: z.record(z.any()).optional(),
       job_ids: z.array(z.string()).optional(),
-      use_zoominfo: z.boolean(),
       max_contacts_per_company: z.number().int().min(1).max(10).default(3)
     });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
-    const { job_ids, use_zoominfo, max_contacts_per_company } = parsed.data;
+    const { job_ids, max_contacts_per_company } = parsed.data;
 
     // Get run
     const { data: run, error: runErr } = await supabaseDb
@@ -230,43 +228,16 @@ router.post('/sniper/runs/:id/enrich_decision_makers', requireAuth as any, async
       }))
       .filter(c => c.company_name);
 
-    // Settings: zoominfo enabled?
-    let zoominfoEnabled = false;
-    try {
-      const { data: zs } = await supabaseDb
-        .from('zoominfo_enrichment_settings')
-        .select('enabled')
-        .eq('user_id', userId)
-        .maybeSingle();
-      zoominfoEnabled = !!zs?.enabled;
-    } catch {}
-    // Explicit request overrides setting (but credits charged per rules in worker)
-    if (use_zoominfo) zoominfoEnabled = true;
-
     let queued = 0;
     for (const c of companies) {
-      // ZoomInfo path
-      if (zoominfoEnabled) {
-        await zoominfoQueue.add('zoominfo_enrich', {
-          runId: id,
-          userId,
-          company_name: c.company_name,
-          company_domain: c.company_domain,
-          location: c.location,
-          job_department: deriveDepartmentFromJobTitle(c.job_title),
-          max_contacts: max_contacts_per_company,
-          zoominfo_enabled: true
-        });
-      }
-      // Always schedule Apollo fallback
+      // Apollo enrichment only (enrichment via Apollo)
       await apolloQueue.add('apollo_decision_makers', {
         runId: id,
         userId,
         company_name: c.company_name,
         company_domain: c.company_domain,
         contacts: [],
-        max_contacts: max_contacts_per_company,
-        zoominfo_enabled: zoominfoEnabled
+        max_contacts: max_contacts_per_company
       });
       queued += 1;
     }
