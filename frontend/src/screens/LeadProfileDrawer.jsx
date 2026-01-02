@@ -20,12 +20,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   const [isUnlockingInsights, setIsUnlockingInsights] = useState(false);
   const [engineMode, setEngineMode] = useState('local_browser');
   const [brightdataEnabled, setBrightdataEnabled] = useState(false);
+  const [sniperCloudEngineEnabled, setSniperCloudEngineEnabled] = useState(false);
+  const [sniperSettingsLoaded, setSniperSettingsLoaded] = useState(false);
   const [enrichStatus, setEnrichStatus] = useState({ apollo: null, gpt: null });
   const [localLead, setLocalLead] = useState(lead);
   const [localCandidate, setLocalCandidate] = useState(lead);
   const lastAppliedRef = useRef(null);
   // refresh daily LI count and engine mode when drawer opens
-  useEffect(() => { if (isOpen) { fetchDailyLinkedInCount(); fetchEngineMode(); } }, [isOpen]);
+  useEffect(() => { if (isOpen) { fetchDailyLinkedInCount(); fetchEngineMode(); fetchSniperSettings(); } }, [isOpen]);
   
   // Force remount on entity change to clear stale closures
   const instanceKey = useMemo(
@@ -210,6 +212,23 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     } catch {}
   };
 
+  async function fetchSniperSettings() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const resp = await fetch(`${API_BASE_URL}/sniper/settings`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        credentials: 'include'
+      });
+      if (!resp.ok) return;
+      const json = await resp.json();
+      setSniperCloudEngineEnabled(Boolean(json?.cloud_engine_enabled));
+      setSniperSettingsLoaded(true);
+    } catch {
+      // ignore
+    }
+  }
+
   const isBrightDataEngine = engineMode === 'brightdata_cloud' && brightdataEnabled;
 
   // Helper to validate LinkedIn profile URLs and build extension trigger URL
@@ -242,6 +261,12 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     }
     if (!isValidLinkedInProfileUrl(linkedinUrl)) {
       showToast('Invalid LinkedIn URL.', 'error');
+      return;
+    }
+
+    // If Sniper Cloud Engine is enabled, we queue via Sniper v1 (Airtop) from this same modal.
+    if (sniperCloudEngineEnabled) {
+      setShowLinkedInModal(true);
       return;
     }
 
@@ -1546,13 +1571,47 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       message = replaceTokens(message, tokenData).slice(0, 300);
     }
 
-    if (!message) {
-      showToast('Please provide a message or select a template', 'error');
-      return;
-    }
     if (message.length > 300) {
       showToast('Message cannot exceed 300 characters', 'error');
       return;
+    }
+
+    // Sniper v1 Cloud Engine path (Airtop): queue connect request in background.
+    if (sniperCloudEngineEnabled) {
+      try {
+        setIsSubmittingLinkedIn(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('No active session – please sign in again.');
+
+        const linkedinUrl = getLinkedInUrl(localLead);
+        const resp = await fetch(`${API_BASE_URL}/sniper/actions/connect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            profile_urls: [linkedinUrl],
+            note: message || null
+          })
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(json?.error || 'Failed to queue connect request');
+
+        showToast('Queued via Cloud Engine. Track progress in Sniper Activity.', 'success');
+        setShowLinkedInModal(false);
+        setLinkedInMessage('');
+        setSelectedLiTemplateId('');
+        setConsentAccepted(false);
+        return;
+      } catch (e) {
+        showToast(e?.message || 'Failed to queue connect request', 'error');
+        return;
+      } finally {
+        setIsSubmittingLinkedIn(false);
+      }
     }
 
     // If Playwright path enabled, fallback to existing automation submit
@@ -1564,6 +1623,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
     // Otherwise, open LinkedIn with extension param and pass message/template metadata
     try {
+      setIsSubmittingLinkedIn(true);
       const linkedinUrl = getLinkedInUrl(localLead);
       const u = new URL(linkedinUrl);
       u.searchParams.set('hirepilot_connect', '1');
@@ -1611,6 +1671,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
       } catch {}
     } catch (e) {
       showToast('Failed to open LinkedIn profile', 'error');
+    } finally {
+      setIsSubmittingLinkedIn(false);
     }
   };
 
@@ -2893,6 +2955,11 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             <p className="mb-4 text-gray-600 dark:text-gray-300 text-sm">
               Send a connection request to <strong>{localLead.name}</strong> on LinkedIn.
             </p>
+            {sniperCloudEngineEnabled && (
+              <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 text-sm text-emerald-800 dark:text-emerald-200">
+                Using <strong>Sniper Cloud Engine (Airtop)</strong>. This will be queued and executed in the cloud. Track status in <strong>/sniper/activity</strong>.
+              </div>
+            )}
             {isBrightDataEngine && (
               <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 text-sm text-purple-800 dark:text-purple-200">
                 Using Bright Data Cloud Engine. No Chrome extension required—this will be sent remotely.
@@ -3059,7 +3126,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 onClick={handleLinkedInSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 style={{backgroundColor: '#0077B5'}}
-                disabled={isSubmittingLinkedIn || !consentAccepted || userCredits < 10}
+                disabled={isSubmittingLinkedIn || !consentAccepted || (!sniperCloudEngineEnabled && userCredits < 10)}
               >
                 {isSubmittingLinkedIn ? (
                   <>
@@ -3072,7 +3139,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                 ) : (
                   <>
                     <i className="fa-brands fa-linkedin mr-2"></i>
-                    Send LinkedIn Connect
+                    {sniperCloudEngineEnabled ? 'Queue LinkedIn Connect' : 'Send LinkedIn Connect'}
                   </>
                 )}
               </button>

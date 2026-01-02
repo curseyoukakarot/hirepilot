@@ -8,6 +8,7 @@ import {
   getJob,
   getLastJobForTarget,
   getTarget,
+  countConnectRequestsSince,
   countJobItems,
   insertJobItems,
   listJobItems,
@@ -282,14 +283,39 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
 
     const schema = z.object({
       provider: z.enum(['airtop', 'local_playwright']).optional(),
-      profile_urls: z.array(z.string().url()).min(1).max(500),
+      profile_urls: z.array(z.string().url()).min(1).max(500).optional(),
+      requests: z.array(z.object({
+        profile_url: z.string().url(),
+        note: z.string().max(300).optional().nullable()
+      })).min(1).max(500).optional(),
       note: z.string().max(300).optional().nullable(),
       scheduled_for: z.string().datetime().optional().nullable()
-    });
+    }).refine((v) => Boolean(v.profile_urls?.length) || Boolean(v.requests?.length), { message: 'profile_urls or requests is required' });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
     const provider = 'airtop' as any;
+
+    // Hard cap: 20 connect requests per UTC day per workspace (shared across bulk + single)
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const usedToday = await countConnectRequestsSince(workspaceId, dayStart.toISOString());
+    const DAILY_CONNECT_LIMIT = 20;
+    const remaining = Math.max(0, DAILY_CONNECT_LIMIT - usedToday);
+    if (remaining <= 0) {
+      return res.status(409).json({ error: 'daily_connect_limit_reached', limit: DAILY_CONNECT_LIMIT, used: usedToday });
+    }
+
+    const requested = (parsed.data.requests?.length || parsed.data.profile_urls?.length || 0);
+    if (requested > remaining) {
+      return res.status(409).json({
+        error: 'daily_connect_limit_exceeded',
+        limit: DAILY_CONNECT_LIMIT,
+        used: usedToday,
+        remaining,
+        requested
+      });
+    }
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -300,19 +326,36 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       input_json: { note: parsed.data.note || null }
     });
 
+    const requests = (parsed.data.requests || []).map((r) => ({
+      profile_url: r.profile_url,
+      note: r.note ?? parsed.data.note ?? null
+    }));
+    const urls = (parsed.data.profile_urls || []).map((u) => ({ profile_url: u, note: parsed.data.note ?? null }));
+    const merged = [...requests, ...urls];
+    // Deduplicate by URL (keep first note)
+    const seen = new Set<string>();
+    const unique = merged.filter((r) => {
+      const key = String(r.profile_url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     await insertJobItems(
-      parsed.data.profile_urls.map((u) => ({
+      unique.map((r) => ({
         job_id: job.id,
         workspace_id: workspaceId,
-        profile_url: u,
+        profile_url: r.profile_url,
         action_type: 'connect',
         scheduled_for: parsed.data.scheduled_for || null,
-        status: 'queued'
+        status: 'queued',
+        // Store per-item note for personalization; worker will prefer this over job.input_json.note
+        result_json: r.note ? { note: r.note } : null
       }))
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
-    return res.status(202).json({ queued: true, job_id: job.id });
+    return res.status(202).json({ queued: true, job_id: job.id, remaining_after: remaining - unique.length });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_queue_connects' });
   }

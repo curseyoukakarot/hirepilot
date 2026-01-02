@@ -21,6 +21,7 @@ import HtmlPreviewModal from '../components/HtmlPreviewModal';
 import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+const DAILY_LI_CONNECT_CAP = 20;
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -66,6 +67,16 @@ function LeadManagement() {
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [bulkTemplates, setBulkTemplates] = useState([]);
   const [bulkSelectedTemplate, setBulkSelectedTemplate] = useState(null);
+  const [sniperSettings, setSniperSettings] = useState(null);
+  const [sniperCloudEngineEnabled, setSniperCloudEngineEnabled] = useState(false);
+  const [showBulkLinkedInModal, setShowBulkLinkedInModal] = useState(false);
+  const [bulkLiTemplates, setBulkLiTemplates] = useState([]);
+  const [bulkSelectedLiTemplateId, setBulkSelectedLiTemplateId] = useState('');
+  const [bulkLiMessage, setBulkLiMessage] = useState('');
+  const [bulkLiConsentAccepted, setBulkLiConsentAccepted] = useState(false);
+  const [bulkLiIsSubmitting, setBulkLiIsSubmitting] = useState(false);
+  const [bulkLiExcludedCount, setBulkLiExcludedCount] = useState(0);
+  const [bulkLiPreview, setBulkLiPreview] = useState('');
   const [showSequencePicker, setShowSequencePicker] = useState(false);
   const [sequences, setSequences] = useState([]);
   const [selectedSequenceId, setSelectedSequenceId] = useState('');
@@ -120,6 +131,27 @@ function LeadManagement() {
         if (user?.id) setCurrentUserId(user.id);
       } catch (err) {
         console.error('Failed to resolve user id', err);
+      }
+    })();
+  }, []);
+
+  // Sniper settings for Cloud Engine gating (bulk LinkedIn requests)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const resp = await fetch(`${API_BASE_URL}/sniper/settings`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include'
+        });
+        if (!resp.ok) return;
+        const json = await resp.json();
+        setSniperSettings(json || null);
+        setSniperCloudEngineEnabled(Boolean(json?.cloud_engine_enabled));
+      } catch {
+        // ignore
       }
     })();
   }, []);
@@ -719,6 +751,112 @@ function LeadManagement() {
       .select('*')
       .eq('user_id', user.id);
     if (!error && data) setBulkTemplates(data);
+  };
+
+  // Fetch LinkedIn templates (subject = 'linkedin_request')
+  const fetchBulkLinkedInTemplates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('email_templates')
+        .select('id,name,subject,content,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        const onlyLinkedIn = (data || []).filter(t => (t.subject || '').toLowerCase() === 'linkedin_request');
+        setBulkLiTemplates(onlyLinkedIn);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const openBulkLinkedInModal = async () => {
+    if (!selectedLeadIds.length) return;
+    if (!sniperCloudEngineEnabled) {
+      toast.error('Cloud Engine is disabled. Enable Sniper Cloud Engine to send bulk LinkedIn requests.');
+      return;
+    }
+    await fetchBulkLinkedInTemplates();
+    setBulkSelectedLiTemplateId('');
+    setBulkLiMessage('');
+    setBulkLiConsentAccepted(false);
+    setBulkLiPreview('');
+    // Exclude leads without LinkedIn URLs
+    const selected = (leads || []).filter(l => selectedLeadIds.includes(l.id));
+    const withLinkedIn = selected.filter(l => (l.linkedin_url || '').trim().length > 0);
+    setBulkLiExcludedCount(selected.length - withLinkedIn.length);
+    setShowBulkLinkedInModal(true);
+  };
+
+  const computeBulkLiPreview = () => {
+    const selected = (leads || []).filter(l => selectedLeadIds.includes(l.id));
+    const lead = selected.find(l => (l.linkedin_url || '').trim().length > 0);
+    if (!lead) return '';
+    return personalizeTemplate((bulkLiMessage || '').trim(), lead).slice(0, 300);
+  };
+
+  const handleQueueBulkLinkedInConnect = async () => {
+    if (!sniperCloudEngineEnabled) {
+      toast.error('Cloud Engine is disabled. Enable Sniper Cloud Engine to send LinkedIn requests.');
+      return;
+    }
+    if (!bulkLiConsentAccepted) {
+      toast.error('Consent is required to automate LinkedIn outreach.');
+      return;
+    }
+    const selected = (leads || []).filter(l => selectedLeadIds.includes(l.id));
+    const withLinkedIn = selected.filter(l => (l.linkedin_url || '').trim().length > 0);
+    if (!withLinkedIn.length) {
+      toast.error('No selected leads have a LinkedIn URL.');
+      return;
+    }
+    const raw = (bulkLiMessage || '').trim();
+    if (raw.length > 300) {
+      toast.error('Message cannot exceed 300 characters');
+      return;
+    }
+
+    // Build per-lead personalized note
+    const requests = withLinkedIn.map((lead) => ({
+      profile_url: String(lead.linkedin_url).trim(),
+      note: raw ? personalizeTemplate(raw, lead).slice(0, 300) : null
+    }));
+    if (requests.length > DAILY_LI_CONNECT_CAP) {
+      toast.error(`Bulk LinkedIn requests are capped at ${DAILY_LI_CONNECT_CAP}/day. Reduce your selection.`);
+      return;
+    }
+
+    setBulkLiIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      const resp = await fetch(`${API_BASE_URL}/sniper/actions/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        credentials: 'include',
+        body: JSON.stringify({ requests })
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = json?.error === 'daily_connect_limit_exceeded' || json?.error === 'daily_connect_limit_reached'
+          ? `Daily LinkedIn request limit reached (${DAILY_LI_CONNECT_CAP}/day).`
+          : (json?.error || 'Failed to queue LinkedIn requests');
+        throw new Error(msg);
+      }
+      toast.success('Queued bulk LinkedIn requests. Track progress in Sniper Activity.');
+      setShowBulkLinkedInModal(false);
+      setBulkLiMessage('');
+      setBulkLiConsentAccepted(false);
+      setBulkSelectedLiTemplateId('');
+    } catch (e) {
+      toast.error(e.message || 'Failed to queue LinkedIn requests');
+    } finally {
+      setBulkLiIsSubmitting(false);
+    }
   };
 
   // Open bulk message modal
@@ -1662,6 +1800,14 @@ function LeadManagement() {
             )}
             Enrich
           </button>
+          <button
+            className={`border px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-50 text-blue-700 border-blue-500 disabled:opacity-50 ${selectedLeadIds.length === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={selectedLeadIds.length === 0 || !sniperCloudEngineEnabled}
+            onClick={selectedLeadIds.length > 0 ? openBulkLinkedInModal : undefined}
+            title={!sniperCloudEngineEnabled ? 'Enable Sniper Cloud Engine to use bulk LinkedIn requests' : `Queue LinkedIn connect requests (max ${DAILY_LI_CONNECT_CAP}/day)`}
+          >
+            <FaUserPlus /> Bulk LI Request
+          </button>
         {!(typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.')) && (
           <button
             className={`border px-4 py-2 rounded-lg hover:bg-green-50 text-green-700 border-green-500 disabled:opacity-50 ${selectedLeadIds.length < 2 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
@@ -2507,6 +2653,132 @@ function LeadManagement() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk LinkedIn Request Modal (Sniper Cloud Engine) */}
+      {showBulkLinkedInModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-2xl w-full shadow-lg border border-gray-200 dark:border-gray-800">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Bulk LinkedIn Requests</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                onClick={() => setShowBulkLinkedInModal(false)}
+                disabled={bulkLiIsSubmitting}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-sm text-emerald-800 dark:text-emerald-200">
+              Using <strong>Sniper Cloud Engine (Airtop)</strong>. Requests are queued and sent one-by-one with safe spacing.
+            </div>
+
+            <div className="mb-4 text-sm text-gray-700 dark:text-gray-200">
+              Selected: <strong>{selectedLeadIds.length}</strong> lead(s)
+              {bulkLiExcludedCount > 0 && (
+                <span className="ml-2 text-amber-700 dark:text-amber-300">
+                  ({bulkLiExcludedCount} excluded — missing LinkedIn URL)
+                </span>
+              )}
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Daily cap: <strong>{DAILY_LI_CONNECT_CAP}</strong>/day. Safe spacing: randomized delay of{' '}
+                <strong>{Math.max(Number(sniperSettings?.min_delay_seconds || 60), 60)}–{Math.max(Number(sniperSettings?.max_delay_seconds || 120), Math.max(Number(sniperSettings?.min_delay_seconds || 60), 60))}</strong>{' '}
+                seconds between requests.
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                Template (optional)
+              </label>
+              <div className="flex items-center gap-2">
+                <select
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                  value={bulkSelectedLiTemplateId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setBulkSelectedLiTemplateId(nextId);
+                    const tpl = (bulkLiTemplates || []).find(t => String(t.id) === String(nextId));
+                    if (tpl?.content) {
+                      setBulkLiMessage(String(tpl.content).slice(0, 300));
+                      setBulkLiPreview('');
+                    }
+                  }}
+                >
+                  <option value="">-- Select LinkedIn template --</option>
+                  {bulkLiTemplates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                  onClick={() => setBulkLiPreview(computeBulkLiPreview())}
+                  disabled={!bulkLiMessage.trim()}
+                  title="Preview the first lead's personalized message"
+                >
+                  Preview
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Tokens supported: {"{{first_name}}"}, {"{{last_name}}"}, {"{{company}}"}, {"{{title}}"} (preview shows first selected lead).
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                Message (optional, max 300 chars)
+              </label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                rows={4}
+                value={bulkLiMessage}
+                maxLength={300}
+                onChange={(e) => setBulkLiMessage(e.target.value)}
+                placeholder="Write a short connection note (optional)."
+              />
+              {!!bulkLiPreview && (
+                <div className="mt-3 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40">
+                  <div className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Preview (first lead)</div>
+                  <div className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{bulkLiPreview}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4 p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20">
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={bulkLiConsentAccepted}
+                  onChange={(e) => setBulkLiConsentAccepted(e.target.checked)}
+                  className="mt-1"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  <strong>I consent to HirePilot acting on my behalf to automate LinkedIn outreach.</strong> I understand this simulates my own manual usage.
+                </span>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={() => setShowBulkLinkedInModal(false)}
+                disabled={bulkLiIsSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: '#0077B5' }}
+                onClick={handleQueueBulkLinkedInConnect}
+                disabled={bulkLiIsSubmitting || !bulkLiConsentAccepted || selectedLeadIds.length === 0 || !sniperCloudEngineEnabled}
+              >
+                {bulkLiIsSubmitting ? 'Queuing…' : 'Queue LinkedIn Requests'}
+              </button>
+            </div>
           </div>
         </div>
       )}

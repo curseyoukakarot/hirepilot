@@ -137,20 +137,29 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
+            const itemNote = (it.result_json && typeof it.result_json === 'object' ? (it.result_json as any).note : null) as string | null;
+            const effectiveNote = (itemNote ?? note) || null;
             const res = await provider.sendConnectionRequest({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
               profileUrl: it.profile_url,
-              note
+              note: effectiveNote
             });
             const status = res.status === 'sent' || res.status === 'pending' || res.status === 'already_connected' ? 'success' : (res.status === 'skipped' ? 'skipped' : 'failed');
-            await updateJobItem(it.id, { status, result_json: res, error_message: status === 'failed' ? (res as any)?.details?.reason || null : null } as any);
+            await updateJobItem(it.id, {
+              status,
+              result_json: { ...res, note_used: effectiveNote },
+              error_message: status === 'failed' ? (res as any)?.details?.reason || null : null
+            } as any);
           } catch (e: any) {
             await updateJobItem(it.id, { status: 'failed', error_message: String(e?.message || e) } as any);
           }
 
+          // Safety: enforce a minimum delay for connect requests to avoid LinkedIn rate limits.
+          const minDelay = Math.max(settings.min_delay_seconds, 60);
+          const maxDelay = Math.max(settings.max_delay_seconds, minDelay);
           const delaySec = clamp(
-            settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds + 1)),
+            minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1)),
             1,
             3600
           );

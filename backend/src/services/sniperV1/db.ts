@@ -219,4 +219,15 @@ export async function summarizeJobItems(jobId: string): Promise<{ success: numbe
   return { success, failed, skipped, total };
 }
 
+export async function countConnectRequestsSince(workspaceId: string, sinceIso: string): Promise<number> {
+  const { count, error } = await sniperSupabaseDb
+    .from('sniper_job_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .eq('action_type', 'connect')
+    .gte('created_at', sinceIso);
+  if (error) throw error;
+  return Number(count || 0);
+}
+
 
