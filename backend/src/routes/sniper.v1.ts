@@ -369,7 +369,20 @@ sniperV1Router.post('/linkedin/auth/start', async (req: ApiRequest, res: Respons
     const out = await provider.startLinkedInAuth({ userId, workspaceId });
     return res.json(out);
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'failed_to_start_auth' });
+    const msg = String(e?.message || '');
+    if (msg.includes('AIRTOP provider disabled')) {
+      return res.status(503).json({
+        error: 'AIRTOP provider disabled',
+        hint: 'Set AIRTOP_PROVIDER_ENABLED=true and AIRTOP_API_KEY on the API service.'
+      });
+    }
+    if (msg.includes('AIRTOP_API_KEY missing')) {
+      return res.status(503).json({
+        error: 'AIRTOP_API_KEY missing',
+        hint: 'Set AIRTOP_API_KEY on the API service.'
+      });
+    }
+    return res.status(500).json({ error: msg || 'failed_to_start_auth' });
   }
 });
 
@@ -388,7 +401,20 @@ sniperV1Router.post('/linkedin/auth/complete', async (req: ApiRequest, res: Resp
     const out = await provider.completeLinkedInAuth({ userId, workspaceId, authSessionId: parsed.data.auth_session_id });
     return res.json(out);
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'failed_to_complete_auth' });
+    const msg = String(e?.message || '');
+    if (msg.includes('AIRTOP provider disabled')) {
+      return res.status(503).json({
+        error: 'AIRTOP provider disabled',
+        hint: 'Set AIRTOP_PROVIDER_ENABLED=true and AIRTOP_API_KEY on the API service.'
+      });
+    }
+    if (msg.includes('AIRTOP_API_KEY missing')) {
+      return res.status(503).json({
+        error: 'AIRTOP_API_KEY missing',
+        hint: 'Set AIRTOP_API_KEY on the API service.'
+      });
+    }
+    return res.status(500).json({ error: msg || 'failed_to_complete_auth' });
   }
 });
 
