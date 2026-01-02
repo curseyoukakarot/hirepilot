@@ -449,8 +449,8 @@ export class EnhancedPuppetJobRunner {
         }
       }
       
-      // Wait for profile to load
-      await page.waitForTimeout(2000 + Math.random() * 3000); // Random delay
+      // Wait for profile to load (Puppeteer v22 removed waitForTimeout)
+      await new Promise((r) => setTimeout(r, 2000 + Math.random() * 3000)); // Random delay
       
       // 🆕 ===== CAPTCHA CHECK #2: After Page Load =====
       if (jobContext) {
@@ -487,8 +487,8 @@ export class EnhancedPuppetJobRunner {
       // Human-like clicking behavior
       await this.simulateHumanClick(page, connectButton);
       
-      // Wait for modal or next step
-      await page.waitForTimeout(1000 + Math.random() * 2000);
+      // Wait for modal or next step (Puppeteer v22 removed waitForTimeout)
+      await new Promise((r) => setTimeout(r, 1000 + Math.random() * 2000));
       
       // 🆕 ===== CAPTCHA CHECK #3: After Connect Button Click =====
       if (jobContext) {
@@ -523,8 +523,8 @@ export class EnhancedPuppetJobRunner {
         }
       }
       
-      // Wait for confirmation
-      await page.waitForTimeout(2000);
+      // Wait for confirmation (Puppeteer v22 removed waitForTimeout)
+      await new Promise((r) => setTimeout(r, 2000));
       
       // 🆕 ===== CAPTCHA CHECK #4: Final Check Before Completion =====
       if (jobContext) {
@@ -701,7 +701,7 @@ export class EnhancedPuppetJobRunner {
         );
         
         // Small delay before clicking
-        await page.waitForTimeout(100 + Math.random() * 200);
+        await new Promise((r) => setTimeout(r, 100 + Math.random() * 200));
       }
       
       await element.click();
@@ -720,7 +720,7 @@ export class EnhancedPuppetJobRunner {
       const addNoteButton = await page.$('button[aria-label*="Add a note"], button[data-control-name="add_note"]');
       if (addNoteButton) {
         await this.simulateHumanClick(page, addNoteButton);
-        await page.waitForTimeout(1000);
+      await new Promise((r) => setTimeout(r, 1000));
       }
       
       // Find message textarea
@@ -735,7 +735,7 @@ export class EnhancedPuppetJobRunner {
         // Type message with human-like delays
         for (const char of message) {
           await page.keyboard.type(char);
-          await page.waitForTimeout(50 + Math.random() * 100);
+          await new Promise((r) => setTimeout(r, 50 + Math.random() * 100));
         }
         
         // Find and click send button

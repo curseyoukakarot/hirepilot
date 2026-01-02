@@ -643,8 +643,8 @@ export class PuppetLinkedInAutomation {
         '.ip-fuse-limit-alert'
       ];
 
-      // Wait a bit for UI to update
-      await this.page.waitForTimeout(2000);
+      // Wait a bit for UI to update (Puppeteer v22 removed waitForTimeout)
+      await new Promise((r) => setTimeout(r, 2000));
 
       // Check for error indicators first
       for (const errorSelector of errorIndicators) {

@@ -186,8 +186,8 @@ export class CaptchaDetectionService {
       return null;
     }
 
-    // Wait for page to stabilize
-    await this.page.waitForTimeout(2000);
+    // Wait for page to stabilize (Puppeteer v22 removed waitForTimeout)
+    await new Promise((r) => setTimeout(r, 2000));
 
     // Scan for each detection type
     for (const [detectionType, selectors] of Object.entries(SECURITY_DETECTION_SELECTORS)) {

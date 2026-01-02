@@ -197,8 +197,8 @@ export class ProxyTestingService {
         timeout: 30000 
       });
       
-      // Wait a moment for any redirects or dynamic content
-      await page.waitForTimeout(3000);
+      // Wait a moment for any redirects or dynamic content (Puppeteer v22 removed waitForTimeout)
+      await new Promise((r) => setTimeout(r, 3000));
       
       // Get page details
       const pageTitle = await page.title();
