@@ -16,7 +16,8 @@ export default function SniperActivity() {
     setLoadingJobs(true);
     try {
       const resp = await apiGet('/api/sniper/jobs?limit=50');
-      setJobs(resp.jobs || []);
+      // backend returns an array; tolerate legacy wrapped shapes too
+      setJobs(Array.isArray(resp) ? resp : (resp?.jobs || []));
     } catch (e) {
       toast.error(e.message || 'Failed to load activity');
     } finally {
@@ -28,7 +29,8 @@ export default function SniperActivity() {
     setLoadingItems(true);
     try {
       const resp = await apiGet(`/api/sniper/jobs/${jobId}/items?limit=2000`);
-      setItems(resp.items || []);
+      // backend returns an array; tolerate legacy wrapped shapes too
+      setItems(Array.isArray(resp) ? resp : (resp?.items || []));
       setSelectedUrls(new Set());
     } catch (e) {
       toast.error(e.message || 'Failed to load job items');
