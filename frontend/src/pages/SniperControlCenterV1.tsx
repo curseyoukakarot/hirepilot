@@ -63,12 +63,15 @@ export default function SniperControlCenterV1() {
   const [settings, setSettings] = useState<SniperSettings | null>(null);
   const [airtop, setAirtop] = useState<AirtopAuthStatus | null>(null);
   const [lastAuthSessionId, setLastAuthSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" | "info" }>({
     show: false,
     message: "",
     type: "info",
   });
   const cloudEnabled = !!settings?.cloud_engine_enabled;
+  const API_BASE = (import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}` : '').replace(/\/$/, '');
+  const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     setToast({ show: true, message, type });
     window.setTimeout(() => setToast({ show: false, message: "", type: "info" }), 2200);
@@ -81,48 +84,57 @@ export default function SniperControlCenterV1() {
   }
 
   async function apiGet<T>(path: string): Promise<T> {
-    const res = await fetch(path, { credentials: "include", headers: await authHeaders() });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    const url = path.startsWith('http') ? path : `${API_ROOT}${path.startsWith('/') ? '' : '/'}${path}`;
+    const res = await fetch(url, { credentials: "include", headers: await authHeaders() });
+    const bodyText = await res.text();
+    if (!res.ok) throw new Error(bodyText || `Request failed: ${res.status}`);
+    try { return JSON.parse(bodyText) as T; } catch { return ({} as T); }
   }
 
   async function apiPut<T>(path: string, body: any): Promise<T> {
-    const res = await fetch(path, {
+    const url = path.startsWith('http') ? path : `${API_ROOT}${path.startsWith('/') ? '' : '/'}${path}`;
+    const res = await fetch(url, {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    const bodyText = await res.text();
+    if (!res.ok) throw new Error(bodyText || `Request failed: ${res.status}`);
+    try { return JSON.parse(bodyText) as T; } catch { return ({} as T); }
   }
 
   async function apiPost<T>(path: string, body: any): Promise<T> {
-    const res = await fetch(path, {
+    const url = path.startsWith('http') ? path : `${API_ROOT}${path.startsWith('/') ? '' : '/'}${path}`;
+    const res = await fetch(url, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    const bodyText = await res.text();
+    if (!res.ok) throw new Error(bodyText || `Request failed: ${res.status}`);
+    try { return JSON.parse(bodyText) as T; } catch { return ({} as T); }
   }
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const s = await apiGet<SniperSettings>("/api/sniper/settings");
+      const s = await apiGet<SniperSettings>("/sniper/settings");
       setSettings(s);
 
       // Only check Airtop status if cloud engine enabled; otherwise show extension-only.
       if (s.cloud_engine_enabled) {
-        const a = await apiGet<AirtopAuthStatus>("/api/sniper/linkedin/auth/status");
+        const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
         setAirtop(a);
       } else {
         setAirtop({ connected: false, profile_id: null });
       }
     } catch (e: any) {
-      showToast(`Failed to load settings: ${e?.message || "Unknown error"}`, "error");
+      const msg = String(e?.message || "Unknown error");
+      setLoadError(msg);
+      showToast(`Failed to load settings: ${msg}`, "error");
     } finally {
       setLoading(false);
     }
@@ -151,7 +163,7 @@ export default function SniperControlCenterV1() {
     setSettings(next);
     setSaving(true);
     try {
-      await apiPut("/api/sniper/settings", next);
+      await apiPut("/sniper/settings", next);
       showToast(nextEnabled ? "Cloud Engine enabled" : "Cloud Engine disabled (extension only)", "success");
       await load();
     } catch (e: any) {
@@ -169,7 +181,7 @@ export default function SniperControlCenterV1() {
     }
     try {
       showToast("Starting Airtop LinkedIn connect…", "info");
-      const resp = await apiPost<{ url: string; auth_session_id?: string }>("/api/sniper/linkedin/auth/start", {});
+      const resp = await apiPost<{ url: string; auth_session_id?: string }>("/sniper/linkedin/auth/start", {});
       if (resp?.auth_session_id) setLastAuthSessionId(resp.auth_session_id);
       // Open the auth URL in a new tab (embedded/live view flow)
       window.open(resp.url, "_blank", "noopener,noreferrer");
@@ -184,10 +196,10 @@ export default function SniperControlCenterV1() {
       // Best-effort: if user just connected, finalize profile persistence
       if (lastAuthSessionId) {
         try {
-          await apiPost("/api/sniper/linkedin/auth/complete", { auth_session_id: lastAuthSessionId });
+          await apiPost("/sniper/linkedin/auth/complete", { auth_session_id: lastAuthSessionId });
         } catch {}
       }
-      const a = await apiGet<AirtopAuthStatus>("/api/sniper/linkedin/auth/status");
+      const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
       setAirtop(a);
       showToast(a.connected ? "Airtop is connected." : "Airtop not connected yet.", a.connected ? "success" : "info");
     } catch (e: any) {
@@ -200,7 +212,25 @@ export default function SniperControlCenterV1() {
       <div className="p-6">
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6">
           <div className="text-slate-200 text-lg font-semibold">Sniper Settings</div>
-          <div className="mt-2 text-slate-400 text-sm">Loading…</div>
+          {loading ? (
+            <div className="mt-2 text-slate-400 text-sm">Loading…</div>
+          ) : (
+            <div className="mt-2 text-slate-400 text-sm">
+              {loadError ? (
+                <>
+                  <div className="text-rose-300 break-words">Failed to load: {loadError}</div>
+                  <button
+                    className="mt-3 inline-flex items-center rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 hover:bg-slate-950"
+                    onClick={() => load()}
+                  >
+                    Retry
+                  </button>
+                </>
+              ) : (
+                "Unable to load settings."
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
