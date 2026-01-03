@@ -98,69 +98,80 @@ export default function SniperActivity() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 text-slate-900 dark:text-slate-100">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Sniper Activity</h1>
-        <button className="px-3 py-2 rounded bg-slate-800 text-white" onClick={loadJobs} disabled={loadingJobs}>
+        <button
+          className="px-3 py-2 rounded bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={loadJobs}
+          disabled={loadingJobs}
+        >
           Refresh
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-        <div className="border rounded bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b font-medium">Jobs</div>
+        <div className="border rounded bg-white dark:bg-slate-950/40 dark:border-slate-800 overflow-hidden">
+          <div className="px-4 py-3 border-b font-medium border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950/60">
+            Jobs
+          </div>
           {loadingJobs ? (
-            <div className="p-4 text-gray-600">Loading…</div>
+            <div className="p-4 text-gray-600 dark:text-slate-400">Loading…</div>
           ) : (
             <div className="max-h-[70vh] overflow-auto">
               {jobs.map((j) => (
                 <button
                   key={j.id}
                   onClick={() => setSelectedJobId(j.id)}
-                  className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 ${selectedJobId === j.id ? 'bg-blue-50' : ''}`}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900/40 ${
+                    selectedJobId === j.id ? 'bg-blue-50 dark:bg-sky-900/20' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-medium">{j.job_type}</div>
-                    <div className="text-xs px-2 py-1 rounded bg-gray-100">{j.status}</div>
+                    <div className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200">
+                      {j.status}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">{new Date(j.created_at).toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">{new Date(j.created_at).toLocaleString()}</div>
                 </button>
               ))}
-              {jobs.length === 0 && <div className="p-4 text-gray-600">No jobs yet.</div>}
+              {jobs.length === 0 && <div className="p-4 text-gray-600 dark:text-slate-400">No jobs yet.</div>}
             </div>
           )}
         </div>
 
-        <div className="lg:col-span-2 border rounded bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b font-medium flex items-center justify-between">
+        <div className="lg:col-span-2 border rounded bg-white dark:bg-slate-950/40 dark:border-slate-800 overflow-hidden">
+          <div className="px-4 py-3 border-b font-medium flex items-center justify-between border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950/60">
             <div>Job Items</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-slate-400">
               Extract: {extractItems.length} · Connect: {connectItems.length} · Message: {messageItems.length}
             </div>
           </div>
 
           {!selectedJobId ? (
-            <div className="p-4 text-gray-600">Select a job to view details.</div>
+            <div className="p-4 text-gray-600 dark:text-slate-400">Select a job to view details.</div>
           ) : loadingItems ? (
-            <div className="p-4 text-gray-600">Loading items…</div>
+            <div className="p-4 text-gray-600 dark:text-slate-400">Loading items…</div>
           ) : (
             <>
               {extractItems.length > 0 && (
-                <div className="p-4 border-b">
+                <div className="p-4 border-b border-gray-100 dark:border-slate-800">
                   <div className="font-medium mb-2">Extracted profiles</div>
                   <div className="flex flex-col gap-2">
                     {extractItems.slice(0, 2000).map((it) => (
-                      <label key={it.id} className="flex items-start gap-2 text-sm">
+                      <label key={it.id} className="flex items-start gap-2 text-sm text-slate-800 dark:text-slate-200">
                         <input
                           type="checkbox"
                           checked={selectedUrls.has(it.profile_url)}
                           onChange={() => toggleUrl(it.profile_url)}
+                          className="mt-1 accent-sky-600"
                         />
                         <div className="min-w-0">
-                          <a className="text-blue-600 underline truncate block" href={it.profile_url} target="_blank" rel="noreferrer">
+                          <a className="text-blue-700 dark:text-sky-300 hover:text-blue-800 dark:hover:text-sky-200 underline truncate block" href={it.profile_url} target="_blank" rel="noreferrer">
                             {it.profile_url}
                           </a>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 dark:text-slate-400">
                             {it.status}
                             {it.result_json?.name ? ` · ${it.result_json.name}` : ''}
                           </div>
@@ -172,32 +183,40 @@ export default function SniperActivity() {
               )}
 
               {extractItems.length > 0 && (
-                <div className="p-4 border-b">
+                <div className="p-4 border-b border-gray-100 dark:border-slate-800">
                   <div className="font-medium mb-2">Actions on selected ({selectedList.length})</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="text-sm font-medium">Connect request (optional note)</div>
                       <textarea
-                        className="w-full border rounded p-2 text-sm"
+                        className="w-full border rounded p-2 text-sm bg-white dark:bg-slate-950/60 border-gray-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                         rows={4}
                         value={connectNote}
                         onChange={(e) => setConnectNote(e.target.value)}
                         placeholder="Add a short note (optional)"
                       />
-                      <button className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50" onClick={queueConnect} disabled={selectedList.length === 0}>
+                      <button
+                        className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={queueConnect}
+                        disabled={selectedList.length === 0}
+                      >
                         Queue Connect
                       </button>
                     </div>
                     <div className="space-y-2">
                       <div className="text-sm font-medium">Message (1st-degree only)</div>
                       <textarea
-                        className="w-full border rounded p-2 text-sm"
+                        className="w-full border rounded p-2 text-sm bg-white dark:bg-slate-950/60 border-gray-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                         rows={4}
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
                         placeholder="Write the message to send"
                       />
-                      <button className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-50" onClick={queueMessage} disabled={selectedList.length === 0 || !messageText.trim()}>
+                      <button
+                        className="px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={queueMessage}
+                        disabled={selectedList.length === 0 || !messageText.trim()}
+                      >
                         Queue Message
                       </button>
                     </div>
@@ -206,7 +225,7 @@ export default function SniperActivity() {
               )}
 
               {extractItems.length === 0 && (
-                <div className="p-4 text-gray-600">
+                <div className="p-4 text-gray-600 dark:text-slate-400">
                   No extract items found for this job yet.
                 </div>
               )}
@@ -214,9 +233,9 @@ export default function SniperActivity() {
               {(connectItems.length > 0 || messageItems.length > 0) && (
                 <div className="p-4">
                   <div className="font-medium mb-2">Execution log</div>
-                  <div className="overflow-auto border rounded">
+                  <div className="overflow-auto border rounded border-gray-200 dark:border-slate-800">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gray-50 dark:bg-slate-950/60">
                         <tr>
                           <th className="text-left px-3 py-2">Type</th>
                           <th className="text-left px-3 py-2">Profile</th>
@@ -226,15 +245,15 @@ export default function SniperActivity() {
                       </thead>
                       <tbody>
                         {[...connectItems, ...messageItems].map((it) => (
-                          <tr key={it.id} className="border-t">
+                          <tr key={it.id} className="border-t border-gray-100 dark:border-slate-800">
                             <td className="px-3 py-2">{it.action_type}</td>
                             <td className="px-3 py-2">
-                              <a className="text-blue-600 underline" href={it.profile_url} target="_blank" rel="noreferrer">
+                              <a className="text-blue-700 dark:text-sky-300 hover:text-blue-800 dark:hover:text-sky-200 underline" href={it.profile_url} target="_blank" rel="noreferrer">
                                 {it.profile_url}
                               </a>
                             </td>
                             <td className="px-3 py-2">{it.status}</td>
-                            <td className="px-3 py-2 text-xs text-gray-600">{it.error_message || ''}</td>
+                            <td className="px-3 py-2 text-xs text-gray-600 dark:text-slate-400">{it.error_message || ''}</td>
                           </tr>
                         ))}
                       </tbody>
