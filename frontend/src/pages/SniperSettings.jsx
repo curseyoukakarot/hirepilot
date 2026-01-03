@@ -1,64 +1,6 @@
 import React, { useEffect } from 'react';
-import RemoteSessionConnect from '../components/RemoteSessionConnect';
 import LinkedinEngineCard from '../components/LinkedinEngineCard';
-import RemoteActionTestCard from '../components/RemoteActionTestCard';
-import { supabase } from '../lib/supabaseClient';
 import { flags } from '../config/flags';
-
-function LinkedInCookieCard() {
-  const [cookie, setCookie] = React.useState('');
-  const [status, setStatus] = React.useState('none'); // valid | invalid | none
-  const [message, setMessage] = React.useState('');
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/linkedin/check-cookie`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id })
-        });
-        const js = await res.json();
-        if (res.ok && js.exists) { setStatus('valid'); setMessage('A LinkedIn session cookie is already stored.'); }
-        else { setStatus('invalid'); setMessage('No valid cookie found.'); }
-      } catch {}
-    })();
-  }, []);
-
-  const save = async () => {
-    setMessage('');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setStatus('invalid'); setMessage('You must be logged in.'); return; }
-    if (!cookie) { setStatus('invalid'); setMessage('Please paste your LinkedIn li_at cookie.'); return; }
-    try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/linkedin/save-cookie`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, session_cookie: cookie })
-      });
-      const js = await res.json();
-      if (res.ok) { setCookie(''); setStatus('valid'); setMessage('LinkedIn session cookie saved!'); }
-      else { setStatus('invalid'); setMessage(js.error || 'Failed to save session cookie'); }
-    } catch { setStatus('invalid'); setMessage('Error saving session cookie'); }
-  };
-
-  return (
-    <div className="flex flex-col border rounded-lg p-6 hover:border-blue-500 transition-all w-full bg-white">
-      <div>
-        <div className="flex items-center space-x-3 mb-2">
-          <span className="font-medium text-gray-900">Paste LinkedIn Session Cookie</span>
-          <span className={`px-2 py-1 text-xs rounded-full ${status==='valid'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{status==='valid'?'Valid':'Invalid'}</span>
-        </div>
-        <p className="text-gray-600 mb-4">Paste your active LinkedIn li_at session cookie to let us securely access Sales Navigator on your behalf.</p>
-        <div className="flex space-x-2">
-          <input type="text" placeholder="Paste your li_at cookie here" className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value={cookie} onChange={e=>setCookie(e.target.value)} />
-          <button onClick={save} className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900">Save Cookie</button>
-        </div>
-        {message && (
-          <div className={`mt-2 text-sm ${status==='valid'?'text-green-600':'text-red-600'}`}>{message}</div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function SniperSettings() {
   const html = `<!DOCTYPE html>
@@ -241,7 +183,7 @@ export default function SniperSettings() {
       <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 space-y-6">
           <div class="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">LinkedIn Remote Session</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">LinkedIn Connect</h3>
             <div id="linkedin-connect-mount"></div>
           </div>
         </div>
@@ -397,16 +339,13 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
                 <div className="text-sm text-blue-800 mt-1">
                   Choose your LinkedIn automation provider in the <b>Sniper Control Center</b> tab:
                   <ul className="list-disc ml-5 mt-2">
-                    <li><b>Airtop</b>: embedded login (recommended)</li>
+                    <li><b>Cloud Engine</b>: embedded login (recommended)</li>
                     <li><b>Chrome Extension</b>: paste your <code>li_at</code> cookie below</li>
                   </ul>
                 </div>
               </div>
             )}
             <LinkedinEngineCard />
-            <RemoteSessionConnect />
-            <LinkedInCookieCard />
-            <RemoteActionTestCard />
           </div>
         );
       });

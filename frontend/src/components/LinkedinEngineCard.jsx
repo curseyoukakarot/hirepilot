@@ -10,8 +10,8 @@ const ENGINE_OPTIONS = [
   },
   {
     value: 'brightdata_cloud',
-    title: 'Cloud Engine (Airtop)',
-    description: 'Use HirePilot’s cloud engine (Airtop) to send invites and messages on your behalf.'
+    title: 'Cloud Engine',
+    description: 'Use HirePilot’s cloud engine to send invites and messages on your behalf.'
   }
 ];
 
@@ -63,7 +63,7 @@ export default function LinkedinEngineCard() {
       if (!brightDataEnabled) {
         return (
           <div className="mt-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-            Airtop is disabled in this environment. Configure AIRTOP_API_KEY and enable AIRTOP_PROVIDER_ENABLED to use Cloud Engine.
+            Cloud Engine is disabled in this environment. Configure <code>AIRTOP_API_KEY</code> and enable <code>AIRTOP_PROVIDER_ENABLED</code> to use Cloud Engine.
           </div>
         );
       }
@@ -76,7 +76,7 @@ export default function LinkedinEngineCard() {
       }
       return (
         <div className="mt-3 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
-          Cloud Engine active. LinkedIn cookie on file.
+          Cloud Engine active.
         </div>
       );
     }
