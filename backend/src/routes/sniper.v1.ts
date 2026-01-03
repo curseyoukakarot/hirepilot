@@ -8,7 +8,6 @@ import {
   getJob,
   getLastJobForTarget,
   getTarget,
-  countUserConnectRequestsSince,
   countJobItems,
   insertJobItems,
   listJobItems,
@@ -19,6 +18,7 @@ import {
 import { fetchSniperV1Settings, upsertSniperV1Settings } from '../services/sniperV1/settings';
 import { getProvider } from '../services/sniperV1/providers';
 import { getUserLinkedinAuth } from '../services/sniperV1/linkedinAuth';
+import { sniperSupabaseDb } from '../services/sniperV1/supabase';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -39,6 +39,12 @@ async function requireCloudEngineEnabledOr409(workspaceId: string, res: Response
     return false;
   }
   return true;
+}
+
+function dayStringInTimezone(now: Date, tz: string): string {
+  // Use en-CA for YYYY-MM-DD format.
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' });
+  return fmt.format(now); // YYYY-MM-DD
 }
 
 export const sniperV1Router = Router();
@@ -274,6 +280,40 @@ sniperV1Router.get('/jobs/:id/items', async (req: ApiRequest, res: Response) => 
 });
 
 // ---------------- Convenience actions ----------------
+sniperV1Router.get('/bulk_quota', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const DAILY_CONNECT_LIMIT = 20;
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const tz = settings.timezone || 'UTC';
+    const day = dayStringInTimezone(new Date(), tz);
+
+    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_daily_connects', {
+      p_user_id: userId,
+      p_workspace_id: workspaceId,
+      p_day: day,
+      p_delta: 0,
+      p_limit: DAILY_CONNECT_LIMIT
+    } as any);
+    if (error) throw error;
+    const row: any = Array.isArray(data) ? data[0] : data;
+    const usedToday = Number(row?.used_today || 0);
+    const remainingToday = Number(row?.remaining_today || Math.max(0, DAILY_CONNECT_LIMIT - usedToday));
+    return res.json({
+      limit_per_day: DAILY_CONNECT_LIMIT,
+      used_today: usedToday,
+      remaining_today: remainingToday,
+      day,
+      timezone: tz
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_quota' });
+  }
+});
+
 sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) => {
   try {
     const userId = getUserId(req);
@@ -296,35 +336,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
 
     const provider = 'airtop' as any;
 
-    // Hard cap: 20 connect requests per UTC day per user (shared across bulk + single)
-    const dayStart = new Date();
-    dayStart.setUTCHours(0, 0, 0, 0);
-    const usedToday = await countUserConnectRequestsSince(workspaceId, userId, dayStart.toISOString());
     const DAILY_CONNECT_LIMIT = 20;
-    const remaining = Math.max(0, DAILY_CONNECT_LIMIT - usedToday);
-    if (remaining <= 0) {
-      return res.status(409).json({ error: 'daily_connect_limit_reached', limit: DAILY_CONNECT_LIMIT, used: usedToday });
-    }
-
-    const requested = (parsed.data.requests?.length || parsed.data.profile_urls?.length || 0);
-    if (requested > remaining) {
-      return res.status(409).json({
-        error: 'daily_connect_limit_exceeded',
-        limit: DAILY_CONNECT_LIMIT,
-        used: usedToday,
-        remaining,
-        requested
-      });
-    }
-
-    const job = await createJob({
-      workspace_id: workspaceId,
-      created_by: userId,
-      target_id: null,
-      job_type: 'send_connect_requests',
-      provider,
-      input_json: { note: parsed.data.note || null }
-    });
 
     const requests = (parsed.data.requests || []).map((r) => ({
       profile_url: r.profile_url,
@@ -341,6 +353,48 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       return true;
     });
 
+    // Atomic daily quota reservation (per-user). Day boundary uses Sniper timezone (falls back to UTC).
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const tz = settings.timezone || 'UTC';
+    const day = dayStringInTimezone(new Date(), tz);
+    try {
+      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_daily_connects', {
+        p_user_id: userId,
+        p_workspace_id: workspaceId,
+        p_day: day,
+        p_delta: unique.length,
+        p_limit: DAILY_CONNECT_LIMIT
+      } as any);
+      if (error) throw error;
+      const row: any = Array.isArray(data) ? data[0] : data;
+      const usedToday = Number(row?.used_today || 0);
+      const remainingToday = Number(row?.remaining_today || Math.max(0, DAILY_CONNECT_LIMIT - usedToday));
+      // include on response later
+      (req as any)._sniperQuota = { usedToday, remainingToday, day, tz };
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      const usedFromDetail = Number(e?.details || e?.detail || 0) || 0;
+      if (msg.includes('daily_connect_limit_exceeded')) {
+        return res.status(429).json({
+          error: 'daily_connect_limit_exceeded',
+          limit_per_day: DAILY_CONNECT_LIMIT,
+          used_today: usedFromDetail,
+          remaining_today: Math.max(0, DAILY_CONNECT_LIMIT - usedFromDetail),
+          requested: unique.length
+        });
+      }
+      throw e;
+    }
+
+    const job = await createJob({
+      workspace_id: workspaceId,
+      created_by: userId,
+      target_id: null,
+      job_type: 'send_connect_requests',
+      provider,
+      input_json: { note: parsed.data.note || null }
+    });
+
     await insertJobItems(
       unique.map((r) => ({
         job_id: job.id,
@@ -355,7 +409,18 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
-    return res.status(202).json({ queued: true, job_id: job.id, remaining_after: remaining - unique.length });
+    const q = (req as any)._sniperQuota || {};
+    return res.status(202).json({
+      queued: true,
+      job_id: job.id,
+      quota: {
+        limit_per_day: DAILY_CONNECT_LIMIT,
+        used_today: q.usedToday,
+        remaining_today: q.remainingToday,
+        day: q.day,
+        timezone: q.tz
+      }
+    });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_queue_connects' });
   }
@@ -403,6 +468,99 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     return res.status(202).json({ queued: true, job_id: job.id });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_queue_messages' });
+  }
+});
+
+sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+    const teamId = (req as any).teamId ? String((req as any).teamId) : null;
+
+    // Allowed even when Cloud Engine is OFF (DB-only).
+    const schema = z.object({
+      profile_urls: z.array(z.string().url()).min(1).max(2000)
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    // Normalize + dedupe
+    const urls = Array.from(new Set(parsed.data.profile_urls.map((u) => String(u).trim()).filter(Boolean)));
+    if (!urls.length) return res.status(400).json({ error: 'no_profile_urls' });
+
+    // Pull best-effort name/headline from latest extract results in this workspace.
+    const { data: extracts, error: exErr } = await sniperSupabaseDb
+      .from('sniper_job_items')
+      .select('profile_url,result_json,created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('action_type', 'extract')
+      .in('profile_url', urls)
+      .order('created_at', { ascending: false });
+    if (exErr) throw exErr;
+    const extractByUrl = new Map<string, any>();
+    for (const row of extracts || []) {
+      const u = String((row as any).profile_url || '');
+      if (!u || extractByUrl.has(u)) continue; // first is newest due to order
+      extractByUrl.set(u, (row as any).result_json || null);
+    }
+
+    // Fetch existing leads in this workspace scope (team workspace uses account_id, solo uses user_id).
+    let q = sniperSupabaseDb.from('leads').select('id, linkedin_url, name, title, user_id, account_id').in('linkedin_url', urls);
+    q = teamId ? q.eq('account_id', teamId) : q.eq('user_id', userId);
+    const { data: existing, error: existErr } = await q;
+    if (existErr) throw existErr;
+    const existingByUrl = new Map<string, any>((existing || []).map((r: any) => [String(r.linkedin_url), r]));
+
+    const inserts: any[] = [];
+    const updates: Array<{ id: string; patch: any }> = [];
+
+    for (const url of urls) {
+      const meta = extractByUrl.get(url);
+      const name = meta?.name ? String(meta.name).trim() : '';
+      const headline = meta?.headline ? String(meta.headline).trim() : '';
+
+      const found = existingByUrl.get(url);
+      if (found) {
+        const patch: any = {};
+        if (name) patch.name = name;
+        if (headline) patch.title = headline;
+        if (Object.keys(patch).length) updates.push({ id: String(found.id), patch });
+        continue;
+      }
+
+      inserts.push({
+        user_id: userId,
+        account_id: teamId,
+        linkedin_url: url,
+        name: name || url,
+        title: headline || null,
+        source: 'Sniper',
+        enrichment_source: 'linkedin',
+        enrichment_data: { source: 'sniper', name: name || null, headline: headline || null },
+        status: 'New',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+
+    if (inserts.length) {
+      const { data: ins, error: insErr } = await sniperSupabaseDb.from('leads').insert(inserts as any).select('id');
+      if (insErr) throw insErr;
+      inserted = Array.isArray(ins) ? ins.length : 0;
+    }
+
+    for (const u of updates) {
+      const { error: upErr } = await sniperSupabaseDb.from('leads').update(u.patch).eq('id', u.id);
+      if (upErr) throw upErr;
+      updated += 1;
+    }
+
+    return res.json({ inserted, updated });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_import_to_leads' });
   }
 });
 

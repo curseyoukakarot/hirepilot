@@ -1,0 +1,182 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Sniper Run Complete</title>
+    <style>
+      /* Client resets */
+      html, body { margin:0 !important; padding:0 !important; height:100% !important; width:100% !important; }
+      * { -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
+      table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse !important; }
+      img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+      a { text-decoration:none; }
+      /* Light/Dark mode hints (not fully respected everywhere, but safe) */
+      :root { color-scheme: light dark; supported-color-schemes: light dark; }
+      @media (prefers-color-scheme: dark) {
+        .bg-body { background:#0b0f19 !important; }
+        .card { background:#0f172a !important; border-color:#22304a !important; }
+        .muted { color:#b7c3d6 !important; }
+        .text { color:#eef2ff !important; }
+        .divider { border-color:#22304a !important; }
+        .pill { background:#111c33 !important; border-color:#22304a !important; }
+        .btn-secondary { background:#111c33 !important; border-color:#22304a !important; color:#eef2ff !important; }
+      }
+    </style>
+  </head>
+  <body class="bg-body" style="background:#f5f7fb; margin:0; padding:0;">
+    <!-- Preheader -->
+    <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+      Sniper finished. Your LinkedIn profiles are ready to review.
+    </div>
+    <table role="presentation" width="100%" style="background:#f5f7fb;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <!-- Container -->
+          <table role="presentation" width="600" style="width:600px; max-width:600px;">
+            <!-- Brand header -->
+            <tr>
+              <td style="padding:0 6px 14px 6px;">
+                <table role="presentation" width="100%">
+                  <tr>
+                    <td align="left" style="font-family:Arial, Helvetica, sans-serif;">
+                      <div style="font-weight:800; font-size:18px; letter-spacing:0.2px; color:#0f172a;">
+                        HirePilot
+                      </div>
+                      <div class="muted" style="margin-top:4px; font-size:12px; color:#64748b;">
+                        Sniper Automation
+                      </div>
+                    </td>
+                    <td align="right" style="font-family:Arial, Helvetica, sans-serif;">
+                      <div class="pill" style="display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid #dbe3f0; background:#ffffff; font-size:12px; color:#0f172a;">
+                        ✅ Run Complete
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Card -->
+            <tr>
+              <td class="card" style="background:#ffffff; border:1px solid #dbe3f0; border-radius:16px; overflow:hidden;">
+                <!-- Top accent -->
+                <div style="height:6px; background:linear-gradient(90deg, #2563eb, #7c3aed);"></div>
+                <table role="presentation" width="100%" style="width:100%;">
+                  <tr>
+                    <td style="padding:22px 22px 8px 22px; font-family:Arial, Helvetica, sans-serif;">
+                      <div class="text" style="font-size:20px; font-weight:800; color:#0f172a; line-height:1.25;">
+                        Sniper run finished — your prospects are ready
+                      </div>
+                      <div class="muted" style="margin-top:8px; font-size:14px; color:#475569; line-height:1.5;">
+                        We successfully extracted LinkedIn profiles from your target post. You can review results, queue connection requests, or import prospects into Leads.
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Metrics row -->
+                  <tr>
+                    <td style="padding:12px 22px 10px 22px;">
+                      <table role="presentation" width="100%">
+                        <tr>
+                          <td class="pill" style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px;">
+                            <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#64748b;">Profiles Found</div>
+                            <div class="text" style="font-family:Arial, Helvetica, sans-serif; font-size:20px; font-weight:800; color:#0f172a;">
+                              {{profiles_found}}
+                            </div>
+                          </td>
+                          <td style="width:10px;"></td>
+                          <td class="pill" style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px;">
+                            <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#64748b;">Target Type</div>
+                            <div class="text" style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:800; color:#0f172a; margin-top:4px;">
+                              LinkedIn Post Engagement
+                            </div>
+                          </td>
+                          <td style="width:10px;"></td>
+                          <td class="pill" style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px;">
+                            <div style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#64748b;">Workspace</div>
+                            <div class="text" style="font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:800; color:#0f172a; margin-top:4px;">
+                              {{workspace_name}}
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <!-- Post URL -->
+                  <tr>
+                    <td style="padding:6px 22px 6px 22px;">
+                      <div class="muted" style="font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#64748b; margin-bottom:6px;">
+                        Target post
+                      </div>
+                      <div style="font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.4; word-break:break-word;">
+                        <a href="{{post_url}}" style="color:#2563eb;">{{post_url}}</a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 22px 0 22px;">
+                      <hr class="divider" style="border:none; border-top:1px solid #e2e8f0; margin:0;" />
+                    </td>
+                  </tr>
+                  <!-- CTA buttons -->
+                  <tr>
+                    <td style="padding:18px 22px 6px 22px; font-family:Arial, Helvetica, sans-serif;">
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td>
+                            <a href="{{results_url}}"
+                               style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:800; font-size:14px; padding:12px 16px; border-radius:12px;">
+                              View Results
+                            </a>
+                          </td>
+                          <td style="width:10px;"></td>
+                          <td>
+                            <a class="btn-secondary" href="{{import_url}}"
+                               style="display:inline-block; background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 16px; border-radius:12px; border:1px solid #dbe3f0;">
+                              Import to Leads
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      <div class="muted" style="margin-top:10px; font-size:12px; color:#64748b; line-height:1.5;">
+                        Next step: go to Sniper Activity to select prospects and queue connection requests or messages.
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Guardrails note -->
+                  <tr>
+                    <td style="padding:10px 22px 18px 22px;">
+                      <div class="pill" style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px; font-family:Arial, Helvetica, sans-serif;">
+                        <div class="text" style="font-weight:800; color:#0f172a; font-size:13px;">
+                          Safety & limits are active ✅
+                        </div>
+                        <div class="muted" style="margin-top:6px; color:#475569; font-size:12px; line-height:1.5;">
+                          Sniper follows your throttle settings (max/day, max/hour, delays, active hours). You can adjust limits anytime in Sniper Settings.
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td style="padding:14px 6px 0 6px; font-family:Arial, Helvetica, sans-serif;">
+                <div class="muted" style="font-size:12px; color:#64748b; line-height:1.5;">
+                  You’re receiving this because Sniper ran in your HirePilot workspace.
+                </div>
+                <div class="muted" style="font-size:12px; color:#64748b; margin-top:6px;">
+                  Run ID: <span style="font-family:monospace;">{{run_id}}</span>
+                </div>
+              </td>
+            </tr>
+          </table>
+          <!-- /Container -->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+

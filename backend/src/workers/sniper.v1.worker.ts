@@ -13,6 +13,7 @@ import {
 } from '../services/sniperV1/db';
 import { fetchSniperV1Settings, countActionsSince, isWithinActiveHours } from '../services/sniperV1/settings';
 import { getProvider } from '../services/sniperV1/providers';
+import { notifySniperJobFinished } from '../services/sniperV1/notifications';
 
 const QUEUE = 'sniper:v1';
 
@@ -62,7 +63,8 @@ export const sniperV1Worker = new Worker(
       await decrementConcurrency(jobRow.workspace_id, 'linkedin');
       return { skipped: true, reason: 'cloud_engine_disabled' };
     }
-    const provider = getProvider(jobRow.provider || settings.provider_preference);
+    // Cloud Engine ON means: Airtop only. No local_playwright fallback.
+    const provider = getProvider('airtop');
 
     // Guardrail: global active hours
     if (!isWithinActiveHours(new Date(), settings)) {
@@ -103,6 +105,7 @@ export const sniperV1Worker = new Worker(
         );
 
         await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, discovered: profiles.length };
       }
 
@@ -173,6 +176,7 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success === 0) ? 'failed' :
           'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }
 
@@ -227,6 +231,7 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success === 0) ? 'failed' :
           'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }
 
@@ -234,6 +239,7 @@ export const sniperV1Worker = new Worker(
     } catch (e: any) {
       if (isNeedsReauthError(e)) {
         await updateJob(jobId, { status: 'failed', error_code: 'needs_reauth', error_message: String(e?.message || e), finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: false, needs_reauth: true };
       }
       if (attempts < 3) {
@@ -243,6 +249,7 @@ export const sniperV1Worker = new Worker(
         return { requeued: true, delay };
       }
       await updateJob(jobId, { status: 'failed', error_code: 'failed', error_message: String(e?.message || e), finished_at: new Date().toISOString() } as any);
+      try { await notifySniperJobFinished(jobId); } catch {}
       throw e;
     } finally {
       await decrementConcurrency(jobRow.workspace_id, 'linkedin');

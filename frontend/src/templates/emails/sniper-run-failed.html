@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Sniper Run Failed</title>
+    <style>
+      html, body { margin:0 !important; padding:0 !important; height:100% !important; width:100% !important; }
+      * { -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
+      table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse !important; }
+      a { text-decoration:none; }
+      :root { color-scheme: light dark; supported-color-schemes: light dark; }
+      @media (prefers-color-scheme: dark) {
+        .bg-body { background:#0b0f19 !important; }
+        .card { background:#0f172a !important; border-color:#22304a !important; }
+        .muted { color:#b7c3d6 !important; }
+        .text { color:#eef2ff !important; }
+        .divider { border-color:#22304a !important; }
+        .pill { background:#111c33 !important; border-color:#22304a !important; }
+        .btn-secondary { background:#111c33 !important; border-color:#22304a !important; color:#eef2ff !important; }
+      }
+    </style>
+  </head>
+  <body class="bg-body" style="background:#f5f7fb; margin:0; padding:0;">
+    <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+      Sniper failed. Review the run details and retry.
+    </div>
+    <table role="presentation" width="100%" style="background:#f5f7fb;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="600" style="width:600px; max-width:600px;">
+            <tr>
+              <td style="padding:0 6px 14px 6px;">
+                <table role="presentation" width="100%">
+                  <tr>
+                    <td align="left" style="font-family:Arial, Helvetica, sans-serif;">
+                      <div style="font-weight:800; font-size:18px; letter-spacing:0.2px; color:#0f172a;">HirePilot</div>
+                      <div class="muted" style="margin-top:4px; font-size:12px; color:#64748b;">Sniper Automation</div>
+                    </td>
+                    <td align="right" style="font-family:Arial, Helvetica, sans-serif;">
+                      <div class="pill" style="display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid #dbe3f0; background:#ffffff; font-size:12px; color:#0f172a;">
+                        ❌ Run Failed
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td class="card" style="background:#ffffff; border:1px solid #dbe3f0; border-radius:16px; overflow:hidden;">
+                <div style="height:6px; background:linear-gradient(90deg, #ef4444, #f97316);"></div>
+                <table role="presentation" width="100%">
+                  <tr>
+                    <td style="padding:22px; font-family:Arial, Helvetica, sans-serif;">
+                      <div class="text" style="font-size:20px; font-weight:800; color:#0f172a; line-height:1.25;">
+                        Sniper run failed — action required
+                      </div>
+                      <div class="muted" style="margin-top:8px; font-size:14px; color:#475569; line-height:1.5;">
+                        We couldn’t complete your run. Review the details below, then open Sniper Activity to retry.
+                      </div>
+                      <div style="margin-top:14px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px;">
+                        <div style="font-size:12px; color:#64748b;">Reason</div>
+                        <div class="text" style="margin-top:6px; font-size:13px; color:#0f172a; white-space:pre-wrap;">
+                          {{error_message}}
+                        </div>
+                      </div>
+                      <div style="margin-top:14px;">
+                        <a href="{{results_url}}" style="display:inline-block; background:#2563eb; color:#ffffff; font-weight:800; font-size:14px; padding:12px 16px; border-radius:12px;">
+                          View Run Details
+                        </a>
+                        <a class="btn-secondary" href="{{settings_url}}" style="display:inline-block; margin-left:10px; background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 16px; border-radius:12px; border:1px solid #dbe3f0;">
+                          Open Settings
+                        </a>
+                      </div>
+                      <hr class="divider" style="border:none; border-top:1px solid #e2e8f0; margin:18px 0 0 0;" />
+                      <div class="muted" style="margin-top:12px; font-size:12px; color:#64748b;">
+                        Workspace: <strong>{{workspace_name}}</strong><br/>
+                        Run ID: <span style="font-family:monospace;">{{run_id}}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+

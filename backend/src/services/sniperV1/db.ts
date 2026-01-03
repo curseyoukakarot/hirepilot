@@ -31,6 +31,7 @@ export type SniperJobRow = {
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
+  notified_at?: string | null;
   created_at: string;
   updated_at: string;
 };
