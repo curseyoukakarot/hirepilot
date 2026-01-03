@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { ApiRequest } from '../../types/api';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { getUserTeamContext } from '../../api/team/teamContext';
 
 const router = express.Router();
 // GET /api/contacts alias mapping for this router (compat)
@@ -340,13 +341,13 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
     // Access: owner OR team_admin/admin in same team as lead owner.
     const leadOwnerId = String((lead as any).user_id || '');
     if (leadOwnerId && leadOwnerId !== userId) {
-      const [{ data: me }, { data: owner }] = await Promise.all([
-        supabase.from('users').select('team_id, role').eq('id', userId).maybeSingle(),
-        supabase.from('users').select('team_id').eq('id', leadOwnerId).maybeSingle()
-      ] as any);
-      const myTeam = (me as any)?.team_id || null;
-      const ownerTeam = (owner as any)?.team_id || null;
-      const role = String((me as any)?.role || '').toLowerCase();
+      const [meCtx, ownerCtx] = await Promise.all([
+        getUserTeamContext(userId),
+        getUserTeamContext(leadOwnerId)
+      ]);
+      const myTeam = meCtx.teamId || null;
+      const ownerTeam = ownerCtx.teamId || null;
+      const role = String(meCtx.role || '').toLowerCase();
       const privileged = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(role);
       const sameTeam = Boolean(myTeam && ownerTeam && String(myTeam) === String(ownerTeam));
       if (!(privileged && sameTeam)) {

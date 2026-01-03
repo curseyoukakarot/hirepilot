@@ -24,6 +24,7 @@ import { canUseRemoteLinkedInActions } from '../services/remoteActions';
 import { hasLinkedInCookie } from '../services/linkedin/cookieService';
 import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
 import { getSystemSettingBoolean } from '../utils/systemSettings';
+import { getUserTeamContext } from '../../api/team/teamContext';
 
 const router = express.Router();
 
@@ -117,18 +118,23 @@ async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSha
 }
 
 async function resolveLeadSharingContext(viewerId: string, ownerId: string) {
-  const [viewerRes, ownerRes] = await Promise.all([
-    supabase.from('users').select('id, team_id, role').eq('id', viewerId).maybeSingle(),
-    supabase.from('users').select('id, team_id').eq('id', ownerId).maybeSingle()
+  const [viewerCtx, ownerCtx] = await Promise.all([
+    getUserTeamContext(viewerId),
+    getUserTeamContext(ownerId),
   ]);
-  const viewer = viewerRes?.data;
-  const owner = ownerRes?.data;
-  const sameTeam = Boolean(viewer?.team_id && owner?.team_id && viewer.team_id === owner.team_id);
-  const teamSettings = sameTeam && owner?.team_id
-    ? await fetchTeamSettingsForTeam(owner.team_id)
+
+  const viewerTeamId = viewerCtx.teamId || null;
+  const ownerTeamId = ownerCtx.teamId || null;
+  const sameTeam = Boolean(viewerTeamId && ownerTeamId && String(viewerTeamId) === String(ownerTeamId));
+  const teamSettings = sameTeam && ownerTeamId
+    ? await fetchTeamSettingsForTeam(ownerTeamId)
     : DEFAULT_TEAM_SETTINGS;
-  const role = String(viewer?.role || '').toLowerCase();
+
+  const role = String(viewerCtx.role || '').toLowerCase();
   const privileged = PRIVILEGED_ROLES.includes(role as any);
+
+  const viewer = { id: viewerId, team_id: viewerTeamId, role: viewerCtx.role ?? null } as any;
+  const owner = { id: ownerId, team_id: ownerTeamId } as any;
   return { viewer, owner, sameTeam, teamSettings, privileged };
 }
 

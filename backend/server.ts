@@ -76,11 +76,10 @@ import candidatesRouter from './src/routes/candidates';
 import { parseRouter as candidatesParseRouter } from './src/routes/candidates.parse';
 import { analyticsRouter } from './src/routes/analytics.messaging';
 import { candidatesCsvRouter } from './src/routes/candidates.import.csv';
-import clientsRouter from './src/routes/clients';
+import clientsRouter, { convertLeadToClient } from './src/routes/clients';
 import repoAgentRouter from './src/routes/repoAgent';
 import dealAccessRouter from './src/routes/dealAccess';
 import contactsRouter from './src/routes/contacts';
-import clientsRouterModule from './src/routes/clients';
 import opportunitiesRouter from './src/routes/opportunities';
 import tablesRouter from './src/routes/tables';
 import publicTablesRouter from './src/routes/publicTables';
@@ -541,11 +540,8 @@ app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
   app.use('/api/credits', creditsRouter);
   app.use('/api/candidates', candidatesRouter);
   app.use('/api/clients', clientsRouter);
-  // Conversion endpoint
-  try {
-    const { convertLeadToClient } = clientsRouterModule as any;
-    app.post('/api/clients/convert-lead', requireAuthFlag, convertLeadToClient);
-  } catch {}
+  // Conversion endpoint (Lead → Client)
+  app.post('/api/clients/convert-lead', requireAuthFlag, convertLeadToClient);
   app.use('/api/opportunities', opportunitiesRouter);
   app.use('/api/tables', tablesRouter);
   app.use('/api', submitCandidateRouter);
