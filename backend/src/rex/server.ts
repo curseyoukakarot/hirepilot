@@ -104,6 +104,33 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
   return contentType && contentType.includes('application/json') ? response.json() : response.text();
 }
 
+function cloudEngineEnableHelp(): string {
+  return [
+    'Cloud Engine is currently OFF for your workspace, so I can’t run LinkedIn actions yet.',
+    '',
+    'Enable it here:',
+    '1) Go to **Sniper Settings** (`/sniper/settings`)',
+    '2) Click the **Sniper Control Center** tab',
+    '3) Toggle **Cloud Engine: ON**',
+    '4) Click **Connect** to log into LinkedIn, then come back and click **Check**',
+    '',
+    'Once that’s done, tell me “retry” and I’ll queue it again.'
+  ].join('\n');
+}
+
+async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<null | { ok: false; error_code: string; help: string }> {
+  try {
+    const s: any = await apiAsUser(userId, '/api/sniper/settings', { method: 'GET' });
+    if (!s?.cloud_engine_enabled) {
+      return { ok: false, error_code: 'CLOUD_ENGINE_DISABLED', help: cloudEngineEnableHelp() };
+    }
+    return null;
+  } catch {
+    // If we can’t load settings, fail open and let downstream endpoints decide
+    return null;
+  }
+}
+
 function parseTimeUtc(time: string) {
   if (!time || typeof time !== 'string' || !/^\d{2}:\d{2}$/.test(time)) {
     throw new Error('time_utc must be HH:MM');
@@ -454,6 +481,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, post_url, limit }) => {
         await assertPremium(userId);
+        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
+        if (cloudGate) return cloudGate;
         if (!/^https?:\/\//i.test(String(post_url))) throw new Error('post_url must be a valid URL');
 
         // Sniper v1: create+run a target (likers/commenters) via Cloud Engine
@@ -550,6 +579,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, campaign_id, template_name, max_count }) => {
         await assertPremium(userId);
+        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
+        if (cloudGate) return cloudGate;
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { personalizeMessage } = require('../../utils/messageUtils');
 
@@ -627,6 +658,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, profile_url, lead_id, template_name, message }) => {
         await assertPremium(userId);
+        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
+        if (cloudGate) return cloudGate;
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { personalizeMessage } = require('../../utils/messageUtils');
 

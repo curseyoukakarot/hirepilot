@@ -205,8 +205,10 @@ export default async function rexChat(req: Request, res: Response) {
         const tool = caps?.tools?.['sniper_campaign_outreach_connect'];
         if (tool?.handler) {
           const result: any = await withTimeout(tool.handler({ userId, campaign_id: 'latest', template_name: templateName }), 45000);
-          const summary = result?.error
-            ? `LinkedIn outreach failed: ${result.error}`
+          const summary = result?.error_code === 'CLOUD_ENGINE_DISABLED' && result?.help
+            ? String(result.help)
+            : result?.error
+              ? `LinkedIn outreach failed: ${result.error}`
             : `Queued LinkedIn connect requests for campaign (template: "${templateName}"). job_id=${result?.job_id || ''} requested=${result?.requested || 0}. Track in /sniper/activity.`;
           return res.status(200).json({ reply: { role: 'assistant', content: summary } });
         }
@@ -601,6 +603,10 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       // If the queue/worker reported missing provider
       if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
         assistantMessage = { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to Settings → Integrations to connect.' } as any;
+      }
+      // If Sniper Cloud Engine is disabled, explain how to enable it
+      if (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help) {
+        assistantMessage = { role: 'assistant', content: String(lastToolResult.help) } as any;
       }
       // Use the actual tool result we just executed
       if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
