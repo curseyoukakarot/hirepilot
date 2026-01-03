@@ -184,7 +184,30 @@ export default async function rexChat(req: Request, res: Response) {
           })();
           const summary = queued?.error
             ? `Sniper queue failed: ${queued.error}`
-            : `Sniper queued capture for this post. target_id=${queued?.target_id || ''} campaign_id=${queued?.campaign_id || ''} (ETA ~${queued?.eta_seconds || 60}s). Say: "poll sniper ${queued?.target_id}" to fetch results.`;
+            : `Sniper queued capture for this post. target_id=${queued?.target_id || ''} job_id=${queued?.job_id || ''} (ETA ~${queued?.eta_seconds || 60}s). Say: "poll sniper ${queued?.target_id}" to fetch results.`;
+          return res.status(200).json({ reply: { role: 'assistant', content: summary } });
+        }
+      }
+    } catch {}
+
+    // Hard short-circuit: campaign LinkedIn outreach using a named LinkedIn request template
+    try {
+      const lastUserMsgEarly = [...(messages || [])].reverse().find(m => m.role === 'user');
+      const raw = String(lastUserMsgEarly?.content || '');
+      const text = raw.toLowerCase();
+      const wantsLinkedInOutreach = /(send|queue).*(linkedin).*(outreach|connect|connection)/i.test(text);
+      const wantsCampaign = /campaign/i.test(text);
+      const tplMatch = /template[^"'`]*["'`]\s*([^"'`]+?)\s*["'`]/i.exec(raw);
+      if (wantsLinkedInOutreach && wantsCampaign && tplMatch?.[1]) {
+        const templateName = String(tplMatch[1]).trim();
+        const { server: rexServer } = await import('../rex/server');
+        const caps = rexServer.getCapabilities?.();
+        const tool = caps?.tools?.['sniper_campaign_outreach_connect'];
+        if (tool?.handler) {
+          const result: any = await withTimeout(tool.handler({ userId, campaign_id: 'latest', template_name: templateName }), 45000);
+          const summary = result?.error
+            ? `LinkedIn outreach failed: ${result.error}`
+            : `Queued LinkedIn connect requests for campaign (template: "${templateName}"). job_id=${result?.job_id || ''} requested=${result?.requested || 0}. Track in /sniper/activity.`;
           return res.status(200).json({ reply: { role: 'assistant', content: summary } });
         }
       }
@@ -292,9 +315,11 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'sourcing_pause_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
       { type:'function', function:{ name:'sourcing_resume_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
       { type:'function', function:{ name:'sourcing_cancel_campaign', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'} }, required:['userId','campaign_id'] } } },
-      // Sniper tools (temporarily disabled)
-      // { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
-      // { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, campaign_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } }
+      // Sniper v1 (Cloud Engine) tools
+      { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
+      { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, job_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } },
+      { type:'function', function:{ name:'sniper_campaign_outreach_connect', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, max_count:{type:'number'} }, required:['userId','template_name'] } } },
+      { type:'function', function:{ name:'sniper_send_message_to_profile', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_url:{type:'string'}, lead_id:{type:'string'}, template_name:{type:'string'}, message:{type:'string'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -338,8 +363,10 @@ If the user specifies the source, immediately call the tool 'source_leads' with 
 If the user doesn’t answer the clarifying question, default to Apollo after one follow-up.
 Be concise. Do not output generic plans when a tool can fulfill the request.
 Note: If 'linkedin' is chosen and it is not available, clearly state that LinkedIn sourcing is queued and offer to proceed with Apollo.
-If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, campaign_id) and ETA.
+If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, job_id) and ETA.
 If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
+If the user asks: "send linkedin outreach to the campaign you just created" AND provides a LinkedIn request template name, call 'sniper_campaign_outreach_connect' with { userId, campaign_id: 'latest', template_name: '<name>' } and then tell them to monitor results in /sniper/activity.
+If the user asks to send a LinkedIn message to someone they are already connected to, call 'sniper_send_message_to_profile' with either { userId, lead_id } or { userId, profile_url } and include message content or template_name.
 When the user asks to email the newly sourced campaign using a named template, do this:
 1) If they ask for a preview, call 'preview_campaign_email' with { userId, campaign_id: '<latest or given>', template_name } and return the subject/body.
 2) If they confirm sending, call 'send_campaign_email_by_template_name' with { userId, campaign_id: '<latest or given>', template_name } and report how many were queued.
@@ -548,7 +575,7 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
           const tool = capabilities?.tools?.['sniper_collect_post'];
           if (tool?.handler) {
             const toolResultAny: any = await withTimeout(tool.handler({ userId, post_url: postUrl, limit: 0 }), 45000);
-            const summary = `Sniper queued capture for this post. target_id=${toolResultAny?.target_id || ''} campaign_id=${toolResultAny?.campaign_id || ''} (ETA ~${toolResultAny?.eta_seconds || 60}s). Say: "poll sniper ${toolResultAny?.target_id}" to fetch results.`;
+            const summary = `Sniper queued capture for this post. target_id=${toolResultAny?.target_id || ''} job_id=${toolResultAny?.job_id || ''} (ETA ~${toolResultAny?.eta_seconds || 60}s). Say: "poll sniper ${toolResultAny?.target_id}" to fetch results.`;
             assistantMessage = { role: 'assistant', content: summary } as any;
           }
         }

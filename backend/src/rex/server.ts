@@ -456,89 +456,216 @@ server.registerCapabilities({
         await assertPremium(userId);
         if (!/^https?:\/\//i.test(String(post_url))) throw new Error('post_url must be a valid URL');
 
-        // 1) Create a Sniper target for this post
-        const target = await apiAsUser(userId, `/api/sniper/targets`, {
+        // Sniper v1: create+run a target (likers/commenters) via Cloud Engine
+        const created = await apiAsUser(userId, `/api/sniper/targets`, {
           method: 'POST',
-          body: JSON.stringify({ type: 'own', post_url })
+          body: JSON.stringify({ post_url })
         });
-        try {
-          // Best-effort queued notification
-          const { notifySniperQueued } = await import('../services/sniper');
-          await notifySniperQueued(userId, target.id, target.campaign_id, post_url);
-        } catch {}
-
-        // NOTE: Route /api/sniper/targets already enqueues a capture job via BullMQ.
-        // Do NOT await scraping here to avoid Railway edge timeouts.
-        const campaignId = (target as any).campaign_id || null;
+        const targetId = (created as any)?.target?.id || (created as any)?.id || null;
+        const jobId = (created as any)?.queued_job_id || (created as any)?.queued_job?.id || null;
         const estSeconds = 60; // lightweight default; real ETA determined by worker
-        const out: any = { status: 'queued', target_id: target.id, campaign_id: campaignId, eta_seconds: estSeconds };
+        const out: any = { status: 'queued', target_id: targetId, job_id: jobId, eta_seconds: estSeconds };
 
-        // Optionally return any already-existing leads if caller provided limit and there are cached rows
-        if (campaignId && Number(limit || 0) > 0) {
-          const max = Math.max(1, Math.min(Number(limit || 0), 50));
-          if (max > 0) {
-            const { data } = await supabase
-              .from('sourcing_leads')
-              .select('id, name, title, company, email, linkedin_url, enriched, created_at')
-              .eq('campaign_id', campaignId)
-              .order('created_at', { ascending: false })
-              .limit(max);
-            out.leads = data || [];
-            out.count = (data || []).length;
-          }
+        // Optionally return already-extracted profiles if caller asked for a preview and job_id exists
+        if (jobId && Number(limit || 0) > 0) {
+          try {
+            const max = Math.max(1, Math.min(Number(limit || 0), 50));
+            const items = await apiAsUser(userId, `/api/sniper/jobs/${encodeURIComponent(jobId)}/items?limit=${max}`, { method: 'GET' });
+            const arr = Array.isArray(items) ? items : ((items as any)?.items || []);
+            const extracted = (arr || []).filter((it: any) => it.action_type === 'extract');
+            out.profiles = extracted.map((it: any) => ({
+              profile_url: it.profile_url,
+              name: it.result_json?.name || null,
+              headline: it.result_json?.headline || null,
+              status: it.status
+            }));
+            out.count = out.profiles.length;
+          } catch {}
         }
         return out;
       }
     },
-    // Poll latest leads for a sniper target or campaign (paginated)
+    // Poll latest extracted profiles for a sniper target/job (v1)
     sniper_poll_leads: {
       parameters: {
         userId: { type: 'string' },
         target_id: { type: 'string', optional: true },
-        campaign_id: { type: 'string', optional: true },
+        job_id: { type: 'string', optional: true },
         limit: { type: 'number', optional: true },
         cursor: { type: 'string', optional: true } // ISO created_at; return rows created_before cursor
       },
-      handler: async ({ userId, target_id, campaign_id, limit, cursor }) => {
+      handler: async ({ userId, target_id, job_id, limit, cursor }) => {
         await assertPremium(userId);
-        let campaignId = campaign_id as string | null;
-        if (!campaignId && target_id) {
-          const { data: targetRow, error: tErr } = await supabase
-            .from('sniper_targets')
-            .select('id,campaign_id')
-            .eq('id', target_id)
-            .maybeSingle();
-          if (tErr) throw new Error(`Failed to load target ${target_id}: ${tErr.message}`);
-          campaignId = (targetRow as any)?.campaign_id || null;
+        let jobId = (job_id ? String(job_id) : '') || null;
+        if (!jobId && target_id) {
+          try {
+            const jobs = await apiAsUser(userId, `/api/sniper/jobs?limit=200`, { method: 'GET' });
+            const arr = Array.isArray(jobs) ? jobs : ((jobs as any)?.jobs || []);
+            const forTarget = (arr || []).filter((j: any) => String(j.target_id || '') === String(target_id));
+            forTarget.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            jobId = forTarget[0]?.id ? String(forTarget[0].id) : null;
+          } catch {}
         }
-        if (!campaignId) return { campaign_id: null, leads: [], next_cursor: null, status: 'pending' };
+        if (!jobId) return { target_id: target_id || null, job_id: null, profiles: [], next_cursor: null, status: 'pending' };
 
         const max = Math.max(1, Math.min(Number(limit || 50), 200));
-        let q = supabase
-          .from('sourcing_leads')
-          .select('id, name, title, company, email, linkedin_url, enriched, created_at')
-          .eq('campaign_id', campaignId)
-          .order('created_at', { ascending: false })
-          .limit(max);
-        if (cursor) q = q.lt('created_at', cursor);
-        const { data: leads, error } = await q;
-        if (error) throw new Error(`Failed to fetch leads for campaign ${campaignId}: ${error.message}`);
-        const nextCursor = (leads && leads.length > 0) ? leads[leads.length - 1].created_at : null;
-        // Also report latest run status if available
-        let runInfo: any = null;
+        const items = await apiAsUser(userId, `/api/sniper/jobs/${encodeURIComponent(jobId)}/items?limit=2000`, { method: 'GET' });
+        const arr = Array.isArray(items) ? items : ((items as any)?.items || []);
+        let extracted = (arr || []).filter((it: any) => it.action_type === 'extract');
+        extracted.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        if (cursor) extracted = extracted.filter((it: any) => String(it.created_at || '') < String(cursor));
+        const sliced = extracted.slice(0, max);
+        const nextCursor = sliced.length ? String(sliced[sliced.length - 1].created_at) : null;
+
+        let jobStatus: string | null = null;
         try {
-          const { data: runRow } = await supabase
-            .from('sniper_runs')
-            .select('success_count,error_count,created_at')
-            .eq('target_id', target_id || '')
+          const jobResp = await apiAsUser(userId, `/api/sniper/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' });
+          const job = (jobResp as any)?.job || jobResp;
+          jobStatus = job?.status || null;
+        } catch {}
+
+        return {
+          target_id: target_id || null,
+          job_id: jobId,
+          status: jobStatus || (sliced.length ? 'ready' : 'pending'),
+          profiles: sliced.map((it: any) => ({
+            profile_url: it.profile_url,
+            name: it.result_json?.name || null,
+            headline: it.result_json?.headline || null,
+            item_status: it.status,
+            created_at: it.created_at
+          })),
+          next_cursor: nextCursor,
+          counts: { extracted_total: extracted.length, returned: sliced.length }
+        };
+      }
+    },
+    // Queue LinkedIn connect outreach for a campaign using a named LinkedIn request template (v1 Cloud Engine)
+    sniper_campaign_outreach_connect: {
+      parameters: {
+        userId: { type: 'string' },
+        campaign_id: { type: 'string', optional: true },
+        template_name: { type: 'string' },
+        max_count: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, campaign_id, template_name, max_count }) => {
+        await assertPremium(userId);
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { personalizeMessage } = require('../../utils/messageUtils');
+
+        // Resolve campaign (classic campaigns table)
+        let campaignId = String(campaign_id || '').trim();
+        const looksUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaignId);
+        if (!campaignId || campaignId === 'latest' || !looksUuid) {
+          const { data: latest } = await supabase
+            .from('campaigns')
+            .select('id,created_at')
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          runInfo = runRow || null;
-        } catch {}
-        // Derive coarse status
-        const status = (runInfo?.error_count || 0) > 0 ? 'error' : ((leads||[]).length > 0 ? 'done' : 'pending');
-        return { campaign_id: campaignId, count: (leads || []).length, leads: leads || [], next_cursor: nextCursor, status, run: runInfo };
+          campaignId = (latest as any)?.id ? String((latest as any).id) : '';
+        }
+        if (!campaignId) throw new Error('No campaign found. Create a campaign first.');
+
+        // Find LinkedIn request template by name (from Message Center)
+        const tplName = String(template_name || '').trim();
+        if (!tplName) throw new Error('template_name is required');
+        const { data: tpl } = await supabase
+          .from('email_templates')
+          .select('id,name,subject,content,created_at')
+          .eq('user_id', userId)
+          .ilike('name', tplName)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!tpl?.content) throw new Error(`Template not found: ${tplName}`);
+
+        // Load leads in campaign (classic leads table)
+        const { data: leads } = await supabase
+          .from('leads')
+          .select('id,first_name,last_name,name,title,company,email,linkedin_url,campaign_id,user_id,created_at')
+          .eq('campaign_id', campaignId)
+          .eq('user_id', userId)
+          .not('linkedin_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(500);
+
+        const withLinkedIn = (leads || []).filter((l: any) => String(l.linkedin_url || '').trim().length > 0);
+        if (!withLinkedIn.length) throw new Error('No leads with LinkedIn URLs found in this campaign.');
+
+        const desired = Math.max(1, Math.min(Number(max_count || withLinkedIn.length), withLinkedIn.length, 500));
+        const picked = withLinkedIn.slice(0, desired);
+        const requests = picked.map((l: any) => ({
+          profile_url: String(l.linkedin_url).trim(),
+          note: String(personalizeMessage(String(tpl.content), l)).slice(0, 300) || null
+        }));
+
+        const resp = await apiAsUser(userId, `/api/sniper/actions/connect`, {
+          method: 'POST',
+          body: JSON.stringify({ requests })
+        });
+        return {
+          ok: true,
+          queued: true,
+          job_id: (resp as any)?.job_id || null,
+          campaign_id: campaignId,
+          template_name: tplName,
+          requested: requests.length,
+          remaining_after: (resp as any)?.remaining_after ?? null
+        };
+      }
+    },
+    // Queue a LinkedIn message to a single connected profile (v1 Cloud Engine)
+    sniper_send_message_to_profile: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_url: { type: 'string', optional: true },
+        lead_id: { type: 'string', optional: true },
+        template_name: { type: 'string', optional: true },
+        message: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, profile_url, lead_id, template_name, message }) => {
+        await assertPremium(userId);
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { personalizeMessage } = require('../../utils/messageUtils');
+
+        let profileUrl = String(profile_url || '').trim();
+        let lead: any = null;
+        if (!profileUrl && lead_id) {
+          const { data } = await supabase
+            .from('leads')
+            .select('id,first_name,last_name,name,title,company,email,linkedin_url,user_id')
+            .eq('id', String(lead_id))
+            .eq('user_id', userId)
+            .maybeSingle();
+          lead = data || null;
+          profileUrl = String((lead as any)?.linkedin_url || '').trim();
+        }
+        if (!profileUrl) throw new Error('profile_url or lead_id is required');
+
+        let msg = String(message || '').trim();
+        if (!msg && template_name) {
+          const tplName = String(template_name || '').trim();
+          const { data: tpl } = await supabase
+            .from('email_templates')
+            .select('id,name,subject,content,created_at')
+            .eq('user_id', userId)
+            .ilike('name', tplName)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!tpl?.content) throw new Error(`Template not found: ${tplName}`);
+          msg = lead ? String(personalizeMessage(String(tpl.content), lead)) : String(tpl.content);
+        }
+        msg = msg.trim();
+        if (!msg) throw new Error('message or template_name is required');
+
+        const resp = await apiAsUser(userId, `/api/sniper/actions/message`, {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: [profileUrl], message: msg })
+        });
+        return { ok: true, queued: true, job_id: (resp as any)?.job_id || null, profile_url: profileUrl };
       }
     },
     schedule_campaign: {
