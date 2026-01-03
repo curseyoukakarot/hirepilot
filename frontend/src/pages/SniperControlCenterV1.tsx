@@ -176,17 +176,17 @@ export default function SniperControlCenterV1() {
 
   const handleAirtopConnect = async () => {
     if (!cloudEnabled) {
-      showToast("Enable Cloud Engine to connect Airtop.", "info");
+      showToast("Enable Cloud Engine to connect LinkedIn.", "info");
       return;
     }
     try {
-      showToast("Starting Airtop LinkedIn connect…", "info");
+      showToast("Starting LinkedIn connect…", "info");
       const resp = await apiPost<{ url: string; auth_session_id?: string }>("/sniper/linkedin/auth/start", {});
       if (resp?.auth_session_id) setLastAuthSessionId(resp.auth_session_id);
       // Open the auth URL in a new tab (embedded/live view flow)
       window.open(resp.url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      showToast(`Airtop connect failed: ${e?.message || "Unknown error"}`, "error");
+      showToast(`LinkedIn connect failed: ${e?.message || "Unknown error"}`, "error");
     }
   };
 
@@ -201,9 +201,9 @@ export default function SniperControlCenterV1() {
       }
       const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
       setAirtop(a);
-      showToast(a.connected ? "Airtop is connected." : "Airtop not connected yet.", a.connected ? "success" : "info");
+      showToast(a.connected ? "LinkedIn is connected." : "LinkedIn not connected yet.", a.connected ? "success" : "info");
     } catch (e: any) {
-      showToast(`Failed to refresh Airtop status: ${e?.message || "Unknown error"}`, "error");
+      showToast(`Failed to refresh LinkedIn status: ${e?.message || "Unknown error"}`, "error");
     }
   };
 
@@ -279,9 +279,9 @@ export default function SniperControlCenterV1() {
         <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-lg font-bold text-slate-100">Cloud Engine (Airtop)</div>
+              <div className="text-lg font-bold text-slate-100">Cloud Engine</div>
               <div className="mt-1 text-sm text-slate-400">
-                Use HirePilot’s cloud engine (Airtop) to run Sniper actions on your behalf.
+                Use HirePilot’s cloud engine to run Sniper actions on your behalf.
               </div>
             </div>
             <div className="inline-flex items-center gap-2">
@@ -302,7 +302,7 @@ export default function SniperControlCenterV1() {
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <div className="text-xs font-semibold text-slate-400">Airtop Status</div>
+                <div className="text-xs font-semibold text-slate-400">LinkedIn Status</div>
                 <div className="mt-1 text-sm font-bold text-slate-100">{airtop?.connected ? "Connected" : "Not connected"}</div>
                 <div className="mt-1 text-xs text-slate-500">Profile: {airtop?.profile_id ? airtop.profile_id : "—"}</div>
               </div>
@@ -328,8 +328,8 @@ export default function SniperControlCenterV1() {
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                 <div className="text-xs font-semibold text-slate-400">Provider</div>
-                <div className="mt-1 text-sm font-bold text-slate-100">Airtop (Cloud)</div>
-                <div className="mt-1 text-xs text-slate-500">Cloud Engine enabled = Airtop execution only.</div>
+                <div className="mt-1 text-sm font-bold text-slate-100">Cloud Engine</div>
+                <div className="mt-1 text-xs text-slate-500">Cloud Engine enabled = cloud execution only.</div>
               </div>
             </div>
           )}
