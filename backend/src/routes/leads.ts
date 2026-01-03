@@ -24,7 +24,7 @@ import { canUseRemoteLinkedInActions } from '../services/remoteActions';
 import { hasLinkedInCookie } from '../services/linkedin/cookieService';
 import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
 import { getSystemSettingBoolean } from '../utils/systemSettings';
-import { getUserTeamContext } from '../../api/team/teamContext';
+import { getUserTeamContextDb } from '../lib/userTeamContext';
 
 const router = express.Router();
 
@@ -119,8 +119,8 @@ async function fetchTeamSettingsForTeam(teamId?: string | null): Promise<TeamSha
 
 async function resolveLeadSharingContext(viewerId: string, ownerId: string) {
   const [viewerCtx, ownerCtx] = await Promise.all([
-    getUserTeamContext(viewerId),
-    getUserTeamContext(ownerId),
+    getUserTeamContextDb(viewerId),
+    getUserTeamContextDb(ownerId),
   ]);
 
   const viewerTeamId = viewerCtx.teamId || null;

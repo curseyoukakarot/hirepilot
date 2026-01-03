@@ -1,5 +1,5 @@
 import { supabaseDb } from './supabase';
-import { getUserTeamContext } from '../../api/team/teamContext';
+import { getUserTeamContextDb } from './userTeamContext';
 
 export type DealsSharingContext = {
   teamId: string | null;
@@ -79,7 +79,7 @@ async function fetchShareDeals(teamId: string): Promise<boolean> {
  * - when OFF: users see only their own deals
  */
 export async function getDealsSharingContext(userId: string): Promise<DealsSharingContext> {
-  const { teamId, role } = await getUserTeamContext(userId);
+  const { teamId, role } = await getUserTeamContextDb(userId);
   if (!teamId) {
     return { teamId: null, role: role ?? null, shareDeals: false, visibleOwnerIds: [userId] };
   }

@@ -1,5 +1,5 @@
 import { supabaseDb } from './supabase';
-import { getUserTeamContext } from '../../api/team/teamContext';
+import { getUserTeamContextDb } from './userTeamContext';
 
 const PAID_ROLES = new Set([
   'member',
@@ -21,7 +21,7 @@ const PAID_ROLES = new Set([
  */
 export async function isDealsEntitled(userId: string): Promise<boolean> {
   // Prefer role/team context (supports team_members + legacy users.team_id).
-  const ctx = await getUserTeamContext(userId);
+  const ctx = await getUserTeamContextDb(userId);
   const roleLc = String(ctx.role || '').toLowerCase();
 
   // Paid roles are always allowed (even if subscriptions table is stale).

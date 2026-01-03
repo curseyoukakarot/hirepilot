@@ -3,8 +3,8 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { ApiRequest } from '../../types/api';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
-import { getUserTeamContext } from '../../api/team/teamContext';
 import { isDealsEntitled } from '../lib/dealsEntitlement';
+import { getUserTeamContextDb } from '../lib/userTeamContext';
 
 const router = express.Router();
 // GET /api/contacts alias mapping for this router (compat)
@@ -325,8 +325,8 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
     const leadOwnerId = String((lead as any).user_id || '');
     if (leadOwnerId && leadOwnerId !== userId) {
       const [meCtx, ownerCtx] = await Promise.all([
-        getUserTeamContext(userId),
-        getUserTeamContext(leadOwnerId)
+        getUserTeamContextDb(userId),
+        getUserTeamContextDb(leadOwnerId)
       ]);
       const myTeam = meCtx.teamId || null;
       const ownerTeam = ownerCtx.teamId || null;
