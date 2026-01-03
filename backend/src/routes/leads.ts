@@ -2684,6 +2684,17 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
       return;
     }
 
+    // Access control: allow converting your own lead OR (team_admin/admin/super_admin) converting a teammate's lead.
+    // This matches the Lead detail sharing model but limits cross-user conversion to privileged roles only.
+    if (String((lead as any).user_id || '') !== String(user.id)) {
+      const { sameTeam, privileged } = await resolveLeadSharingContext(user.id, String((lead as any).user_id || ''));
+      if (!(privileged && sameTeam)) {
+        // Don't leak existence
+        res.status(404).json({ error: 'Lead not found' });
+        return;
+      }
+    }
+
     // 2. Create candidate record
     let firstName = lead.first_name;
     let lastName = lead.last_name;

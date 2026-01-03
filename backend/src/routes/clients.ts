@@ -334,9 +334,27 @@ export async function convertLeadToClient(req: ApiRequest, res: Response) {
       .from('leads')
       .select('*')
       .eq('id', lead_id)
-      .eq('user_id', userId)
       .maybeSingle();
     if (!lead) { res.status(404).json({ error: 'lead_not_found' }); return; }
+
+    // Access: owner OR team_admin/admin in same team as lead owner.
+    const leadOwnerId = String((lead as any).user_id || '');
+    if (leadOwnerId && leadOwnerId !== userId) {
+      const [{ data: me }, { data: owner }] = await Promise.all([
+        supabase.from('users').select('team_id, role').eq('id', userId).maybeSingle(),
+        supabase.from('users').select('team_id').eq('id', leadOwnerId).maybeSingle()
+      ] as any);
+      const myTeam = (me as any)?.team_id || null;
+      const ownerTeam = (owner as any)?.team_id || null;
+      const role = String((me as any)?.role || '').toLowerCase();
+      const privileged = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(role);
+      const sameTeam = Boolean(myTeam && ownerTeam && String(myTeam) === String(ownerTeam));
+      if (!(privileged && sameTeam)) {
+        // Don't leak existence
+        res.status(404).json({ error: 'lead_not_found' });
+        return;
+      }
+    }
 
     // Derive company info from enrichment if available
     const enrich: any = (lead as any).enrichment_data || {};

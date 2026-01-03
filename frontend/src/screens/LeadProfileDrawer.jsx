@@ -621,40 +621,20 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-      // Build payload from lead + enrichment
-      const enrich = (localLead?.enrichment_data || {});
-      const company = getEnrichedCompany(localLead) || enrich?.apollo?.organization?.name || localLead?.company || '';
-      const location = getEnrichedLocation(localLead) || enrich?.apollo?.organization?.location || null;
-      const domain = enrich?.apollo?.organization?.website_url || null;
-      const industry = enrich?.apollo?.organization?.industry || null;
-      const owner_id = session.user.id;
-      const contacts = [];
-      const emailInfo = getEmailWithSource(localLead);
-      if (getDisplayName(localLead) || emailInfo?.email) {
-        contacts.push({
-          name: getDisplayName(localLead) || '',
-          title: getEnrichedTitle(localLead) || null,
-          email: emailInfo?.email || null,
-          phone: localLead?.phone || null,
-        });
-      }
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, {
+      const leadId = entityType === 'candidate' ? localLead.lead_id : localLead.id;
+      if (!leadId) throw new Error('Missing lead id');
+
+      // Prefer server-side conversion so it works for shared/team leads and uses full enrichment (service role).
+      // This also archives the lead after conversion.
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/convert-lead`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ name: company, domain, industry, location, owner_id })
+        body: JSON.stringify({ lead_id: leadId, include_contacts: false })
       });
-      if (!resp.ok) throw new Error('Failed to create client');
-      const client = await resp.json();
-      if (contacts.length) {
-        for (const c of contacts) {
-          await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ ...c, client_id: client.id })
-          }).catch(()=>{});
-        }
-      }
-      showToast('Client created from lead', 'success');
+      const js = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(js?.error || 'Failed to convert to client');
+      showToast('Converted lead to client', 'success');
+      try { onClose?.(); } catch {}
     } catch (e) {
       showToast(e.message || 'Conversion failed', 'error');
     }
