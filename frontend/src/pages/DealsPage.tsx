@@ -19,6 +19,7 @@ export default function DealsPage() {
   const [clientsView, setClientsView] = useState<ClientsSubView>('companies');
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState<{ can_view_clients: boolean; can_view_opportunities: boolean; can_view_billing: boolean; can_view_revenue: boolean } | null>(null);
+  const [teamDealsSharing, setTeamDealsSharing] = useState<boolean | null>(null);
   const [opps, setOpps] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
@@ -521,12 +522,23 @@ export default function DealsPage() {
         return;
       }
       try {
+        // Fetch team deals pooling toggle (best-effort; defaults to ON server-side)
+        try {
+          const s = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/getSettings`, { headers: { Authorization: `Bearer ${token}` } });
+          if (s.ok) {
+            const js = await s.json();
+            const v = js?.share_deals;
+            setTeamDealsSharing(v === undefined || v === null ? true : !!v);
+          }
+        } catch {}
+
         const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deal-access/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (resp.ok) {
           const js = await resp.json();
           setAccess(js);
         } else {
-          setAccess({ can_view_clients: false, can_view_opportunities: false, can_view_billing: false, can_view_revenue: false });
+          // Fail open: don't block /deals by default; individual endpoints will still enforce access.
+          setAccess({ can_view_clients: true, can_view_opportunities: true, can_view_billing: true, can_view_revenue: true });
         }
       } finally { setLoading(false); }
     };
@@ -1262,7 +1274,14 @@ export default function DealsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 dark:text-gray-100">Deals</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold dark:text-gray-100">Deals</h1>
+        {teamDealsSharing !== null && (
+          <div className={`text-xs font-semibold px-3 py-1 rounded-full border ${teamDealsSharing ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+            Team pool: {teamDealsSharing ? 'On' : 'Off'}
+          </div>
+        )}
+      </div>
       <div className="flex items-center space-x-2 bg-gray-200 dark:bg-gray-800 rounded-full p-1 mb-6">
         <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Clients</button>
         <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Opportunities</button>

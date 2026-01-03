@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 
@@ -22,14 +23,6 @@ async function canView(userId: string): Promise<boolean> {
       const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
       const plan = String((usr as any)?.plan || '').toLowerCase();
       if (plan === 'free') return false;
-    }
-  } catch {}
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
-      const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
-      return Boolean((data as any)?.can_view_opportunities);
     }
   } catch {}
   return true;
@@ -60,23 +53,17 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       ? stages
       : Object.keys(defaultWeights).map((name, idx) => ({ id: `default_${idx}`, name, order_index: idx, weight_percent: defaultWeights[name] }));
 
-    // Fetch opportunities with same scoping as opportunities page
+    // Fetch opportunities with same scoping as opportunities page (team pool aware)
     const roleTeam = await getRoleTeam(userId);
     const role = roleTeam.role;
-    const tId = roleTeam.team_id;
     const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
-    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
     let base = supabase
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
     if (!isSuper) {
-      if (isTeamAdmin && tId) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', tId);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const visible = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', visible.length ? visible : [userId]);
     }
     const { data: opps } = await base;
 
@@ -117,6 +104,21 @@ router.patch('/reorder', requireAuth, async (req: Request, res: Response) => {
     if (!(await canView(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const { opportunity_id, to_stage } = req.body || {};
     if (!opportunity_id || !to_stage) { res.status(400).json({ error: 'Missing params' }); return; }
+
+    // Writes: owner can move; team_admin can move within their team.
+    const { data: opp } = await supabase.from('opportunities').select('id,owner_id').eq('id', opportunity_id).maybeSingle();
+    if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
+    const dealsCtx = await getDealsSharingContext(userId);
+    const roleLc = String(dealsCtx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const isOwner = String((opp as any).owner_id || '') === userId;
+    if (!isOwner) {
+      if (!isTeamAdmin || !dealsCtx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', String((opp as any).owner_id || '')).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(dealsCtx.teamId)) {
+        res.status(403).json({ error: 'access_denied' }); return;
+      }
+    }
 
     const { error } = await supabase
       .from('opportunities')

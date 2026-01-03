@@ -31,6 +31,7 @@ export default function SettingsTeamMembers() {
   const [teamSettings, setTeamSettings] = useState({
     shareLeads: false,
     shareCandidates: false,
+    shareDeals: true,
     allowTeamEditing: false,
     teamAdminViewPool: true,
     shareAnalytics: false,
@@ -355,7 +356,7 @@ export default function SettingsTeamMembers() {
       // Get team settings
       const { data: settings } = await supabase
         .from('team_settings')
-        .select('share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_team_pool, analytics_admin_view_enabled, analytics_admin_view_user_id')
+        .select('share_leads, share_candidates, share_deals, allow_team_editing, team_admin_view_pool, share_analytics, analytics_team_pool, analytics_admin_view_enabled, analytics_admin_view_user_id')
         .eq('team_id', userData.team_id)
         .maybeSingle();
 
@@ -363,6 +364,10 @@ export default function SettingsTeamMembers() {
         setTeamSettings({
           shareLeads: settings.share_leads || false,
           shareCandidates: settings.share_candidates || false,
+          shareDeals:
+            settings.share_deals === undefined || settings.share_deals === null
+              ? true
+              : !!settings.share_deals,
           allowTeamEditing: settings.allow_team_editing || false,
           teamAdminViewPool:
             settings.team_admin_view_pool === undefined || settings.team_admin_view_pool === null
@@ -388,6 +393,7 @@ export default function SettingsTeamMembers() {
       const payload = { ...extraPayload };
       if (setting === 'shareLeads') payload.shareLeads = value;
       if (setting === 'shareCandidates') payload.shareCandidates = value;
+      if (setting === 'shareDeals') payload.shareDeals = value;
       if (setting === 'allowTeamEditing') {
         payload.allowTeamEditing = value;
       } else if (setting === 'shareLeads' && value === false) {
@@ -432,6 +438,8 @@ export default function SettingsTeamMembers() {
           ? 'Leads sharing'
           : setting === 'shareCandidates'
             ? 'Candidates sharing'
+            : setting === 'shareDeals'
+              ? 'Deals sharing'
             : setting === 'allowTeamEditing'
               ? 'Shared lead editing'
               : setting === 'teamAdminViewPool'
@@ -610,6 +618,24 @@ export default function SettingsTeamMembers() {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
               </label>
             </div>
+
+            {isAdminRole && (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <span className="font-medium text-gray-900">Share Deals with Team</span>
+                  <p className="text-sm text-gray-500">When enabled, /deals is pooled across the entire team (default ON).</p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={teamSettings.shareDeals}
+                    onChange={() => updateTeamSetting('shareDeals', !teamSettings.shareDeals)}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+            )}
 
             {isAdminRole && (
               <>

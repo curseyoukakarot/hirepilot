@@ -46,7 +46,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const attemptByTeamId = await supabaseDb
       .from('team_settings')
       .select(
-        'share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
+        'share_leads, share_candidates, share_deals, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
       )
       .eq('team_id', teamId)
       .maybeSingle();
@@ -57,7 +57,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       const attemptByAdmin = await supabaseDb
         .from('team_settings')
         .select(
-          'share_leads, share_candidates, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
+          'share_leads, share_candidates, share_deals, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
         )
         .eq('team_admin_id', teamAdminId)
         .maybeSingle();
@@ -73,6 +73,11 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const result = {
       share_leads: settings?.share_leads || false,
       share_candidates: settings?.share_candidates || false,
+      // Deals pooling should default ON for teams
+      share_deals:
+        settings?.share_deals === undefined || settings?.share_deals === null
+          ? true
+          : !!settings?.share_deals,
       allow_team_editing: settings?.allow_team_editing || false,
       team_admin_view_pool:
         settings?.team_admin_view_pool === undefined || settings?.team_admin_view_pool === null

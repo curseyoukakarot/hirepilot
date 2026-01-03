@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 
@@ -26,15 +27,6 @@ async function canViewOpportunities(userId: string): Promise<boolean> {
       if (plan === 'free') return false;
     }
   } catch {}
-  // Team members (non-admin) use explicit permissions only for Team plan
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
-    const { data } = await supabase.from('deal_permissions').select('can_view_opportunities').eq('user_id', userId).maybeSingle();
-    return Boolean((data as any)?.can_view_opportunities);
-    }
-  } catch {}
   // Everyone else (paid roles, including team_admin, recruitpro, member, admin)
   return true;
 }
@@ -51,7 +43,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
   // Even if super admin, default to user's scoped view unless explicitly overridden with ?all=true
   const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const teamCtx = await getDealsSharingContext(userId);
 
     let base = supabase
       .from('opportunities')
@@ -60,12 +52,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
       if (!forceAll) base = base.eq('owner_id', userId);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
     } else {
-      base = base.eq('owner_id', userId);
+      // Team deals pooling: when enabled, show all team opportunities; otherwise only own.
+      const visible = teamCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', visible.length ? visible : [userId]);
     }
 
     // Basic filters: status, client, search
@@ -136,17 +126,14 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const lc = role.toLowerCase();
     const isSuper = ['super_admin','superadmin'].includes(lc);
     const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
-    const isTeamAdmin = lc === 'team_admin';
+    const teamCtx = await getDealsSharingContext(userId);
 
     let oppQuery = supabase.from('opportunities').select('*').eq('id', id);
     if (isSuper) {
       if (!forceAll) oppQuery = oppQuery.eq('owner_id', userId);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      oppQuery = oppQuery.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
     } else {
-      oppQuery = oppQuery.eq('owner_id', userId);
+      const visible = teamCtx.visibleOwnerIds || [userId];
+      oppQuery = oppQuery.in('owner_id', visible.length ? visible : [userId]);
     }
 
     const { data: opp, error } = await oppQuery.maybeSingle();
@@ -911,11 +898,26 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
     const { id } = req.params;
     // Fetch current to compare for workflow events
-    const { data: beforeRow, error: beforeErr } = await supabase.from('opportunities').select('id,stage,status,tag').eq('id', id).maybeSingle();
+    const { data: beforeRow, error: beforeErr } = await supabase.from('opportunities').select('id,stage,status,tag,owner_id').eq('id', id).maybeSingle();
     if (beforeErr) { res.status(500).json({ error: beforeErr.message }); return; }
+    if (!beforeRow) { res.status(404).json({ error: 'not_found' }); return; }
+
+    // Writes: owner can edit; team_admin can edit within their team.
+    const ctx = await getDealsSharingContext(userId);
+    const roleLc = String(ctx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const isOwner = String((beforeRow as any).owner_id || '') === userId;
+    if (!isOwner) {
+      if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', String((beforeRow as any).owner_id || '')).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(ctx.teamId)) {
+        res.status(403).json({ error: 'access_denied' }); return;
+      }
+    }
 
     const up: any = {};
-    const fields = ['title','client_id','stage','value','billing_type','status','owner_id','tag'];
+    // SECURITY: do not allow transferring ownership via API
+    const fields = ['title','client_id','stage','value','billing_type','status','tag'];
     for (const f of fields) if (req.body?.[f] !== undefined) up[f] = req.body[f];
     // forecast_date supports explicit null to clear
     if (req.body?.forecast_date !== undefined) {
@@ -976,6 +978,21 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 
     const { id } = req.params;
     if (!id) { res.status(400).json({ error: 'id_required' }); return; }
+
+    // Writes: owner can delete; team_admin can delete within their team.
+    const { data: existing } = await supabase.from('opportunities').select('id,owner_id').eq('id', id).maybeSingle();
+    if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
+    const ctx = await getDealsSharingContext(userId);
+    const roleLc = String(ctx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const isOwner = String((existing as any).owner_id || '') === userId;
+    if (!isOwner) {
+      if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', String((existing as any).owner_id || '')).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(ctx.teamId)) {
+        res.status(403).json({ error: 'access_denied' }); return;
+      }
+    }
 
     // Best-effort: delete req links first to avoid FK constraints; do NOT delete job reqs themselves
     await supabase.from('opportunity_job_reqs').delete().eq('opportunity_id', id);

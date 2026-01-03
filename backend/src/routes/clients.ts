@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { ApiRequest } from '../../types/api';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 // GET /api/contacts alias mapping for this router (compat)
@@ -36,20 +37,6 @@ async function canViewClients(userId: string): Promise<boolean> {
     }
   } catch {}
 
-  // If plan is Team and the user belongs to a Team and is not the Team Admin, defer to team permissions
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && roleLc !== 'team_admin') {
-    const { data } = await supabase
-      .from('deal_permissions')
-      .select('can_view_clients')
-      .eq('user_id', userId)
-      .maybeSingle();
-    return Boolean((data as any)?.can_view_clients);
-    }
-  } catch {}
-
   // All other paid roles (member/starter, admin/pro, team_admin, recruitpro) have access by default
   return true;
 }
@@ -66,9 +53,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     let base = supabase.from('clients')
       .select('id,name,domain,industry,revenue,location,owner_id,created_at,stage,notes,org_meta');
 
-    // SECURITY: Always scope to the authenticated user.
-    // Even super admins should not see other users' clients from the Deals UI.
-    base = base.eq('owner_id', userId);
+    // Scope by team deals pooling settings (default ON for teams)
+    const ctx = await getDealsSharingContext(userId);
+    const visible = ctx.visibleOwnerIds || [userId];
+    base = base.in('owner_id', visible.length ? visible : [userId]);
 
     const { data: clients, error } = await base.order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -280,8 +268,9 @@ router.get('/contacts/all', requireAuth, async (req: Request, res: Response) => 
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     let base = supabase.from('contacts').select('*');
-    // SECURITY: Always scope to the authenticated user.
-    base = base.eq('owner_id', userId);
+    const ctx = await getDealsSharingContext(userId);
+    const visible = ctx.visibleOwnerIds || [userId];
+    base = base.in('owner_id', visible.length ? visible : [userId]);
     const { data, error } = await base.order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data || []);

@@ -31,6 +31,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const {
       shareLeads,
       shareCandidates,
+      shareDeals,
       allowTeamEditing,
       adminViewTeamPool,
       shareAnalytics,
@@ -70,6 +71,13 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     if (shareLeads !== undefined) updateData.share_leads = shareLeads;
     if (shareCandidates !== undefined) updateData.share_candidates = shareCandidates;
+    if (shareDeals !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can control deals sharing' });
+        return;
+      }
+      updateData.share_deals = !!shareDeals;
+    }
     if (allowTeamEditing !== undefined) {
       if (!isAdminRole) {
         res.status(403).json({ error: 'Only team admins can change shared editing settings' });

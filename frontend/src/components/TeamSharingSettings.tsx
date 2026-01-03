@@ -8,6 +8,7 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
   const [settings, setSettings] = useState({
     shareLeads: false,
     shareCandidates: false,
+    shareDeals: true,
     allowTeamEditing: false,
     teamAdminViewPool: true,
     shareAnalytics: false,
@@ -28,6 +29,10 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
           setSettings({
             shareLeads: data.share_leads,
             shareCandidates: data.share_candidates,
+            shareDeals:
+              data.share_deals === undefined || data.share_deals === null
+                ? true
+                : !!data.share_deals,
             allowTeamEditing: data.allow_team_editing,
             teamAdminViewPool:
               data.team_admin_view_pool === undefined || data.team_admin_view_pool === null
@@ -86,6 +91,9 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
         case 'shareCandidates':
           payload.shareCandidates = value;
           break;
+        case 'shareDeals':
+          payload.shareDeals = value;
+          break;
         case 'allowTeamEditing':
           payload.allowTeamEditing = value;
           break;
@@ -140,6 +148,8 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
           ? 'Leads sharing'
           : field === 'shareCandidates'
             ? 'Candidates sharing'
+            : field === 'shareDeals'
+              ? 'Deals sharing'
             : field === 'allowTeamEditing'
               ? 'Shared lead editing'
               : field === 'teamAdminViewPool'
@@ -182,7 +192,7 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
 
       {canManage ? (
         <div className="space-y-6">
-          <p className="text-xs font-semibold tracking-wider text-gray-500 uppercase">Leads & Candidates</p>
+          <p className="text-xs font-semibold tracking-wider text-gray-500 uppercase">Leads, Candidates & Deals</p>
           <div className="flex items-center justify-between py-3 border-b border-gray-200">
             <div>
               <span className="font-medium text-gray-900">Share Leads with Team</span>
@@ -251,6 +261,22 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
                 className="sr-only peer"
                 checked={settings.shareCandidates}
                 onChange={(e) => updateSetting('shareCandidates', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <span className="font-medium text-gray-900">Share Deals with Team</span>
+              <p className="text-sm text-gray-500">When enabled, the /deals page shows a pooled view across the team.</p>
+            </div>
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={settings.shareDeals}
+                onChange={(e) => updateSetting('shareDeals', e.target.checked)}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
             </label>

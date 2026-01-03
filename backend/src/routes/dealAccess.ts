@@ -84,20 +84,16 @@ router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Respon
       return;
     }
 
-    // Team members controlled by Team Admin permissions (only for Team plan)
-    if (planTier === 'team' && targetTeamId && !['team_admin'].includes(targetRole)) {
-      const { data: perms } = await supabase
-        .from('deal_permissions')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+    // Team plan users should not be blocked by default.
+    // (Legacy `deal_permissions` defaults were false and caused /deals to be gated unintentionally.)
+    if (planTier === 'team' && targetTeamId) {
       res.json({
         user_id: userId,
-        can_view_clients: Boolean((perms as any)?.can_view_clients),
-        can_view_opportunities: Boolean((perms as any)?.can_view_opportunities),
-        can_view_billing: Boolean((perms as any)?.can_view_billing),
-        can_view_revenue: Boolean((perms as any)?.can_view_revenue),
-        reason: 'team_restricted'
+        can_view_clients: true,
+        can_view_opportunities: true,
+        can_view_billing: true,
+        can_view_revenue: true,
+        reason: null
       });
       return;
     }

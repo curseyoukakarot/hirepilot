@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 
@@ -797,6 +798,9 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       teamUserIds = (teamUsers || []).map((u: any) => String(u.id)).filter(Boolean);
     }
 
+    const dealsCtx = await getDealsSharingContext(userId);
+    const visibleDealOwners = ['super_admin','superadmin'].includes(viewerRole) ? [userId] : (dealsCtx.visibleOwnerIds || [userId]);
+
     const fetchVisibleLeads = async (): Promise<any[]> => {
       const fields = 'id,name,email,company,title,status,linkedin_url,phone,location,city,state,country,source,tags,created_at,updated_at,user_id,shared';
       let q: any = supabase.from('leads').select(fields).in('id', ids);
@@ -850,15 +854,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
     const fetchOpportunities = async (): Promise<any[]> => {
       const fields = 'id,title,value,billing_type,stage,status,owner_id,client_id,created_at,forecast_date';
       let q: any = supabase.from('opportunities').select(fields).in('id', ids);
-      // Mirror opportunities route: super admins scoped to self by default; team_admin can view team pool; others scoped to self.
-      if (['super_admin','superadmin'].includes(viewerRole)) {
-        q = q.eq('owner_id', userId);
-      } else if (isTeamAdmin && viewerTeamId) {
-        const idsTeam = teamUserIds.length ? teamUserIds : [userId];
-        q = q.in('owner_id', idsTeam);
-      } else {
-        q = q.eq('owner_id', userId);
-      }
+      q = q.in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
       return data || [];
@@ -866,16 +862,14 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const fetchClients = async (): Promise<any[]> => {
       const fields = 'id,name,domain,industry,revenue,location,stage,notes,created_at,owner_id';
-      // Mirror clients route: always scope to authenticated user
-      const { data, error } = await supabase.from('clients').select(fields).in('id', ids).eq('owner_id', userId);
+      const { data, error } = await supabase.from('clients').select(fields).in('id', ids).in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       if (error) throw new Error(error.message);
       return data || [];
     };
 
     const fetchContacts = async (): Promise<any[]> => {
       const fields = 'id,client_id,name,title,email,phone,owner_id,created_at';
-      // Safer-than-existing route: scope to owner_id for bulk export into tables
-      const { data, error } = await supabase.from('contacts').select(fields).in('id', ids).eq('owner_id', userId);
+      const { data, error } = await supabase.from('contacts').select(fields).in('id', ids).in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       if (error) throw new Error(error.message);
       return data || [];
     };

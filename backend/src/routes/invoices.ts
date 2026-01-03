@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import Stripe from 'stripe';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { createInvoiceWithItem } from '../services/stripe';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 const platformStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
@@ -28,14 +29,6 @@ async function canViewBilling(userId: string): Promise<boolean> {
       if (plan === 'free') return false;
     }
   } catch {}
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
-      const { data } = await supabase.from('deal_permissions').select('can_view_billing').eq('user_id', userId).maybeSingle();
-      return Boolean((data as any)?.can_view_billing);
-    }
-  } catch {}
   return true;
 }
 
@@ -48,26 +41,19 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let base = supabase.from('invoices').select('*');
     if (isSuper) {
       // SECURITY: super admins should not see other users' billing by default.
       const { data: opps } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
       const oppIds = (opps || []).map((o: any) => o.id);
-      base = base.or(`opportunity_id.in.(${oppIds.join(',')})`);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      // Join by opportunities.owner_id via client/opportunity linkage is not needed if invoices are scoped by client/opportunity
-      // For now, return all invoices for clients/opps owned by team members
-      const { data: opps } = await supabase.from('opportunities').select('id').in('owner_id', ids);
-      const oppIds = (opps || []).map((o: any) => o.id);
-      base = base.or(`opportunity_id.in.(${oppIds.join(',')})`);
+      base = base.in('opportunity_id', oppIds.length ? oppIds : ['00000000-0000-0000-0000-000000000000']);
     } else {
-      const { data: opps } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
+      const visibleOwners = dealsCtx.visibleOwnerIds || [userId];
+      const { data: opps } = await supabase.from('opportunities').select('id').in('owner_id', visibleOwners.length ? visibleOwners : [userId]);
       const oppIds = (opps || []).map((o: any) => o.id);
-      base = base.or(`opportunity_id.in.(${oppIds.join(',')})`);
+      base = base.in('opportunity_id', oppIds.length ? oppIds : ['00000000-0000-0000-0000-000000000000']);
     }
 
     const { data, error } = await base.order('created_at', { ascending: false });
@@ -88,10 +74,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const { data, error } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle();
   if (error || !data) { res.status(404).json({ error: 'not_found' }); return; }
 
-  // SECURITY: Ensure invoice belongs to user's opportunities (super admin included).
+  // SECURITY: Ensure invoice belongs to user's visible opportunities (team pool aware for read).
   if (data.opportunity_id) {
     const { data: opp } = await supabase.from('opportunities').select('owner_id').eq('id', data.opportunity_id).maybeSingle();
-    if (!opp || String((opp as any).owner_id || '') !== userId) {
+    const dealsCtx = await getDealsSharingContext(userId);
+    const visibleOwners = dealsCtx.visibleOwnerIds || [userId];
+    if (!opp || !visibleOwners.includes(String((opp as any).owner_id || ''))) {
       res.status(404).json({ error: 'not_found' });
       return;
     }
@@ -108,12 +96,21 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
   const { id } = req.params;
 
-  // SECURITY: Ensure invoice belongs to user's opportunities
+  // SECURITY: Ensure invoice belongs to an opportunity the requester can edit (owner or team_admin same team)
   const { data: existing } = await supabase.from('invoices').select('id, opportunity_id').eq('id', id).maybeSingle();
   if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
   if (existing.opportunity_id) {
     const { data: opp } = await supabase.from('opportunities').select('owner_id').eq('id', existing.opportunity_id).maybeSingle();
-    if (!opp || String((opp as any).owner_id || '') !== userId) { res.status(404).json({ error: 'not_found' }); return; }
+    if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
+    const dealsCtx = await getDealsSharingContext(userId);
+    const roleLc = String(dealsCtx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const ownerId = String((opp as any).owner_id || '');
+    if (ownerId !== userId) {
+      if (!isTeamAdmin || !dealsCtx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', ownerId).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(dealsCtx.teamId)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
   }
 
   const allowed = ['status','paid_at','due_at','notes'];
@@ -135,6 +132,23 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     const { data: row, error: fetchErr } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle();
     if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
     if (!row) { res.status(404).json({ error: 'not_found' }); return; }
+
+    // SECURITY: Ensure invoice belongs to an opportunity the requester can delete (owner or team_admin same team)
+    if (row.opportunity_id) {
+      const { data: opp } = await supabase.from('opportunities').select('owner_id').eq('id', row.opportunity_id).maybeSingle();
+      if (!opp) { return res.status(404).json({ error: 'not_found' }); }
+      const dealsCtx = await getDealsSharingContext(userId);
+      const roleLc = String(dealsCtx.role || '').toLowerCase();
+      const isTeamAdmin = roleLc === 'team_admin';
+      const ownerId = String((opp as any).owner_id || '');
+      if (ownerId !== userId) {
+        if (!isTeamAdmin || !dealsCtx.teamId) { return res.status(403).json({ error: 'access_denied' }); }
+        const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', ownerId).maybeSingle();
+        if (!ownerRow || String((ownerRow as any).team_id || '') !== String(dealsCtx.teamId)) {
+          return res.status(403).json({ error: 'access_denied' });
+        }
+      }
+    }
 
     // Try to void Stripe invoice if present
     try {
@@ -174,8 +188,18 @@ router.post('/create', requireAuth, async (req: Request, res: Response) => {
     if (!opportunity_id || !billing_type) { res.status(400).json({ error: 'Missing required fields' }); return; }
 
     // Fetch opportunity + client
-    const { data: opp } = await supabase.from('opportunities').select('id,title,value,client_id').eq('id', opportunity_id).maybeSingle();
+    const { data: opp } = await supabase.from('opportunities').select('id,title,value,client_id,owner_id').eq('id', opportunity_id).maybeSingle();
     if (!opp) { res.status(404).json({ error: 'opportunity_not_found' }); return; }
+    // Only opportunity owner (or team_admin in same team) can create invoices for it
+    const dealsCtx = await getDealsSharingContext(userId);
+    const roleLc = String(dealsCtx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const ownerId = String((opp as any).owner_id || '');
+    if (ownerId !== userId) {
+      if (!isTeamAdmin || !dealsCtx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', ownerId).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(dealsCtx.teamId)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
     const { data: client } = await supabase.from('clients').select('id,name,stripe_customer_id').eq('id', opp.client_id).maybeSingle();
 
     // Calculate amount based on billing_type (sanitize inputs like "$5,000" or "20%")

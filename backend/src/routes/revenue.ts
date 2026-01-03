@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 
@@ -25,14 +26,6 @@ async function canViewRevenue(userId: string): Promise<boolean> {
       if (plan === 'free') return false;
     }
   } catch {}
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
-      const { data } = await supabase.from('deal_permissions').select('can_view_revenue').eq('user_id', userId).maybeSingle();
-      return Boolean((data as any)?.can_view_revenue);
-    }
-  } catch {}
   return true;
 }
 
@@ -46,20 +39,16 @@ router.get('/summary', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false'
     const { role, team_id } = await getRoleTeam(userId);
     if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     // Scope opportunities
     let oppIds: string[] = [];
     if (isSuper) {
       const { data } = await supabase.from('opportunities').select('id');
       oppIds = (data || []).map((r: any) => r.id);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      const { data } = await supabase.from('opportunities').select('id').in('owner_id', ids);
-      oppIds = (data || []).map((r: any) => r.id);
     } else {
-      const { data } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      const { data } = await supabase.from('opportunities').select('id').in('owner_id', owners.length ? owners : [userId]);
       oppIds = (data || []).map((r: any) => r.id);
     }
 
@@ -100,19 +89,15 @@ router.get('/by-client', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'fals
     const { role, team_id } = await getRoleTeam(userId);
     if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let oppIds: string[] = [];
     if (isSuper) {
       const { data } = await supabase.from('opportunities').select('id');
       oppIds = (data || []).map((r: any) => r.id);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      const { data } = await supabase.from('opportunities').select('id').in('owner_id', ids);
-      oppIds = (data || []).map((r: any) => r.id);
     } else {
-      const { data } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      const { data } = await supabase.from('opportunities').select('id').in('owner_id', owners.length ? owners : [userId]);
       oppIds = (data || []).map((r: any) => r.id);
     }
 
@@ -148,17 +133,12 @@ router.get('/projected-by-client', (String(process.env.ENABLE_SESSION_COOKIE_AUT
     const { role, team_id } = await getRoleTeam(userId);
     if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let base = supabase.from('opportunities').select('client_id,value,stage');
     if (!isSuper) {
-      if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', owners.length ? owners : [userId]);
     }
     const { data: opps, error } = await base;
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -188,19 +168,15 @@ router.get('/monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false'
     const { role, team_id } = await getRoleTeam(userId);
     if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let oppIds: string[] = [];
     if (isSuper) {
       const { data } = await supabase.from('opportunities').select('id');
       oppIds = (data || []).map((r: any) => r.id);
-    } else if (isTeamAdmin && team_id) {
-      const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-      const ids = (teamUsers || []).map((u: any) => u.id);
-      const { data } = await supabase.from('opportunities').select('id').in('owner_id', ids);
-      oppIds = (data || []).map((r: any) => r.id);
     } else {
-      const { data } = await supabase.from('opportunities').select('id').eq('owner_id', userId);
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      const { data } = await supabase.from('opportunities').select('id').in('owner_id', owners.length ? owners : [userId]);
       oppIds = (data || []).map((r: any) => r.id);
     }
 
@@ -240,17 +216,12 @@ router.get('/monthly-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH 
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let base = supabase.from('opportunities').select('created_at,stage,value,owner_id');
     if (!isSuper) {
-      if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', owners.length ? owners : [userId]);
     }
     const { data: opps, error } = await base;
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -290,17 +261,12 @@ router.get('/engagement-types', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
-    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     let base = supabase.from('opportunities').select('billing_type,stage,value');
     if (!isSuper) {
-      if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', owners.length ? owners : [userId]);
     }
     const { data: opps, error } = await base;
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -337,7 +303,7 @@ router.get('/closewon-monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
-    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     const range = String((req.query as any)?.range || '1y');
     const now = new Date();
@@ -350,13 +316,8 @@ router.get('/closewon-monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     // Scope opportunities
     let base = supabase.from('opportunities').select('value,stage,owner_id,created_at');
     if (!isSuper) {
-      if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', owners.length ? owners : [userId]);
     }
     const { data: rows, error } = await base.in('stage', ['Close Won','Closed Won','Won']);
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -394,7 +355,7 @@ router.get('/closewon-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
-    const isTeamAdmin = String(role||'').toLowerCase() === 'team_admin';
+    const dealsCtx = await getDealsSharingContext(userId);
 
     const horizon = String((req.query as any)?.horizon || 'eoy');
     const now = new Date();
@@ -402,13 +363,8 @@ router.get('/closewon-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH
     // Actuals: last 12 months from Close Won
     let base = supabase.from('opportunities').select('value,stage,owner_id,created_at');
     if (!isSuper) {
-      if (isTeamAdmin && team_id) {
-        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
-        const ids = (teamUsers || []).map((u: any) => u.id);
-        base = base.in('owner_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
-      } else {
-        base = base.eq('owner_id', userId);
-      }
+      const owners = dealsCtx.visibleOwnerIds || [userId];
+      base = base.in('owner_id', owners.length ? owners : [userId]);
     }
     const { data: rows, error } = await base;
     if (error) { res.status(500).json({ error: error.message }); return; }

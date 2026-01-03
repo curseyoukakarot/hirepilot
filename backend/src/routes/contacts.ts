@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
 
 const router = express.Router();
 
@@ -24,15 +25,6 @@ async function canViewContacts(userId: string): Promise<boolean> {
     const tier = String((sub as any)?.plan_tier || '').toLowerCase();
     if (tier === 'free') return false;
   } catch {}
-  // Team members (non-admin) require explicit permission only on Team plan
-  try {
-    const { data: sub2 } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier2 = String((sub2 as any)?.plan_tier || '').toLowerCase();
-    if (tier2 === 'team' && team_id && lc !== 'team_admin') {
-      const { data: perms } = await supabase.from('deal_permissions').select('can_view_clients').eq('user_id', userId).maybeSingle();
-      return Boolean((perms as any)?.can_view_clients);
-    }
-  } catch {}
   return true;
 }
 
@@ -44,9 +36,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewContacts(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
+    const ctx = await getDealsSharingContext(userId);
+    const visible = ctx.visibleOwnerIds || [userId];
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
+      .in('owner_id', visible.length ? visible : [userId])
       .order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data || []);
@@ -63,11 +58,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewContacts(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { client_id, name, title, email, phone, owner_id } = req.body || {};
+    const { client_id, name, title, email, phone } = req.body || {};
     if (!client_id) { res.status(400).json({ error: 'client_id required' }); return; }
     const { data, error } = await supabase
       .from('contacts')
-      .insert({ client_id, name, title, email, phone, owner_id: owner_id || userId, created_at: new Date().toISOString() })
+      .insert({ client_id, name, title, email, phone, owner_id: userId, created_at: new Date().toISOString() })
       .select('*')
       .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
@@ -86,6 +81,19 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
+    const ctx = await getDealsSharingContext(userId);
+    const roleLc = String(ctx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+
+    const { data: existing } = await supabase.from('contacts').select('id,owner_id').eq('id', id).maybeSingle();
+    if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
+    const isOwner = String((existing as any).owner_id || '') === userId;
+    if (!isOwner) {
+      if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', String((existing as any).owner_id || '')).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(ctx.teamId)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
+
     const { name, title, email, phone } = req.body || {};
     const update: any = {};
     if (name !== undefined) update.name = name;
@@ -118,6 +126,18 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
+    const ctx = await getDealsSharingContext(userId);
+    const roleLc = String(ctx.role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin';
+    const { data: existing } = await supabase.from('contacts').select('id,owner_id').eq('id', id).maybeSingle();
+    if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
+    const isOwner = String((existing as any).owner_id || '') === userId;
+    if (!isOwner) {
+      if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
+      const { data: ownerRow } = await supabase.from('users').select('team_id').eq('id', String((existing as any).owner_id || '')).maybeSingle();
+      if (!ownerRow || String((ownerRow as any).team_id || '') !== String(ctx.teamId)) { res.status(403).json({ error: 'access_denied' }); return; }
+    }
+
     const { error } = await supabase.from('contacts').delete().eq('id', id);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
