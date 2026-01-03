@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { isDealsEntitled } from '../lib/dealsEntitlement';
 
 const router = express.Router();
 
@@ -16,16 +17,7 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canViewContacts(userId: string): Promise<boolean> {
-  const { role, team_id } = await getRoleTeam(userId);
-  const lc = String(role || '').toLowerCase();
-  if (['super_admin','superadmin'].includes(lc)) return true;
-  // Block Free plan explicitly
-  try {
-    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
-  } catch {}
-  return true;
+  return await isDealsEntitled(userId);
 }
 
 // GET /api/contacts

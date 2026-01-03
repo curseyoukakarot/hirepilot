@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { createInvoiceWithItem } from '../services/stripe';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { isDealsEntitled } from '../lib/dealsEntitlement';
 
 const router = express.Router();
 const platformStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2022-11-15' });
@@ -15,21 +16,7 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canViewBilling(userId: string): Promise<boolean> {
-  const { role, team_id } = await getRoleTeam(userId);
-  const lc = String(role || '').toLowerCase();
-  if (['super_admin','superadmin'].includes(lc)) return true;
-  // Block Free plan explicitly (do not gate on missing/unknown)
-  try {
-    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
-    if (!tier) {
-      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
-      const plan = String((usr as any)?.plan || '').toLowerCase();
-      if (plan === 'free') return false;
-    }
-  } catch {}
-  return true;
+  return await isDealsEntitled(userId);
 }
 
 // GET /api/invoices - list invoices by team scope

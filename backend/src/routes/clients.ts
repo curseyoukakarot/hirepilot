@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { ApiRequest } from '../../types/api';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
 import { getUserTeamContext } from '../../api/team/teamContext';
+import { isDealsEntitled } from '../lib/dealsEntitlement';
 
 const router = express.Router();
 // GET /api/contacts alias mapping for this router (compat)
@@ -21,25 +22,7 @@ async function getUserRoleAndTeam(userId: string): Promise<{ role: string; team_
 }
 
 async function canViewClients(userId: string): Promise<boolean> {
-  // Super admin shortcut from users.role
-  const { role, team_id } = await getUserRoleAndTeam(userId);
-  const roleLc = String(role || '').toLowerCase();
-  if (roleLc === 'super_admin' || roleLc === 'superadmin') return true;
-
-  // Block Free plan explicitly (do not gate on missing/unknown)
-  try {
-    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
-    if (!tier) {
-      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
-      const plan = String((usr as any)?.plan || '').toLowerCase();
-      if (plan === 'free') return false;
-    }
-  } catch {}
-
-  // All other paid roles (member/starter, admin/pro, team_admin, recruitpro) have access by default
-  return true;
+  return await isDealsEntitled(userId);
 }
 
 // GET /api/clients - list allowed clients with contact counts

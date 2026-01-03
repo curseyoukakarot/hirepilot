@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { isDealsEntitled } from '../lib/dealsEntitlement';
 
 const router = express.Router();
 
@@ -13,22 +14,7 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canViewOpportunities(userId: string): Promise<boolean> {
-  const { role, team_id } = await getRoleTeam(userId);
-  const lc = String(role || '').toLowerCase();
-  if (['super_admin','superadmin'].includes(lc)) return true;
-  // Block Free plan explicitly (do not gate on missing/unknown)
-  try {
-    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
-    if (!tier) {
-      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
-      const plan = String((usr as any)?.plan || '').toLowerCase();
-      if (plan === 'free') return false;
-    }
-  } catch {}
-  // Everyone else (paid roles, including team_admin, recruitpro, member, admin)
-  return true;
+  return await isDealsEntitled(userId);
 }
 
 // GET /api/opportunities

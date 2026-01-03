@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { supabase } from '../lib/supabase';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { isDealsEntitled } from '../lib/dealsEntitlement';
 
 const router = express.Router();
 
@@ -12,21 +13,7 @@ async function getRoleTeam(userId: string): Promise<{ role: string; team_id: str
 }
 
 async function canViewRevenue(userId: string): Promise<boolean> {
-  const { role, team_id } = await getRoleTeam(userId);
-  const lc = String(role || '').toLowerCase();
-  if (['super_admin','superadmin'].includes(lc)) return true;
-  // Block Free plan only
-  try {
-    const { data: sub } = await supabase.from('subscriptions').select('plan_tier').eq('user_id', userId).maybeSingle();
-    const tier = String((sub as any)?.plan_tier || '').toLowerCase();
-    if (tier === 'free') return false;
-    if (!tier) {
-      const { data: usr } = await supabase.from('users').select('plan').eq('id', userId).maybeSingle();
-      const plan = String((usr as any)?.plan || '').toLowerCase();
-      if (plan === 'free') return false;
-    }
-  } catch {}
-  return true;
+  return await isDealsEntitled(userId);
 }
 
 function applyCurrency(n: number): number { return Math.max(0, Math.round(n)); }
@@ -217,6 +204,7 @@ router.get('/monthly-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH 
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const dealsCtx = await getDealsSharingContext(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
 
     let base = supabase.from('opportunities').select('created_at,stage,value,owner_id');
     if (!isSuper) {
@@ -262,6 +250,7 @@ router.get('/engagement-types', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const dealsCtx = await getDealsSharingContext(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
 
     let base = supabase.from('opportunities').select('billing_type,stage,value');
     if (!isSuper) {
@@ -304,6 +293,7 @@ router.get('/closewon-monthly', (String(process.env.ENABLE_SESSION_COOKIE_AUTH |
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
     const dealsCtx = await getDealsSharingContext(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const range = String((req.query as any)?.range || '1y');
     const now = new Date();
@@ -356,6 +346,7 @@ router.get('/closewon-projected', (String(process.env.ENABLE_SESSION_COOKIE_AUTH
     const { role, team_id } = await getRoleTeam(userId);
     const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
     const dealsCtx = await getDealsSharingContext(userId);
+    if (!(await canViewRevenue(userId))) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const horizon = String((req.query as any)?.horizon || 'eoy');
     const now = new Date();
