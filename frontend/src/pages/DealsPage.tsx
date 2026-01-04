@@ -14,6 +14,15 @@ type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
 type OppView = 'table' | 'pipeline';
 
+// Ensure we never accidentally hit the SPA origin (which returns HTML) when we expect JSON.
+// In production, backend is on api.thehirepilot.com.
+const BACKEND_BASE = ((import.meta as any)?.env?.VITE_BACKEND_URL || (typeof window !== 'undefined' && window.location.host.endsWith('thehirepilot.com') ? 'https://api.thehirepilot.com' : '')).replace(/\/$/, '');
+
+async function safeJson(resp: Response) {
+  const text = await resp.text();
+  try { return JSON.parse(text); } catch { return text; }
+}
+
 export default function DealsPage() {
   const [activeTab, setActiveTab] = useState<ViewTab>('clients');
   const [clientsView, setClientsView] = useState<ClientsSubView>('companies');
@@ -95,7 +104,7 @@ export default function DealsPage() {
       setInvLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setInvoices(js || []);
       setInvLoading(false);
@@ -109,7 +118,7 @@ export default function DealsPage() {
       setClientsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setClients(js || []);
       setClientsLoading(false);
@@ -123,7 +132,7 @@ export default function DealsPage() {
       setContactsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setContacts(js || []);
       setContactsLoading(false);
@@ -139,7 +148,7 @@ export default function DealsPage() {
     if (Object.keys(payload).length === 0) { setEditingClientId(null); return; }
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}`, {
+    await fetch(`${BACKEND_BASE}/api/clients/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
@@ -147,7 +156,7 @@ export default function DealsPage() {
     setEditingClientId(null);
     setClientDraft({});
     // refresh
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const resp = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const js = resp.ok ? await resp.json() : [];
     setClients(js || []);
   };
@@ -171,18 +180,18 @@ export default function DealsPage() {
     const token = session?.access_token;
     // Send optional hints to improve matching
     const current = clients.find((c:any)=>c.id===id);
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}/sync-enrichment`, {
+    const resp = await fetch(`${BACKEND_BASE}/api/clients/${id}/sync-enrichment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ override: false, name: current?.name || null, domain: current?.domain || null })
     });
     if (resp.ok) {
-      const refreshed = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const refreshed = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = refreshed.ok ? await refreshed.json() : [];
       setClients(js || []);
     } else {
       // Surface brief error toast in UI console for now
-      try { const e = await resp.json(); console.warn('Sync enrichment failed', e); } catch {}
+      try { const e = await safeJson(resp); console.warn('Sync enrichment failed', e); } catch {}
     }
   };
 
@@ -191,7 +200,7 @@ export default function DealsPage() {
       setSavingStageId(id);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}`, {
+      const resp = await fetch(`${BACKEND_BASE}/api/clients/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ stage })
@@ -209,7 +218,7 @@ export default function DealsPage() {
     if (Object.keys(payload).length === 0) { setEditingContactId(null); return; }
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts/${id}`, {
+    const resp = await fetch(`${BACKEND_BASE}/api/contacts/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
@@ -218,7 +227,7 @@ export default function DealsPage() {
       setEditingContactId(null);
       setContactDraft({});
       // refresh contacts
-      const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const r = await fetch(`${BACKEND_BASE}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = r.ok ? await r.json() : [];
       setContacts(js || []);
     }
@@ -231,16 +240,16 @@ export default function DealsPage() {
       const token = session?.access_token;
       const rangeParam = revMonthlyRange==='90d' ? '90d' : revMonthlyRange==='6m' ? '6m' : revMonthlyRange==='ytd' ? 'ytd' : '1y';
       const [sRes, mRes, cRes, pcRes, etRes, mpRes, cwRes, cwProjRes, rfPaidRes, oppCWRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/closewon-monthly?range=${rangeParam}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/revenue/closewon-projected?horizon=eoy`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/summary`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/monthly`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/projected-by-client`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/engagement-types`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/closewon-monthly?range=${rangeParam}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/revenue/closewon-projected?horizon=eoy`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
-        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?status=Close%20Won`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        fetch(`${BACKEND_BASE}/api/opportunities?status=Close%20Won`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
       const monthly = mRes.ok ? await mRes.json() : [];
@@ -341,7 +350,7 @@ export default function DealsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/opportunities`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setAvailableOpps((js || []).map((o: any) => ({ id: o.id, title: o.title, client: o.client }))); 
     } catch {}
@@ -389,7 +398,7 @@ export default function DealsPage() {
         recipient_email: invoiceRecipient || undefined,
         notes: invoiceNotes || undefined
       };
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices/create`, {
+      const resp = await fetch(`${BACKEND_BASE}/api/invoices/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(payload)
@@ -397,7 +406,7 @@ export default function DealsPage() {
       if (resp.ok) {
         setInvoiceOpen(false);
         // refresh invoices list
-        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const list = await fetch(`${BACKEND_BASE}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = list.ok ? await list.json() : [];
         setInvoices(js || []);
       }
@@ -471,8 +480,8 @@ export default function DealsPage() {
                       <button className="text-red-600 dark:text-red-400 hover:underline" onClick={async ()=>{
                         const { data: { session } } = await supabase.auth.getSession();
                         const token = session?.access_token;
-                        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices/${inv.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
-                        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                        await fetch(`${BACKEND_BASE}/api/invoices/${inv.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                        const list = await fetch(`${BACKEND_BASE}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                         const js = list.ok ? await list.json() : [];
                         setInvoices(js || []);
                       }}>Delete</button>
@@ -524,7 +533,7 @@ export default function DealsPage() {
       try {
         // Fetch team deals pooling toggle (best-effort; defaults to ON server-side)
         try {
-          const s = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/team/getSettings`, { headers: { Authorization: `Bearer ${token}` } });
+          const s = await fetch(`${BACKEND_BASE}/api/team/getSettings`, { headers: { Authorization: `Bearer ${token}` } });
           if (s.ok) {
             const js = await s.json();
             const v = js?.share_deals;
@@ -532,9 +541,9 @@ export default function DealsPage() {
           }
         } catch {}
 
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/deal-access/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch(`${BACKEND_BASE}/api/deal-access/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (resp.ok) {
-          const js = await resp.json();
+          const js = await safeJson(resp);
           setAccess(js);
         } else {
           // Fail open: don't block /deals by default; individual endpoints will still enforce access.
@@ -556,11 +565,11 @@ export default function DealsPage() {
         if (oppFilters.status) qs.set('status', oppFilters.status);
         if (oppFilters.client) qs.set('client', oppFilters.client);
         if (oppFilters.search) qs.set('search', oppFilters.search);
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const resp = await fetch(`${BACKEND_BASE}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = resp.ok ? await resp.json() : [];
         setOpps(js || []);
       } else {
-        const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const resp = await fetch(`${BACKEND_BASE}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = resp.ok ? await resp.json() : [];
         setBoard(js || []);
       }
@@ -577,11 +586,11 @@ export default function DealsPage() {
       if (oppFilters.status) qs.set('status', oppFilters.status);
       if (oppFilters.client) qs.set('client', oppFilters.client);
       if (oppFilters.search) qs.set('search', oppFilters.search);
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/opportunities?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setOpps(js || []);
     } else {
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await fetch(`${BACKEND_BASE}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const js = resp.ok ? await resp.json() : [];
       setBoard(js || []);
     }
@@ -591,7 +600,7 @@ export default function DealsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${id}`, {
+      const resp = await fetch(`${BACKEND_BASE}/api/opportunities/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ tag })
@@ -608,7 +617,7 @@ export default function DealsPage() {
   const refetchBoard = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const resp = await fetch(`${BACKEND_BASE}/api/opportunity-pipeline`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const js = resp.ok ? await resp.json() : [];
     setBoard(js || []);
   };
@@ -647,7 +656,7 @@ export default function DealsPage() {
       // Persist
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunity-pipeline/reorder`, {
+      await fetch(`${BACKEND_BASE}/api/opportunity-pipeline/reorder`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ opportunity_id: id, to_stage: toStage })
@@ -673,7 +682,7 @@ export default function DealsPage() {
       billing_type: form.billing_type || null,
       stage: addStage
     };
-    const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities`, {
+    const resp = await fetch(`${BACKEND_BASE}/api/opportunities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
@@ -706,15 +715,15 @@ export default function DealsPage() {
       if (!window.confirm(`This will permanently delete this ${label} from the system. Continue?`)) return;
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const url = type === 'client' ? `${import.meta.env.VITE_BACKEND_URL}/api/clients/${id}` : `${import.meta.env.VITE_BACKEND_URL}/api/contacts/${id}`;
+      const url = type === 'client' ? `${BACKEND_BASE}/api/clients/${id}` : `${BACKEND_BASE}/api/contacts/${id}`;
       const resp = await fetch(url, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (resp.ok) {
         if (type==='client') {
-          const refreshed = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          const refreshed = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
           const js = refreshed.ok ? await refreshed.json() : [];
           setClients(js || []);
         } else {
-          const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          const r = await fetch(`${BACKEND_BASE}/api/contacts`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
           const js = r.ok ? await r.json() : [];
           setContacts(js || []);
         }
@@ -839,9 +848,9 @@ export default function DealsPage() {
                           <AttachToClientDropdown currentClientId={dm.client_id} onAttach={async (clientId:string)=>{
                             const { data: { session } } = await supabase.auth.getSession();
                             const token = session?.access_token;
-                            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) }, body: JSON.stringify({ client_id: clientId, name: dm.name, title: dm.title, email: dm.email, phone: dm.phone, owner_id: dm.owner_id }) });
+                            await fetch(`${BACKEND_BASE}/api/clients/contacts`, { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}` }:{}) }, body: JSON.stringify({ client_id: clientId, name: dm.name, title: dm.title, email: dm.email, phone: dm.phone, owner_id: dm.owner_id }) });
                             // refresh contacts list
-                            const r = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients/contacts/all`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                            const r = await fetch(`${BACKEND_BASE}/api/clients/contacts/all`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                             const js = r.ok ? await r.json() : [];
                             setContacts(js || []);
                           }} clients={clients} />
@@ -984,7 +993,7 @@ export default function DealsPage() {
                         <td colSpan={10} className="p-5 bg-gray-50 dark:bg-gray-900/40">
                           <ClientRowEditor
                             client={c}
-                            onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
+                            onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
                             onCancel={()=> setExpandedClientId(null)}
                           />
                           <div className="mt-4">
@@ -1188,7 +1197,7 @@ export default function DealsPage() {
                             try {
                               const { data: { session } } = await supabase.auth.getSession();
                               const token = session?.access_token;
-                              const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/opportunities/${o.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                              const resp = await fetch(`${BACKEND_BASE}/api/opportunities/${o.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
                               if (resp.ok) {
                                 // Remove from table immediately
                                 setOpps(prev => prev.filter(row => row.id !== o.id));
@@ -1265,7 +1274,7 @@ export default function DealsPage() {
       onCreated={async ()=>{
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const list = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const list = await fetch(`${BACKEND_BASE}/api/invoices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const js = list.ok ? await list.json() : [];
         setInvoices(js || []);
       }}
