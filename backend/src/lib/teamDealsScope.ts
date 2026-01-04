@@ -3,11 +3,43 @@ import { getUserTeamContextDb } from './userTeamContext';
 
 export type DealsSharingContext = {
   teamId: string | null;
+  teamAdminId: string | null;
   role: string | null;
   shareDeals: boolean;
   shareDealsMembers: boolean;
   visibleOwnerIds: string[];
 };
+
+async function fetchTeamAdminIdForUser(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .maybeSingle();
+    if (error) return null;
+    const id = (data as any)?.team_admin_id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTeamMemberIdsByAdmin(teamAdminId: string): Promise<string[]> {
+  const ids = new Set<string>();
+  ids.add(String(teamAdminId));
+  try {
+    const { data } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_member_id')
+      .eq('team_admin_id', teamAdminId);
+    (data || []).forEach((r: any) => {
+      const id = String(r?.team_member_id || '').trim();
+      if (id) ids.add(id);
+    });
+  } catch {}
+  return Array.from(ids);
+}
 
 async function fetchTeamMemberIds(teamId: string): Promise<string[]> {
   // Robust: union both membership sources (some envs have partial `team_members` data).
@@ -40,58 +72,82 @@ async function fetchTeamMemberIds(teamId: string): Promise<string[]> {
   return Array.from(ids);
 }
 
-async function fetchDealsSharingSettings(teamId: string): Promise<{ shareDeals: boolean; shareDealsMembers: boolean }> {
+async function fetchDealsSharingSettings(params: { teamId?: string | null; teamAdminId?: string | null }): Promise<{ shareDeals: boolean; shareDealsMembers: boolean }> {
   // Defaults should be ON for teams (preserve pooled behavior)
   const defaults = { shareDeals: true, shareDealsMembers: true };
+  const teamId = params.teamId || null;
+  const teamAdminId = params.teamAdminId || null;
   try {
-    const { data, error } = await supabaseDb
-      .from('team_settings')
-      .select('share_deals, share_deals_members')
-      .eq('team_id', teamId)
-      .maybeSingle();
-    if (error) {
-      // Column/team_id may not exist in some envs; attempt admin-scoped schema, then fail open.
-      const code = String((error as any)?.code || '');
-      const msg = String((error as any)?.message || '');
-      const teamIdMissing = code === '42703' || msg.includes('team_id') && msg.includes('does not exist');
-      if (teamIdMissing) {
-        try {
-          const { data: adminUser } = await supabaseDb
-            .from('users')
-            .select('id')
-            .eq('team_id', teamId)
-            .in('role', ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'] as any)
-            .limit(1)
-            .maybeSingle();
-          const adminId = (adminUser as any)?.id ? String((adminUser as any).id) : null;
-          if (adminId) {
-            const attempt = await supabaseDb
-              .from('team_settings')
-              .select('share_deals, share_deals_members')
-              .eq('team_admin_id', adminId)
-              .maybeSingle();
-            const rawDeals = (attempt.data as any)?.share_deals;
-            const rawMembers = (attempt.data as any)?.share_deals_members;
-            return {
-              shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
-              shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
-            };
-          }
-        } catch {}
+    // If team_id schema exists and we have a teamId, use it.
+    if (teamId) {
+      const { data, error } = await supabaseDb
+        .from('team_settings')
+        .select('share_deals, share_deals_members')
+        .eq('team_id', teamId)
+        .maybeSingle();
+      if (!error) {
+        if (!data) return defaults;
+        const rawDeals = (data as any).share_deals;
+        const rawMembers = (data as any).share_deals_members;
+        return {
+          shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
+          shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
+        };
       }
-      if (code === '42P01') return defaults;
-      return defaults;
+      // If error is about missing team_id, fall through to admin-scoped below.
     }
-    if (!data) return defaults;
-    const rawDeals = (data as any).share_deals;
-    const rawMembers = (data as any).share_deals_members;
-    return {
-      shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
-      shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
-    };
+
+    // Admin-scoped schema: team_settings.team_admin_id
+    if (teamAdminId) {
+      const attempt = await supabaseDb
+        .from('team_settings')
+        .select('share_deals, share_deals_members')
+        .eq('team_admin_id', teamAdminId)
+        .maybeSingle();
+      if (!attempt.error) {
+        const rawDeals = (attempt.data as any)?.share_deals;
+        const rawMembers = (attempt.data as any)?.share_deals_members;
+        return {
+          shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
+          shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
+        };
+      }
+      // If columns are missing, fail open.
+    }
+
+    // Legacy fallback: try to locate an admin for a teamId if provided.
+    if (teamId) {
+      const { data: adminUser } = await supabaseDb
+        .from('users')
+        .select('id')
+        .eq('team_id', teamId)
+        .in('role', ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'] as any)
+        .limit(1)
+        .maybeSingle();
+      const adminId = (adminUser as any)?.id ? String((adminUser as any).id) : null;
+      if (adminId) {
+        const attempt = await supabaseDb
+          .from('team_settings')
+          .select('share_deals, share_deals_members')
+          .eq('team_admin_id', adminId)
+          .maybeSingle();
+        const rawDeals = (attempt.data as any)?.share_deals;
+        const rawMembers = (attempt.data as any)?.share_deals_members;
+        return {
+          shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
+          shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
+        };
+      }
+    }
+
+    return defaults;
   } catch {
     return defaults;
   }
+
+  // unreachable
+  /* istanbul ignore next */
+  return defaults;
 }
 
 /**
@@ -102,28 +158,44 @@ async function fetchDealsSharingSettings(teamId: string): Promise<{ shareDeals: 
  */
 export async function getDealsSharingContext(userId: string): Promise<DealsSharingContext> {
   const { teamId, role } = await getUserTeamContextDb(userId);
+  const roleLc = String(role || '').toLowerCase();
+  const isAdminRole = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(roleLc);
+
+  // Determine team identifier:
+  // - Prefer explicit teamId (teams/team_members)
+  // - Otherwise fall back to billing team mapping via team_credit_sharing (team_admin_id)
+  let teamAdminId: string | null = null;
   if (!teamId) {
-    return { teamId: null, role: role ?? null, shareDeals: false, shareDealsMembers: false, visibleOwnerIds: [userId] };
+    teamAdminId = isAdminRole ? userId : await fetchTeamAdminIdForUser(userId);
   }
 
-  const settings = await fetchDealsSharingSettings(teamId);
+  // If we still don't have any team context, scope to self.
+  if (!teamId && !teamAdminId) {
+    return { teamId: null, teamAdminId: null, role: role ?? null, shareDeals: false, shareDealsMembers: false, visibleOwnerIds: [userId] };
+  }
+
+  const settings = await fetchDealsSharingSettings({ teamId, teamAdminId });
   const shareDeals = settings.shareDeals;
   const shareDealsMembers = settings.shareDealsMembers;
   if (!shareDeals) {
-    return { teamId, role: role ?? null, shareDeals: false, shareDealsMembers, visibleOwnerIds: [userId] };
+    return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: false, shareDealsMembers, visibleOwnerIds: [userId] };
   }
 
-  const roleLc = String(role || '').toLowerCase();
-  const isAdmin = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(roleLc);
   // Admins always see pool when shareDeals is enabled.
   // Members only see pool when shareDealsMembers is enabled.
-  if (!isAdmin && !shareDealsMembers) {
-    return { teamId, role: role ?? null, shareDeals, shareDealsMembers, visibleOwnerIds: [userId] };
+  if (!isAdminRole && !shareDealsMembers) {
+    return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: [userId] };
   }
 
-  const ids = await fetchTeamMemberIds(teamId);
-  const unique = Array.from(new Set([...(ids || []), userId])).filter(Boolean);
-  return { teamId, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: unique.length ? unique : [userId] };
+  // Visible owners list
+  let ids: string[] = [];
+  if (teamId) {
+    ids = await fetchTeamMemberIds(teamId);
+  } else if (teamAdminId) {
+    ids = await fetchTeamMemberIdsByAdmin(teamAdminId);
+  }
+  const unique = Array.from(new Set([...(ids || []), userId, ...(teamAdminId ? [teamAdminId] : [])])).filter(Boolean);
+  return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: unique.length ? unique : [userId] };
 }
 
 

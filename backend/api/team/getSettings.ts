@@ -3,10 +3,29 @@ import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
 import { getUserTeamContext } from './teamContext';
 
+async function resolveTeamAdminFromCreditSharing(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .maybeSingle();
+    if (error) return null;
+    const id = (data as any)?.team_admin_id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveTeamAdminId(params: { teamId: string | null; requesterId: string; requesterRole: string | null }) {
   const normalized = String(params.requesterRole || '').toLowerCase();
   if (['admin', 'team_admin', 'super_admin', 'superadmin'].includes(normalized)) return params.requesterId;
-  if (!params.teamId) return params.requesterId;
+  if (!params.teamId) {
+    // Team seats are often represented via team_credit_sharing.
+    const admin = await resolveTeamAdminFromCreditSharing(params.requesterId);
+    return admin || params.requesterId;
+  }
   try {
     const { data } = await supabaseDb
       .from('users')
@@ -29,7 +48,9 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     }
 
     const { teamId, role } = await getUserTeamContext(req.user.id);
-    if (!teamId) {
+    // If teamId is missing, we may still be a team seat via team_credit_sharing.
+    const inferredAdminId = await resolveTeamAdminFromCreditSharing(req.user.id);
+    if (!teamId && !inferredAdminId) {
       res.status(403).json({ error: 'User not part of a team' });
       return;
     }
@@ -43,23 +64,26 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     // Get team settings (support both schemas: keyed by team_id OR team_admin_id)
     let settings: any = null;
     let settingsError: any = null;
-    const attemptByTeamId = await supabaseDb
-      .from('team_settings')
-      .select(
-        'share_leads, share_candidates, share_deals, share_deals_members, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
-      )
-      .eq('team_id', teamId)
-      .maybeSingle();
-    settings = attemptByTeamId.data as any;
-    settingsError = attemptByTeamId.error as any;
-    if (settingsError && (settingsError.code === '42703' || String(settingsError.message || '').includes('team_id'))) {
-      // team_id column doesn't exist → try admin-scoped schema
+    // Prefer team_id schema if teamId exists; otherwise use admin-scoped schema.
+    if (teamId) {
+      const attemptByTeamId = await supabaseDb
+        .from('team_settings')
+        .select(
+          'share_leads, share_candidates, share_deals, share_deals_members, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
+        )
+        .eq('team_id', teamId)
+        .maybeSingle();
+      settings = attemptByTeamId.data as any;
+      settingsError = attemptByTeamId.error as any;
+    }
+    if (!teamId || (settingsError && (settingsError.code === '42703' || String(settingsError.message || '').includes('team_id')))) {
+      // team_id column doesn't exist OR teamId missing → try admin-scoped schema
       const attemptByAdmin = await supabaseDb
         .from('team_settings')
         .select(
           'share_leads, share_candidates, share_deals, share_deals_members, allow_team_editing, team_admin_view_pool, share_analytics, analytics_admin_view_enabled, analytics_admin_view_user_id, analytics_team_pool'
         )
-        .eq('team_admin_id', teamAdminId)
+        .eq('team_admin_id', inferredAdminId || teamAdminId)
         .maybeSingle();
       settings = attemptByAdmin.data as any;
       settingsError = attemptByAdmin.error as any;

@@ -42,6 +42,7 @@ router.get('/deal-access/debug-scope', requireAuth, async (req: Request, res: Re
       user_id: userId,
       role: ctx.role || null,
       team_id: ctx.teamId || null,
+      team_admin_id: (deals as any)?.teamAdminId || null,
       deals: {
         share_deals: deals.shareDeals,
         share_deals_members: deals.shareDealsMembers,
