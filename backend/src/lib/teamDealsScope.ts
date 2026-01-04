@@ -220,6 +220,7 @@ async function resolveTeamFromLegacy(userId: string): Promise<{ teamId: string |
     const { data } = await supabaseDb.auth.admin.getUserById(userId);
     const u: any = data?.user || null;
     const meta: any = (u?.user_metadata || {}) as any;
+    const email: string | null = u?.email ? String(u.email).toLowerCase() : null;
     const metaTeamId = meta?.team_id ? String(meta.team_id) : null;
     if (metaTeamId) {
       // Best-effort: persist
@@ -233,6 +234,45 @@ async function resolveTeamFromLegacy(userId: string): Promise<{ teamId: string |
       const memberIds = await fetchTeamMemberIds(metaTeamId);
       const role = String(meta?.role || meta?.account_type || meta?.user_type || '').toLowerCase();
       return { teamId: metaTeamId, roleInTeam: adminRoles.has(role) ? 'admin' : 'member', memberIds, source: 'metadata' };
+    }
+
+    // If no metadata team_id, infer from team_invites by email (common when metadata wasn't synced)
+    if (email) {
+      try {
+        const inviteRes = await supabaseDb
+          .from('team_invites')
+          .select('team_id, invited_by, status, created_at')
+          .eq('email', email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const invite = inviteRes.data as any;
+        const status = String(invite?.status || '').toLowerCase();
+        // Only trust pending/accepted; ignore rejected/expired/failed
+        if (!status || status === 'pending' || status === 'accepted') {
+          let inferredTeamId: string | null = invite?.team_id ? String(invite.team_id) : null;
+          const invitedBy: string | null = invite?.invited_by ? String(invite.invited_by) : null;
+          if (!inferredTeamId && invitedBy) {
+            try {
+              const { data: inviterRow } = await supabaseDb.from('users').select('team_id, role').eq('id', invitedBy).maybeSingle();
+              inferredTeamId = (inviterRow as any)?.team_id ? String((inviterRow as any).team_id) : null;
+            } catch {}
+          }
+          if (inferredTeamId) {
+            // Best-effort: persist
+            try { await supabaseDb.from('users').update({ team_id: inferredTeamId }).eq('id', userId); } catch {}
+            try {
+              await supabaseDb.from('team_members').upsert(
+                [{ team_id: inferredTeamId, user_id: userId }],
+                { onConflict: 'team_id,user_id' } as any
+              );
+            } catch {}
+            const memberIds = await fetchTeamMemberIds(inferredTeamId);
+            const role = String(meta?.role || meta?.account_type || meta?.user_type || '').toLowerCase();
+            return { teamId: inferredTeamId, roleInTeam: adminRoles.has(role) ? 'admin' : 'member', memberIds, source: 'metadata' };
+          }
+        }
+      } catch {}
     }
   } catch {}
 
