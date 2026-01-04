@@ -5,6 +5,7 @@ export type DealsSharingContext = {
   teamId: string | null;
   role: string | null;
   shareDeals: boolean;
+  shareDealsMembers: boolean;
   visibleOwnerIds: string[];
 };
 
@@ -26,13 +27,13 @@ async function fetchTeamMemberIds(teamId: string): Promise<string[]> {
   return (data || []).map((u: any) => String(u.id)).filter(Boolean);
 }
 
-async function fetchShareDeals(teamId: string): Promise<boolean> {
-  // Default should be ON for teams
-  const defaultValue = true;
+async function fetchDealsSharingSettings(teamId: string): Promise<{ shareDeals: boolean; shareDealsMembers: boolean }> {
+  // Defaults should be ON for teams (preserve pooled behavior)
+  const defaults = { shareDeals: true, shareDealsMembers: true };
   try {
     const { data, error } = await supabaseDb
       .from('team_settings')
-      .select('share_deals')
+      .select('share_deals, share_deals_members')
       .eq('team_id', teamId)
       .maybeSingle();
     if (error) {
@@ -53,22 +54,30 @@ async function fetchShareDeals(teamId: string): Promise<boolean> {
           if (adminId) {
             const attempt = await supabaseDb
               .from('team_settings')
-              .select('share_deals')
+              .select('share_deals, share_deals_members')
               .eq('team_admin_id', adminId)
               .maybeSingle();
-            const raw = (attempt.data as any)?.share_deals;
-            return raw === undefined || raw === null ? defaultValue : !!raw;
+            const rawDeals = (attempt.data as any)?.share_deals;
+            const rawMembers = (attempt.data as any)?.share_deals_members;
+            return {
+              shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
+              shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
+            };
           }
         } catch {}
       }
-      if (code === '42P01') return defaultValue;
-      return defaultValue;
+      if (code === '42P01') return defaults;
+      return defaults;
     }
-    if (!data) return defaultValue;
-    const raw = (data as any).share_deals;
-    return raw === undefined || raw === null ? defaultValue : !!raw;
+    if (!data) return defaults;
+    const rawDeals = (data as any).share_deals;
+    const rawMembers = (data as any).share_deals_members;
+    return {
+      shareDeals: rawDeals === undefined || rawDeals === null ? defaults.shareDeals : !!rawDeals,
+      shareDealsMembers: rawMembers === undefined || rawMembers === null ? defaults.shareDealsMembers : !!rawMembers,
+    };
   } catch {
-    return defaultValue;
+    return defaults;
   }
 }
 
@@ -81,17 +90,27 @@ async function fetchShareDeals(teamId: string): Promise<boolean> {
 export async function getDealsSharingContext(userId: string): Promise<DealsSharingContext> {
   const { teamId, role } = await getUserTeamContextDb(userId);
   if (!teamId) {
-    return { teamId: null, role: role ?? null, shareDeals: false, visibleOwnerIds: [userId] };
+    return { teamId: null, role: role ?? null, shareDeals: false, shareDealsMembers: false, visibleOwnerIds: [userId] };
   }
 
-  const shareDeals = await fetchShareDeals(teamId);
+  const settings = await fetchDealsSharingSettings(teamId);
+  const shareDeals = settings.shareDeals;
+  const shareDealsMembers = settings.shareDealsMembers;
   if (!shareDeals) {
-    return { teamId, role: role ?? null, shareDeals: false, visibleOwnerIds: [userId] };
+    return { teamId, role: role ?? null, shareDeals: false, shareDealsMembers, visibleOwnerIds: [userId] };
+  }
+
+  const roleLc = String(role || '').toLowerCase();
+  const isAdmin = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(roleLc);
+  // Admins always see pool when shareDeals is enabled.
+  // Members only see pool when shareDealsMembers is enabled.
+  if (!isAdmin && !shareDealsMembers) {
+    return { teamId, role: role ?? null, shareDeals, shareDealsMembers, visibleOwnerIds: [userId] };
   }
 
   const ids = await fetchTeamMemberIds(teamId);
   const unique = Array.from(new Set([...(ids || []), userId])).filter(Boolean);
-  return { teamId, role: role ?? null, shareDeals: true, visibleOwnerIds: unique.length ? unique : [userId] };
+  return { teamId, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: unique.length ? unique : [userId] };
 }
 
 

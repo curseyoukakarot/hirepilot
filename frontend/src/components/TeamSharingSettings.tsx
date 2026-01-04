@@ -9,6 +9,7 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
     shareLeads: false,
     shareCandidates: false,
     shareDeals: true,
+    shareDealsMembers: true,
     allowTeamEditing: false,
     teamAdminViewPool: true,
     shareAnalytics: false,
@@ -33,6 +34,10 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
               data.share_deals === undefined || data.share_deals === null
                 ? true
                 : !!data.share_deals,
+            shareDealsMembers:
+              data.share_deals_members === undefined || data.share_deals_members === null
+                ? true
+                : !!data.share_deals_members,
             allowTeamEditing: data.allow_team_editing,
             teamAdminViewPool:
               data.team_admin_view_pool === undefined || data.team_admin_view_pool === null
@@ -94,6 +99,9 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
         case 'shareDeals':
           payload.shareDeals = value;
           break;
+        case 'shareDealsMembers':
+          payload.shareDealsMembers = value;
+          break;
         case 'allowTeamEditing':
           payload.allowTeamEditing = value;
           break;
@@ -150,6 +158,8 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
             ? 'Candidates sharing'
             : field === 'shareDeals'
               ? 'Deals sharing'
+              : field === 'shareDealsMembers'
+                ? 'Deals member pooling'
             : field === 'allowTeamEditing'
               ? 'Shared lead editing'
               : field === 'teamAdminViewPool'
@@ -277,6 +287,26 @@ export default function TeamSharingSettings({ currentUserRole }: { currentUserRo
                 className="sr-only peer"
                 checked={settings.shareDeals}
                 onChange={(e) => updateSetting('shareDeals', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <span className="font-medium text-gray-900">Allow teammates to view pooled deals</span>
+              <p className="text-sm text-gray-500">When off, only team admins will see the team pool view in /deals.</p>
+              {!settings.shareDeals && (
+                <p className="text-xs text-gray-400 mt-1">Enable deals sharing to unlock this option.</p>
+              )}
+            </div>
+            <label className={`inline-flex items-center ${!settings.shareDeals ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={settings.shareDealsMembers}
+                disabled={!settings.shareDeals}
+                onChange={(e) => updateSetting('shareDealsMembers', e.target.checked)}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer dark:bg-gray-700 peer-checked:bg-indigo-600"></div>
             </label>

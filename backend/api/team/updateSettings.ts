@@ -32,6 +32,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       shareLeads,
       shareCandidates,
       shareDeals,
+      shareDealsMembers,
       allowTeamEditing,
       adminViewTeamPool,
       shareAnalytics,
@@ -77,6 +78,13 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
         return;
       }
       updateData.share_deals = !!shareDeals;
+    }
+    if (shareDealsMembers !== undefined) {
+      if (!isAdminRole) {
+        res.status(403).json({ error: 'Only team admins can control member deals pooling' });
+        return;
+      }
+      updateData.share_deals_members = !!shareDealsMembers;
     }
     if (allowTeamEditing !== undefined) {
       if (!isAdminRole) {
