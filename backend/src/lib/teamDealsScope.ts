@@ -181,6 +181,28 @@ async function resolveTeamFromCreditSharing(userId: string): Promise<{ teamAdmin
     return { teamAdminId, roleInTeam: 'member', memberIds, source: 'team_credit_sharing' };
   }
 
+  // Fallback: infer billing admin from auth metadata (invite flow writes invited_by / team_id)
+  try {
+    const { data } = await supabaseDb.auth.admin.getUserById(userId);
+    const u: any = data?.user || null;
+    const meta: any = (u?.user_metadata || {}) as any;
+    const invitedBy = meta?.invited_by ? String(meta.invited_by) : null;
+    const teamAdminIdFromMeta = meta?.team_admin_id ? String(meta.team_admin_id) : null;
+    const adminId = teamAdminIdFromMeta || invitedBy;
+    if (adminId) {
+      // Best-effort: create billing membership link so future resolution is stable
+      try {
+        await supabaseDb.from('team_credit_sharing').upsert(
+          [{ team_admin_id: adminId, team_member_id: userId }],
+          { onConflict: 'team_admin_id,team_member_id' } as any
+        );
+      } catch {}
+
+      const memberIds = await fetchTeamMemberIdsByAdmin(adminId);
+      return { teamAdminId: adminId, roleInTeam: 'member', memberIds, source: 'metadata' };
+    }
+  } catch {}
+
   return { teamAdminId: null, roleInTeam: null, memberIds: [], source: 'none' };
 }
 
