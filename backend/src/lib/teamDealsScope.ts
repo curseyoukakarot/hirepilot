@@ -196,8 +196,8 @@ async function resolveTeamFromLegacy(userId: string): Promise<{ teamId: string |
           .maybeSingle();
         const invite = inviteRes.data as any;
         const status = String(invite?.status || '').toLowerCase();
-        // Only trust pending/accepted; ignore rejected/expired/failed
-        if (!status || status === 'pending' || status === 'accepted') {
+        // Accepted only (treat as active team member)
+        if (status === 'accepted') {
           let inferredTeamId: string | null = invite?.team_id ? String(invite.team_id) : null;
           const invitedBy: string | null = invite?.invited_by ? String(invite.invited_by) : null;
           if (!inferredTeamId && invitedBy) {

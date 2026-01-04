@@ -111,15 +111,42 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
         // Never persist team_id for super admins to avoid cross-team bleed.
         return next();
       }
-      const metaTeamId = userMeta?.team_id ? String(userMeta.team_id) : null;
-      if (metaTeamId) {
+      let teamIdToPersist: string | null = userMeta?.team_id ? String(userMeta.team_id) : null;
+
+      // If JWT doesn't have team_id, fall back to accepted team_invites by email (accepted only).
+      if (!teamIdToPersist) {
+        try {
+          const email = String(user.email || '').toLowerCase();
+          if (email) {
+            const { data: invite } = await supabase
+              .from('team_invites')
+              .select('team_id, invited_by, status, created_at')
+              .eq('email', email)
+              .eq('status', 'accepted')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            teamIdToPersist = (invite as any)?.team_id ? String((invite as any).team_id) : null;
+            const invitedBy = (invite as any)?.invited_by ? String((invite as any).invited_by) : null;
+            if (!teamIdToPersist && invitedBy) {
+              try {
+                const { data: inviterRow } = await supabase.from('users').select('team_id').eq('id', invitedBy).maybeSingle();
+                teamIdToPersist = (inviterRow as any)?.team_id ? String((inviterRow as any).team_id) : null;
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+
+      if (teamIdToPersist) {
+        (req as any).user.team_id = teamIdToPersist;
         await supabase
           .from('users')
-          .upsert({ id: user.id, email: user.email, team_id: metaTeamId } as any, { onConflict: 'id' });
+          .upsert({ id: user.id, email: user.email, team_id: teamIdToPersist } as any, { onConflict: 'id' });
         try {
           await supabase
             .from('team_members')
-            .upsert([{ team_id: metaTeamId, user_id: user.id }], { onConflict: 'team_id,user_id' } as any);
+            .upsert([{ team_id: teamIdToPersist, user_id: user.id }], { onConflict: 'team_id,user_id' } as any);
         } catch {}
       }
     } catch {}
