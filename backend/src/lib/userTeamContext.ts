@@ -25,7 +25,28 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
       return { teamId: (userRow as any).team_id || null, role: (userRow as any).role ?? null };
     }
     // keep role even if no team
-    const role = (userRow as any)?.role ?? null;
+    let role = (userRow as any)?.role ?? null;
+
+    // Fetch auth user (metadata often contains team_id/role even when DB row is missing/incomplete)
+    let authTeamId: string | null = null;
+    let authRole: string | null = null;
+    let authEmail: string | null = null;
+    let authFirst: string | null = null;
+    let authLast: string | null = null;
+    try {
+      const { data } = await supabaseDb.auth.admin.getUserById(userId);
+      const u: any = data?.user || null;
+      const meta: any = (u?.user_metadata || {}) as any;
+      const app: any = (u?.app_metadata || {}) as any;
+      authTeamId = meta?.team_id ? String(meta.team_id) : null;
+      authRole = (meta?.role || meta?.account_type || meta?.user_type || app?.role || null)
+        ? String(meta?.role || meta?.account_type || meta?.user_type || app?.role || '').toLowerCase()
+        : null;
+      authEmail = u?.email ? String(u.email).toLowerCase() : null;
+      authFirst = meta?.first_name ? String(meta.first_name) : null;
+      authLast = meta?.last_name ? String(meta.last_name) : null;
+    } catch {}
+    if (!role && authRole) role = authRole;
 
     // 2) team_members (preferred if present)
     const { data: membershipRow, error: membershipError } = await supabaseDb
@@ -35,7 +56,10 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
       .limit(1)
       .maybeSingle();
     if (!membershipError && membershipRow?.team_id) {
-      return { teamId: (membershipRow as any).team_id || null, role };
+      const t = (membershipRow as any).team_id || null;
+      // Best-effort: persist legacy users.team_id for compatibility
+      try { if (t) await supabaseDb.from('users').update({ team_id: t }).eq('id', userId); } catch {}
+      return { teamId: t, role };
     }
 
     // If team_members doesn't exist, PostgREST returns 42P01
@@ -44,28 +68,70 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
       return { teamId: (userRow as any)?.team_id ?? null, role };
     }
 
-    // 3) infer from most recent invite sent by this user
+    // 3) infer from auth metadata team_id (common for team seats)
+    if (authTeamId) {
+      // Best-effort: ensure users row exists + persist team_id
+      try {
+        // Insert minimal users row if missing (schema varies across envs; retry without team_id if needed)
+        if (!userRow) {
+          const email = authEmail || `unknown+${String(userId).slice(0, 8)}@noemail.hirepilot`;
+          const first = authFirst || (email.split('@')[0] || 'User');
+          const last = authLast || 'Member';
+          const normalizedRole = role ? String(role).toLowerCase() : 'member';
+          const attempt = await supabaseDb.from('users').insert({
+            id: userId,
+            email,
+            first_name: first,
+            last_name: last,
+            role: normalizedRole,
+            team_id: authTeamId
+          } as any);
+          if ((attempt as any)?.error && mentionMissingColumn((attempt as any).error, 'team_id')) {
+            await supabaseDb.from('users').insert({
+              id: userId,
+              email,
+              first_name: first,
+              last_name: last,
+              role: normalizedRole,
+            } as any);
+            try { await supabaseDb.from('users').update({ team_id: authTeamId }).eq('id', userId); } catch {}
+          }
+        } else {
+          await supabaseDb.from('users').update({ team_id: authTeamId }).eq('id', userId);
+        }
+      } catch {}
+      // Best-effort: create team_members row if table exists
+      try {
+        await supabaseDb.from('team_members').upsert(
+          [{ team_id: authTeamId, user_id: userId }],
+          { onConflict: 'team_id,user_id' } as any
+        );
+      } catch {}
+      return { teamId: authTeamId, role };
+    }
+
+    // 4) infer from team_invites by email (only works in envs where team_invites has team_id)
     try {
-      const { data: lastInvite } = await supabaseDb
-        .from('team_invites')
-        .select('team_id')
-        .eq('invited_by', userId)
-        .not('team_id', 'is', null as any)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const inferredTeamId = (lastInvite as any)?.team_id || null;
-      if (inferredTeamId) {
-        // Best-effort: persist for future lookups
-        try { await supabaseDb.from('users').update({ team_id: inferredTeamId }).eq('id', userId); } catch {}
-        // Best-effort: create team_members row if table exists
-        try {
-          await supabaseDb.from('team_members').upsert(
-            [{ team_id: inferredTeamId, user_id: userId }],
-            { onConflict: 'team_id,user_id' } as any
-          );
-        } catch {}
-        return { teamId: inferredTeamId, role };
+      if (authEmail) {
+        const inv = await supabaseDb
+          .from('team_invites')
+          .select('team_id,status')
+          .eq('email', authEmail)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const inferredTeamId = (inv.data as any)?.team_id || null;
+        const status = String((inv.data as any)?.status || '').toLowerCase();
+        if (inferredTeamId && (!status || status === 'accepted' || status === 'pending')) {
+          try { await supabaseDb.from('users').update({ team_id: inferredTeamId }).eq('id', userId); } catch {}
+          try {
+            await supabaseDb.from('team_members').upsert(
+              [{ team_id: inferredTeamId, user_id: userId }],
+              { onConflict: 'team_id,user_id' } as any
+            );
+          } catch {}
+          return { teamId: inferredTeamId, role };
+        }
       }
     } catch {}
 
@@ -73,6 +139,12 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
   } catch {
     return { teamId: null, role: null };
   }
+}
+
+function mentionMissingColumn(err: any, col: string): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  return code === '42703' || (msg.includes(col) && msg.includes('does not exist'));
 }
 
 
