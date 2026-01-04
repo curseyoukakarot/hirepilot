@@ -248,7 +248,7 @@ export default function DealsPage() {
         fetch(`${BACKEND_BASE}/api/revenue/monthly-projected`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${BACKEND_BASE}/api/revenue/closewon-monthly?range=${rangeParam}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         fetch(`${BACKEND_BASE}/api/revenue/closewon-projected?horizon=eoy`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        fetch(`/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
+        fetch(`${BACKEND_BASE}/api/widgets/revenue-forecast?mode=paid&horizon=eoy&limit=12`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }),
         fetch(`${BACKEND_BASE}/api/opportunities?status=Close%20Won`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
       ]);
       setRevSummary(sRes.ok ? await sRes.json() : null);
