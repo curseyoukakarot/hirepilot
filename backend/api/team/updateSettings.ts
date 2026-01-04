@@ -3,10 +3,28 @@ import { Response } from 'express';
 import { supabaseDb } from '../../lib/supabase';
 import { getUserTeamContext } from './teamContext';
 
+async function resolveTeamAdminFromCreditSharing(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .maybeSingle();
+    if (error) return null;
+    const id = (data as any)?.team_admin_id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveTeamAdminId(params: { teamId: string | null; requesterId: string; requesterRole: string | null }) {
   const normalized = String(params.requesterRole || '').toLowerCase();
   if (['admin', 'team_admin', 'super_admin', 'superadmin'].includes(normalized)) return params.requesterId;
-  if (!params.teamId) return params.requesterId;
+  if (!params.teamId) {
+    const admin = await resolveTeamAdminFromCreditSharing(params.requesterId);
+    return admin || params.requesterId;
+  }
   try {
     const { data } = await supabaseDb
       .from('users')
@@ -43,7 +61,9 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
 
     // Resolve team membership (supports both legacy `users.team_id` and newer `team_members`)
     const { teamId, role } = await getUserTeamContext(req.user.id);
-    if (!teamId) {
+    // Team seats may be represented via billing membership (team_credit_sharing) without team_id populated.
+    const inferredAdminId = await resolveTeamAdminFromCreditSharing(req.user.id);
+    if (!teamId && !inferredAdminId) {
       res.status(403).json({ error: 'User not part of a team' });
       return;
     }
@@ -67,8 +87,8 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       updated_at: new Date().toISOString()
     };
     // These may not exist in all envs; we will retry with column-aware fallbacks.
-    updateData.team_id = teamId;
-    updateData.team_admin_id = teamAdminId;
+    if (teamId) updateData.team_id = teamId;
+    updateData.team_admin_id = inferredAdminId || teamAdminId;
 
     if (shareLeads !== undefined) updateData.share_leads = shareLeads;
     if (shareCandidates !== undefined) updateData.share_candidates = shareCandidates;

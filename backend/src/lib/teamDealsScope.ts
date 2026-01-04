@@ -1,13 +1,14 @@
 import { supabaseDb } from './supabase';
-import { getUserTeamContextDb } from './userTeamContext';
 
 export type DealsSharingContext = {
-  teamId: string | null;
-  teamAdminId: string | null;
-  role: string | null;
+  isTeamAccount: boolean;
+  teamAdminId: string | null; // canonical owner of the team plan (billing admin)
+  teamId: string | null; // legacy teams table id, if present
   shareDeals: boolean;
   shareDealsMembers: boolean;
   visibleOwnerIds: string[];
+  roleInTeam: 'admin' | 'member' | null;
+  resolutionSource: 'team_credit_sharing' | 'team_members' | 'users.team_id' | 'metadata' | 'none';
 };
 
 async function fetchTeamAdminIdForUser(userId: string): Promise<string | null> {
@@ -150,6 +151,94 @@ async function fetchDealsSharingSettings(params: { teamId?: string | null; teamA
   return defaults;
 }
 
+async function resolveRoleFromUsersTable(userId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseDb.from('users').select('role').eq('id', userId).maybeSingle();
+    const r = (data as any)?.role;
+    return r ? String(r) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveTeamFromCreditSharing(userId: string): Promise<{ teamAdminId: string | null; roleInTeam: 'admin' | 'member' | null; memberIds: string[]; source: DealsSharingContext['resolutionSource'] }> {
+  // Highest priority signal for paid Team plans.
+  // If viewer is admin, they show up as team_admin_id. If viewer is a seat, they show up as team_member_id.
+  try {
+    const { data: adminRows } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id, team_member_id')
+      .eq('team_admin_id', userId);
+    if (Array.isArray(adminRows) && adminRows.length) {
+      const memberIds = await fetchTeamMemberIdsByAdmin(userId);
+      return { teamAdminId: userId, roleInTeam: 'admin', memberIds, source: 'team_credit_sharing' };
+    }
+  } catch {}
+
+  const teamAdminId = await fetchTeamAdminIdForUser(userId);
+  if (teamAdminId) {
+    const memberIds = await fetchTeamMemberIdsByAdmin(teamAdminId);
+    return { teamAdminId, roleInTeam: 'member', memberIds, source: 'team_credit_sharing' };
+  }
+
+  return { teamAdminId: null, roleInTeam: null, memberIds: [], source: 'none' };
+}
+
+async function resolveTeamFromLegacy(userId: string): Promise<{ teamId: string | null; roleInTeam: 'admin' | 'member' | null; memberIds: string[]; source: DealsSharingContext['resolutionSource'] }> {
+  const adminRoles = new Set(['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin']);
+
+  // users.team_id
+  try {
+    const { data: userRow, error } = await supabaseDb.from('users').select('team_id, role').eq('id', userId).maybeSingle();
+    const teamId = (userRow as any)?.team_id ? String((userRow as any).team_id) : null;
+    const role = String((userRow as any)?.role || '').toLowerCase();
+    if (!error && teamId) {
+      const memberIds = await fetchTeamMemberIds(teamId);
+      return { teamId, roleInTeam: adminRoles.has(role) ? 'admin' : 'member', memberIds, source: 'users.team_id' };
+    }
+  } catch {}
+
+  // team_members
+  try {
+    const { data: membershipRow, error: membershipError } = await supabaseDb
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (!membershipError && (membershipRow as any)?.team_id) {
+      const teamId = String((membershipRow as any).team_id);
+      const memberIds = await fetchTeamMemberIds(teamId);
+      const role = (await resolveRoleFromUsersTable(userId)) || null;
+      const roleLc = String(role || '').toLowerCase();
+      return { teamId, roleInTeam: adminRoles.has(roleLc) ? 'admin' : 'member', memberIds, source: 'team_members' };
+    }
+  } catch {}
+
+  // metadata.team_id (best-effort)
+  try {
+    const { data } = await supabaseDb.auth.admin.getUserById(userId);
+    const u: any = data?.user || null;
+    const meta: any = (u?.user_metadata || {}) as any;
+    const metaTeamId = meta?.team_id ? String(meta.team_id) : null;
+    if (metaTeamId) {
+      // Best-effort: persist
+      try { await supabaseDb.from('users').update({ team_id: metaTeamId }).eq('id', userId); } catch {}
+      try {
+        await supabaseDb.from('team_members').upsert(
+          [{ team_id: metaTeamId, user_id: userId }],
+          { onConflict: 'team_id,user_id' } as any
+        );
+      } catch {}
+      const memberIds = await fetchTeamMemberIds(metaTeamId);
+      const role = String(meta?.role || meta?.account_type || meta?.user_type || '').toLowerCase();
+      return { teamId: metaTeamId, roleInTeam: adminRoles.has(role) ? 'admin' : 'member', memberIds, source: 'metadata' };
+    }
+  } catch {}
+
+  return { teamId: null, roleInTeam: null, memberIds: [], source: 'none' };
+}
+
 /**
  * Deals visibility scope for team accounts.
  * - shareDeals defaults to ON
@@ -157,45 +246,83 @@ async function fetchDealsSharingSettings(params: { teamId?: string | null; teamA
  * - when OFF: users see only their own deals
  */
 export async function getDealsSharingContext(userId: string): Promise<DealsSharingContext> {
-  const { teamId, role } = await getUserTeamContextDb(userId);
-  const roleLc = String(role || '').toLowerCase();
-  const isAdminRole = ['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin'].includes(roleLc);
+  // 1) Highest priority: paid Team plans via billing seats
+  const credit = await resolveTeamFromCreditSharing(userId);
+  let teamAdminId = credit.teamAdminId;
+  let teamId: string | null = null;
+  let roleInTeam: 'admin' | 'member' | null = credit.roleInTeam;
+  let memberIds: string[] = credit.memberIds || [];
+  let resolutionSource: DealsSharingContext['resolutionSource'] = credit.source;
 
-  // Determine team identifier:
-  // - Prefer explicit teamId (teams/team_members)
-  // - Otherwise fall back to billing team mapping via team_credit_sharing (team_admin_id)
-  let teamAdminId: string | null = null;
-  if (!teamId) {
-    teamAdminId = isAdminRole ? userId : await fetchTeamAdminIdForUser(userId);
+  // 2) Fallback: legacy teams
+  if (!teamAdminId) {
+    const legacy = await resolveTeamFromLegacy(userId);
+    teamId = legacy.teamId;
+    roleInTeam = legacy.roleInTeam;
+    memberIds = legacy.memberIds || [];
+    resolutionSource = legacy.source;
   }
 
-  // If we still don't have any team context, scope to self.
-  if (!teamId && !teamAdminId) {
-    return { teamId: null, teamAdminId: null, role: role ?? null, shareDeals: false, shareDealsMembers: false, visibleOwnerIds: [userId] };
+  const isTeamAccount = Boolean(teamAdminId || teamId);
+  if (!isTeamAccount) {
+    return {
+      isTeamAccount: false,
+      teamAdminId: null,
+      teamId: null,
+      shareDeals: false,
+      shareDealsMembers: false,
+      visibleOwnerIds: [userId],
+      roleInTeam: null,
+      resolutionSource: 'none',
+    };
   }
 
   const settings = await fetchDealsSharingSettings({ teamId, teamAdminId });
   const shareDeals = settings.shareDeals;
   const shareDealsMembers = settings.shareDealsMembers;
   if (!shareDeals) {
-    return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: false, shareDealsMembers, visibleOwnerIds: [userId] };
+    return {
+      isTeamAccount: true,
+      teamAdminId: teamAdminId || null,
+      teamId: teamId || null,
+      shareDeals: false,
+      shareDealsMembers,
+      visibleOwnerIds: [userId],
+      roleInTeam,
+      resolutionSource,
+    };
   }
 
-  // Admins always see pool when shareDeals is enabled.
-  // Members only see pool when shareDealsMembers is enabled.
-  if (!isAdminRole && !shareDealsMembers) {
-    return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: [userId] };
+  // If viewer is member and member pooling is disabled, restrict to self.
+  if (roleInTeam === 'member' && !shareDealsMembers) {
+    return {
+      isTeamAccount: true,
+      teamAdminId: teamAdminId || null,
+      teamId: teamId || null,
+      shareDeals: true,
+      shareDealsMembers,
+      visibleOwnerIds: [userId],
+      roleInTeam,
+      resolutionSource,
+    };
   }
 
-  // Visible owners list
-  let ids: string[] = [];
-  if (teamId) {
-    ids = await fetchTeamMemberIds(teamId);
-  } else if (teamAdminId) {
-    ids = await fetchTeamMemberIdsByAdmin(teamAdminId);
-  }
-  const unique = Array.from(new Set([...(ids || []), userId, ...(teamAdminId ? [teamAdminId] : [])])).filter(Boolean);
-  return { teamId: teamId || null, teamAdminId: teamAdminId || null, role: role ?? null, shareDeals: true, shareDealsMembers, visibleOwnerIds: unique.length ? unique : [userId] };
+  // Pooling enabled: show all owners in the resolved team set (+ explicit admin if known).
+  const owners = new Set<string>();
+  (memberIds || []).forEach(id => id && owners.add(String(id)));
+  if (teamAdminId) owners.add(String(teamAdminId));
+  owners.add(String(userId));
+
+  return {
+    isTeamAccount: true,
+    teamAdminId: teamAdminId || null,
+    teamId: teamId || null,
+    shareDeals: true,
+    shareDealsMembers,
+    visibleOwnerIds: Array.from(owners),
+    roleInTeam,
+    resolutionSource,
+  };
 }
 
 

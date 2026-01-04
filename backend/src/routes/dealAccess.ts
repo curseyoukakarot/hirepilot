@@ -39,16 +39,15 @@ router.get('/deal-access/debug-scope', requireAuth, async (req: Request, res: Re
     const ctx = await getUserTeamContextDb(userId);
     const deals = await getDealsSharingContext(userId);
     res.json({
-      user_id: userId,
-      role: ctx.role || null,
-      team_id: ctx.teamId || null,
-      team_admin_id: (deals as any)?.teamAdminId || null,
-      deals: {
-        share_deals: deals.shareDeals,
-        share_deals_members: deals.shareDealsMembers,
-        visible_owner_ids_count: (deals.visibleOwnerIds || []).length,
-        visible_owner_ids_sample: (deals.visibleOwnerIds || []).slice(0, 5),
-      }
+      viewerId: userId,
+      resolvedRole: deals.roleInTeam || (ctx.role ? String(ctx.role) : null),
+      resolvedTeamId: deals.teamId || null,
+      resolvedTeamAdminId: deals.teamAdminId || null,
+      shareDeals: deals.shareDeals,
+      shareDealsMembers: deals.shareDealsMembers,
+      visibleOwnerIdsCount: (deals.visibleOwnerIds || []).length,
+      visibleOwnerIdsSample: (deals.visibleOwnerIds || []).slice(0, 5),
+      resolutionSource: deals.resolutionSource,
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
