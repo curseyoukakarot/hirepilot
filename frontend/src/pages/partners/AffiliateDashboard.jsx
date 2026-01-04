@@ -3,6 +3,7 @@ import AffiliateHeader from './AffiliateHeader';
 import { partnersSupabase } from '../../lib/partnersSupabase';
 
 export default function AffiliateDashboard() {
+  const PROMOTE_ASSETS_URL = 'https://www.notion.so/HirePilot-Affiliate-Partner-Links-Social-Media-Support-and-addons-2de8b3497efe80c1877fcd928849a40f?source=copy_link';
   const [userName, setUserName] = useState('');
   const [referralLink, setReferralLink] = useState('');
   const [overview, setOverview] = useState({ lifetime_cents: 0, this_month_cents: 0, next_payout_cents: 0, tier: 'starter' });
@@ -199,7 +200,13 @@ export default function AffiliateDashboard() {
                 { icon: 'fa-regular fa-images', title: 'Promo Images', sub: 'Branded assets' },
                 { icon: 'fa-regular fa-file-powerpoint', title: 'Demo Deck', sub: 'Presentation slides' }
               ].map((a, i) => (
-                <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" key={i}>
+                <a
+                  key={i}
+                  href={PROMOTE_ASSETS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer block"
+                >
                   <div className="flex items-center space-x-3">
                     <i className={`${a.icon} text-blue-500 text-xl`} />
                     <div>
@@ -207,7 +214,7 @@ export default function AffiliateDashboard() {
                       <div className="text-sm text-gray-500">{a.sub}</div>
                     </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>

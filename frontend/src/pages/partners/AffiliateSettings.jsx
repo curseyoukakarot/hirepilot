@@ -31,8 +31,11 @@ export default function AffiliateSettings() {
   const connectStripe = async () => {
     const { data: { session } } = await partnersSupabase.auth.getSession();
     const token = session?.access_token;
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/affiliates/connect/onboarding`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'include'
+    if (!token) return;
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/stripe/oauth/init`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include'
     });
     if (res.ok) {
       const data = await res.json();

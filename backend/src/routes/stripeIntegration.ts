@@ -132,7 +132,8 @@ router.get('/oauth/init', requireAuth as any, async (req: Request, res: Response
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const clientId = process.env.STRIPE_CONNECT_CLIENT_ID!;
     const redirectUri = process.env.STRIPE_CONNECT_REDIRECT_URL!; // e.g. https://app.yourdomain.com/api/stripe/oauth/callback
-    const url = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&scope=read_write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
+    // Use the "v2" OAuth authorize endpoint (matches Stripe's current UI flow).
+    const url = `https://connect.stripe.com/oauth/v2/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&scope=read_write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
     res.json({ url });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -151,9 +152,34 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
       await supabase
         .from('user_integrations')
         .upsert({ user_id: stateUserId, stripe_connected_account_id: connectedId, stripe_mode: 'connect' }, { onConflict: 'user_id' });
+
+      // If this user is also an affiliate partner, persist the connected account id for payouts.
+      // (Affiliate payouts use affiliates.stripe_connect_id)
+      try {
+        await supabase
+          .from('affiliates')
+          .update({ stripe_connect_id: connectedId })
+          .eq('user_id', stateUserId);
+      } catch {}
     }
+
+    // Redirect partner affiliates back to the affiliate dashboard settings; otherwise fall back to main app settings.
+    try {
+      const { data: aff } = await supabase
+        .from('affiliates')
+        .select('id')
+        .eq('user_id', stateUserId)
+        .maybeSingle();
+      if (aff?.id) {
+        const affiliatesSettingsUrl =
+          process.env.AFFILIATES_APP_SETTINGS_URL ||
+          `${process.env.AFFILIATES_APP_BASE_URL || 'https://affiliates.thehirepilot.com'}/partners/settings`;
+        return res.redirect(affiliatesSettingsUrl);
+      }
+    } catch {}
+
     const redirect = process.env.APP_SETTINGS_URL || `${process.env.APP_BASE_URL || ''}/settings/integrations`;
-    res.redirect(redirect);
+    return res.redirect(redirect);
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'oauth_failed' });
   }
