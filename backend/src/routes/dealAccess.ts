@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { getUserTeamContextDb } from '../lib/userTeamContext';
 
 const router = express.Router();
 
@@ -27,6 +29,30 @@ async function getPlanTier(userId: string): Promise<string> {
   // Explicit "free" is still enforced via plan/role checks below.
   return '';
 }
+
+// Debug: inspect effective team + deals sharing scope for the authenticated user.
+// Keep this lightweight and safe (no PII).
+router.get('/deal-access/debug-scope', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const ctx = await getUserTeamContextDb(userId);
+    const deals = await getDealsSharingContext(userId);
+    res.json({
+      user_id: userId,
+      role: ctx.role || null,
+      team_id: ctx.teamId || null,
+      deals: {
+        share_deals: deals.shareDeals,
+        share_deals_members: deals.shareDealsMembers,
+        visible_owner_ids_count: (deals.visibleOwnerIds || []).length,
+        visible_owner_ids_sample: (deals.visibleOwnerIds || []).slice(0, 5),
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
 
 router.get('/deal-access/:userId', requireAuth, async (req: Request, res: Response) => {
   try {

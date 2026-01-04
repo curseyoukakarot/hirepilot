@@ -55,7 +55,18 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
         .limit(1)
         .maybeSingle();
       const inferredTeamId = (lastInvite as any)?.team_id || null;
-      if (inferredTeamId) return { teamId: inferredTeamId, role };
+      if (inferredTeamId) {
+        // Best-effort: persist for future lookups
+        try { await supabaseDb.from('users').update({ team_id: inferredTeamId }).eq('id', userId); } catch {}
+        // Best-effort: create team_members row if table exists
+        try {
+          await supabaseDb.from('team_members').upsert(
+            [{ team_id: inferredTeamId, user_id: userId }],
+            { onConflict: 'team_id,user_id' } as any
+          );
+        } catch {}
+        return { teamId: inferredTeamId, role };
+      }
     } catch {}
 
     return { teamId: null, role };
