@@ -630,11 +630,19 @@ function LeadManagement() {
   // Filter leads by search, status, and tags (campaign filtering is done at database level)
   const filteredLeads = leads.filter(lead => {
     const searchLower = searchQuery.toLowerCase();
+    const leadSource =
+      (lead.source ||
+        lead.lead_source ||
+        lead.source_name ||
+        lead.sourceName ||
+        lead.leadSource ||
+        '') + '';
     const matchesSearch = (
       (lead.name?.toLowerCase() || '').includes(searchLower) ||
       (lead.title?.toLowerCase() || '').includes(searchLower) ||
       (lead.email?.toLowerCase() || '').includes(searchLower) ||
       (lead.location?.toLowerCase() || '').includes(searchLower) ||
+      (leadSource.toLowerCase()).includes(searchLower) ||
       (lead.tags || []).some(tag => (tag?.toLowerCase() || '').includes(searchLower))
     );
 
@@ -1645,7 +1653,7 @@ function LeadManagement() {
               <input
                 type="text"
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-200"
-                placeholder="Search by name, title, email, tags, or location..."
+                placeholder="Search by name, title, email, tags, location, or source..."
                 value={searchQuery}
                 onChange={handleSearch}
               />
