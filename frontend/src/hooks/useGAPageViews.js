@@ -74,6 +74,8 @@ export default function useGAPageViews() {
     "/rexsupport": "REX Support | HirePilot",
     "/apidoc": "API Documentation | HirePilot",
     "/test-gmail": "Test Gmail Integration | HirePilot",
+    "/gtm-strategy": "HirePIlot GTM Guide - Build a Recruiting Agency using HirePilot",
+    "/gtm-strategy/teaser": "HirePilot GTM Strategy Guide — 2026 Blueprint",
   };
 
   useEffect(() => {

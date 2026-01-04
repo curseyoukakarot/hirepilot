@@ -85,6 +85,8 @@ import UseCases from './screens/UseCases';
 import UseCasesRecruitingAgencies from './screens/UseCasesRecruitingAgencies';
 import UseCasesFractionalExecutives from './screens/UseCasesFractionalExecutives';
 import UseCasesConsultants from './screens/UseCasesConsultants';
+import GtmStrategy from './pages/GtmStrategy';
+import GtmStrategyLandingPage from './pages/GtmStrategyLandingPage';
 import OnboardingModals from './components/OnboardingModals';
 import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
 import OnboardingAppPage from './pages/OnboardingAppPage';
@@ -433,7 +435,7 @@ function InnerApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleLower, hostname, handoffingToJobs]);
 
-  const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants"];
+  const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants", "/gtm-strategy", "/gtm-strategy/teaser"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
@@ -655,7 +657,15 @@ function InnerApp() {
   useEffect(() => {
     if (!userLoaded) return;
     // If user is authenticated and on a public landing page, send them to dashboard
-    if (dbRole && landingPages.includes(location.pathname) && !['/login','/signup','/reset-password'].includes(location.pathname) && !isPublicShare && !isPublicApply) {
+    if (
+      dbRole &&
+      landingPages.includes(location.pathname) &&
+      location.pathname !== '/gtm-strategy' &&
+      location.pathname !== '/gtm-strategy/teaser' &&
+      !['/login', '/signup', '/reset-password'].includes(location.pathname) &&
+      !isPublicShare &&
+      !isPublicApply
+    ) {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -818,6 +828,8 @@ function InnerApp() {
               <Route path="/use-cases/recruiting-agencies" element={<UseCasesRecruitingAgencies />} />
               <Route path="/use-cases/fractional-executives" element={<UseCasesFractionalExecutives />} />
               <Route path="/use-cases/consultants" element={<UseCasesConsultants />} />
+              <Route path="/gtm-strategy/teaser" element={<GtmStrategyLandingPage />} />
+              <Route path="/gtm-strategy" element={<GtmStrategy />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
               <Route path="/candidates" element={<CandidateList />} />
               <Route path="/jobs" element={<JobRequisitions />} />
