@@ -1,4 +1,4 @@
-import { sendEmail } from '../../services/sendgrid';
+import sgMail from '@sendgrid/mail';
 
 type Vars = {
   first_name: string;
@@ -250,7 +250,6 @@ export function getDefaultGtmGuideUrls() {
 export async function sendGtmStrategyAccessEmail(params: {
   to: string;
   firstName?: string | null;
-  ownerUserId?: string; // used for per-user SendGrid creds
   guideUrl?: string;
   notionUrl?: string;
 }) {
@@ -264,13 +263,17 @@ export async function sendGtmStrategyAccessEmail(params: {
     company_name: 'HirePilot',
   } satisfies Vars);
 
-  await sendEmail(
-    params.to,
-    'Access Granted — HirePilot GTM Strategy Guide',
-    compiled,
-    undefined,
-    { userId: params.ownerUserId }
-  );
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) throw new Error('SendGrid API key not configured');
+  sgMail.setApiKey(apiKey);
+
+  // Hard-coded sender per request
+  await sgMail.send({
+    to: params.to,
+    from: 'noreply@thehirepilot.com',
+    subject: 'Access Granted — HirePilot GTM Strategy Guide',
+    html: compiled,
+  } as any);
 }
 
 
