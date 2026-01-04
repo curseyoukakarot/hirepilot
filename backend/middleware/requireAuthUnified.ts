@@ -86,6 +86,7 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
       || appMeta.role
       || user.role
       || 'authenticated';
+    const resolvedRoleLc = String(resolvedRole || '').toLowerCase();
 
     (req as any).user = {
       id: user.id,
@@ -98,14 +99,18 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
       monthly_credits: dbMonthlyCredits,
       is_guest: dbIsGuest,
       // Critical for team pooling: take team_id and invite fields from JWT metadata
-      team_id: userMeta.team_id || null,
-      invited_by: userMeta.invited_by || null,
-      invite_id: userMeta.invite_id || null,
+      team_id: (resolvedRoleLc === 'super_admin' || resolvedRoleLc === 'superadmin') ? null : (userMeta.team_id || null),
+      invited_by: (resolvedRoleLc === 'super_admin' || resolvedRoleLc === 'superadmin') ? null : (userMeta.invited_by || null),
+      invite_id: (resolvedRoleLc === 'super_admin' || resolvedRoleLc === 'superadmin') ? null : (userMeta.invite_id || null),
     };
 
     // Best-effort: persist team_id from JWT into public.users + team_members for consistent backend scoping.
     // This mirrors logic in authMiddleware.ts and avoids "no team" behavior when DB rows weren't backfilled.
     try {
+      if (resolvedRoleLc === 'super_admin' || resolvedRoleLc === 'superadmin') {
+        // Never persist team_id for super admins to avoid cross-team bleed.
+        return next();
+      }
       const metaTeamId = userMeta?.team_id ? String(userMeta.team_id) : null;
       if (metaTeamId) {
         await supabase

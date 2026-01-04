@@ -55,6 +55,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     // Attach user to request object in a common property
     const meta = (user.user_metadata as any) || {};
     const appRole = meta?.role || meta?.account_type || user.role;
+    const appRoleLc = String(appRole || '').toLowerCase();
     (req as any).user = {
       id: user.id,
       email: user.email,
@@ -62,14 +63,18 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       first_name: (user.user_metadata as any)?.first_name,
       last_name: (user.user_metadata as any)?.last_name,
       // Critical for team scoping: the JWT often contains team_id even when DB membership rows are missing.
-      team_id: meta?.team_id || null,
-      invited_by: meta?.invited_by || null,
-      invite_id: meta?.invite_id || null,
+      team_id: (appRoleLc === 'super_admin' || appRoleLc === 'superadmin') ? null : (meta?.team_id || null),
+      invited_by: (appRoleLc === 'super_admin' || appRoleLc === 'superadmin') ? null : (meta?.invited_by || null),
+      invite_id: (appRoleLc === 'super_admin' || appRoleLc === 'superadmin') ? null : (meta?.invite_id || null),
       plan: meta?.plan || null,
     };
 
     // If the JWT contains team_id, best-effort persist it so pooling and RLS-backed features work immediately.
     try {
+      if (appRoleLc === 'super_admin' || appRoleLc === 'superadmin') {
+        // Never persist team_id for super admins to avoid cross-team bleed.
+        return next();
+      }
       const metaTeamId = meta?.team_id ? String(meta.team_id) : null;
       if (metaTeamId) {
         await supabase
