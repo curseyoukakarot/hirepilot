@@ -97,7 +97,27 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
       remaining_credits: dbRemainingCredits,
       monthly_credits: dbMonthlyCredits,
       is_guest: dbIsGuest,
+      // Critical for team pooling: take team_id and invite fields from JWT metadata
+      team_id: userMeta.team_id || null,
+      invited_by: userMeta.invited_by || null,
+      invite_id: userMeta.invite_id || null,
     };
+
+    // Best-effort: persist team_id from JWT into public.users + team_members for consistent backend scoping.
+    // This mirrors logic in authMiddleware.ts and avoids "no team" behavior when DB rows weren't backfilled.
+    try {
+      const metaTeamId = userMeta?.team_id ? String(userMeta.team_id) : null;
+      if (metaTeamId) {
+        await supabase
+          .from('users')
+          .upsert({ id: user.id, email: user.email, team_id: metaTeamId } as any, { onConflict: 'id' });
+        try {
+          await supabase
+            .from('team_members')
+            .upsert([{ team_id: metaTeamId, user_id: user.id }], { onConflict: 'team_id,user_id' } as any);
+        } catch {}
+      }
+    } catch {}
 
     next();
   } catch (err) {
