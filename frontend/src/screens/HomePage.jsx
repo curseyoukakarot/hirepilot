@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import StackedVisualCards from '../components/StackedVisualCards';
+import GtmStickyPromoBanner from '../components/GtmStickyPromoBanner';
 
 const HomePage = () => {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
@@ -129,6 +130,7 @@ const HomePage = () => {
 
       {/* Header */}
       <PublicNavbar />
+      <GtmStickyPromoBanner />
 
       {/* Animated Prompt Hero */}
       <section id="animated-hero" className="pt-24 h-[700px] flex items-center justify-center relative overflow-hidden">
