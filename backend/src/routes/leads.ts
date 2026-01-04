@@ -25,6 +25,7 @@ import { hasLinkedInCookie } from '../services/linkedin/cookieService';
 import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
 import { getSystemSettingBoolean } from '../utils/systemSettings';
 import { getUserTeamContextDb } from '../lib/userTeamContext';
+import { sendGtmStrategyAccessEmail } from '../lib/emails/gtmStrategyAccessEmail';
 
 const router = express.Router();
 
@@ -2990,6 +2991,35 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     if (!data) {
       res.status(404).json({ error: 'Lead not found' });
       return;
+    }
+
+    // Automation: if GTM-Lead tag is newly added, send GTM guide access email to the lead.
+    // IMPORTANT: only trigger on tag addition, and only for that specific tag.
+    try {
+      const normalize = (t: string) => String(t || '').trim().toLowerCase().replace(/\s+/g, '-');
+      const isGtmTag = (t: string) => normalize(t) === 'gtm-lead';
+      const prevTags = new Set<string>(((originalLead.tags || []) as any[]).map((t) => normalize(String(t || ''))));
+      const nextTagsArr = Array.isArray(req.body?.tags) ? (req.body.tags as any[]) : null;
+      if (nextTagsArr) {
+        const nextNorm = new Set<string>(nextTagsArr.map((t) => normalize(String(t || ''))));
+        const added = Array.from(nextNorm).filter((t) => !prevTags.has(t));
+        const gtmWasAdded = added.some(isGtmTag);
+        const leadEmail = (data as any)?.email ? String((data as any).email) : '';
+        if (gtmWasAdded && leadEmail) {
+          const firstName =
+            (data as any)?.first_name ||
+            String((data as any)?.name || '').trim().split(/\s+/)[0] ||
+            'there';
+          // Fire-and-forget; do not block lead update
+          sendGtmStrategyAccessEmail({
+            to: leadEmail,
+            firstName,
+            ownerUserId: String((data as any)?.user_id || originalLead.user_id || ''),
+          }).catch((e: any) => console.warn('[leads] GTM access email failed', e?.message || e));
+        }
+      }
+    } catch (e) {
+      // non-fatal
     }
 
     // Sync changes to the corresponding candidate record if it exists

@@ -17,6 +17,7 @@ import {
 import type { FieldUpsertDto, FormCreateDto, FormPatchDto, SubmissionPayloadDto } from './dto';
 import { supabaseDb } from '../lib/supabase';
 import type { FormWithFields } from '../shared/types/forms';
+import { GTM_STRATEGY_FORM_SLUG, handleGtmStrategyFormSubmission } from './workflows/gtmStrategy';
 
 // Optional integrations (no-ops if missing or misconfigured)
 async function emitFormSubmitted(form: FormWithFields, responseId: string) {
@@ -91,6 +92,16 @@ export async function submitFormBySlug(req: Request, slug: string, payload: Subm
     file_url: v.file_url ?? null,
   }));
   await insertResponseValuesRepo(valuesInsert);
+
+  // Custom workflow: GTM Strategy form → create lead under specific owner + tag + send access email.
+  // Non-fatal: never block form submissions on workflow failures.
+  if (slug === GTM_STRATEGY_FORM_SLUG) {
+    try {
+      await handleGtmStrategyFormSubmission(form, payload);
+    } catch (e: any) {
+      console.warn('[forms] gtm-strategy workflow error', e?.message || e);
+    }
+  }
 
   // Route destination (minimal, safe no-ops)
   try {
