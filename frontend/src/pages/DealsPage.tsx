@@ -913,6 +913,7 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-left">Industry</th>
                   <th className="p-4 text-left">Monthly Revenue</th>
+                  <th className="p-4 text-left">Annual Revenue</th>
                   <th className="p-4 text-left">Location</th>
                   <th className="p-4 text-left">Decision Makers</th>
                   <th className="p-4 text-left">Created</th>
@@ -921,7 +922,7 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {filteredClients.length === 0 ? (
-                  <tr><td colSpan={10} className="p-6 text-gray-500">No clients yet</td></tr>
+                  <tr><td colSpan={11} className="p-6 text-gray-500">No clients yet</td></tr>
                 ) : filteredClients.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr
@@ -968,6 +969,21 @@ export default function DealsPage() {
                       </td>
                       <td className="p-4">{c.industry || '—'}</td>
                       <td className="p-4">
+                        {(() => {
+                          // NOTE: `monthly_revenue` currently stores the annualized revenue number.
+                          // Monthly Revenue (MRR) is derived as annual / 12.
+                          const annual = c.monthly_revenue != null ? Number(c.monthly_revenue) : null;
+                          const mrr = annual != null ? (annual / 12) : null;
+                          return (
+                            <span>
+                              {mrr != null
+                                ? mrr.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                                : '—'}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span>{c.monthly_revenue != null ? Number(c.monthly_revenue).toLocaleString('en-US',{style:'currency',currency:'USD'}) : '—'}</span>
                           {c.monthly_revenue != null && (
@@ -990,7 +1006,7 @@ export default function DealsPage() {
                     </tr>
                     {expandedClientId === c.id && (
                       <tr>
-                        <td colSpan={10} className="p-5 bg-gray-50 dark:bg-gray-900/40">
+                        <td colSpan={11} className="p-5 bg-gray-50 dark:bg-gray-900/40">
                           <ClientRowEditor
                             client={c}
                             onSave={async ()=>{ const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; const resp = await fetch(`${BACKEND_BASE}/api/clients`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); const js = resp.ok ? await resp.json() : []; setClients(js||[]); setExpandedClientId(null); }}
