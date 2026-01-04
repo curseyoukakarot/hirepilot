@@ -10,21 +10,34 @@ export type DealsSharingContext = {
 };
 
 async function fetchTeamMemberIds(teamId: string): Promise<string[]> {
-  // Prefer team_members if present (newer schema)
+  // Robust: union both membership sources (some envs have partial `team_members` data).
+  const ids = new Set<string>();
+
+  // 1) team_members (newer schema)
   try {
     const { data, error } = await supabaseDb
       .from('team_members')
       .select('user_id')
       .eq('team_id', teamId);
-    if (!error && Array.isArray(data) && data.length) {
-      return data.map((r: any) => String(r.user_id)).filter(Boolean);
+    if (!error && Array.isArray(data)) {
+      (data || []).forEach((r: any) => {
+        const id = String(r?.user_id || '').trim();
+        if (id) ids.add(id);
+      });
     }
-    // If table doesn't exist, PostgREST uses 42P01; fall through to legacy
+    // If table doesn't exist, PostgREST uses 42P01; ignore and rely on users.team_id below.
   } catch {}
 
-  // Legacy: users.team_id
-  const { data } = await supabaseDb.from('users').select('id').eq('team_id', teamId);
-  return (data || []).map((u: any) => String(u.id)).filter(Boolean);
+  // 2) users.team_id (legacy + still authoritative for many team_admin accounts)
+  try {
+    const { data } = await supabaseDb.from('users').select('id').eq('team_id', teamId);
+    (data || []).forEach((u: any) => {
+      const id = String(u?.id || '').trim();
+      if (id) ids.add(id);
+    });
+  } catch {}
+
+  return Array.from(ids);
 }
 
 async function fetchDealsSharingSettings(teamId: string): Promise<{ shareDeals: boolean; shareDealsMembers: boolean }> {
