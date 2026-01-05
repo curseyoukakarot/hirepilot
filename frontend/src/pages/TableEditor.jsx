@@ -96,7 +96,19 @@ export default function TableEditor() {
   };
 
   const formatNumberForColumn = (col, nRaw) => {
-    const n = Number(nRaw);
+    const parseNumberLoose = (raw) => {
+      const s0 = String(raw ?? '').trim();
+      if (!s0) return NaN;
+      let s = s0;
+      let neg = false;
+      if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+      s = s.replace(/[$,%\s]/g, '').replace(/,/g, '');
+      if (!s) return NaN;
+      const n = Number(s);
+      if (!Number.isFinite(n)) return NaN;
+      return neg ? -n : n;
+    };
+    const n = typeof nRaw === 'number' ? nRaw : parseNumberLoose(nRaw);
     const val = isNaN(n) ? 0 : n;
     let fmt = String(col?.format || '').toLowerCase();
     // Back-compat: older formula columns used `currency` without a `format` flag.
@@ -695,7 +707,33 @@ export default function TableEditor() {
       let schemaLocal = normalizeSchema(Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : []);
       let dataLocal = migrateRowsToKeys(Array.isArray(tableRow?.data_json) ? tableRow.data_json : [], schemaLocal);
 
-      // Create columns from headers with simple type inference
+      const parseNumberLoose = (raw) => {
+        const s0 = String(raw ?? '').trim();
+        if (!s0) return NaN;
+        let s = s0;
+        let neg = false;
+        if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+        s = s.replace(/[$,%\s]/g, '').replace(/,/g, '');
+        if (!s) return NaN;
+        const n = Number(s);
+        if (!Number.isFinite(n)) return NaN;
+        return neg ? -n : n;
+      };
+
+      const toDateYmd = (raw) => {
+        const s = String(raw ?? '').trim();
+        if (!s) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const t = Date.parse(s);
+        if (Number.isNaN(t)) return null;
+        const d = new Date(t);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      };
+
+      // Create columns from headers with type inference
       csvHeaders.forEach((h) => {
         const values = csvRows.map(r => r?.[h]);
         ensureCol(schemaLocal, h, inferColumnType(values));
@@ -707,7 +745,29 @@ export default function TableEditor() {
         return out;
       });
 
-      const migratedIncoming = migrateRowsToKeys(incoming, schemaLocal);
+      // Convert incoming values to match inferred column types (so numbers don't render as 0)
+      const typeByLabel = {};
+      (schemaLocal || []).forEach((c) => { typeByLabel[String(colLabel(c))] = String(c?.type || 'text'); });
+      const convertedIncoming = incoming.map((row) => {
+        const out = { ...(row || {}) };
+        for (const h of csvHeaders) {
+          const t = typeByLabel[String(h)] || 'text';
+          const raw = out[h];
+          const s = String(raw ?? '').trim();
+          if (!s) { out[h] = t === 'number' || t === 'money' ? 0 : t === 'date' ? null : ''; continue; }
+          if (t === 'number' || t === 'money') {
+            const n = parseNumberLoose(raw);
+            out[h] = Number.isFinite(n) ? n : 0;
+          } else if (t === 'date') {
+            out[h] = toDateYmd(raw);
+          } else {
+            out[h] = raw;
+          }
+        }
+        return out;
+      });
+
+      const migratedIncoming = migrateRowsToKeys(convertedIncoming, schemaLocal);
       dataLocal = csvReplaceExisting ? migratedIncoming : [...dataLocal, ...migratedIncoming];
 
       await supabase
