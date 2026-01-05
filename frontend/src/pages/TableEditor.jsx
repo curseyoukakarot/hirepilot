@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { evaluate as mathEvaluate } from 'mathjs';
+import Papa from 'papaparse';
 
 export default function TableEditor() {
   const navigate = useNavigate();
@@ -31,6 +32,12 @@ export default function TableEditor() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSource, setImportSource] = useState('/leads');
   const [importFilters, setImportFilters] = useState({ status: '', startDate: '', endDate: '', limit: 1000, importAll: false });
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvInfo, setCsvInfo] = useState({ name: '', rows: 0, cols: 0 });
+  const [csvHeaders, setCsvHeaders] = useState([]);
+  const [csvRows, setCsvRows] = useState([]);
+  const [csvReplaceExisting, setCsvReplaceExisting] = useState(false);
+  const [csvError, setCsvError] = useState('');
   const [columnMenuIdx, setColumnMenuIdx] = useState(null);
   const [columnMenuPos, setColumnMenuPos] = useState(null); // { top:number, left:number }
   const [selectedColIdx, setSelectedColIdx] = useState(null); // when set, edits apply to entire column
@@ -575,6 +582,146 @@ export default function TableEditor() {
       } catch {}
     } catch {
       // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inferColumnType = (values) => {
+    const sample = (Array.isArray(values) ? values : [])
+      .map(v => (v == null ? '' : String(v).trim()))
+      .filter(Boolean)
+      .slice(0, 50);
+    if (!sample.length) return 'text';
+    const isNumber = sample.every(v => /^-?\d+(\.\d+)?$/.test(v.replace(/,/g, '')));
+    if (isNumber) return 'number';
+    const isDate = sample.every(v => {
+      const t = Date.parse(v);
+      return !Number.isNaN(t);
+    });
+    if (isDate) return 'date';
+    return 'text';
+  };
+
+  const parseCsvFile = async (file) => {
+    if (!file) return;
+    setCsvError('');
+    setCsvFile(file);
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setCsvInfo({ name: file.name || 'upload.csv', rows: 0, cols: 0 });
+
+    return new Promise((resolve) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        complete: (results) => {
+          try {
+            const headers = (results?.meta?.fields || []).map(h => String(h || '').trim()).filter(Boolean);
+            const data = Array.isArray(results?.data) ? results.data : [];
+            const cleaned = data
+              .map(r => {
+                const out = {};
+                headers.forEach(h => { out[h] = r?.[h] ?? ''; });
+                return out;
+              })
+              .filter(r => Object.values(r).some(v => String(v ?? '').trim() !== ''));
+            setCsvHeaders(headers);
+            setCsvRows(cleaned);
+            setCsvInfo({ name: file.name || 'upload.csv', rows: cleaned.length, cols: headers.length });
+          } catch (e) {
+            setCsvError('Failed to parse CSV');
+          }
+          resolve(true);
+        },
+        error: (err) => {
+          setCsvError(err?.message || 'Failed to parse CSV');
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  const importFromCsv = async (file) => {
+    if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
+    if (!file) { window.alert('Please choose a CSV file.'); return; }
+    if (!csvHeaders.length || !csvRows.length) { window.alert('CSV appears empty.'); return; }
+    try {
+      setSaving(true);
+      // Ensure we have a real table id (handle /tables/new/edit deep-link)
+      let targetId = id;
+      if (!targetId || targetId === 'new') {
+        const payload = { name: tableName || 'Untitled Table' };
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) throw new Error('Unauthenticated');
+        const { data: inserted, error } = await supabase
+          .from('custom_tables')
+          .insert({ user_id: user.id, name: payload.name, schema_json: [], data_json: [] })
+          .select('*')
+          .single();
+        if (error) throw new Error(error.message);
+        targetId = inserted?.id || '';
+        if (!targetId) throw new Error('Failed to create table');
+      }
+
+      const ensureCol = (arr, label, type) => {
+        const existing = (arr || []).find(c => String(colLabel(c)) === String(label) || String(c?.name || '') === String(label));
+        if (existing) return;
+        const idVal = generateId();
+        const key = ensureUniqueKey(arr || [], toKey(label), idVal);
+        (arr || []).push({ id: idVal, key, label, name: label, type });
+      };
+
+      const { data: tableRow } = await supabase
+        .from('custom_tables')
+        .select('schema_json,data_json')
+        .eq('id', targetId)
+        .maybeSingle();
+
+      let schemaLocal = normalizeSchema(Array.isArray(tableRow?.schema_json) ? tableRow.schema_json : []);
+      let dataLocal = migrateRowsToKeys(Array.isArray(tableRow?.data_json) ? tableRow.data_json : [], schemaLocal);
+
+      // Create columns from headers with simple type inference
+      csvHeaders.forEach((h) => {
+        const values = csvRows.map(r => r?.[h]);
+        ensureCol(schemaLocal, h, inferColumnType(values));
+      });
+
+      const incoming = csvRows.map((r) => {
+        const out = {};
+        csvHeaders.forEach((h) => { out[h] = r?.[h] ?? ''; });
+        return out;
+      });
+
+      const migratedIncoming = migrateRowsToKeys(incoming, schemaLocal);
+      dataLocal = csvReplaceExisting ? migratedIncoming : [...dataLocal, ...migratedIncoming];
+
+      await supabase
+        .from('custom_tables')
+        .update({ schema_json: schemaLocal, data_json: dataLocal, updated_at: new Date().toISOString() })
+        .eq('id', targetId);
+
+      // reload after import
+      try {
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('*')
+          .eq('id', targetId)
+          .maybeSingle();
+        const loadedSchemaRaw = Array.isArray(data?.schema_json) ? data.schema_json : [];
+        const loadedRowsRaw = Array.isArray(data?.data_json) ? data.data_json : [];
+        const normalizedSchema = normalizeSchema(loadedSchemaRaw);
+        const migratedRows = migrateRowsToKeys(loadedRowsRaw, normalizedSchema);
+        setSchema(normalizedSchema);
+        setRows(recomputeFormulasRows(migratedRows));
+        if (id === 'new' && targetId && targetId !== id) {
+          navigate(`/tables/${targetId}/edit`, { replace: true });
+        }
+      } catch {}
+    } catch (e) {
+      console.error('CSV import failed', e);
+      window.alert('CSV import failed. Please check the file and try again.');
     } finally {
       setSaving(false);
     }
@@ -1831,6 +1978,54 @@ export default function TableEditor() {
               <button onClick={()=>setShowImportModal(false)} className="text-gray-500 hover:text-gray-700"><i className="fas fa-times"></i></button>
             </div>
             <div className="space-y-4">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-purple-900">Upload from CSV</div>
+                    <div className="text-xs text-purple-700 mt-0.5">Import rows & columns from a CSV file into this table.</div>
+                  </div>
+                  <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 cursor-pointer">
+                    <i className="fas fa-file-csv"></i>
+                    Upload CSV
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) parseCsvFile(f); }}
+                    />
+                  </label>
+                </div>
+                {csvInfo?.name && (
+                  <div className="mt-3 text-xs text-purple-900">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-1 rounded bg-white/60 border border-purple-200">{csvInfo.name}</span>
+                      <span className="px-2 py-1 rounded bg-white/60 border border-purple-200">{csvInfo.cols} columns</span>
+                      <span className="px-2 py-1 rounded bg-white/60 border border-purple-200">{csvInfo.rows} rows</span>
+                    </div>
+                    {csvError && <div className="mt-2 text-red-600">{csvError}</div>}
+                    {csvHeaders?.length > 0 && (
+                      <div className="mt-2 text-[11px] text-purple-800">
+                        Headers: {csvHeaders.slice(0, 8).join(', ')}{csvHeaders.length > 8 ? '…' : ''}
+                      </div>
+                    )}
+                    <label className="mt-2 flex items-center gap-2 text-[12px] text-purple-900">
+                      <input type="checkbox" checked={csvReplaceExisting} onChange={(e)=>setCsvReplaceExisting(e.target.checked)} />
+                      Replace existing rows (overwrite table data)
+                    </label>
+                    <div className="mt-3">
+                      <button
+                        disabled={!csvFile || !csvRows.length}
+                        onClick={async ()=>{ await importFromCsv(csvFile); setShowImportModal(false); }}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Import CSV
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-400">— or import from an in-app source —</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
