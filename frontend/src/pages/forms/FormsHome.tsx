@@ -97,7 +97,7 @@ export default function FormsHome() {
       const id = esc(f.id);
       const submissions = Number((f as any)?._submission_count || 0);
       return `
-        <div class="rounded-2xl border border-white/5 bg-hp-surface/80 backdrop-blur p-6 card-hover cursor-pointer opacity-0 animate-fade-in ${stagger}" data-id="${id}" data-status="${f.is_public ? 'published' : 'draft'}" data-title="${title.toLowerCase()}" data-updated="${updatedTs}">
+        <div class="form-card rounded-2xl border border-white/5 bg-hp-surface/80 backdrop-blur p-6 card-hover cursor-pointer opacity-0 animate-fade-in ${stagger}" data-id="${id}" data-status="${f.is_public ? 'published' : 'draft'}" data-title="${title.toLowerCase()}" data-updated="${updatedTs}">
           <div class="flex items-start justify-between mb-3">
             <h3 class="text-xl font-semibold text-white line-clamp-1 flex-1">${title}</h3>
             <div class="relative">
@@ -188,11 +188,15 @@ export default function FormsHome() {
             transform: translateY(-1px);
             box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.2), 0 20px 25px -5px rgba(0, 0, 0, 0.3);
         }
+        /* Fix: ensure open menus render above neighboring cards (each card has transform => stacking context) */
+        .form-card { position: relative; z-index: 0; }
+        .form-card.menu-open { z-index: 90; }
+
         .dropdown-menu { 
             display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; 
             background: rgba(19, 19, 26, 0.95); backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.75rem; 
-            padding: 0.4rem; min-width: 220px; z-index: 50; 
+            padding: 0.4rem; min-width: 220px; z-index: 999; 
             box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
         }
         .dropdown-menu.active { display: block; }
@@ -278,6 +282,7 @@ export default function FormsHome() {
     function closeAll() {
       doc.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('active'));
       doc.querySelectorAll('.js-menu-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
+      doc.querySelectorAll('.form-card.menu-open').forEach(c => c.classList.remove('menu-open'));
     }
     doc.addEventListener('click', (e: any) => {
       const target = e.target as HTMLElement;
@@ -305,6 +310,8 @@ export default function FormsHome() {
         if (!isActive) {
           menu.classList.add('active');
           toggleBtn.setAttribute('aria-expanded', 'true');
+          const card = toggleBtn.closest('.form-card') as HTMLElement | null;
+          if (card) card.classList.add('menu-open');
         }
         return;
       }

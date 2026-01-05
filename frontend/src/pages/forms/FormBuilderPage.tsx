@@ -167,7 +167,8 @@ export default function FormBuilderPage() {
           <Topbar
             title={form?.title || 'Untitled Form'}
             status={status}
-            onTitleChange={async (t) => {
+            onTitleSave={async (t) => {
+              // Persist title without blocking typing; Topbar handles debounce + save state.
               setForm((prev: any) => ({ ...(prev || {}), title: t }));
               if (form?.id) await updateForm(form.id, { title: t });
             }}

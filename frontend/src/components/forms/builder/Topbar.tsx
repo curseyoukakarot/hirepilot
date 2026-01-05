@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 type Props = {
   title: string;
   status: 'saved' | 'saving' | 'dirty';
-  onTitleChange: (t: string) => void;
+  onTitleSave?: (t: string) => Promise<void> | void;
   onBack?: () => void;
   onPreview: () => void;
   onShare: () => void;
@@ -11,7 +11,54 @@ type Props = {
   onPublish: () => void;
 };
 
-export function Topbar({ title, status, onTitleChange, onBack, onPreview, onShare, onSave, onPublish }: Props) {
+export function Topbar({ title, status, onTitleSave, onBack, onPreview, onShare, onSave, onPublish }: Props) {
+  const [draftTitle, setDraftTitle] = useState(title || '');
+  const [localDirty, setLocalDirty] = useState(false);
+  const [localSaving, setLocalSaving] = useState(false);
+  const lastSavedRef = useRef<string>(title || '');
+  const debounceRef = useRef<number | null>(null);
+  const focusedRef = useRef(false);
+
+  // Sync external title into local draft when not actively editing or dirty.
+  useEffect(() => {
+    if (focusedRef.current) return;
+    if (localDirty) return;
+    setDraftTitle(title || '');
+    lastSavedRef.current = title || '';
+  }, [title, localDirty]);
+
+  const displayStatus: Props['status'] = useMemo(() => {
+    if (localSaving || status === 'saving') return 'saving';
+    if (localDirty || status === 'dirty') return 'dirty';
+    return 'saved';
+  }, [localSaving, localDirty, status]);
+
+  const flushSave = async () => {
+    if (!onTitleSave) return;
+    const next = (draftTitle || '').trim();
+    // Avoid spamming: only save if changed
+    if (!next || next === lastSavedRef.current) {
+      setLocalDirty(false);
+      return;
+    }
+    setLocalSaving(true);
+    try {
+      await onTitleSave(next);
+      lastSavedRef.current = next;
+      setLocalDirty(false);
+    } finally {
+      setLocalSaving(false);
+    }
+  };
+
+  const scheduleSave = () => {
+    if (!onTitleSave) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      flushSave().catch(() => {});
+    }, 650);
+  };
+
   return (
     <div className="w-full flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -25,12 +72,29 @@ export function Topbar({ title, status, onTitleChange, onBack, onPreview, onShar
         </button>
         <input
           type="text"
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
+          value={draftTitle}
+          onFocus={() => { focusedRef.current = true; }}
+          onBlur={() => {
+            focusedRef.current = false;
+            if (debounceRef.current) window.clearTimeout(debounceRef.current);
+            flushSave().catch(() => {});
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          onChange={(e) => {
+            const next = e.target.value;
+            setDraftTitle(next);
+            setLocalDirty(true);
+            scheduleSave();
+          }}
           className="hp-input h-9 px-3 rounded-xl text-lg font-medium bg-transparent border-none focus:bg-[var(--hp-surface-2)]"
         />
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${status === 'dirty' ? 'bg-amber-100 text-amber-700' : status === 'saving' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-          {status === 'saving' ? 'Saving' : status === 'dirty' ? 'Draft' : 'Saved'}
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${displayStatus === 'dirty' ? 'bg-amber-100 text-amber-700' : displayStatus === 'saving' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+          {displayStatus === 'saving' ? 'Saving' : displayStatus === 'dirty' ? 'Draft' : 'Saved'}
         </span>
       </div>
       <div className="flex items-center gap-3">
