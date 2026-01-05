@@ -244,11 +244,10 @@ export default function GtmStrategyLandingPage() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                  What the guide helps you accomplish (without showing everything)
+                  What the guide helps you accomplish:
                 </h2>
                 <p className="mt-2 muted max-w-2xl">
-                  This is the “teaser.” The full guide includes exact sequences, scheduling logic, dashboard templates, and
-                  automation maps.
+                  The full guide includes exact sequences, scheduling logic, dashboard templates, and automation maps.
                 </p>
               </div>
               <div className="pill rounded-2xl px-4 py-2 text-sm muted">Built for agencies, recruiters, and B2B services</div>
