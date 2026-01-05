@@ -591,15 +591,28 @@ export default function TableEditor() {
     const sample = (Array.isArray(values) ? values : [])
       .map(v => (v == null ? '' : String(v).trim()))
       .filter(Boolean)
-      .slice(0, 50);
+      .slice(0, 80);
     if (!sample.length) return 'text';
-    const isNumber = sample.every(v => /^-?\d+(\.\d+)?$/.test(v.replace(/,/g, '')));
-    if (isNumber) return 'number';
-    const isDate = sample.every(v => {
-      const t = Date.parse(v);
-      return !Number.isNaN(t);
-    });
-    if (isDate) return 'date';
+
+    const parseNumberLoose = (raw) => {
+      const s0 = String(raw ?? '').trim();
+      if (!s0) return NaN;
+      let s = s0;
+      let neg = false;
+      if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+      s = s.replace(/[$,%\s]/g, '').replace(/,/g, '');
+      if (!s) return NaN;
+      const n = Number(s);
+      if (!Number.isFinite(n)) return NaN;
+      return neg ? -n : n;
+    };
+
+    const numberCount = sample.filter(v => Number.isFinite(parseNumberLoose(v))).length;
+    const dateCount = sample.filter(v => !Number.isNaN(Date.parse(v))).length;
+    const ratio = (n) => (sample.length ? n / sample.length : 0);
+
+    if (ratio(numberCount) >= 0.9) return 'number';
+    if (ratio(dateCount) >= 0.9) return 'date';
     return 'text';
   };
 
@@ -925,26 +938,101 @@ export default function TableEditor() {
   const changeColumnTypeAt = async (colIdx, newType, newCurrency) => {
     if (isReadOnly) { window.alert('This table is view-only. Ask the owner for Edit access.'); return; }
     const col = schema[colIdx]; if (!col) return;
+    const oldType = String(col?.type || 'text');
+    const targetType = String(newType || 'text');
+    if (oldType === targetType) return;
+
+    const k = colKey(col);
+    const rawVals = (rows || []).map(r => (r || {})[k]);
+    const nonEmpty = rawVals
+      .map(v => (v == null ? '' : String(v).trim()))
+      .filter(v => v !== '');
+
+    const parseNumberLoose = (raw) => {
+      const s0 = String(raw ?? '').trim();
+      if (!s0) return NaN;
+      let s = s0;
+      let neg = false;
+      if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+      s = s.replace(/[$,%\s]/g, '').replace(/,/g, '');
+      if (!s) return NaN;
+      const n = Number(s);
+      if (!Number.isFinite(n)) return NaN;
+      return neg ? -n : n;
+    };
+
+    const toDateYmd = (raw) => {
+      const s = String(raw ?? '').trim();
+      if (!s) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const t = Date.parse(s);
+      if (Number.isNaN(t)) return null;
+      const d = new Date(t);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const failIfIncompatible = (targetLabel, invalidSamples) => {
+      const samples = invalidSamples.slice(0, 5).map(v => `"${String(v).slice(0, 60)}"`).join(', ');
+      window.alert(
+        `Cannot convert this column to ${targetLabel} because some values are not compatible.\n\n` +
+        `Fix or clear these values first, then try again.\n\n` +
+        `Examples: ${samples}${invalidSamples.length > 5 ? ' …' : ''}`
+      );
+    };
+
+    // Compatibility gate: only allow conversion when ALL non-empty values convert.
+    if (targetType === 'number' || targetType === 'money') {
+      const invalid = nonEmpty.filter(v => !Number.isFinite(parseNumberLoose(v)));
+      if (invalid.length) {
+        failIfIncompatible(targetType === 'money' ? 'Money' : 'Number', invalid);
+        return;
+      }
+    }
+    if (targetType === 'date') {
+      const invalid = nonEmpty.filter(v => !toDateYmd(v));
+      if (invalid.length) {
+        failIfIncompatible('Date', invalid);
+        return;
+      }
+    }
+
     const nextSchema = schema.map((c, i) => {
       if (i !== colIdx) return c;
-      const updated = { ...c, type: newType };
-      if (newType === 'money' || newType === 'formula') {
+      const updated = { ...c, type: targetType };
+      if (targetType === 'money' || targetType === 'formula') {
         updated.currency = newCurrency || c.currency || 'USD';
       } else if (updated.currency) {
         delete updated.currency;
       }
-      if (newType === 'formula' && !updated.formula) updated.formula = '=0';
+      if (targetType === 'formula' && !updated.formula) updated.formula = '=0';
       return updated;
     });
     let nextRows = rows;
-    if (newType === 'number' || newType === 'money') {
-      const k = colKey(col);
-      nextRows = (rows || []).map(r => ({ ...r, [k]: Number((r || {})[k]) || 0 }));
+    if (targetType === 'number' || targetType === 'money') {
+      nextRows = (rows || []).map(r => {
+        const raw = (r || {})[k];
+        const s = String(raw ?? '').trim();
+        const converted = s === '' ? 0 : parseNumberLoose(raw);
+        return { ...(r || {}), [k]: Number.isFinite(converted) ? converted : 0 };
+      });
+    } else if (targetType === 'date') {
+      nextRows = (rows || []).map(r => {
+        const raw = (r || {})[k];
+        const s = String(raw ?? '').trim();
+        const converted = s === '' ? null : toDateYmd(raw);
+        return { ...(r || {}), [k]: converted };
+      });
+    } else {
+      // text/status/formula: non-destructive
+      nextRows = rows;
     }
     nextRows = recomputeFormulasRows(nextRows);
     setSchema(nextSchema); setRows(nextRows); setColumnMenuIdx(null);
     await persistSchemaRows(nextSchema, nextRows);
-    addActivity(`Changed column type to ${newType}`);
+    addActivity(`Changed column type to ${targetType}`);
   };
 
   // Close column menu on outside click
