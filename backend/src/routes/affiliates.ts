@@ -11,10 +11,11 @@ r.post('/register', async (req, res) => {
   const userId = (req as any).user.id;
   const code = 'hp_' + userId.slice(0, 8);
 
-  // Detect if this is a first-time affiliate registration to avoid duplicate Slack pings
+  // Detect if this is a first-time affiliate registration to avoid duplicate Slack pings,
+  // and track whether we've already sent the affiliate welcome email.
   const { data: existing } = await supabaseAdmin
     .from('affiliates')
-    .select('id')
+    .select('id,welcome_sent_at')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -26,8 +27,32 @@ r.post('/register', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
 
-  // Fire-and-forget affiliate welcome email
-  try { await sendAffiliateWelcomeEmail(userId); } catch {}
+  // Send affiliate welcome email ONCE (never on each login).
+  // We "claim" the send by setting welcome_sent_at if it's currently null, which prevents
+  // duplicate sends across retries/concurrency. If SendGrid fails, we'll log to Slack and
+  // avoid spamming the user on subsequent logins.
+  if (!existing?.welcome_sent_at) {
+    try {
+      const nowIso = new Date().toISOString();
+      const { data: claimed } = await supabaseAdmin
+        .from('affiliates')
+        .update({ welcome_sent_at: nowIso })
+        .eq('user_id', userId)
+        .is('welcome_sent_at', null)
+        .select('id')
+        .maybeSingle();
+
+      if (claimed?.id) {
+        await sendAffiliateWelcomeEmail(userId);
+      }
+    } catch (e) {
+      // best-effort only
+      console.warn('Affiliate welcome email failed', e);
+      try {
+        await notifySlack(`⚠️ Affiliate welcome email failed for user_id=${userId}`);
+      } catch {}
+    }
+  }
 
   // Notify Super Admins in Slack for NEW signups only
   if (!existing) {
