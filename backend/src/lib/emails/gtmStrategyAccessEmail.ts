@@ -47,13 +47,17 @@ const GTM_ACCESS_EMAIL_HTML = `<!doctype html>
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td valign="middle">
-                      <div style="display:inline-block; width:36px; height:36px; border-radius:12px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.10); vertical-align:middle; text-align:center; line-height:36px;">
-                        <span style="display:inline-block; width:14px; height:14px; border-radius:999px; background:linear-gradient(135deg,#7c5cff,#38bdf8);"></span>
-                      </div>
+                      <img
+                        src="https://thehirepilot.com/hirepilot-logo-2.png"
+                        width="34"
+                        height="34"
+                        alt="HirePilot"
+                        style="display:inline-block; vertical-align:middle; border:0; outline:none; text-decoration:none; border-radius:10px;"
+                      />
                       <span style="margin-left:10px; vertical-align:middle; font-family:Arial, Helvetica, sans-serif; color:#ffffff; font-weight:700; font-size:16px;">
                         HirePilot
                       </span>
-                      <div style="margin-left:50px; margin-top:2px; font-family:Arial, Helvetica, sans-serif; color:rgba(255,255,255,0.70); font-size:12px;">
+                      <div style="margin-left:44px; margin-top:2px; font-family:Arial, Helvetica, sans-serif; color:rgba(255,255,255,0.70); font-size:12px;">
                         GTM Strategy Guide • 2026 Blueprint
                       </div>
                     </td>
