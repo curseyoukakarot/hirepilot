@@ -2,7 +2,7 @@
 
 This repo now supports mapping **Elite** users’ public landing pages to a custom domain, while keeping the canonical URL working:
 
-- **Canonical**: `jobs.thehirepilot.com/p/:slug`
+- **Canonical**: `app.thehirepilot.com/p/:slug`
 - **White-label**: `https://yourname.com/` or `https://profile.yourname.com/`
 
 ### What was added

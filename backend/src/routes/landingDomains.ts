@@ -208,7 +208,7 @@ router.post('/request', requireAuthUnified as any, async (req: Request, res: Res
         note: 'Create this TXT record, wait for DNS to propagate, then click Verify.',
       },
       recommendedRouting: {
-        note: 'Also point your domain to the Vercel project hosting jobs.thehirepilot.com so HTTPS works.',
+        note: 'Also point your domain to the Vercel project hosting app.thehirepilot.com so HTTPS works.',
         apex: [{ type: 'A', name: '@', value: '76.76.21.21' }],
         subdomain: [{ type: 'CNAME', name: 'profile', value: 'cname.vercel-dns.com' }],
       },

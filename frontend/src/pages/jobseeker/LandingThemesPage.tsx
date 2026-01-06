@@ -107,6 +107,23 @@ export default function LandingThemesPage() {
   const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
   const isEliteFromClient = roleLc === 'job_seeker_elite' || ['super_admin', 'admin', 'team_admin', 'team_admins'].includes(roleLc);
   const backend = getBackendBase();
+  const isJobsHost = (() => {
+    try {
+      return window.location.hostname.startsWith('jobs.');
+    } catch {
+      return false;
+    }
+  })();
+  const backTo = isJobsHost ? '/prep' : '/dashboard';
+  const publicUrlExample = (() => {
+    try {
+      const host = window.location.host || '';
+      if (host.endsWith('thehirepilot.com')) return 'app.thehirepilot.com/p/yourname';
+      return `${host}/p/yourname`;
+    } catch {
+      return 'app.thehirepilot.com/p/yourname';
+    }
+  })();
 
   const [themes, setThemes] = useState<LandingTheme[]>(MOCK_THEMES);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>('b3b5b4f9-5d15-4b9b-b0d0-9bb8d2b0d001');
@@ -267,10 +284,10 @@ export default function LandingThemesPage() {
 
             <div className="flex items-center gap-2 text-xs">
               <button
-                onClick={() => navigate('/prep')}
+                onClick={() => navigate(backTo)}
                 className="btn rounded-xl bg-white/6 px-3 py-2 text-xs font-medium soft-border hover:bg-white/10"
               >
-                Back to Prep
+                {isJobsHost ? 'Back to Prep' : 'Back to Dashboard'}
               </button>
               <Link
                 to="/prep/landing-page"
@@ -290,7 +307,7 @@ export default function LandingThemesPage() {
                   {selectedThemeName}
                 </span>
               </div>
-              <div className="mt-2 text-sm font-medium">jobs.thehirepilot.com/u/yourname</div>
+              <div className="mt-2 text-sm font-medium">{publicUrlExample}</div>
               <div className="mt-1 text-xs text-slate-400">Last published: —</div>
             </div>
 

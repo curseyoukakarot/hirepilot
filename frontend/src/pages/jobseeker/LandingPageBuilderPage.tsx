@@ -373,6 +373,24 @@ export default function LandingPageBuilderPage() {
   const { role: accountRole } = usePlan();
   const roleLc = String(accountRole || '').toLowerCase().replace(/\s|-/g, '_');
   const isElite = ['super_admin', 'admin', 'team_admin', 'team_admins', 'job_seeker_elite'].includes(roleLc);
+  const isJobsHost = (() => {
+    try {
+      return window.location.hostname.startsWith('jobs.');
+    } catch {
+      return false;
+    }
+  })();
+  const backTo = isJobsHost ? '/prep' : '/dashboard';
+  const backLabel = isJobsHost ? 'Back to Prep' : 'Back to Dashboard';
+  const publicUrlPrefix = (() => {
+    try {
+      const host = window.location.host || '';
+      if (host.endsWith('thehirepilot.com')) return 'app.thehirepilot.com/p/';
+      return `${host}/p/`;
+    } catch {
+      return 'app.thehirepilot.com/p/';
+    }
+  })();
 
   const [heroFocus, setHeroFocus] = useState(
     'Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR.'
@@ -705,11 +723,11 @@ export default function LandingPageBuilderPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <Link
-                to="/prep"
+                to={backTo}
                 className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-300 text-sm mb-3 transition-colors"
               >
                 <FaArrowLeft className="text-xs" />
-                <span>Back to Prep</span>
+                <span>{backLabel}</span>
               </Link>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[10px] font-medium text-slate-500 px-2 py-1 rounded-full bg-slate-800/50 border border-slate-700/50">
@@ -728,7 +746,7 @@ export default function LandingPageBuilderPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50">
                 <FaLink className="text-xs text-slate-400" />
-                <span className="text-xs text-slate-400 font-mono">jobs.thehirepilot.com/p/</span>
+                <span className="text-xs text-slate-400 font-mono">{publicUrlPrefix}</span>
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}

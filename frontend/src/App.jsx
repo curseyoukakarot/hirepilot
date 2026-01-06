@@ -89,6 +89,9 @@ import GtmStrategy from './pages/GtmStrategy';
 import GtmStrategyLandingPage from './pages/GtmStrategyLandingPage';
 import OnboardingModals from './components/OnboardingModals';
 import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
+import PublicLandingPage from './pages/jobseeker/PublicLandingPage';
+import LandingPageBuilderPage from './pages/jobseeker/LandingPageBuilderPage';
+import LandingThemesPage from './pages/jobseeker/LandingThemesPage';
 import OnboardingAppPage from './pages/OnboardingAppPage';
 import AuthCallback from './pages/AuthCallback';
 // Blog article pages
@@ -442,8 +445,18 @@ function InnerApp() {
   const isPublicShare = location.pathname.includes('/jobs/share');
   const isPublicApply = location.pathname.includes('/apply');
   const isPublicForm = location.pathname.startsWith('/f/') || location.pathname.startsWith('/forms/public/');
+  const isPublicLanding = location.pathname.startsWith('/p/');
+  const isCustomHost = (() => {
+    const h = String(hostname || '').toLowerCase();
+    if (!h) return false;
+    if (h === 'localhost' || h.endsWith('.localhost')) return false;
+    if (h === '127.0.0.1') return false;
+    // Canonical HirePilot domains
+    if (h.endsWith('thehirepilot.com')) return false;
+    return true;
+  })();
   // Only the marketing page "/rex" should be treated as public; do NOT blanket-match all "/rex*" paths
-  let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply || isPublicForm;
+  let isAuthPage = landingPages.includes(location.pathname) || location.pathname.startsWith('/blog') || isPartnerArea || isPublicShare || isPublicApply || isPublicForm || isPublicLanding || isCustomHost;
   const isBlog = location.pathname.startsWith('/blog');
   // Whether the current authenticated user is a guest collaborator (computed below)
   const [isGuestUser, setIsGuestUser] = useState(false);
@@ -664,7 +677,8 @@ function InnerApp() {
       location.pathname !== '/gtm-strategy/teaser' &&
       !['/login', '/signup', '/reset-password'].includes(location.pathname) &&
       !isPublicShare &&
-      !isPublicApply
+      !isPublicApply &&
+      !isCustomHost
     ) {
       navigate('/dashboard', { replace: true });
       return;
@@ -772,7 +786,15 @@ function InnerApp() {
             </div>
           }>
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/"
+                element={
+                  isCustomHost
+                    ? <PublicLandingPage hostOverride={hostname} whiteLabel={true} />
+                    : <HomePage />
+                }
+              />
+              <Route path="/p/:slug" element={<PublicLandingPage />} />
               {/* Public Forms runtime */}
               <Route path="/f/:slug" element={<PublicFormRoute />} />
               <Route path="/forms/public/:slug" element={<PublicFormRoute />} />
@@ -844,6 +866,9 @@ function InnerApp() {
               <Route path="/forms" element={<FormsPaidRoute><FormsHome /></FormsPaidRoute>} />
               <Route path="/forms/:id" element={<FormsPaidRoute><FormBuilderPage /></FormsPaidRoute>} />
               <Route path="/forms/:id/responses" element={<FormsPaidRoute><FormResponsesPage /></FormsPaidRoute>} />
+              {/* Landing Page Builder (paid feature) */}
+              <Route path="/prep/landing-page" element={<LandingPagesPaidRoute><LandingPageBuilderPage /></LandingPagesPaidRoute>} />
+              <Route path="/prep/landing/themes" element={<LandingPagesPaidRoute><LandingThemesPage /></LandingPagesPaidRoute>} />
               <Route path="/deals" element={<DealsPage />} />
               <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
@@ -947,6 +972,32 @@ function FormsPaidRoute({ children }) {
         <h1 className="text-2xl font-semibold mb-2">Forms is a Pro feature</h1>
         <p className="text-gray-600 dark:text-gray-300 mb-6">
           Upgrade your plan to create public forms, collect responses, and route submissions to Leads, Candidates, or Custom Tables.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <a href="/pricing?plan=pro" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
+          <a href="/freeforever" className="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Learn more</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LandingPagesPaidRoute({ children }) {
+  const { isFree, loading, role } = usePlan();
+  if (loading) return <div className="flex items-center justify-center h-screen text-lg">Loading…</div>;
+  const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
+  const allowedPaidRoles = ['member', 'members', 'admin', 'team_admin', 'team_admins', 'teamadmin', 'recruitpro', 'super_admin', 'superadmin'];
+  const allowed = !isFree && allowedPaidRoles.includes(roleLc);
+  if (allowed) return children;
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-8">
+      <div className="max-w-xl w-full bg-white dark:bg-gray-800 shadow rounded-2xl p-8 text-center border border-gray-200 dark:border-gray-700">
+        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+          <span role="img" aria-label="lock">🔒</span>
+        </div>
+        <h1 className="text-2xl font-semibold mb-2">Landing Page Builder is a paid feature</h1>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          Upgrade your plan to create and publish landing pages.
         </p>
         <div className="flex items-center justify-center gap-3">
           <a href="/pricing?plan=pro" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>

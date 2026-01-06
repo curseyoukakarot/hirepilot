@@ -4,6 +4,31 @@ import { supabase } from '../lib/supabase';
 
 const router = express.Router();
 
+function normalizeRolePlan(v: any) {
+  return String(v || '').toLowerCase().replace(/\s|-/g, '_');
+}
+
+function isPaidUserFromReq(req: Request): boolean {
+  const role = normalizeRolePlan((req as any)?.user?.role);
+  const plan = String((req as any)?.user?.plan || '').toLowerCase();
+  const isGuest = Boolean((req as any)?.user?.is_guest);
+
+  // Always allow admin-like roles regardless of plan drift
+  if (['super_admin', 'superadmin', 'admin', 'team_admin', 'team_admins', 'teamadmin'].includes(role)) return true;
+
+  // Explicitly block free/guest-style roles
+  if (isGuest) return false;
+  if (role === 'free' || role === 'guest' || role === 'job_seeker_free') return false;
+  if (plan === 'free') return false;
+
+  // Allow known paid roles/plans (recruiter + job-seeker)
+  const paidRoles = ['member', 'members', 'recruitpro', 'job_seeker_pro', 'job_seeker_elite'];
+  if (paidRoles.includes(role)) return true;
+
+  // Conservative default: if we can't confidently determine paid status, block.
+  return false;
+}
+
 function normalizeSlug(input: string) {
   const s = String(input || '')
     .trim()
@@ -22,6 +47,7 @@ router.get('/me', requireAuthUnified as any, async (req: Request, res: Response)
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (!isPaidUserFromReq(req)) return res.status(403).json({ error: 'PAID_REQUIRED', code: 'PAID_REQUIRED' });
 
     const { data, error } = await supabase
       .from('landing_pages')
@@ -43,6 +69,7 @@ router.post('/upsert', requireAuthUnified as any, async (req: Request, res: Resp
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (!isPaidUserFromReq(req)) return res.status(403).json({ error: 'PAID_REQUIRED', code: 'PAID_REQUIRED' });
 
     const slug = normalizeSlug((req.body as any)?.slug);
     const html = String((req.body as any)?.html || '');
