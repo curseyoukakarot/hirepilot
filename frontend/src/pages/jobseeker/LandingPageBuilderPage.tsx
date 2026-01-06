@@ -468,6 +468,7 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
   const [slugSaved, setSlugSaved] = useState(false);
   const [htmlSaved, setHtmlSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const proposalManualHtmlEditRef = React.useRef(false);
   const [proposalValues, setProposalValues] = useState<ProposalSetupValues>({
     proposalTitle: '',
     clientCompany: '',
@@ -489,6 +490,72 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     tones: ['confident', 'warm', 'direct'],
     calendly: '',
   });
+
+  const pageTitle = isJobsHost ? 'Landing Page Builder' : 'Proposal Builder';
+  const pageSubtitle = isJobsHost
+    ? 'Design a personal landing page that showcases your story, achievements, and contact details.'
+    : 'Generate a polished proposal page you can share with clients—then tweak the HTML if needed.';
+
+  const buildProposalHtml = useCallback((v: ProposalSetupValues) => {
+    const title = v.proposalTitle || `${v.clientCompany || 'Client'} Proposal`;
+    const contactLine = [v.clientContact, v.clientEmail].filter(Boolean).join(' • ');
+    const sectionsEnabled = v.includeSections || ({} as any);
+    const tonesText = (v.tones || []).map((t) => t.replace(/_/g, '-')).join(', ');
+    const calendlyLink = v.calendly || '#';
+    const esc = (s: string) => String(s || '').replace(/</g, '&lt;');
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${esc(title)}</title>
+    <style>
+      :root{--bg:#070A0F;--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.66);--border:rgba(255,255,255,.10);--accent:#2F66FF;--radius:18px;--max:980px}
+      body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+      .wrap{max-width:var(--max);margin:0 auto;padding:28px 18px 64px}
+      .card{border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:var(--radius);padding:18px}
+      .h1{font-size:34px;letter-spacing:-.02em;margin:0 0 6px}
+      .sub{color:var(--muted);margin:0 0 14px}
+      .meta{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:13px}
+      .pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:999px;padding:7px 10px}
+      .grid{display:grid;gap:14px;margin-top:14px}
+      .h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 8px;color:rgba(255,255,255,.72)}
+      a{color:white}
+      .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);text-decoration:none;background:linear-gradient(135deg,rgba(47,102,255,.95),rgba(47,102,255,.75))}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="meta" style="margin-bottom:10px">
+          <span class="pill">HirePilot • Proposal</span>
+          <span class="pill">${esc(String(v.proposalType || 'exec_search').replace(/_/g, ' ').toUpperCase())}</span>
+          <span class="pill">${esc(String(v.pricingModel || 'retainer').replace(/_/g, ' '))}</span>
+          <span class="pill">Tone: ${esc(tonesText || 'confident')}</span>
+        </div>
+        <h1 class="h1">${esc(title)}</h1>
+        <p class="sub">${esc([v.clientCompany && `Client: ${v.clientCompany}`, contactLine && `Contact: ${contactLine}`].filter(Boolean).join(' · '))}</p>
+        <div class="meta">
+          ${v.rolesHiringFor ? `<span class="pill">Scope: ${esc(v.rolesHiringFor)}</span>` : ''}
+          ${v.timeline ? `<span class="pill">Timeline: ${esc(v.timeline)}</span>` : ''}
+        </div>
+        <div style="margin-top:14px">
+          <a class="btn" href="${esc(calendlyLink)}" target="_blank" rel="noreferrer">Book a kickoff call →</a>
+        </div>
+      </div>
+      <div class="grid">
+        ${sectionsEnabled.overview ? `<div class="card"><div class="h2">Overview</div><div style="color:var(--muted)">Write a short overview of the engagement and desired outcome.</div></div>` : ''}
+        ${sectionsEnabled.scope ? `<div class="card"><div class="h2">Scope & Deliverables</div><div style="color:var(--muted)">List deliverables, roles covered, and what success looks like.</div></div>` : ''}
+        ${sectionsEnabled.process ? `<div class="card"><div class="h2">Process</div><div style="color:var(--muted)">Explain your process step-by-step (kickoff → sourcing → shortlist → close).</div></div>` : ''}
+        ${sectionsEnabled.pricing ? `<div class="card"><div class="h2">Pricing</div><div style="color:var(--muted)">Summarize pricing model, payment schedule, and included services.</div></div>` : ''}
+        ${sectionsEnabled.caseStudies ? `<div class="card"><div class="h2">Case studies</div><div style="color:var(--muted)">Add 1–2 short case studies with metrics.</div></div>` : ''}
+        ${sectionsEnabled.terms ? `<div class="card"><div class="h2">Terms</div><div style="color:var(--muted)">Add terms, guarantees, and key assumptions.</div></div>` : ''}
+        ${sectionsEnabled.nextSteps ? `<div class="card"><div class="h2">Next steps</div><div style="color:var(--muted)">Confirm kickoff date, stakeholders, and required inputs.</div></div>` : ''}
+      </div>
+    </div>
+  </body>
+</html>`;
+  }, []);
 
   const toToneKey = (t: Tone): ToneKey => {
     const map: Record<Tone, ToneKey> = {
@@ -568,7 +635,12 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     return base.includes('{{content}}') ? base.replace('{{content}}', content) : `${base}${content}`;
   }, []);
 
-  const wrappedDoc = wrapWithTheme(htmlContent || initialHtml, themeWrapperHtml);
+  const previewDoc = (() => {
+    // Job seeker mode: use theme wrapper (content-only HTML).
+    if (isJobsHost) return wrapWithTheme(htmlContent || initialHtml, themeWrapperHtml);
+    // Recruiter proposals: htmlContent is a full HTML document; do NOT theme-wrap.
+    return htmlContent || '';
+  })();
 
   // Load currently selected theme (and wrapper HTML) so preview/publish reflect it
   useEffect(() => {
@@ -623,70 +695,17 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     // For now, generate a clean HTML proposal skeleton into the editor.
     // (Uses the existing HTML editor + publish flow. Proposal-specific publishing can be layered on later.)
     setIsGenerating(true);
-    try {
-      const v = proposalValues;
-      const title = v.proposalTitle || `${v.clientCompany || 'Client'} Proposal`;
-      const contactLine = [v.clientContact, v.clientEmail].filter(Boolean).join(' • ');
-      const sectionsEnabled = v.includeSections || ({} as any);
-      const tonesText = (v.tones || []).map((t) => t.replace(/_/g, '-')).join(', ');
-      const calendlyLink = v.calendly || '#';
-      const html = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>${title.replace(/</g, '&lt;')}</title>
-    <style>
-      :root{--bg:#070A0F;--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.66);--border:rgba(255,255,255,.10);--accent:#2F66FF;--radius:18px;--max:980px}
-      body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-      .wrap{max-width:var(--max);margin:0 auto;padding:28px 18px 64px}
-      .card{border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:var(--radius);padding:18px}
-      .h1{font-size:34px;letter-spacing:-.02em;margin:0 0 6px}
-      .sub{color:var(--muted);margin:0 0 14px}
-      .meta{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:13px}
-      .pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:999px;padding:7px 10px}
-      .grid{display:grid;gap:14px;margin-top:14px}
-      .h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 8px;color:rgba(255,255,255,.72)}
-      a{color:white}
-      .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);text-decoration:none;background:linear-gradient(135deg,rgba(47,102,255,.95),rgba(47,102,255,.75))}
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <div class="meta" style="margin-bottom:10px">
-          <span class="pill">HirePilot • Proposal</span>
-          <span class="pill">${String(v.proposalType || 'exec_search').replace(/_/g,' ').toUpperCase()}</span>
-          <span class="pill">${String(v.pricingModel || 'retainer').replace(/_/g,' ')}</span>
-          <span class="pill">Tone: ${tonesText || 'confident'}</span>
-        </div>
-        <h1 class="h1">${title}</h1>
-        <p class="sub">${[v.clientCompany && `Client: ${v.clientCompany}`, contactLine && `Contact: ${contactLine}`].filter(Boolean).join(' · ')}</p>
-        <div class="meta">
-          ${v.rolesHiringFor ? `<span class="pill">Scope: ${v.rolesHiringFor}</span>` : ''}
-          ${v.timeline ? `<span class="pill">Timeline: ${v.timeline}</span>` : ''}
-        </div>
-        <div style="margin-top:14px">
-          <a class="btn" href="${calendlyLink}" target="_blank" rel="noreferrer">Book a kickoff call →</a>
-        </div>
-      </div>
-      <div class="grid">
-        ${sectionsEnabled.overview ? `<div class="card"><div class="h2">Overview</div><div style="color:var(--muted)">Write a short overview of the engagement and desired outcome.</div></div>` : ''}
-        ${sectionsEnabled.scope ? `<div class="card"><div class="h2">Scope & Deliverables</div><div style="color:var(--muted)">List deliverables, roles covered, and what success looks like.</div></div>` : ''}
-        ${sectionsEnabled.process ? `<div class="card"><div class="h2">Process</div><div style="color:var(--muted)">Explain your process step-by-step (kickoff → sourcing → shortlist → close).</div></div>` : ''}
-        ${sectionsEnabled.pricing ? `<div class="card"><div class="h2">Pricing</div><div style="color:var(--muted)">Summarize pricing model, payment schedule, and included services.</div></div>` : ''}
-        ${sectionsEnabled.caseStudies ? `<div class="card"><div class="h2">Case studies</div><div style="color:var(--muted)">Add 1–2 short case studies with metrics.</div></div>` : ''}
-        ${sectionsEnabled.terms ? `<div class="card"><div class="h2">Terms</div><div style="color:var(--muted)">Add terms, guarantees, and key assumptions.</div></div>` : ''}
-        ${sectionsEnabled.nextSteps ? `<div class="card"><div class="h2">Next steps</div><div style="color:var(--muted)">Confirm kickoff date, stakeholders, and required inputs.</div></div>` : ''}
-      </div>
-    </div>
-  </body>
-</html>`;
-      setHtmlContent(html);
-    } finally {
-      setTimeout(() => setIsGenerating(false), 400);
-    }
+    proposalManualHtmlEditRef.current = false;
+    setHtmlContent(buildProposalHtml(proposalValues));
+    setTimeout(() => setIsGenerating(false), 400);
   };
+
+  // Live sync proposal inputs -> HTML editor + preview (until user manually edits HTML)
+  useEffect(() => {
+    if (isJobsHost) return;
+    if (proposalManualHtmlEditRef.current) return;
+    setHtmlContent(buildProposalHtml(proposalValues));
+  }, [buildProposalHtml, isJobsHost, proposalValues]);
 
   const handleInsertHero = () => {
     setHeroFocus('Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR');
@@ -824,9 +843,12 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
   };
 
   const openPreviewTab = () => {
-    const html = htmlContent || buildHtml();
-    const themed = wrapWithTheme(html, themeWrapperHtml);
-    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Landing Preview • ${selectedThemeName}</title></head><body>${themed}</body></html>`;
+    const html = isJobsHost ? (htmlContent || buildHtml()) : (htmlContent || '');
+    const themed = isJobsHost ? wrapWithTheme(html, themeWrapperHtml) : html;
+    const title = isJobsHost ? `Landing Preview • ${selectedThemeName}` : 'Proposal Preview';
+    const fullDoc = isJobsHost
+      ? `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title></head><body>${themed}</body></html>`
+      : (themed || '');
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(fullDoc);
@@ -888,12 +910,12 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
                 </span>
                 <span className="text-slate-600">/</span>
                 <span className="text-[10px] font-medium text-blue-400 px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-                  Landing Page Builder
+                  {pageTitle}
                 </span>
               </div>
-              <h1 className="text-3xl font-bold text-slate-50 mb-2">Landing Page Builder</h1>
+              <h1 className="text-3xl font-bold text-slate-50 mb-2">{pageTitle}</h1>
               <p className="text-sm text-slate-400 max-w-2xl">
-                Design a personal landing page that showcases your story, achievements, and contact details.
+                {pageSubtitle}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -1077,7 +1099,10 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
               <textarea
                 id="html-editor"
                 value={htmlContent}
-                onChange={(e) => setHtmlContent(e.target.value)}
+                onChange={(e) => {
+                  if (!isJobsHost) proposalManualHtmlEditRef.current = true;
+                  setHtmlContent(e.target.value);
+                }}
                 className="w-full h-full bg-transparent text-slate-100 font-mono text-[11px] leading-relaxed pl-14 pr-4 py-3 resize-none focus:outline-none"
                 spellCheck={false}
               />
@@ -1105,7 +1130,7 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
             <div id="preview-frame" className="relative flex-1 rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
               <iframe
                 title="Landing preview"
-                srcDoc={wrappedDoc}
+                srcDoc={previewDoc}
                 className="w-full h-full border-0"
                 sandbox="allow-same-origin allow-popups allow-forms allow-scripts"
               />

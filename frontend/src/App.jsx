@@ -870,6 +870,14 @@ function InnerApp() {
               <Route path="/prep/landing-page" element={<LandingPagesPaidRoute><LandingPageBuilderPage /></LandingPagesPaidRoute>} />
               <Route path="/prep/landing/themes" element={<LandingPagesPaidRoute><LandingThemesPage /></LandingPagesPaidRoute>} />
               <Route path="/deals" element={<DealsPage />} />
+              <Route
+                path="/proposals"
+                element={
+                  <LandingPagesPaidRoute>
+                    <LandingPageBuilderPage backToOverride="/deals?tab=proposals" backLabelOverride="Back to Deals" />
+                  </LandingPagesPaidRoute>
+                }
+              />
               <Route path="/deals/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/phantom-monitor" element={<PhantomMonitor />} />
               <Route path="/phantom/cookie-refresh" element={<CookieRefresh />} />
