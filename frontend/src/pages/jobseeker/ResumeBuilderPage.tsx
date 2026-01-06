@@ -11,6 +11,7 @@ import {
   FaCopy,
   FaChevronUp,
   FaChevronDown,
+  FaTrash,
 } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { useResumePreview } from '../../hooks/useResumePreview';
@@ -494,6 +495,48 @@ export default function ResumeBuilderPage() {
     persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
   };
 
+  const deleteExperience = (idx: number) => {
+    const baseList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
+    if (baseList.length <= 1) return;
+    const exp = baseList[idx];
+    const label = `${exp?.title || 'Role'}${exp?.company ? ` @ ${exp.company}` : ''}`.trim();
+    const ok = window.confirm(`Delete this role?\n\n${label}`);
+    if (!ok) return;
+
+    const nextList = baseList.filter((_, i) => i !== idx);
+
+    // Reindex index-based UI state to stay attached to the right role
+    setViewBullets((prev) => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = Number(k);
+        if (Number.isNaN(i)) return;
+        if (i === idx) return;
+        next[i > idx ? i - 1 : i] = !!v;
+      });
+      return next;
+    });
+    setBulletSelections((prev) => {
+      const next: Record<number, { text: string; selected: boolean }[]> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = Number(k);
+        if (Number.isNaN(i)) return;
+        if (i === idx) return;
+        next[i > idx ? i - 1 : i] = v || [];
+      });
+      return next;
+    });
+    setActiveExperienceIndex((prev) => {
+      if (prev === idx) return Math.min(idx, nextList.length - 1);
+      if (prev > idx) return prev - 1;
+      return prev;
+    });
+
+    updateSection({ experience: nextList });
+    setResume((prev) => ({ ...prev, experience: nextList }));
+    persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
+  };
+
   const handleSelectExperience = (idx: number) => {
     setActiveExperienceIndex(idx);
   };
@@ -967,6 +1010,19 @@ export default function ResumeBuilderPage() {
                               <FaChevronDown className="text-xs text-slate-300" />
                             </button>
                           </div>
+                          <button
+                            title={experienceList.length <= 1 ? 'Cannot delete the last role' : 'Delete role'}
+                            disabled={experienceList.length <= 1}
+                            className={`w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center transition-all ${
+                              experienceList.length <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-950/40 hover:border-red-800/60'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteExperience(idx);
+                            }}
+                          >
+                            <FaTrash className={`text-xs ${experienceList.length <= 1 ? 'text-slate-500' : 'text-red-300'}`} />
+                          </button>
                           <button
                             className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all"
                             onClick={(e) => {
