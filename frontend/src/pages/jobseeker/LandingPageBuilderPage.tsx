@@ -16,6 +16,13 @@ import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { usePlan } from '../../context/PlanContext';
+import {
+  LandingPageSetupCard,
+  type LandingPageSetupValues,
+  type LandingPageSectionKey,
+  type ToneKey,
+} from '../../components/landing-page/LandingPageSetupCard';
+import { ProposalSetupCard, type ProposalSetupValues } from '../../components/proposals/ProposalSetupCard';
 
 type Tone = 'Confident' | 'Warm' | 'Direct' | 'Story-driven';
 type SectionKey = 'about' | 'experience' | 'caseStudies' | 'testimonials' | 'contact';
@@ -369,7 +376,13 @@ const caseStudySnippet = `
   <p>650% ARR growth over 3 years, 85% increase in average deal size, and 40% improvement in win rate.</p>
 </section>`;
 
-export default function LandingPageBuilderPage() {
+type LandingPageBuilderPageProps = {
+  backToOverride?: string;
+  backLabelOverride?: string;
+  publicUrlPrefixOverride?: string;
+};
+
+export default function LandingPageBuilderPage(props: LandingPageBuilderPageProps) {
   const { role: accountRole } = usePlan();
   const roleLc = String(accountRole || '').toLowerCase().replace(/\s|-/g, '_');
   const isElite = ['super_admin', 'admin', 'team_admin', 'team_admins', 'job_seeker_elite'].includes(roleLc);
@@ -380,9 +393,9 @@ export default function LandingPageBuilderPage() {
       return false;
     }
   })();
-  const backTo = isJobsHost ? '/prep' : '/dashboard';
-  const backLabel = isJobsHost ? 'Back to Prep' : 'Back to Dashboard';
-  const publicUrlPrefix = (() => {
+  const backTo = props.backToOverride || (isJobsHost ? '/prep' : '/dashboard');
+  const backLabel = props.backLabelOverride || (isJobsHost ? 'Back to Prep' : 'Back to Dashboard');
+  const publicUrlPrefix = props.publicUrlPrefixOverride || (() => {
     try {
       const host = window.location.host || '';
       if (host.endsWith('thehirepilot.com')) return 'app.thehirepilot.com/p/';
@@ -455,6 +468,77 @@ export default function LandingPageBuilderPage() {
   const [slugSaved, setSlugSaved] = useState(false);
   const [htmlSaved, setHtmlSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [proposalValues, setProposalValues] = useState<ProposalSetupValues>({
+    proposalTitle: '',
+    clientCompany: '',
+    clientContact: '',
+    clientEmail: '',
+    proposalType: 'exec_search',
+    pricingModel: 'retainer',
+    rolesHiringFor: '',
+    timeline: '',
+    includeSections: {
+      overview: true,
+      scope: true,
+      process: true,
+      pricing: true,
+      caseStudies: false,
+      terms: true,
+      nextSteps: true,
+    },
+    tones: ['confident', 'warm', 'direct'],
+    calendly: '',
+  });
+
+  const toToneKey = (t: Tone): ToneKey => {
+    const map: Record<Tone, ToneKey> = {
+      Confident: 'confident',
+      Warm: 'warm',
+      Direct: 'direct',
+      'Story-driven': 'story_driven',
+    };
+    return map[t];
+  };
+  const fromToneKey = (k: ToneKey): Tone => {
+    const map: Record<ToneKey, Tone> = {
+      confident: 'Confident',
+      warm: 'Warm',
+      direct: 'Direct',
+      story_driven: 'Story-driven',
+    };
+    return map[k];
+  };
+  const toSectionKey = (k: SectionKey): LandingPageSectionKey => {
+    const map: Record<SectionKey, LandingPageSectionKey> = {
+      about: 'about',
+      experience: 'experience',
+      caseStudies: 'case_studies',
+      testimonials: 'testimonials',
+      contact: 'contact',
+    };
+    return map[k];
+  };
+  const fromSectionKey = (k: LandingPageSectionKey): SectionKey => {
+    const map: Record<LandingPageSectionKey, SectionKey> = {
+      about: 'about',
+      experience: 'experience',
+      case_studies: 'caseStudies',
+      testimonials: 'testimonials',
+      contact: 'contact',
+    };
+    return map[k];
+  };
+
+  const landingSetupValues: LandingPageSetupValues = {
+    heroFocus,
+    heroSubtext,
+    rolePersona: role,
+    tones: (tones || []).map(toToneKey),
+    name,
+    email,
+    calendly,
+    sections: (Object.keys(sections) as SectionKey[]).filter((k) => sections[k]).map(toSectionKey),
+  };
 
   // Load any saved landing page draft for this user (best-effort)
   useEffect(() => {
@@ -533,6 +617,75 @@ export default function LandingPageBuilderPage() {
     setIsGenerating(true);
     setHtmlContent(buildHtml());
     setTimeout(() => setIsGenerating(false), 400);
+  };
+
+  const handleGenerateProposal = () => {
+    // For now, generate a clean HTML proposal skeleton into the editor.
+    // (Uses the existing HTML editor + publish flow. Proposal-specific publishing can be layered on later.)
+    setIsGenerating(true);
+    try {
+      const v = proposalValues;
+      const title = v.proposalTitle || `${v.clientCompany || 'Client'} Proposal`;
+      const contactLine = [v.clientContact, v.clientEmail].filter(Boolean).join(' • ');
+      const sectionsEnabled = v.includeSections || ({} as any);
+      const tonesText = (v.tones || []).map((t) => t.replace(/_/g, '-')).join(', ');
+      const calendlyLink = v.calendly || '#';
+      const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${title.replace(/</g, '&lt;')}</title>
+    <style>
+      :root{--bg:#070A0F;--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.66);--border:rgba(255,255,255,.10);--accent:#2F66FF;--radius:18px;--max:980px}
+      body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+      .wrap{max-width:var(--max);margin:0 auto;padding:28px 18px 64px}
+      .card{border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:var(--radius);padding:18px}
+      .h1{font-size:34px;letter-spacing:-.02em;margin:0 0 6px}
+      .sub{color:var(--muted);margin:0 0 14px}
+      .meta{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:13px}
+      .pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:999px;padding:7px 10px}
+      .grid{display:grid;gap:14px;margin-top:14px}
+      .h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 8px;color:rgba(255,255,255,.72)}
+      a{color:white}
+      .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);text-decoration:none;background:linear-gradient(135deg,rgba(47,102,255,.95),rgba(47,102,255,.75))}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="meta" style="margin-bottom:10px">
+          <span class="pill">HirePilot • Proposal</span>
+          <span class="pill">${String(v.proposalType || 'exec_search').replace(/_/g,' ').toUpperCase()}</span>
+          <span class="pill">${String(v.pricingModel || 'retainer').replace(/_/g,' ')}</span>
+          <span class="pill">Tone: ${tonesText || 'confident'}</span>
+        </div>
+        <h1 class="h1">${title}</h1>
+        <p class="sub">${[v.clientCompany && `Client: ${v.clientCompany}`, contactLine && `Contact: ${contactLine}`].filter(Boolean).join(' · ')}</p>
+        <div class="meta">
+          ${v.rolesHiringFor ? `<span class="pill">Scope: ${v.rolesHiringFor}</span>` : ''}
+          ${v.timeline ? `<span class="pill">Timeline: ${v.timeline}</span>` : ''}
+        </div>
+        <div style="margin-top:14px">
+          <a class="btn" href="${calendlyLink}" target="_blank" rel="noreferrer">Book a kickoff call →</a>
+        </div>
+      </div>
+      <div class="grid">
+        ${sectionsEnabled.overview ? `<div class="card"><div class="h2">Overview</div><div style="color:var(--muted)">Write a short overview of the engagement and desired outcome.</div></div>` : ''}
+        ${sectionsEnabled.scope ? `<div class="card"><div class="h2">Scope & Deliverables</div><div style="color:var(--muted)">List deliverables, roles covered, and what success looks like.</div></div>` : ''}
+        ${sectionsEnabled.process ? `<div class="card"><div class="h2">Process</div><div style="color:var(--muted)">Explain your process step-by-step (kickoff → sourcing → shortlist → close).</div></div>` : ''}
+        ${sectionsEnabled.pricing ? `<div class="card"><div class="h2">Pricing</div><div style="color:var(--muted)">Summarize pricing model, payment schedule, and included services.</div></div>` : ''}
+        ${sectionsEnabled.caseStudies ? `<div class="card"><div class="h2">Case studies</div><div style="color:var(--muted)">Add 1–2 short case studies with metrics.</div></div>` : ''}
+        ${sectionsEnabled.terms ? `<div class="card"><div class="h2">Terms</div><div style="color:var(--muted)">Add terms, guarantees, and key assumptions.</div></div>` : ''}
+        ${sectionsEnabled.nextSteps ? `<div class="card"><div class="h2">Next steps</div><div style="color:var(--muted)">Confirm kickoff date, stakeholders, and required inputs.</div></div>` : ''}
+      </div>
+    </div>
+  </body>
+</html>`;
+      setHtmlContent(html);
+    } finally {
+      setTimeout(() => setIsGenerating(false), 400);
+    }
   };
 
   const handleInsertHero = () => {
@@ -808,144 +961,42 @@ export default function LandingPageBuilderPage() {
           className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1fr)] gap-6"
         >
           <div id="left-column" className="flex flex-col gap-6">
-            <div
-              id="page-setup-card"
-              className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4"
-            >
-              <div>
-                <h3 className="text-base font-semibold text-slate-100 mb-1">Page setup</h3>
-                <p className="text-[11px] text-slate-500">Tell REX how to position you, and what to highlight.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-2">Hero focus</label>
-                  <input
-                    type="text"
-                    value={heroFocus}
-                    onChange={(e) => setHeroFocus(e.target.value)}
-                    placeholder="Revenue leader helping B2B SaaS teams scale from $1M → $20M ARR."
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-2">Hero subtext</label>
-                  <textarea
-                    value={heroSubtext}
-                    onChange={(e) => setHeroSubtext(e.target.value)}
-                    placeholder="Short 1–2 sentence summary of who you are and what you do."
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-2">Role & persona</label>
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="Head of Sales"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors mb-3"
-                  />
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-2">Tone</label>
-                    <div className="flex flex-wrap gap-2">
-                      {(['Confident', 'Warm', 'Direct', 'Story-driven'] as Tone[]).map((tone) => (
-                        <button
-                          key={tone}
-                          onClick={() => handleToneToggle(tone)}
-                          className={`tone-tag px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                            toneActive(tone)
-                              ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
-                              : 'bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-blue-500/20 hover:border-blue-500/30 hover:text-blue-300'
-                          }`}
-                        >
-                          {tone}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-2">Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
-                      placeholder="Your Name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
-                      placeholder="you@email.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-2">Calendly link</label>
-                    <input
-                      type="text"
-                      value={calendly}
-                      onChange={(e) => setCalendly(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
-                      placeholder="https://calendly.com/your-link"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-2">Sections to include</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([
-                      ['about', 'About'],
-                      ['experience', 'Experience'],
-                      ['caseStudies', 'Case studies'],
-                      ['testimonials', 'Testimonials'],
-                      ['contact', 'Contact'],
-                    ] as [SectionKey, string][]).map(([key, label]) => {
-                      const active = sectionActive(key);
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => handleSectionToggle(key)}
-                          className={`section-toggle px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                            active
-                              ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
-                              : 'bg-slate-800/50 border border-slate-700/50 text-slate-400'
-                          }`}
-                        >
-                          {active && <FaCheck className="text-[10px] mr-1 inline" />}
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <p className="text-[10px] text-slate-500 mb-3">
-                    These settings help REX generate your base HTML. You can always edit the code manually.
-                  </p>
-                  <button
-                    id="generate-btn"
-                    onClick={handleGenerate}
-                    className="w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-                    disabled={isGenerating}
-                  >
-                    <FaWandMagicSparkles />
-                    <span>{isGenerating ? 'Generating…' : 'Generate base layout with REX'}</span>
-                  </button>
-                </div>
-              </div>
+            <div id="page-setup-card">
+              {isJobsHost ? (
+                <LandingPageSetupCard
+                  values={landingSetupValues}
+                  onChange={(patch) => {
+                    if (typeof patch.heroFocus === 'string') setHeroFocus(patch.heroFocus);
+                    if (typeof patch.heroSubtext === 'string') setHeroSubtext(patch.heroSubtext);
+                    if (typeof patch.rolePersona === 'string') setRole(patch.rolePersona);
+                    if (typeof patch.name === 'string') setName(patch.name);
+                    if (typeof patch.email === 'string') setEmail(patch.email);
+                    if (typeof patch.calendly === 'string') setCalendly(patch.calendly);
+                    if (Array.isArray(patch.tones)) {
+                      const limited = patch.tones.slice(0, 2); // preserve existing behavior (max 2 tones)
+                      setTones(limited.map(fromToneKey));
+                    }
+                    if (Array.isArray(patch.sections)) {
+                      const next: Record<SectionKey, boolean> = { ...sections };
+                      (Object.keys(next) as SectionKey[]).forEach((k) => { next[k] = false; });
+                      patch.sections.forEach((k) => {
+                        const mapped = fromSectionKey(k);
+                        next[mapped] = true;
+                      });
+                      setSections(next);
+                    }
+                  }}
+                  onGenerate={handleGenerate}
+                  generating={isGenerating}
+                />
+              ) : (
+                <ProposalSetupCard
+                  values={proposalValues}
+                  onChange={(patch) => setProposalValues((v) => ({ ...v, ...patch }))}
+                  onGenerate={handleGenerateProposal}
+                  generating={isGenerating}
+                />
+              )}
             </div>
 
             <div

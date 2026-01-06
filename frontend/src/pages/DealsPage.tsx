@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import ClientRowEditor from '../components/deals/ClientRowEditor';
 import AddOpportunityModal from '../components/deals/AddOpportunityModal';
@@ -9,8 +10,9 @@ import DealLogActivityModal from '../components/deals/DealLogActivityModal';
 import DealsActivityList from '../components/deals/DealsActivityList';
 import ClientActivities from '../components/deals/ClientActivities';
 import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
+import LandingPageBuilderPage from './jobseeker/LandingPageBuilderPage';
 
-type ViewTab = 'clients' | 'opportunities' | 'billing' | 'revenue';
+type ViewTab = 'clients' | 'opportunities' | 'proposals' | 'billing' | 'revenue';
 type ClientsSubView = 'companies' | 'decisionMakers';
 type OppView = 'table' | 'pipeline';
 
@@ -24,6 +26,8 @@ async function safeJson(resp: Response) {
 }
 
 export default function DealsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<ViewTab>('clients');
   const [clientsView, setClientsView] = useState<ClientsSubView>('companies');
   const [loading, setLoading] = useState(true);
@@ -82,6 +86,36 @@ export default function DealsPage() {
   // Removed modal caret refs
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
+
+  const getTabFromLocation = (): ViewTab => {
+    try {
+      const params = new URLSearchParams(location.search || '');
+      const raw = String(params.get('tab') || '').toLowerCase().trim();
+      const allowed: ViewTab[] = ['clients', 'opportunities', 'proposals', 'billing', 'revenue'];
+      const tab = raw as ViewTab;
+      return allowed.includes(tab) ? tab : 'clients';
+    } catch {
+      return 'clients';
+    }
+  };
+
+  const setTabInUrl = (tab: ViewTab, opts?: { replace?: boolean }) => {
+    try {
+      const params = new URLSearchParams(location.search || '');
+      params.set('tab', tab);
+      const search = params.toString();
+      navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: !!opts?.replace });
+    } catch {
+      // Fallback: still switch tabs locally
+    }
+  };
+
+  // Sync active tab with URL (?tab=...)
+  useEffect(() => {
+    const tab = getTabFromLocation();
+    if (tab !== activeTab) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const clearDealSelections = () => {
     setSelectedClientIds(new Set());
@@ -697,6 +731,7 @@ export default function DealsPage() {
     if (!access) return false;
     if (tab === 'clients') return access.can_view_clients;
     if (tab === 'opportunities') return access.can_view_opportunities;
+    if (tab === 'proposals') return access.can_view_opportunities || access.can_view_billing;
     if (tab === 'billing') return access.can_view_billing;
     if (tab === 'revenue') return access.can_view_revenue;
     return false;
@@ -1278,6 +1313,25 @@ export default function DealsPage() {
     </div>
   );
 
+  const ProposalsSection = () => (
+    <div className="w-full">
+      <div className="bg-white dark:bg-gray-900/60 rounded-xl border dark:border-white/10 p-6 mb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Proposals</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Create and publish proposal pages you can send to clients.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl overflow-hidden border dark:border-white/10">
+        <LandingPageBuilderPage backToOverride="/deals" backLabelOverride="Back to Deals" />
+      </div>
+    </div>
+  );
+
   const AddModal = () => null;
 
   const InvoiceModal = () => (
@@ -1308,10 +1362,11 @@ export default function DealsPage() {
         )}
       </div>
       <div className="flex items-center space-x-2 bg-gray-200 dark:bg-gray-800 rounded-full p-1 mb-6">
-        <button onClick={() => setActiveTab('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Clients</button>
-        <button onClick={() => setActiveTab('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Opportunities</button>
-        <button onClick={() => setActiveTab('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='billing'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Billing</button>
-        <button onClick={() => setActiveTab('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='revenue'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Revenue</button>
+        <button onClick={() => setTabInUrl('clients')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='clients'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Clients</button>
+        <button onClick={() => setTabInUrl('opportunities')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='opportunities'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Opportunities</button>
+        <button onClick={() => setTabInUrl('proposals')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='proposals'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Proposals</button>
+        <button onClick={() => setTabInUrl('billing')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='billing'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Billing</button>
+        <button onClick={() => setTabInUrl('revenue')} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeTab==='revenue'?'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm':'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}>Revenue</button>
       </div>
       {loading ? (
         <div className="animate-pulse text-gray-500">Loading…</div>
@@ -1319,6 +1374,7 @@ export default function DealsPage() {
         <>
           {activeTab==='clients' && (canSee('clients') ? <ClientsSection /> : renderAccessDenied())}
           {activeTab==='opportunities' && (canSee('opportunities') ? <><OpportunitiesSection /><AddOpportunityModal open={addOpen} clients={clients} onClose={()=>setAddOpen(false)} onCreated={async ()=>{ await refreshOpps(); }} /></> : renderAccessDenied())}
+          {activeTab==='proposals' && (canSee('proposals') ? <ProposalsSection /> : renderAccessDenied())}
           {activeTab==='billing' && (canSee('billing') ? <><BillingSection /><InvoiceModal /></> : renderAccessDenied())}
           {activeTab==='revenue' && (canSee('revenue') ? (
             <div className="space-y-6">
