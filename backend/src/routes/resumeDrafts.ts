@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
+import { completeOnboardingStep } from '../lib/onboarding';
 import { extractTextFromBuffer } from '../ai/extractText';
 
 const router = express.Router();
@@ -33,6 +34,13 @@ const generatedSchema = z.object({
       included: z.boolean().optional(),
     })
   ),
+  contact: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().optional(),
+      linkedin: z.string().optional(),
+    })
+    .optional(),
 });
 
 function cleanPath(path: string | null | undefined) {
@@ -279,6 +287,33 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     res.json({ draft });
   } catch (e: any) {
     res.status(404).json({ error: e?.message || 'draft_not_found' });
+  }
+});
+
+router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const { id } = req.params;
+    await fetchDraft(id, userId); // ownership check
+
+    const body = (req.body || {}) as any;
+    const payload = body?.generated_resume_json ?? null;
+    if (!payload) return res.status(400).json({ error: 'missing_generated_resume_json' });
+
+    const parsed = generatedSchema.parse(payload);
+    const { data, error } = await supabase
+      .from('job_resume_drafts')
+      .update({ generated_resume_json: parsed })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(400).json({ error: error.message || 'update_failed' });
+
+    res.json({ draft: data });
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message || 'update_failed' });
   }
 });
 

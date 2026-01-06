@@ -9,6 +9,8 @@ import {
   FaLightbulb,
   FaDownload,
   FaCopy,
+  FaChevronUp,
+  FaChevronDown,
 } from 'react-icons/fa6';
 import { supabase } from '../../lib/supabaseClient';
 import { useResumePreview } from '../../hooks/useResumePreview';
@@ -350,6 +352,27 @@ export default function ResumeBuilderPage() {
     setBulletSelections(selections);
   };
 
+  const persistDraftJson = useCallback(
+    async (nextDraft: GeneratedResumeJson) => {
+      if (!draftId) return;
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(`${backend}/api/jobs/resume-drafts/${draftId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ generated_resume_json: nextDraft }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          console.warn('persist resume draft failed', data?.error || res.statusText);
+        }
+      } catch (e) {
+        console.warn('persist resume draft failed', e);
+      }
+    },
+    [backend, draftId]
+  );
+
   const parseJsonFromReply = (raw: any): GeneratedResumeJson | null => {
     try {
       if (typeof raw === 'string') {
@@ -428,6 +451,47 @@ export default function ResumeBuilderPage() {
     const nextList = baseList.map((exp, i) => (i === idx ? updater({ ...exp }) : exp));
     updateSection({ experience: nextList });
     setResume((prev) => ({ ...prev, experience: nextList }));
+    persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
+  };
+
+  const moveExperience = (idx: number, dir: -1 | 1) => {
+    const baseList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
+    const nextIdx = idx + dir;
+    if (nextIdx < 0 || nextIdx >= baseList.length) return;
+
+    const nextList = [...baseList];
+    [nextList[idx], nextList[nextIdx]] = [nextList[nextIdx], nextList[idx]];
+
+    // Keep index-based UI state aligned with the moved role
+    setViewBullets((prev) => {
+      const copy = { ...prev };
+      const a = !!copy[idx];
+      const b = !!copy[nextIdx];
+      copy[idx] = b;
+      copy[nextIdx] = a;
+      return copy;
+    });
+    setBulletSelections((prev) => {
+      const copy: Record<number, { text: string; selected: boolean }[]> = { ...prev };
+      const a = copy[idx];
+      const b = copy[nextIdx];
+      if (a !== undefined || b !== undefined) {
+        if (b === undefined) delete copy[idx];
+        else copy[idx] = b;
+        if (a === undefined) delete copy[nextIdx];
+        else copy[nextIdx] = a;
+      }
+      return copy;
+    });
+    setActiveExperienceIndex((prev) => {
+      if (prev === idx) return nextIdx;
+      if (prev === nextIdx) return idx;
+      return prev;
+    });
+
+    updateSection({ experience: nextList });
+    setResume((prev) => ({ ...prev, experience: nextList }));
+    persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
   };
 
   const handleSelectExperience = (idx: number) => {
@@ -875,6 +939,34 @@ export default function ResumeBuilderPage() {
                           <p className="text-xs text-slate-400">{exp.company || 'Company'}</p>
                         </div>
                         <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              title="Move up"
+                              disabled={idx === 0}
+                              className={`w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center transition-all ${
+                                idx === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveExperience(idx, -1);
+                              }}
+                            >
+                              <FaChevronUp className="text-xs text-slate-300" />
+                            </button>
+                            <button
+                              title="Move down"
+                              disabled={idx === experienceList.length - 1}
+                              className={`w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center transition-all ${
+                                idx === experienceList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveExperience(idx, 1);
+                              }}
+                            >
+                              <FaChevronDown className="text-xs text-slate-300" />
+                            </button>
+                          </div>
                           <button
                             className="w-7 h-7 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-all"
                             onClick={(e) => {
