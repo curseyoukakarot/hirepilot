@@ -123,16 +123,6 @@ router.post('/pdf', requireAuth, async (req: Request, res: Response) => {
           line-height: 1.25;
           color: #111827;
         }
-        .meta-badge{
-          display:inline-block;
-          font-size: 7.5pt;
-          color: #111827;
-          background: rgba(99,102,241,.10);
-          border: 1px solid rgba(99,102,241,.25);
-          padding: 3pt 6pt;
-          border-radius: 7pt;
-          margin-bottom: 6pt;
-        }
         .name { font-size: \${nameFontPt}pt; font-weight: 700; margin-bottom: 6pt; }
         .contact-email { font-size: 12pt; font-weight: 600; margin-bottom: 2pt; }
         .contact-linkedin { font-size: 10pt; margin-bottom: 10pt; }
@@ -165,7 +155,6 @@ router.post('/pdf', requireAuth, async (req: Request, res: Response) => {
         }
       </style>
       <div class="resume-page">
-        <div class="meta-badge">\${meta?.name ? meta.name : 'ATS-Safe Classic'}</div>
         <div class="name">\${(data.contact && data.contact.name) || ''}</div>
         <div class="contact-email">\${(data.contact && data.contact.email) || ''}</div>
         <div class="contact-linkedin">\${(data.contact && data.contact.linkedin) || ''}</div>
