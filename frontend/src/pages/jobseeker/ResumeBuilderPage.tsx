@@ -102,6 +102,8 @@ export default function ResumeBuilderPage() {
 
   const { preview, updateSection, copyText, downloadPdf, setDraft } = useResumePreview(defaultResume);
   const [resume, setResume] = useState<GeneratedResumeJson>(defaultResume);
+  const hydratedFromLocalRef = React.useRef(false);
+  const draftKeyRef = React.useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -130,6 +132,68 @@ export default function ResumeBuilderPage() {
   const [templateLoading, setTemplateLoading] = useState<boolean>(false);
   const [selectedTemplateConfig, setSelectedTemplateConfig] = useState<any>({});
   const [selectedTemplateSlug, setSelectedTemplateSlug] = useState<string>('ats_safe_classic');
+
+  const resolveLocalDraftKey = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const userId = data?.session?.user?.id || 'anon';
+      const id = draftId ? String(draftId) : 'default';
+      return `hp_resume_builder_draft_v1:${userId}:${id}`;
+    } catch {
+      const id = draftId ? String(draftId) : 'default';
+      return `hp_resume_builder_draft_v1:anon:${id}`;
+    }
+  }, [draftId]);
+
+  // Restore local draft on mount so tab switches / remounts don't wipe work
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const key = await resolveLocalDraftKey();
+        draftKeyRef.current = key;
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const payload = parsed?.resume || null;
+        if (!payload || typeof payload !== 'object') return;
+        if (cancelled) return;
+        hydratedFromLocalRef.current = true;
+        applyResumeJson(payload as GeneratedResumeJson);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolveLocalDraftKey]);
+
+  // Autosave local draft (sessionStorage)
+  useEffect(() => {
+    let t: any = null;
+    try {
+      const key = draftKeyRef.current;
+      if (!key) return;
+      t = setTimeout(() => {
+        try {
+          sessionStorage.setItem(
+            key,
+            JSON.stringify({
+              updatedAt: Date.now(),
+              resume: preview,
+            })
+          );
+        } catch {}
+      }, 300);
+    } catch {}
+    return () => {
+      try {
+        if (t) clearTimeout(t);
+      } catch {}
+    };
+  }, [preview]);
   const markTargetRoleStep = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -170,6 +234,7 @@ export default function ResumeBuilderPage() {
 
   useEffect(() => {
     if (!draftId) return;
+    if (hydratedFromLocalRef.current) return;
     let cancelled = false;
     (async () => {
       try {

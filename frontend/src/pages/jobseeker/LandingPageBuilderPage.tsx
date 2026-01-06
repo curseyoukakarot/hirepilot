@@ -469,6 +469,8 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
   const [htmlSaved, setHtmlSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const proposalManualHtmlEditRef = React.useRef(false);
+  const hydratedFromLocalRef = React.useRef(false);
+  const draftKeyRef = React.useRef<string | null>(null);
   const [proposalValues, setProposalValues] = useState<ProposalSetupValues>({
     proposalTitle: '',
     clientCompany: '',
@@ -487,9 +489,124 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
       terms: true,
       nextSteps: true,
     },
+    sectionContent: {
+      overview: '',
+      scope: '',
+      process: '',
+      pricing: '',
+      caseStudies: '',
+      terms: '',
+      nextSteps: '',
+    },
     tones: ['confident', 'warm', 'direct'],
     calendly: '',
   });
+
+  const resolveDraftKey = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const userId = data?.session?.user?.id || 'anon';
+      const mode = isJobsHost ? 'jobs_landing' : 'recruiter_proposal';
+      return `hp_builder_draft_v1:${mode}:${userId}`;
+    } catch {
+      const mode = isJobsHost ? 'jobs_landing' : 'recruiter_proposal';
+      return `hp_builder_draft_v1:${mode}:anon`;
+    }
+  }, [isJobsHost]);
+
+  const clearLocalDraft = useCallback(() => {
+    try {
+      const k = draftKeyRef.current;
+      if (k) sessionStorage.removeItem(k);
+    } catch {}
+  }, []);
+
+  // Restore local draft (prevents "auto refresh" wiping unsaved work on remount)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const key = await resolveDraftKey();
+        draftKeyRef.current = key;
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        if (cancelled) return;
+
+        hydratedFromLocalRef.current = true;
+
+        // Shared
+        if (typeof parsed.slug === 'string') setSlug(parsed.slug);
+        if (typeof parsed.isPublished === 'boolean') setIsPublished(Boolean(parsed.isPublished));
+
+        if (isJobsHost) {
+          const v = parsed?.landing || {};
+          if (typeof v.heroFocus === 'string') setHeroFocus(v.heroFocus);
+          if (typeof v.heroSubtext === 'string') setHeroSubtext(v.heroSubtext);
+          if (typeof v.role === 'string') setRole(v.role);
+          if (typeof v.name === 'string') setName(v.name);
+          if (typeof v.email === 'string') setEmail(v.email);
+          if (typeof v.calendly === 'string') setCalendly(v.calendly);
+          if (Array.isArray(v.tones)) setTones(v.tones as any);
+          if (v.sections && typeof v.sections === 'object') setSections(v.sections);
+          if (typeof v.htmlContent === 'string') setHtmlContent(v.htmlContent);
+        } else {
+          const v = parsed?.proposal || {};
+          if (v && typeof v === 'object') setProposalValues((prev) => ({ ...prev, ...v }));
+          if (typeof parsed.htmlContent === 'string') setHtmlContent(parsed.htmlContent);
+          proposalManualHtmlEditRef.current = Boolean(parsed?.manualHtmlEdited);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isJobsHost, resolveDraftKey]);
+
+  // Autosave local draft (sessionStorage)
+  useEffect(() => {
+    let t: any = null;
+    try {
+      const key = draftKeyRef.current;
+      if (!key) return;
+      t = setTimeout(() => {
+        try {
+          const payload: any = {
+            updatedAt: Date.now(),
+            slug,
+            isPublished,
+          };
+          if (isJobsHost) {
+            payload.landing = {
+              heroFocus,
+              heroSubtext,
+              role,
+              name,
+              email,
+              calendly,
+              tones,
+              sections,
+              htmlContent,
+            };
+          } else {
+            payload.proposal = proposalValues;
+            payload.htmlContent = htmlContent;
+            payload.manualHtmlEdited = Boolean(proposalManualHtmlEditRef.current);
+          }
+          sessionStorage.setItem(key, JSON.stringify(payload));
+        } catch {}
+      }, 250);
+    } catch {}
+    return () => {
+      try {
+        if (t) clearTimeout(t);
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJobsHost, slug, isPublished, heroFocus, heroSubtext, role, name, email, calendly, tones, sections, htmlContent, proposalValues]);
 
   const pageTitle = isJobsHost ? 'Landing Page Builder' : 'Proposal Builder';
   const pageSubtitle = isJobsHost
@@ -503,6 +620,11 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     const tonesText = (v.tones || []).map((t) => t.replace(/_/g, '-')).join(', ');
     const calendlyLink = v.calendly || '#';
     const esc = (s: string) => String(s || '').replace(/</g, '&lt;');
+    const textToHtml = (text: string) => esc(text).replace(/\n/g, '<br />');
+    const sectionText = (key: keyof ProposalSetupValues['includeSections'], fallback: string) => {
+      const raw = String((v.sectionContent as any)?.[key] || '').trim();
+      return raw ? textToHtml(raw) : fallback;
+    };
     return `<!doctype html>
 <html>
   <head>
@@ -544,13 +666,13 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
         </div>
       </div>
       <div class="grid">
-        ${sectionsEnabled.overview ? `<div class="card"><div class="h2">Overview</div><div style="color:var(--muted)">Write a short overview of the engagement and desired outcome.</div></div>` : ''}
-        ${sectionsEnabled.scope ? `<div class="card"><div class="h2">Scope & Deliverables</div><div style="color:var(--muted)">List deliverables, roles covered, and what success looks like.</div></div>` : ''}
-        ${sectionsEnabled.process ? `<div class="card"><div class="h2">Process</div><div style="color:var(--muted)">Explain your process step-by-step (kickoff → sourcing → shortlist → close).</div></div>` : ''}
-        ${sectionsEnabled.pricing ? `<div class="card"><div class="h2">Pricing</div><div style="color:var(--muted)">Summarize pricing model, payment schedule, and included services.</div></div>` : ''}
-        ${sectionsEnabled.caseStudies ? `<div class="card"><div class="h2">Case studies</div><div style="color:var(--muted)">Add 1–2 short case studies with metrics.</div></div>` : ''}
-        ${sectionsEnabled.terms ? `<div class="card"><div class="h2">Terms</div><div style="color:var(--muted)">Add terms, guarantees, and key assumptions.</div></div>` : ''}
-        ${sectionsEnabled.nextSteps ? `<div class="card"><div class="h2">Next steps</div><div style="color:var(--muted)">Confirm kickoff date, stakeholders, and required inputs.</div></div>` : ''}
+        ${sectionsEnabled.overview ? `<div class="card"><div class="h2">Overview</div><div style="color:var(--muted)">${sectionText('overview', 'Write a short overview of the engagement and desired outcome.')}</div></div>` : ''}
+        ${sectionsEnabled.scope ? `<div class="card"><div class="h2">Scope & Deliverables</div><div style="color:var(--muted)">${sectionText('scope', 'List deliverables, roles covered, and what success looks like.')}</div></div>` : ''}
+        ${sectionsEnabled.process ? `<div class="card"><div class="h2">Process</div><div style="color:var(--muted)">${sectionText('process', 'Explain your process step-by-step (kickoff → sourcing → shortlist → close).')}</div></div>` : ''}
+        ${sectionsEnabled.pricing ? `<div class="card"><div class="h2">Pricing</div><div style="color:var(--muted)">${sectionText('pricing', 'Summarize pricing model, payment schedule, and included services.')}</div></div>` : ''}
+        ${sectionsEnabled.caseStudies ? `<div class="card"><div class="h2">Case studies</div><div style="color:var(--muted)">${sectionText('caseStudies', 'Add 1–2 short case studies with metrics.')}</div></div>` : ''}
+        ${sectionsEnabled.terms ? `<div class="card"><div class="h2">Terms</div><div style="color:var(--muted)">${sectionText('terms', 'Add terms, guarantees, and key assumptions.')}</div></div>` : ''}
+        ${sectionsEnabled.nextSteps ? `<div class="card"><div class="h2">Next steps</div><div style="color:var(--muted)">${sectionText('nextSteps', 'Confirm kickoff date, stakeholders, and required inputs.')}</div></div>` : ''}
       </div>
     </div>
   </body>
@@ -612,6 +734,8 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     let cancelled = false;
     (async () => {
       try {
+        // If we restored a local draft, do NOT overwrite it by refetching server state on remount.
+        if (hydratedFromLocalRef.current) return;
         const resp = await apiGet('/api/landing-pages/me', { requireAuth: true });
         const lp = resp?.landingPage;
         if (!lp || cancelled) return;
@@ -967,6 +1091,7 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
                     setIsPublished(true);
                     await markPublished();
                     toast.success('Published');
+                    clearLocalDraft();
                   } catch (e: any) {
                     toast.error(e?.message || 'Publish failed');
                   }
