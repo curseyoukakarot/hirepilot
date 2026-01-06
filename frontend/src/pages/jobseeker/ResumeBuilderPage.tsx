@@ -537,6 +537,28 @@ export default function ResumeBuilderPage() {
     persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
   };
 
+  const addRoleManually = () => {
+    const baseList = preview.experience && preview.experience.length > 0 ? preview.experience : defaultResume.experience;
+    const nextList = [
+      ...baseList,
+      {
+        company: '',
+        title: '',
+        location: '',
+        dates: '',
+        whyHiredSummary: '',
+        bullets: [],
+        included: true,
+      } as GeneratedExperience,
+    ];
+    const newIdx = nextList.length - 1;
+    updateSection({ experience: nextList });
+    setResume((prev) => ({ ...prev, experience: nextList }));
+    setActiveExperienceIndex(newIdx);
+    setViewBullets((prev) => ({ ...prev, [newIdx]: false }));
+    persistDraftJson({ ...(preview as any), experience: nextList, contact: (preview as any)?.contact });
+  };
+
   const handleSelectExperience = (idx: number) => {
     setActiveExperienceIndex(idx);
   };
@@ -1069,7 +1091,10 @@ export default function ResumeBuilderPage() {
                 })}
               </div>
 
-              <button className="w-full py-2.5 rounded-lg border-2 border-dashed border-slate-700 text-slate-400 text-sm font-medium hover:border-slate-600 hover:text-slate-300 transition-all flex items-center justify-center gap-2">
+              <button
+                className="w-full py-2.5 rounded-lg border-2 border-dashed border-slate-700 text-slate-400 text-sm font-medium hover:border-slate-600 hover:text-slate-300 transition-all flex items-center justify-center gap-2"
+                onClick={addRoleManually}
+              >
                 <FaPlus className="text-xs" />
                 Add role manually
               </button>
