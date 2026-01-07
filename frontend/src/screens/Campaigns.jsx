@@ -411,7 +411,7 @@ function Campaigns() {
             </button>
             <h2 className="text-xl font-bold mb-4 dark:text-gray-100">Find Similar Leads</h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-              Describe the persona you want REX to find. We’ll open REX Chat on the job seeker side and add the results to your Leads.
+              Describe the persona you want REX to find. We’ll open REX Chat and add the results to your Leads.
             </p>
             <form onSubmit={submitPersona} className="space-y-4">
               <textarea
