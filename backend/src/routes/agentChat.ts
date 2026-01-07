@@ -31,15 +31,6 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
             .single();
           if (pErr || !persona) throw new Error('Persona not found');
 
-          // Ensure campaign
-          const { data: campRow, error: cErr } = await supabaseAdmin
-            .from('sourcing_campaigns')
-            .insert({ title: `Persona • ${persona.name}`, created_by: userId, audience_tag: 'rex' })
-            .select('id')
-            .single();
-          if (cErr) throw new Error(cErr.message);
-          const effectiveCampaignId = (campRow as any).id as string;
-
           // Build Apollo search params
           const targeting = buildSourcingQuery({
             name: persona.name,
@@ -70,6 +61,22 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
           }
           const searchData = await resp.json().catch(()=>({}));
           const leads = Array.isArray(searchData?.leads) ? searchData.leads : [];
+          if (!leads.length) {
+            const loc = searchBody?.location ? ` in ${String(searchBody.location)}` : '';
+            return res.json({
+              message: `I didn’t find any leads${loc}. Want me to broaden the location/keywords or adjust the persona filters?`,
+              actions: [ { label: 'Broaden Search', value: 'refine' }, { label: 'Modify Persona', value: 'refine' } ]
+            });
+          }
+
+          // Ensure campaign (only create after we know we have results)
+          const { data: campRow, error: cErr } = await supabaseAdmin
+            .from('sourcing_campaigns')
+            .insert({ title: `Persona • ${persona.name}`, created_by: userId, audience_tag: 'rex' })
+            .select('id')
+            .single();
+          if (cErr) throw new Error(cErr.message);
+          const effectiveCampaignId = (campRow as any).id as string;
 
           // 2) Import into SOURCING campaign (correct FK: sourcing_campaigns -> sourcing_leads)
           const mapped = leads.map((l: any) => ({

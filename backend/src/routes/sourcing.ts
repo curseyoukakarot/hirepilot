@@ -88,7 +88,7 @@ router.post('/campaigns/:id/leads', requireAuth, async (req: ApiRequest, res: Re
         linkedin_url: z.string().url().optional(),
         email: z.string().email().optional(),
         domain: z.string().optional()
-      })).min(1),
+      })),
       source: z.enum(['apollo','linkedin']).optional()
     }).parse(req.body);
     
