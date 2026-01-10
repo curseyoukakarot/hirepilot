@@ -44,18 +44,133 @@
 
     /* glass panels */
     .glass{
-      background: var(--card);
-      border: 1px solid var(--stroke);
-      box-shadow: var(--shadow);
+      position: relative;
+      background:
+        radial-gradient(1200px 420px at 14% -10%, rgba(99,102,241,.18), transparent 60%),
+        radial-gradient(900px 360px at 88% 0%, rgba(34,197,94,.12), transparent 55%),
+        radial-gradient(800px 420px at 45% 120%, rgba(56,189,248,.10), transparent 58%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow:
+        var(--shadow),
+        0 0 0 1px rgba(255,255,255,.04) inset,
+        0 30px 90px rgba(0,0,0,.40);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
+      transition: border-color .18s ease, box-shadow .18s ease;
     }
     .glass-soft{
-      background: rgba(255,255,255,.04);
+      position: relative;
+      background:
+        radial-gradient(700px 240px at 18% 0%, rgba(99,102,241,.14), transparent 62%),
+        radial-gradient(520px 220px at 88% 10%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
       border: 1px solid rgba(255,255,255,.10);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
+      box-shadow:
+        0 18px 55px rgba(0,0,0,.22),
+        0 0 0 1px rgba(255,255,255,.03) inset;
+      transition: border-color .18s ease, box-shadow .18s ease;
     }
+    .glass:hover{
+      border-color: rgba(99,102,241,.28);
+      box-shadow:
+        var(--shadow),
+        0 0 0 1px rgba(255,255,255,.05) inset,
+        0 0 0 6px rgba(99,102,241,.08),
+        0 30px 90px rgba(0,0,0,.40);
+    }
+    .glass-soft:hover{
+      border-color: rgba(56,189,248,.24);
+      box-shadow:
+        0 18px 55px rgba(0,0,0,.24),
+        0 0 0 1px rgba(255,255,255,.04) inset,
+        0 0 0 6px rgba(56,189,248,.06);
+    }
+
+    /* Upgrade common utility boxes inside the article to match the new gradients */
+    .prose-hp .bg-white\/5{
+      background:
+        radial-gradient(520px 200px at 20% 0%, rgba(99,102,241,.14), transparent 62%),
+        radial-gradient(520px 200px at 90% 10%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)) !important;
+    }
+    .prose-hp .bg-black\/30{
+      background:
+        radial-gradient(520px 220px at 25% 0%, rgba(56,189,248,.10), transparent 62%),
+        linear-gradient(180deg, rgba(0,0,0,.42), rgba(0,0,0,.22)) !important;
+    }
+    .prose-hp .bg-black\/20{
+      background:
+        radial-gradient(520px 220px at 25% 0%, rgba(99,102,241,.10), transparent 62%),
+        linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.18)) !important;
+    }
+    .prose-hp .border-white\/10{ border-color: rgba(255,255,255,.12) !important; }
+
+    /* Section themes (adds “wow” accent glow per section) */
+    .section-theme{
+      --a1: rgba(99,102,241,.16);
+      --a2: rgba(56,189,248,.12);
+      --a3: rgba(34,197,94,.10);
+    }
+    .section-theme.s2{ /* emerald/sky */
+      --a1: rgba(34,197,94,.16);
+      --a2: rgba(56,189,248,.12);
+      --a3: rgba(99,102,241,.10);
+    }
+    .section-theme.s3{ /* indigo/sky */
+      --a1: rgba(99,102,241,.18);
+      --a2: rgba(56,189,248,.14);
+      --a3: rgba(34,197,94,.08);
+    }
+    .section-theme.s4{ /* purple/pink */
+      --a1: rgba(168,85,247,.18);
+      --a2: rgba(236,72,153,.12);
+      --a3: rgba(56,189,248,.10);
+    }
+
+    /* Accent overlay inside cards (keeps content readable) */
+    .section-theme .glass,
+    .section-theme .glass-soft{
+      overflow: hidden;
+    }
+    .section-theme .glass::after,
+    .section-theme .glass-soft::after{
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      pointer-events: none;
+      background:
+        radial-gradient(700px 260px at 12% 0%, var(--a1), transparent 60%),
+        radial-gradient(640px 240px at 88% 10%, var(--a2), transparent 62%),
+        radial-gradient(820px 340px at 50% 120%, var(--a3), transparent 60%);
+      opacity: .9;
+      mix-blend-mode: screen;
+    }
+    .section-theme .glass > *,
+    .section-theme .glass-soft > *{
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Animated edge glow on hover */
+    .section-theme .glass:hover,
+    .section-theme .glass-soft:hover{
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.05) inset,
+        0 0 0 7px rgba(255,255,255,.03),
+        0 0 0 1px rgba(255,255,255,.02),
+        0 28px 90px rgba(0,0,0,.45),
+        0 0 42px rgba(99,102,241,.16);
+    }
+    .section-theme.s2 .glass:hover,
+    .section-theme.s2 .glass-soft:hover{ box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 7px rgba(255,255,255,.03), 0 28px 90px rgba(0,0,0,.45), 0 0 46px rgba(34,197,94,.18); }
+    .section-theme.s3 .glass:hover,
+    .section-theme.s3 .glass-soft:hover{ box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 7px rgba(255,255,255,.03), 0 28px 90px rgba(0,0,0,.45), 0 0 46px rgba(99,102,241,.20); }
+    .section-theme.s4 .glass:hover,
+    .section-theme.s4 .glass-soft:hover{ box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 7px rgba(255,255,255,.03), 0 28px 90px rgba(0,0,0,.45), 0 0 46px rgba(236,72,153,.18); }
 
     /* TOC active styling */
     .toc a{
@@ -783,7 +898,7 @@
         </section>
 
         <!-- SECTION 2 -->
-        <section id="s2" class="scroll-mt-24 mt-10">
+        <section id="s2" class="section-theme s2 scroll-mt-24 mt-10">
           <div class="glass rounded-3xl p-7 sm:p-9">
       <p class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">
         <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
@@ -1243,7 +1358,7 @@
 </section>
 
         <!-- SECTION 3 -->
-        <section id="s3" class="scroll-mt-24 mt-10">
+        <section id="s3" class="section-theme s3 scroll-mt-24 mt-10">
           <div class="glass rounded-3xl p-7 sm:p-9">
       <p class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">
         <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
@@ -1709,7 +1824,7 @@
 </section>
 
         <!-- SECTION 4 -->
-        <section id="s4" class="scroll-mt-24 mt-10">
+        <section id="s4" class="section-theme s4 scroll-mt-24 mt-10">
           <div class="glass rounded-3xl p-7 sm:p-9">
             <p class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">
               <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
