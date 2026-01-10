@@ -291,20 +291,21 @@
       color: rgba(15,23,42,.82);
     }
 
-    /* “Webflow-ish” content typography */
+    /* “Webflow-ish” content typography (theme-aware) */
     .prose-hp h1,.prose-hp h2,.prose-hp h3{
       letter-spacing: -0.02em;
+      color: var(--text);
     }
     .prose-hp p{
-      color: rgba(255,255,255,.78);
+      color: var(--muted);
       line-height: 1.7;
     }
     .prose-hp li{
-      color: rgba(255,255,255,.78);
+      color: var(--muted);
       line-height: 1.7;
     }
     .prose-hp strong{
-      color: rgba(255,255,255,.92);
+      color: var(--text);
       font-weight: 600;
     }
     .kbd{
