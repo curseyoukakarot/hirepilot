@@ -238,13 +238,8 @@ const GTM_ACCESS_EMAIL_HTML = `<!doctype html>
 </html>`;
 
 export function getDefaultGtmGuideUrls() {
-  const base =
-    process.env.FRONTEND_URL ||
-    process.env.APP_WEB_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    'https://app.thehirepilot.com';
-  const normalized = String(base).replace(/\/$/, '');
-  const guide_url = `${normalized}/gtm-strategy`;
+  // Public, canonical marketing URL for the guide
+  const guide_url = `https://thehirepilot.com/gtm-guide`;
   const notion_url = process.env.GTM_GUIDE_NOTION_URL
     ? String(process.env.GTM_GUIDE_NOTION_URL)
     : guide_url;

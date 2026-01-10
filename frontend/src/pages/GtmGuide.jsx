@@ -6,6 +6,7 @@ import guideHtml from "./GtmGuideContent.html?raw";
 // Fixed PublicNavbar is ~80px tall; in-page sticky header adds more.
 // This offset ensures TOC hash-links land with headings visible.
 const ANCHOR_OFFSET_PX = 160;
+const IMPLEMENT_URL = "/gtm-strategy";
 
 export default function GtmGuide() {
   const containerRef = useRef(null);
@@ -122,7 +123,45 @@ export default function GtmGuide() {
   return (
     <div className="min-h-screen bg-white">
       <PublicNavbar />
+      {/* Top CTA (sits below fixed PublicNavbar) */}
+      <div className="pt-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-white/15 bg-white/10 backdrop-blur px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,0.25)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-white/90">Ready to implement?</div>
+              <div className="text-xs text-white/70">Turn this blueprint into a working HirePilot system.</div>
+            </div>
+            <a
+              href={IMPLEMENT_URL}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-500 to-sky-500 hover:opacity-95"
+            >
+              Implement This Guide
+            </a>
+          </div>
+        </div>
+      </div>
+
       <div ref={containerRef} dangerouslySetInnerHTML={{ __html: guideHtml }} />
+
+      {/* Bottom CTA */}
+      <div className="pb-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-white/15 bg-white/10 backdrop-blur px-5 py-5 shadow-[0_22px_70px_rgba(0,0,0,0.25)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="text-base font-extrabold text-white/95">Implement This Guide</div>
+              <div className="text-sm text-white/70 max-w-2xl">
+                If you want this running inside HirePilot (personas → campaigns → scheduling → dashboards), start here.
+              </div>
+            </div>
+            <a
+              href={IMPLEMENT_URL}
+              className="inline-flex items-center justify-center px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-500 to-sky-500 hover:opacity-95"
+            >
+              Implement This Guide
+            </a>
+          </div>
+        </div>
+      </div>
       <PublicFooter />
     </div>
   );
