@@ -1,0 +1,2130 @@
+<style>
+    :root{
+      --bg0:#070A12;
+      --bg1:#0B1020;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.10);
+      --stroke2: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.90);
+      --muted: rgba(255,255,255,.68);
+      --muted2: rgba(255,255,255,.52);
+      --shadow: 0 30px 80px rgba(0,0,0,.45);
+      --ring: 0 0 0 6px rgba(99,102,241,.18); /* indigo glow */
+    }
+
+    html{ scroll-behavior:smooth; }
+    body{
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:
+        radial-gradient(1100px 700px at 8% -10%, rgba(99,102,241,.35), transparent 55%),
+        radial-gradient(900px 600px at 92% -20%, rgba(34,197,94,.22), transparent 60%),
+        radial-gradient(900px 700px at 40% 110%, rgba(56,189,248,.18), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color: var(--text);
+    }
+
+    /* nicer selection */
+    ::selection{ background: rgba(99,102,241,.35); }
+
+    /* anchor offset so headings don't hide under the fixed PublicNavbar + sticky in-page header */
+    .scroll-mt-24{ scroll-margin-top: 10rem; }
+    .scroll-mt-28{ scroll-margin-top: 10rem; }
+
+    /* subtle animated gradient line */
+    .shine-line{
+      background: linear-gradient(90deg, transparent, rgba(99,102,241,.6), rgba(34,197,94,.35), transparent);
+      background-size: 200% 100%;
+      animation: shine 5s linear infinite;
+    }
+    @keyframes shine{
+      0%{ background-position: 0% 50%; }
+      100%{ background-position: 200% 50%; }
+    }
+
+    /* glass panels */
+    .glass{
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .glass-soft{
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    /* TOC active styling */
+    .toc a{
+      display:block;
+      padding: .55rem .75rem;
+      border-radius: .75rem;
+      color: rgba(255,255,255,.70);
+      transition: background .18s ease, color .18s ease, transform .18s ease;
+      border: 1px solid transparent;
+    }
+    .toc a:hover{
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.92);
+      transform: translateX(2px);
+      border-color: rgba(255,255,255,.10);
+    }
+    .toc a[aria-current="true"]{
+      background: rgba(99,102,241,.16);
+      border-color: rgba(99,102,241,.35);
+      color: rgba(255,255,255,.95);
+      box-shadow: var(--ring);
+    }
+
+    /* “Webflow-ish” content typography */
+    .prose-hp h1,.prose-hp h2,.prose-hp h3{
+      letter-spacing: -0.02em;
+    }
+    .prose-hp p{
+      color: rgba(255,255,255,.78);
+      line-height: 1.7;
+    }
+    .prose-hp li{
+      color: rgba(255,255,255,.78);
+      line-height: 1.7;
+    }
+    .prose-hp strong{
+      color: rgba(255,255,255,.92);
+      font-weight: 600;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: .9em;
+      padding: .1rem .4rem;
+      border-radius: .5rem;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.28);
+      color: rgba(255,255,255,.86);
+    }
+
+    /* simple pill badge */
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      padding:.35rem .75rem;
+      border-radius:9999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.80);
+      font-size: .85rem;
+      white-space: nowrap;
+    }
+
+    /* mobile TOC drawer */
+    .drawer-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display:none;
+      z-index: 60;
+    }
+    .drawer{
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: min(420px, 90vw);
+      transform: translateX(110%);
+      transition: transform .22s ease;
+      z-index: 70;
+    }
+    .drawer.open{ transform: translateX(0%); }
+    .drawer-backdrop.open{ display:block; }
+  </style>
+<!-- Top bar -->
+  <!-- NOTE: PublicNavbar is fixed at the top; offset this header to sit below it -->
+  <header class="sticky top-20 z-40 border-b border-white/10 bg-black/20 backdrop-blur-xl">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between py-3">
+        <div class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-white/10 border border-white/15 grid place-items-center">
+            <span class="text-sm font-semibold">HP</span>
+          </div>
+          <div class="leading-tight">
+            <div class="text-sm text-white/70">HirePilot</div>
+            <div class="text-sm font-semibold">GTM Playbook</div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="hidden md:inline-flex pill">
+            <span class="h-2 w-2 rounded-full bg-emerald-400/80"></span>
+            January 2026 • By Brandon Omoregie
+          </span>
+
+          <button id="openToc"
+            class="md:hidden inline-flex items-center gap-2 rounded-xl px-3 py-2 glass-soft hover:bg-white/10 transition"
+            aria-label="Open table of contents">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span class="text-sm font-medium">TOC</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="h-px shine-line"></div>
+  </header>
+
+  <!-- Mobile TOC Drawer -->
+  <div id="tocBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
+  <aside id="tocDrawer" class="drawer glass">
+    <div class="h-full flex flex-col">
+      <div class="flex items-center justify-between px-4 py-4 border-b border-white/10">
+        <div>
+          <div class="text-sm text-white/70">Navigate</div>
+          <div class="text-base font-semibold">Table of Contents</div>
+        </div>
+        <button id="closeToc" class="rounded-xl px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 transition">
+          <span class="text-sm font-medium">Close</span>
+        </button>
+      </div>
+      <nav class="toc p-4 overflow-auto">
+        <!-- Full TOC (same anchors as desktop) -->
+        <a href="#top" data-target="top">Top</a>
+
+        <div class="mt-3 text-xs uppercase tracking-wider text-white/50 px-2">Intro</div>
+        <a href="#what-this-does" data-target="what-this-does">What this playbook actually does</a>
+        <a href="#toc" data-target="toc">Table of Contents</a>
+
+        <div class="mt-3 text-xs uppercase tracking-wider text-white/50 px-2">1. Plug-and-Play Sequences</div>
+        <a href="#s1" data-target="s1">1. Plug-and-Play Sequences</a>
+        <a href="#s1-1" data-target="s1-1">1.1 What sequences are in HirePilot</a>
+        <a href="#s1-2" data-target="s1-2">1.2 Funding Signal Sequence</a>
+        <a href="#s1-3" data-target="s1-3">1.3 Event Bridge Sequence</a>
+        <a href="#s1-4" data-target="s1-4">1.4 Inbound Intelligence Sequence (RB2B → HirePilot)</a>
+        <a href="#s1-5" data-target="s1-5">1.5 ABM Multi-Touch Sequence</a>
+        <a href="#s1-6" data-target="s1-6">1.6 Referral & Partner Sequence</a>
+        <a href="#s1-7" data-target="s1-7">1.7 How to install sequences in HirePilot</a>
+
+        <div class="mt-3 text-xs uppercase tracking-wider text-white/50 px-2">Next</div>
+        <a href="#s2" data-target="s2">2. Workflows and Automations (Chunk 2)</a>
+        <a href="#s3" data-target="s3">3. Dashboards (Chunk 3)</a>
+        <a href="#s4" data-target="s4">4. Automation Map (Chunk 4)</a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main layout -->
+  <main id="top" class="scroll-mt-24 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+      <!-- Desktop TOC -->
+      <aside class="hidden lg:block lg:col-span-4 xl:col-span-3">
+        <div class="sticky top-40">
+          <div class="glass rounded-3xl p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs uppercase tracking-wider text-white/55">Navigate</div>
+                <div class="text-lg font-semibold mt-1">Table of Contents</div>
+              </div>
+              <span class="pill">
+                <span class="h-2 w-2 rounded-full bg-indigo-400/80"></span>
+                Sticky
+              </span>
+            </div>
+
+            <nav class="toc mt-4">
+              <a href="#what-this-does" data-target="what-this-does">What this playbook actually does</a>
+              <a href="#toc" data-target="toc">Table of Contents</a>
+
+              <div class="mt-3 text-xs uppercase tracking-wider text-white/50 px-2">Section 1</div>
+              <a href="#s1" data-target="s1">1. Plug-and-Play Sequences</a>
+              <a href="#s1-1" data-target="s1-1">1.1 What sequences are in HirePilot</a>
+              <a href="#s1-2" data-target="s1-2">1.2 Funding Signal Sequence</a>
+              <a href="#s1-3" data-target="s1-3">1.3 Event Bridge Sequence</a>
+              <a href="#s1-4" data-target="s1-4">1.4 Inbound Intelligence Sequence</a>
+              <a href="#s1-5" data-target="s1-5">1.5 ABM Multi-Touch Sequence</a>
+              <a href="#s1-6" data-target="s1-6">1.6 Referral & Partner Sequence</a>
+              <a href="#s1-7" data-target="s1-7">1.7 How to install sequences</a>
+
+              <div class="mt-4 p-3 rounded-2xl bg-white/5 border border-white/10">
+                <div class="text-sm font-semibold">Coming next</div>
+                <p class="text-sm text-white/65 mt-1">
+                  Section 2 (Workflows), Section 3 (Dashboards), and Section 4 (Automation Map) are delivered as
+                  separate copy/paste chunks to keep everything safe and lossless.
+                </p>
+              </div>
+            </nav>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Article -->
+      <article class="lg:col-span-8 xl:col-span-9 prose-hp">
+        <!-- Hero -->
+        <section class="glass rounded-3xl p-7 sm:p-9">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="pill">Founder-friendly GTM OS</span>
+            <span class="pill">Recruiting teams • Agencies • Fractional leaders</span>
+            <span class="pill">Sequences • Workflows • Dashboards</span>
+          </div>
+
+          <h1 class="mt-5 text-3xl sm:text-4xl font-bold">
+            HirePilot GTM Playbook: <span class="text-white/80">From Chaos to Command Center</span>
+          </h1>
+
+          <p class="mt-3 text-white/70">
+            A founder-friendly operating system for recruiting teams, agencies, and fractional leaders
+          </p>
+
+          <div class="mt-6 flex flex-wrap items-center gap-3">
+            <span class="pill">
+              <span class="h-2 w-2 rounded-full bg-emerald-400/80"></span>
+              By Brandon Omoregie
+            </span>
+            <span class="pill">
+              <span class="h-2 w-2 rounded-full bg-sky-400/80"></span>
+              January 2026
+            </span>
+          </div>
+
+          <div class="mt-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="glass-soft rounded-2xl p-4">
+              <div class="text-sm text-white/60">Outcome</div>
+              <div class="mt-1 font-semibold">Predictable pipeline</div>
+              <div class="mt-1 text-sm text-white/65">Without spreadsheets + scattered tools</div>
+            </div>
+            <div class="glass-soft rounded-2xl p-4">
+              <div class="text-sm text-white/60">Designed for</div>
+              <div class="mt-1 font-semibold">First-time automation users</div>
+              <div class="mt-1 text-sm text-white/65">Zapier optional, step-by-step</div>
+            </div>
+            <div class="glass-soft rounded-2xl p-4">
+              <div class="text-sm text-white/60">Focus</div>
+              <div class="mt-1 font-semibold">Systems > tactics</div>
+              <div class="mt-1 text-sm text-white/65">Build once, run weekly</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Intro -->
+        <section id="what-this-does" class="scroll-mt-24 mt-8 glass rounded-3xl p-7 sm:p-9">
+          <h2 class="text-2xl font-bold">What this playbook actually does</h2>
+
+          <p class="mt-4">
+            This isn’t another GTM theory doc or collection of tactics.
+          </p>
+
+          <p class="mt-4">
+            This playbook shows you how to turn HirePilot into your GTM operating system — even if you’ve never set up automations, never used Zapier, and have only ever run pipeline out of spreadsheets, DMs, and Google Sheets.
+          </p>
+
+          <p class="mt-5 font-semibold text-white/90">By the end of this playbook, you’ll have:</p>
+          <ul class="mt-3 list-disc pl-6 space-y-2">
+            <li>Plug-and-play outbound sequences already mapped to personas, campaigns, and dashboards in HirePilot.</li>
+            <li>Step-by-step workflows that connect RB2B, Apollo, Stripe, Calendly, and your email into one simple system.</li>
+            <li>Dashboards that tell you what’s working, what’s not, and where to focus tomorrow — without needing a data team.</li>
+            <li>A practical automation map so you know exactly what to automate and what to keep human, with safety and deliverability as non-negotiables.</li>
+          </ul>
+
+          <p class="mt-5">
+            You can follow this playbook line-by-line and build everything in a weekend, or implement one recipe per week until the full system is live.
+          </p>
+
+          <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="text-sm text-white/60">Who this is for</div>
+              <div class="mt-1 font-semibold">Founders, recruiters, agencies, and fractional leaders</div>
+              <p class="mt-2 text-sm text-white/65">…who want predictable pipeline without the chaos of spreadsheets and scattered tools.</p>
+            </div>
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="text-sm text-white/60">Who this is NOT for</div>
+              <div class="mt-1 font-semibold">Teams who like manual processes</div>
+              <p class="mt-2 text-sm text-white/65">…or don’t want to measure what works.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- TOC -->
+        <section id="toc" class="scroll-mt-24 mt-8 glass rounded-3xl p-7 sm:p-9">
+          <h2 class="text-2xl font-bold">Table of Contents</h2>
+
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="glass-soft rounded-2xl p-5">
+              <h3 class="text-lg font-semibold">1. Plug-and-Play Sequences</h3>
+              <ol class="mt-3 space-y-1 text-sm text-white/75">
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-1">1.1 What sequences are and how they work in HirePilot</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-2">1.2 Funding Signal Sequence (for recently funded companies)</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-3">1.3 Event Bridge Sequence (before/after webinars, roundtables, workshops)</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-4">1.4 Inbound Intelligence Sequence (RB2B website visitors → outreach)</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-5">1.5 ABM Multi-Touch Sequence (8-touch “must-win account” play)</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-6">1.6 Referral &amp; Partner Sequence (turn warm relationships into pipeline)</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s1-7">1.7 How to install these sequences in HirePilot (step-by-step)</a></li>
+              </ol>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <h3 class="text-lg font-semibold">2–4. System Buildout</h3>
+              <ol class="mt-3 space-y-1 text-sm text-white/75">
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s2">2. Workflows and Automations</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s3">3. Dashboards that make decisions obvious</a></li>
+                <li><a class="underline decoration-white/20 hover:decoration-white/60" href="#s4">4. Automation Map (what to automate vs keep human)</a></li>
+              </ol>
+
+              <div class="mt-4 text-sm text-white/65">
+                Note: Sections 2–4 are included in the next copy/paste chunks to keep this file lossless and easy to ship.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 1 -->
+        <section id="s1" class="scroll-mt-24 mt-10">
+          <div class="glass rounded-3xl p-7 sm:p-9">
+            <h2 class="text-2xl font-bold">Section 1: Plug and Play Sequences</h2>
+            <p class="mt-4">
+              Starting with Section 1 (Plug-and-Play Sequences). Below is “recipe-grade” detail, written for someone who has never built sequences before.
+            </p>
+          </div>
+        </section>
+
+        <!-- 1.1 -->
+        <section id="s1-1" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h3 class="text-xl font-bold">1. Plug-and-Play Sequences</h3>
+          <h4 class="mt-4 text-lg font-semibold">1.1 What sequences are in HirePilot</h4>
+
+          <p class="mt-3">
+            A sequence is a pre-written series of touches (emails, LinkedIn steps, tasks) that HirePilot sends or schedules for you so you don’t have to remember who to follow up with each day.
+          </p>
+
+          <p class="mt-4 font-semibold">In this playbook, each sequence will have:</p>
+          <ul class="mt-3 list-disc pl-6 space-y-2">
+            <li>A trigger (what puts someone into the sequence).</li>
+            <li>The touches (emails, LinkedIn, calls) with timing.</li>
+            <li>The build steps (how to set it up in HirePilot + where Zapier comes in, if needed).</li>
+          </ul>
+        </section>
+
+        <!-- 1.2 -->
+        <section id="s1-2" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.2 Funding Signal Sequence</h4>
+
+          <div class="mt-4 glass-soft rounded-2xl p-5">
+            <div class="text-sm text-white/60">Goal</div>
+            <div class="mt-1 font-semibold">Turn funding news (or similar GTM trigger) into predictable conversations and meetings.</div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">A. When to use this</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Your ideal buyers just raised a round (Seed–Series C), changed GTM leadership, or announced an aggressive hiring/expansion plan.</li>
+            <li>You want to offer: GTM hiring support, recruiting as a service, or a GTM pipeline audit.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">B. Sequence structure (touches)</h5>
+          <p class="mt-2">Timing is flexible, but a good starting point:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Day 1 – Email 1: Congrats + short, specific POV on GTM at their stage.</li>
+            <li>Day 3 – Email 2: “3 mistakes companies at <span class="kbd">[Stage]</span> make after raising” + quick diagnostic.</li>
+            <li>Day 5 – LinkedIn: Connect with a short note (no long pitch).</li>
+            <li>Day 7 – Email 3: Offer a 20–30 minute GTM hiring or pipeline gap audit.</li>
+            <li>Day 10 – Task: Call or voice note if there was any engagement (opens/replies/clicks).</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">C. Fields you need in HirePilot</h5>
+          <p class="mt-2">Make sure your Leads and Companies tables have:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Company Name</li>
+            <li>Contact Name</li>
+            <li>Email</li>
+            <li>LinkedIn URL (if you can get it)</li>
+            <li>Stage (Seed, Series A, Series B, etc.)</li>
+            <li>Funding Date / Trigger Date</li>
+            <li>Persona (e.g., “Seed–Series A CEO”, “VP Sales”, “RevOps Leader”)</li>
+            <li>Source (e.g., “Funding List”, “Apollo Funding Search”)</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">D. How to build this in HirePilot (step-by-step)</h5>
+          <div class="mt-3 space-y-4">
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Create a Campaign</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Go to <span class="kbd">Campaigns</span> → <span class="kbd">New Campaign</span>.</li>
+                <li>Name: “Funding Signal – <span class="kbd">[Persona]</span>”.</li>
+                <li>Type: Outbound.</li>
+                <li>Attach Persona: choose the persona this is for (e.g., Seed–Series A CEO).</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Add emails to the sequence</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Inside the campaign, open “Email Sequence” or “Steps”.</li>
+                <li>Step 1: Email – Day 1.</li>
+                <li>Subject example: “Congrats on the raise – quick GTM lens?”</li>
+                <li>Body: Use your playbook copy (keep it short, 3–5 sentences).</li>
+                <li>Send delay: “Send immediately when contact is added to campaign”.</li>
+                <li>Step 2: Email – Day 3. Delay: “3 days after previous email”.</li>
+                <li>Subject example: “3 GTM hires Seed/Series A teams get wrong”.</li>
+                <li>Step 3: LinkedIn Task – Day 5. Type: Task (LinkedIn connect). Delay: “2 days after previous email”.</li>
+                <li>Step 4: Email – Day 7. Delay: “2 days after LinkedIn Task is due”. CTA: “20-minute GTM gap audit”.</li>
+                <li>Step 5: Call Task – Day 10. Type: Task (Call). Delay: “3 days after last email”.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Define enrollment rules (who gets added)</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>In the campaign, go to “Enrollment / Targeting”.</li>
+                <li>Filter Leads where:</li>
+                <li class="ml-5">Stage = your chosen stages (Seed/Series A/Series B).</li>
+                <li class="ml-5">Funding Date is within last 30–45 days.</li>
+                <li class="ml-5">Persona matches.</li>
+                <li>Save as “Funding Signal – <span class="kbd">[Stage]</span> Saved View”.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Turn on throttles for safety</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Set daily send limit per user (e.g., max 50–75 new sends/day).</li>
+                <li>Set working hours (e.g., 8:30 am – 11:30 am recipient local time).</li>
+                <li>Make sure “Skip leads contacted in last X days” is ON (e.g., 30–90 days).</li>
+              </ul>
+            </div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">E. If you have zero Zapier experience: simple automation version</h5>
+          <p class="mt-2">You can start without Zapier:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Once per week, import a CSV from Apollo (Funding search) into HirePilot’s Leads table.</li>
+            <li>Tag those Leads with Source = “Funding – <span class="kbd">[Month]</span>”.</li>
+            <li>In the Campaign, go to “Add from view” and choose your “Funding Signal – <span class="kbd">[Stage]</span> Saved View”.</li>
+            <li>Start the campaign at low volume (10–20/day), then increase.</li>
+            <li>Zapier only becomes necessary once you want this fully always-on, which we’ll cover in the Workflows section.</li>
+          </ul>
+        </section>
+
+        <!-- 1.3 -->
+        <section id="s1-3" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.3 Event Bridge Sequence</h4>
+
+          <div class="mt-4 glass-soft rounded-2xl p-5">
+            <div class="text-sm text-white/60">Goal</div>
+            <div class="mt-1 font-semibold">Turn events (webinars, workshops, roundtables) into meetings, not just registrations.</div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">A. When to use this</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>You run a webinar or event that attracts your ICP (e.g., “2026 GTM Hiring Predictions”).</li>
+            <li>You want more meetings and pipeline from each event, not just “attendance”.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">B. Sequence structure</h5>
+          <p class="mt-2">Use a simple pattern that matches your GTM guide:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Day -7: Email 1 – Invite to the event.</li>
+            <li>Day 0 (morning): Email 2 – Reminder + what they’ll get.</li>
+            <li>Day +1: Email 3 – Replay + “Here’s what stood out for teams like yours” + soft CTA.</li>
+            <li>Day +3–4: Email 4 – “Want a custom scorecard or 1:1 breakdown?” clear CTA to book.</li>
+          </ul>
+
+          <p class="mt-4 font-semibold">Optionally add:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>LinkedIn connect after registration.</li>
+            <li>Task to personalize outreach for high-intent registrants.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">C. Fields you need</h5>
+          <p class="mt-2">In HirePilot, ensure:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Events table (Name, Date, Type, Topic).</li>
+            <li>Leads table has: Registered (Yes/No), Attended (Yes/No), No-show (Yes/No).</li>
+            <li>Source = Event Name.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">D. Build the sequence in HirePilot</h5>
+          <div class="mt-3 space-y-4">
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Create an Event Campaign</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Campaign Name: “Event Bridge – <span class="kbd">[Event Name]</span>”.</li>
+                <li>Type: Event / Nurture.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Add steps</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Step 1: Email – Invite (Day -7). You can send this manually or as a separate “Prospects to invite” campaign.</li>
+                <li>Step 2: Email – Reminder (Day 0, a few hours before start). Delay: “On event date at <span class="kbd">[time]</span>” or “Same day at 8:30am”.</li>
+                <li>Step 3: Email – Replay (Day +1). Delay: “1 day after event date”.</li>
+                <li>Step 4: Email – Custom scorecard / audit CTA (Day +3–4). Delay: “3 days after event date”.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Segment by behavior (optional but powerful)</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Create views: “Registered &amp; Attended”, “Registered, No-show”, “Clicked replay link”.</li>
+                <li>You can clone the sequence and tweak copy for each segment later.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">E. No-code workflow version (no Zapier yet)</h5>
+          <p class="mt-2">If you’re not ready for automation:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Export registrants from Zoom/Event tool as CSV.</li>
+            <li>Import into HirePilot as Leads (map to Event fields).</li>
+            <li>Manually add them to the “Event Bridge – <span class="kbd">[Event]</span>” campaign.</li>
+            <li>Later, automation will handle this via Zapier/Make.</li>
+          </ul>
+        </section>
+
+        <!-- 1.4 -->
+        <section id="s1-4" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.4 Inbound Intelligence Sequence (RB2B → HirePilot)</h4>
+
+          <div class="mt-4 glass-soft rounded-2xl p-5">
+            <div class="text-sm text-white/60">Goal</div>
+            <div class="mt-1 font-semibold">Turn anonymous website visitors into warm conversations using RB2B + HirePilot.</div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">A. When to use this</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>You have RB2B set up to see which companies visit your website.</li>
+            <li>You want to outreach only to relevant, high-intent visits (pricing, GTM guide, demo).</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">B. Sequence structure</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Day 1 – Email 1: Soft “noticed <span class="kbd">[Company]</span> was exploring GTM / hiring” email, highly contextual.</li>
+            <li>Day 2–3 – LinkedIn connect: Short, non-pushy note.</li>
+            <li>Day 4–5 – Email 2: Offer a quick audit/scorecard or “happy to walk you through how teams like yours use HirePilot”.</li>
+            <li>Day 7–10 – Task: Call or Loom if there was any engagement.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">C. Fields you need in HirePilot</h5>
+          <p class="mt-2">For Leads / Companies:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Company Name (from RB2B).</li>
+            <li>Website URL.</li>
+            <li>Page Category visited (pricing, GTM guide, demo, careers, etc.).</li>
+            <li>Visit Intensity (pageviews or “score” if RB2B provides it).</li>
+            <li>Persona (once you add the right contact).</li>
+            <li>Source = “RB2B Inbound”.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">D. Simple manual version (no automation yet)</h5>
+          <p class="mt-2">Until workflows are set up:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>RB2B posts leads into Slack.</li>
+            <li>Once per day, copy the good-fit ones into a CSV or directly into HirePilot Leads.</li>
+            <li>Tag them with Source = RB2B and Page Category.</li>
+            <li>Add them to the “Inbound Intelligence” campaign with lower daily volume (e.g., 5–10/day).</li>
+            <li>In the Workflow section, this will become your showcase RB2B → HirePilot → outreach automation.</li>
+          </ul>
+        </section>
+
+        <!-- 1.5 -->
+        <section id="s1-5" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.5 ABM Multi-Touch Sequence</h4>
+
+          <div class="mt-4 glass-soft rounded-2xl p-5">
+            <div class="text-sm text-white/60">Goal</div>
+            <div class="mt-1 font-semibold">Land must-win accounts with orchestrated multi-channel touches.</div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">A. When to use this</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>You have a list of 25–100 “dream” accounts.</li>
+            <li>You’re willing to put more effort per account (research, personalization).</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">B. Sequence structure (from your GTM guide)</h5>
+          <p class="mt-2">Example 8-touch template:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Day 1: LinkedIn connect.</li>
+            <li>Day 2: Email 1 (trigger-based, very specific).</li>
+            <li>Day 3: LinkedIn comment + like on a relevant post.</li>
+            <li>Day 5: Call (only if engaged/opened).</li>
+            <li>Day 6: Share asset (clip/playbook relevant to their situation).</li>
+            <li>Day 8: Email 2 (case study focused).</li>
+            <li>Day 10: Event invite or curated resource.</li>
+            <li>Day 12: Call #2 + ask directly for meeting.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">C. ABM structure in HirePilot</h5>
+          <p class="mt-2">Create:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li><strong>ABM Accounts table</strong> — Fields: Account Name, Tier (1–3), Industry, Size, ICP fit, Status (Not started / In progress / Won / Lost).</li>
+            <li><strong>Stakeholders table</strong> (or use Leads with an Account link) — Fields: Name, Role, Seniority, Email, LinkedIn URL, Buying role (Champion, Decision-maker, etc.).</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">D. Build the ABM sequence in HirePilot</h5>
+          <div class="mt-3 space-y-4">
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Create a Campaign</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Name: “ABM – Tier 1 Multi-Touch”.</li>
+                <li>Type: ABM.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Add steps (mostly Tasks + optional email templates)</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Step 1: Task – Send LinkedIn connect (Day 1).</li>
+                <li>Step 2: Email – Day 2 (with personalization tokens).</li>
+                <li>Step 3: Task – Engage with LinkedIn posts (Day 3).</li>
+                <li>Step 4: Task – Call (Day 5).</li>
+                <li>Step 5: Task or Email – Share asset (Day 6).</li>
+                <li>Step 6: Email – Case study (Day 8).</li>
+                <li>Step 7: Email or Task – Event invite (Day 10).</li>
+                <li>Step 8: Task – Second call (Day 12).</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Assign ownership</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Ensure each Account has an Owner in HirePilot.</li>
+                <li>Set Tasks to assign to that Owner by default.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Start small</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Only add 5–10 accounts into this sequence at a time to keep quality high.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.6 -->
+        <section id="s1-6" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.6 Referral &amp; Partner Sequence</h4>
+
+          <div class="mt-4 glass-soft rounded-2xl p-5">
+            <div class="text-sm text-white/60">Goal</div>
+            <div class="mt-1 font-semibold">Turn your happy clients and partners into a steady stream of warm intros.</div>
+          </div>
+
+          <h5 class="mt-6 font-semibold">A. When to use this</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>You have clients, partners, or investors who like you but don’t send intros consistently.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">B. Sequence structure</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Day 1 – Email 1: “Could you introduce me to 2–3 companies like <span class="kbd">[X]</span>?” with 3–4 clear ICP bullets.</li>
+            <li>Day 5–7 – Email 2: Soft reminder: “Still open to intros? Here’s a 2-sentence blurb you can forward.”</li>
+            <li>Day 14 – Email 3: Simple “no pressure, but here’s a case study you can share if it’s helpful.”</li>
+          </ul>
+
+          <p class="mt-4 font-semibold">Optionally:</p>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Task: DM on LinkedIn for top partners.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">C. Fields in HirePilot</h5>
+          <ul class="mt-2 list-disc pl-6 space-y-2">
+            <li>Partners/Referrers table or tags on Companies/Contacts.</li>
+            <li>Fields: Partner Type (VC, Agency, Client), Relationship Stage, Last Referral Date.</li>
+          </ul>
+
+          <h5 class="mt-6 font-semibold">D. Build in HirePilot</h5>
+          <div class="mt-3 space-y-4">
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Create a Campaign</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>Name: “Referral Engine – Q1 2026”.</li>
+                <li>Audience: Contacts tagged Partner = Yes.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Add steps</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>2–3 emails as above.</li>
+                <li>Optional tasks for high-value partners.</li>
+              </ul>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-5">
+              <div class="font-semibold">Track outcomes</div>
+              <ul class="mt-2 list-disc pl-6 space-y-2">
+                <li>For each referral that becomes a lead, set Source = “Referral – <span class="kbd">[Partner]</span>”.</li>
+                <li>Your dashboards can later show revenue by partner.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.7 -->
+        <section id="s1-7" class="scroll-mt-24 mt-6 glass rounded-3xl p-7 sm:p-9">
+          <h4 class="text-lg font-semibold">1.7 How to install sequences in HirePilot (for first-time users)</h4>
+
+          <p class="mt-4">If a user has never done this before, the “minimum viable” steps are:</p>
+          <ol class="mt-3 list-decimal pl-6 space-y-2">
+            <li>Pick one sequence (e.g., Funding Signal).</li>
+            <li>Create the Campaign in HirePilot and add the steps (emails + tasks) exactly as listed.</li>
+            <li>Import or tag 20–50 contacts that fit the trigger.</li>
+            <li>Turn on the sequence at low volume (10–15/day) and watch replies/meetings.</li>
+            <li>Only after they’re comfortable, move on to Event Bridge, Inbound Intelligence, etc.</li>
+          </ol>
+
+          <div class="mt-6 glass-soft rounded-2xl p-5">
+            <p class="text-white/75">
+              In the next chunk, the focus can be Section 2: Workflows and Automations, where each of these sequences gets wired to tools like RB2B, Apollo, Stripe, and Calendly in “follow these clicks” detail.
+            </p>
+          </div>
+        </section>
+
+        <!-- Anchors for upcoming chunks (keeps TOC links stable) -->
+        <section id="s2" class="scroll-mt-24 mt-10"></section>
+        <section id="s3" class="scroll-mt-24 mt-10"></section>
+        <section id="s4" class="scroll-mt-24 mt-10"></section>
+
+        <!-- Footer hint -->
+        <section class="mt-10">
+          <div class="glass-soft rounded-3xl p-6 border border-white/10">
+            <div class="text-sm text-white/60">Next</div>
+            <div class="mt-1 font-semibold">Chunk 2 will add Section 2 (Workflows & Automations) into this same file.</div>
+            <p class="mt-2 text-sm text-white/65">No content gets dropped — we’re doing controlled append-only chunks.</p>
+          </div>
+        </section>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- SECTION 2 HTML INSERT HERE (we'll do next chunk) -->
+  <!-- =========================================================
+SECTION 2: WORKFLOWS AND AUTOMATIONS
+========================================================= -->
+<section id="section-2" class="scroll-mt-24">
+  <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent p-8 md:p-10">
+    <div class="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+    <div class="relative">
+      <p class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">
+        <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
+        Section 2
+      </p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">Workflows and Automations</h2>
+      <p class="mt-3 max-w-3xl text-white/75">
+        This section turns your GTM system into an always-on machine. Every workflow includes exact Zapier steps for first-timers,
+        plus a manual alternative if you’re not ready for automation yet.
+      </p>
+
+      <div class="mt-6 grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">RB2B → HirePilot</div>
+          <div class="mt-1 text-sm text-white/70">Identified visitors become leads + get sequenced automatically.</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">Apollo → HirePilot</div>
+          <div class="mt-1 text-sm text-white/70">Always-on list rotation without CSV busywork.</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">Stripe/Calendly Sync</div>
+          <div class="mt-1 text-sm text-white/70">Revenue + meetings update pipeline and create follow-ups.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2.1 -->
+  <article id="section-2-1" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.1 What workflows are (in plain English)</h3>
+    </header>
+
+    <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p class="text-white/80">
+        A workflow is a way to connect tools so data flows between them automatically. Instead of manually copying leads from RB2B
+        to HirePilot, Zapier/Make does it for you.
+      </p>
+      <div class="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+        <p class="text-sm text-white/80">
+          <span class="font-semibold">Example:</span>
+          RB2B sees a company visit your pricing page → Zapier creates a Lead in HirePilot → HirePilot adds them to the
+          “Inbound Intelligence” sequence → you get a Slack notification to review.
+        </p>
+      </div>
+      <p class="mt-4 text-white/75">
+        In this section, every workflow includes exact Zapier steps for first-timers, plus a manual alternative if you’re not ready
+        for automation yet.
+      </p>
+    </div>
+  </article>
+
+  <!-- 2.2 -->
+  <article id="section-2-2" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.2 RB2B → HirePilot → Outreach workflow (your example, fully productized)</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Goal:</span>
+        Every RB2B-identified visitor matching your ICP becomes a Lead in HirePilot and gets sequenced automatically.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <!-- A -->
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What this workflow does</h4>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Overview</span>
+        </div>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>RB2B identifies a company visiting your site (pricing, GTM guide, demo).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Zapier creates a Company and Lead in HirePilot.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>HirePilot auto-enriches (Apollo/Skrapp), tags intent, and enrolls in “Inbound Intelligence” sequence.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>You get Slack notification only for high-intent leads.</li>
+        </ul>
+      </div>
+
+      <!-- B -->
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. Tools you need</h4>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Prereqs</span>
+        </div>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>RB2B account (already set up).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>HirePilot account.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Zapier (free tier works for 100 tasks/month).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Apollo or Skrapp (for enrichment).</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- C Steps -->
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Exact Zapier steps (no experience needed)</h4>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Click-by-click</span>
+      </div>
+
+      <div class="mt-4 space-y-5">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Zap 1: RB2B → HirePilot Lead creation</div>
+          <ol class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span>
+              <span>Go to zapier.com → “Create Zap”.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">2</span>
+              <span>Trigger: RB2B → “New Company Identified”.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">3</span>
+              <span>Connect your RB2B account.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">4</span>
+              <span>Test trigger (RB2B sends recent visitor data).</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">5</span>
+              <span>Action 1: HirePilot → “Create Lead”.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">6</span>
+              <span>Connect HirePilot account.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">7</span>
+              <span>Map fields:</span>
+            </li>
+          </ol>
+
+          <div class="mt-3 overflow-hidden rounded-lg border border-white/10">
+            <div class="bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/60">Field Mapping</div>
+            <div class="p-4 text-sm text-white/80">
+              <ul class="space-y-2">
+                <li><span class="font-semibold">Company Name</span> = {{RB2B Company Name}}</li>
+                <li><span class="font-semibold">Website</span> = {{RB2B Website}}</li>
+                <li><span class="font-semibold">Page Category</span> = {{RB2B Page Visited}} (pricing, GTM guide, etc.)</li>
+                <li><span class="font-semibold">Source</span> = “RB2B Inbound”</li>
+                <li><span class="font-semibold">Visit Intensity</span> = {{RB2B Pageviews or Score}}</li>
+                <li><span class="font-semibold">Persona</span> = “RB2B – [Page Category]” (you’ll create this Persona)</li>
+              </ul>
+            </div>
+          </div>
+
+          <ol class="mt-4 space-y-2 text-sm text-white/80">
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">8</span>
+              <span>Action 2: HirePilot → “Add to Campaign”.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">9</span>
+              <span>Campaign = “Inbound Intelligence”. Lead = {{Lead created in previous step}}.</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">10</span>
+              <span>Action 3: Slack → “Send Channel Message” (optional, for review).</span>
+            </li>
+          </ol>
+
+          <div class="mt-4 rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-white/80">
+            <div class="font-semibold">Slack details (optional)</div>
+            <div class="mt-2 space-y-1">
+              <div><span class="font-semibold">Channel:</span> #inbound-leads</div>
+              <div>
+                <span class="font-semibold">Message:</span>
+                “New RB2B lead: {{Company Name}} visited {{Page Category}} | Lead ID: {{HirePilot Lead ID}}”
+              </div>
+            </div>
+          </div>
+
+          <p class="mt-4 text-sm text-white/75">Turn on Zap → test with a manual RB2B trigger.</p>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Zap 2: Auto-enrich (Apollo)</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: HirePilot → “New Lead”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: Apollo → “Enrich Contact”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Domain = {{HirePilot Website}}.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Update Lead”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Lead ID = {{Original Lead ID}}.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Map Apollo fields: First Name, Last Name, Email, Title, LinkedIn URL.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- D/E -->
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">D. Manual alternative (no Zapier)</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Check RB2B Slack channel daily.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Copy good-fit companies to CSV.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Import to HirePilot Leads → manually add to “Inbound Intelligence” campaign.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">E. Safety rules built-in</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Only trigger for ICP pages (pricing, GTM guide, demo, careers).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>RB2B already filters low-quality traffic.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>HirePilot dedupe prevents duplicates.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Start with 5–10 leads/day max.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- 2.3 -->
+  <article id="section-2-3" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.3 Apollo list → HirePilot campaign workflow (always-on list rotation)</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Goal:</span>
+        Fresh Apollo lists flow into HirePilot campaigns weekly without manual CSV work.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What this does</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Apollo runs your Persona search (e.g., “Seed–Series A CEO”).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Apollo exports new leads matching recency/dedupe rules.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Zapier creates Leads in HirePilot → adds to correct Campaign.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. Exact Zapier steps</h4>
+        <div class="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Zap: Apollo → HirePilot</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: Apollo → “New Contact” (or Schedule by Zapier → weekly).</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Filter: Only continue if:</li>
+          </ul>
+          <div class="mt-3 rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-white/80">
+            <ul class="space-y-2">
+              <li>Title matches Persona keywords.</li>
+              <li>Company size 10–250.</li>
+              <li>Not contacted in last 60 days (Apollo has recency filter).</li>
+            </ul>
+          </div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Create Lead”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Map: Name, Email, Company, Title, LinkedIn, Source = “Apollo – [Persona]”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Add to Campaign”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Campaign = “Funding Signal” or Persona-specific campaign.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: Slack → “{{X}} new Apollo leads added to {{Campaign}}”.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Manual alternative</h4>
+      <p class="mt-4 text-sm text-white/80">
+        Apollo → Export → CSV → HirePilot Leads → add to Campaign. Do once/week.
+      </p>
+    </div>
+  </article>
+
+  <!-- 2.4 -->
+  <article id="section-2-4" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.4 Stripe → HirePilot revenue attribution workflow</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Goal:</span>
+        Every payment automatically updates your pipeline dashboards with revenue data.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What this does</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Stripe payment succeeds.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Zapier finds matching Opportunity in HirePilot (by email or metadata).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Updates Opportunity: Amount, Status = “Won”, Close Date, Product.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. Exact Zapier steps</h4>
+        <div class="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Zap: Stripe → HirePilot</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: Stripe → “New Payment”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Filter: Payment status = succeeded AND Amount &gt; $X (your minimum).</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Find Lead” or “Find Opportunity”. Search by Email = {{Stripe Customer Email}}.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Update Opportunity”.</li>
+          </ul>
+          <div class="mt-3 rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-white/80">
+            <ul class="space-y-2">
+              <li><span class="font-semibold">Opportunity ID</span> = {{Found Opportunity}}</li>
+              <li><span class="font-semibold">Amount</span> = {{Stripe Amount}}</li>
+              <li><span class="font-semibold">Status</span> = “Closed Won”</li>
+              <li><span class="font-semibold">Close Date</span> = {{Today}}</li>
+              <li><span class="font-semibold">Product</span> = {{Stripe Product}}</li>
+            </ul>
+          </div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: Slack → “New revenue: ${{Amount}} from {{Customer Name}}”.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Manual alternative</h4>
+      <p class="mt-4 text-sm text-white/80">
+        Stripe dashboard → copy payment details → update HirePilot Opportunities manually.
+      </p>
+    </div>
+  </article>
+
+  <!-- 2.5 -->
+  <article id="section-2-5" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.5 Calendly → HirePilot meetings, no-shows, and follow-up workflow</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Goal:</span>
+        Every meeting booked, attended, or no-showed automatically updates your pipeline and creates follow-ups.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What this does</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Calendly meeting booked → create Opportunity in HirePilot.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Meeting marked “no-show” → create Task to reschedule.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Meeting completed → move Opportunity to “Discovery Done”.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. Exact Zapier steps</h4>
+        <div class="mt-4 space-y-4">
+          <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+            <div class="text-sm font-semibold">Zap 1: New Calendly → HirePilot Opportunity</div>
+            <ul class="mt-3 space-y-2 text-sm text-white/80">
+              <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: Calendly → “Invitee Created”.</li>
+              <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Create Opportunity”.</li>
+            </ul>
+            <div class="mt-3 rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-white/80">
+              <ul class="space-y-2">
+                <li><span class="font-semibold">Name</span> = “Meeting: {{Invitee Name}} – {{Event Type}}”</li>
+                <li><span class="font-semibold">Lead</span> = Find by Email ({{Invitee Email}})</li>
+                <li><span class="font-semibold">Stage</span> = “Meeting Booked”</li>
+                <li><span class="font-semibold">Meeting Date</span> = {{Event Start}}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+            <div class="text-sm font-semibold">Zap 2: No-show → Follow-up Task</div>
+            <ul class="mt-3 space-y-2 text-sm text-white/80">
+              <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: Calendly → “Invitee No-Showed”.</li>
+              <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Create Task”.</li>
+            </ul>
+            <div class="mt-3 rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-white/80">
+              <ul class="space-y-2">
+                <li><span class="font-semibold">Lead/Opportunity</span> = {{From Zap 1}}</li>
+                <li><span class="font-semibold">Task Type</span> = “Reschedule”</li>
+                <li><span class="font-semibold">Due Date</span> = {{Event Date + 2 days}}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Manual alternative</h4>
+      <p class="mt-4 text-sm text-white/80">
+        Calendly → copy details → create Opportunity/Task in HirePilot manually.
+      </p>
+    </div>
+  </article>
+
+  <!-- 2.6 -->
+  <article id="section-2-6" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.6 Reactivation workflow (waking up old but good-fit leads)</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Goal:</span>
+        Leads that went cold but are still ICP-fit get a short “re-engage” sequence.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What this does</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>HirePilot finds leads: No activity 90+ days, good Persona fit, no hard “do not contact”.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Adds them to “Reactivation” campaign (3 light touches).</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. Exact Zapier steps</h4>
+        <div class="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Zap: HirePilot → Reactivation Campaign</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/80">
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Trigger: Schedule by Zapier → “Every Week” (Sunday night).</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Find Records”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Table: Leads.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Filters: Last Activity &gt; 90 days ago, Persona = ICP, Do Not Contact = false.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Action: HirePilot → “Add to Campaign”.</li>
+            <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Campaign: “Reactivation – {{Month}}”.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Manual alternative</h4>
+      <ul class="mt-4 space-y-2 text-sm text-white/80">
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>HirePilot saved view: “Leads to Reactivate”.</li>
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Manually add 20–50/week to Reactivation campaign.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 2.7 -->
+  <article id="section-2-7" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">2.7 How to build workflows if you’re new to Zapier</h3>
+    </header>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p class="text-white/80 font-semibold">For absolute beginners:</p>
+      <ol class="mt-4 space-y-2 text-sm text-white/80">
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span><span>Sign up at zapier.com (free tier = 100 tasks/month).</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">2</span><span>Click “Create Zap” → search for first app (RB2B).</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">3</span><span>Zapier will walk you through “Connect Account” → “Test Trigger”.</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">4</span><span>Add Action apps one-by-one (HirePilot, Slack).</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">5</span><span>Map fields using dropdowns ({{Field Name}}).</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">6</span><span>Test end-to-end with real data.</span></li>
+        <li class="flex gap-3"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">7</span><span>Turn on → monitor first 10 runs.</span></li>
+      </ol>
+
+      <div class="mt-5 rounded-xl border border-white/10 bg-black/30 p-4">
+        <p class="text-sm text-white/80">
+          <span class="font-semibold">Pro tip:</span>
+          Start with RB2B → HirePilot Zap (highest ROI). Add others one-per-week.
+        </p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- SECTION 3 HTML INSERT HERE (we'll do next chunk) -->
+<!-- =========================================================
+SECTION 3: DASHBOARDS THAT MAKE DECISIONS OBVIOUS
+========================================================= -->
+<section id="section-3" class="scroll-mt-24">
+  <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent p-8 md:p-10">
+    <div class="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+    <div class="relative">
+      <p class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">
+        <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
+        Section 3
+      </p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">Dashboards that make decisions obvious</h2>
+      <p class="mt-3 max-w-3xl text-white/75">
+        Dashboards aren’t “nice to have.” They’re what keeps your GTM system honest. If you can’t tell what’s working in under
+        30 seconds, you’re still operating on vibes.
+      </p>
+
+      <div class="mt-6 grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">Executive Overview</div>
+          <div class="mt-1 text-sm text-white/70">Runway, revenue, margin — the founder view.</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">Pipeline Pacing</div>
+          <div class="mt-1 text-sm text-white/70">Are we on track for meetings + proposals this month?</div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="text-sm font-semibold">Channel Performance</div>
+          <div class="mt-1 text-sm text-white/70">What’s working by channel/persona — where to double down.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3.1 -->
+  <article id="section-3-1" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.1 What makes a “good” GTM dashboard (and common mistakes)</h3>
+    </header>
+
+    <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p class="text-white/80">
+        A good GTM dashboard answers exactly three questions in under 30 seconds:
+      </p>
+
+      <div class="mt-4 grid gap-3 md:grid-cols-3">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">Are we on track?</div>
+          <div class="mt-1 text-sm text-white/75">(meetings, pipeline, revenue)</div>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">What’s working?</div>
+          <div class="mt-1 text-sm text-white/75">(channels, personas, campaigns)</div>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-black/30 p-4">
+          <div class="text-sm font-semibold">What do we do tomorrow?</div>
+          <div class="mt-1 text-sm text-white/75">(next best actions)</div>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-white/10 bg-black/30 p-5">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">Common mistakes to avoid</h4>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Guardrails</span>
+        </div>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Too many widgets (max 6–8 per dashboard).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>No targets (e.g., “meetings this week” without “vs goal”).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Stale data (dashboards must update live from HirePilot tables).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>No slicing (can’t drill into “what’s working for Series A CEOs?”).</li>
+        </ul>
+      </div>
+
+      <p class="mt-5 text-sm text-white/75">
+        In HirePilot, dashboards pull from Tables (custom data) and core objects (Leads, Opportunities, Campaigns) automatically.
+      </p>
+    </div>
+  </article>
+
+  <!-- 3.2 -->
+  <article id="section-3-2" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.2 Executive Overview dashboard</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Purpose:</span>
+        “Do I have enough runway? Are we profitable?” — for you as founder or exec team.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <!-- A -->
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What it shows</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Total pipeline value (YTD).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Closed revenue (YTD, by month).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Gross costs (events, tools, contractors).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Gross profit + margin.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>“Break-even month” indicator.</li>
+        </ul>
+      </div>
+
+      <!-- B -->
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. HirePilot tables needed</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Opportunities (Amount, Close Date, Stage, Status, Source, Product, Cost).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Events (Revenue, Gross Cost, Date).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Costs table (optional): Contractor hours, ad spend, tool costs.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- C -->
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Exact steps to build in HirePilot</h4>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Recipe</span>
+      </div>
+
+      <ol class="mt-4 space-y-3 text-sm text-white/80">
+        <li class="flex gap-3">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span>
+          <span>Go to <span class="font-semibold">Dashboards → New Dashboard</span> → Name: <span class="font-semibold">“Executive Overview”</span>.</span>
+        </li>
+      </ol>
+
+      <div class="mt-5 grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 1: Pipeline Value (YTD)</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Sum of Amount</div>
+            <div><span class="font-semibold">Filter:</span> Close Date = this year</div>
+            <div><span class="font-semibold">Display:</span> Big number + sparkline</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 2: Revenue by Month</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Sum of Amount</div>
+            <div><span class="font-semibold">Group by:</span> Close Date (Month)</div>
+            <div><span class="font-semibold">Display:</span> Bar chart</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 3: Gross Margin</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> (Sum Amount – Sum Cost) / Sum Amount</div>
+            <div><span class="font-semibold">Filter:</span> Status = Closed Won</div>
+            <div><span class="font-semibold">Display:</span> Big number + trend arrow</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 4: Break-even Month</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities + Costs table</div>
+            <div><span class="font-semibold">Metric:</span> Running total Gross Profit</div>
+            <div><span class="font-semibold">Filter:</span> Cumulative profit &gt; target monthly burn</div>
+            <div><span class="font-semibold">Display:</span> Text or milestone</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5 lg:col-span-2">
+          <div class="text-sm font-semibold">Widget 5: Pipeline by Source</div>
+          <div class="mt-3 grid gap-3 md:grid-cols-2 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Count of Opportunities</div>
+            <div><span class="font-semibold">Group by:</span> Source</div>
+            <div><span class="font-semibold">Filter:</span> Stage != Closed Lost</div>
+            <div class="md:col-span-2"><span class="font-semibold">Display:</span> Donut chart</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="mt-5 text-sm text-white/75">
+        Set to update every 15 minutes. Share with exec team.
+      </p>
+    </div>
+  </article>
+
+  <!-- 3.3 -->
+  <article id="section-3-3" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.3 Pipeline &amp; Meeting Pacing dashboard</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Purpose:</span>
+        “Are we on track for meetings and proposals this month?” — daily check for your team.
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What it shows</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>New leads created (weekly vs target).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Meetings booked (this week vs target).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Proposals sent (this month vs target).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Pipeline velocity (leads → meetings → proposals).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>“Meetings remaining needed” to hit goal.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. HirePilot tables needed</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Leads (Created Date, Source, Persona, Campaign).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Tasks (Type = Meeting, Status).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Opportunities (Stage, Amount, Created Date).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Exact steps to build</h4>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Recipe</span>
+      </div>
+
+      <ol class="mt-4 space-y-3 text-sm text-white/80">
+        <li class="flex gap-3">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span>
+          <span>New Dashboard → Name: <span class="font-semibold">“Pipeline Pacing”</span>.</span>
+        </li>
+      </ol>
+
+      <div class="mt-5 grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 1: New Leads This Week</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Leads</div>
+            <div><span class="font-semibold">Metric:</span> Count</div>
+            <div><span class="font-semibold">Filter:</span> Created Date = this week</div>
+            <div><span class="font-semibold">Target line:</span> 200 (adjust to your goal)</div>
+            <div><span class="font-semibold">Display:</span> Big number + vs target %</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 2: Meetings Booked (Week)</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Tasks</div>
+            <div><span class="font-semibold">Filter:</span> Type = “Meeting”, Status = Booked/Completed, Due Date = this week</div>
+            <div><span class="font-semibold">Metric:</span> Count</div>
+            <div><span class="font-semibold">Target:</span> 15–25</div>
+            <div><span class="font-semibold">Display:</span> Big number + trend</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 3: Pipeline Funnel</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Leads + Opportunities</div>
+            <div><span class="font-semibold">Stages:</span> New Lead → Replied → Meeting → Proposal → Won</div>
+            <div><span class="font-semibold">Display:</span> Funnel chart</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 4: Meetings Needed</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Formula:</span> (Monthly revenue goal / Avg deal size / Close rate) – Meetings booked</div>
+            <div><span class="font-semibold">Display:</span> Big warning number if behind</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5 lg:col-span-2">
+          <div class="text-sm font-semibold">Widget 5: Top Campaigns</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Leads</div>
+            <div><span class="font-semibold">Metric:</span> Meetings generated</div>
+            <div><span class="font-semibold">Group by:</span> Campaign</div>
+            <div><span class="font-semibold">Display:</span> Leaderboard table</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3.4 -->
+  <article id="section-3-4" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.4 Channel &amp; Persona Performance dashboard</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Purpose:</span>
+        “What’s working? Where should we double down?”
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What it shows</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Meetings per channel (Email, LinkedIn, RB2B, Referrals, Events).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Win rate by Persona.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Revenue by Campaign type.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>“Meetings per 100 touches” efficiency.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. HirePilot tables needed</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Leads (Source, Campaign, Persona).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Opportunities (Source, Persona, Amount, Status).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Campaigns (Type, Performance fields if tracked).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Exact steps</h4>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Recipe</span>
+      </div>
+
+      <ol class="mt-4 space-y-3 text-sm text-white/80">
+        <li class="flex gap-3">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span>
+          <span>New Dashboard → <span class="font-semibold">“Channel &amp; Persona Performance”</span>.</span>
+        </li>
+      </ol>
+
+      <div class="mt-5 grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 1: Meetings by Channel</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Count where Stage = Meeting</div>
+            <div><span class="font-semibold">Group by:</span> Source</div>
+            <div><span class="font-semibold">Display:</span> Bar chart</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 2: Revenue by Persona</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Sum Amount where Closed Won</div>
+            <div><span class="font-semibold">Group by:</span> Persona</div>
+            <div><span class="font-semibold">Display:</span> Table with revenue and count</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 3: Efficiency (Meetings/100 Touches)</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Leads + Tasks</div>
+            <div><span class="font-semibold">Metric:</span> (Meetings / Total Touches * 100)</div>
+            <div><span class="font-semibold">Group by:</span> Campaign or Channel</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 4: Win Rate Leaderboard</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities</div>
+            <div><span class="font-semibold">Metric:</span> Closed Won / (Closed Won + Closed Lost)</div>
+            <div><span class="font-semibold">Group by:</span> Persona</div>
+            <div><span class="font-semibold">Display:</span> Table</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3.5 -->
+  <article id="section-3-5" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.5 Cost / Effort vs Output dashboard</h3>
+      <p class="text-white/75">
+        <span class="font-semibold text-white/85">Purpose:</span>
+        “Is this channel or campaign worth the effort and spend?”
+      </p>
+    </header>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">A. What it shows</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Cost per channel (tools, ads, contractors).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Activities per channel vs meetings/revenue.</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>CAC proxy (cost to acquire first meeting).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>ROI ranking.</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">B. HirePilot tables needed</h4>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Costs table (Channel, Amount, Date).</li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Leads/Opportunities with Source fields.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-white/70">C. Exact steps</h4>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">Recipe</span>
+      </div>
+
+      <ol class="mt-4 space-y-3 text-sm text-white/80">
+        <li class="flex gap-3">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold">1</span>
+          <span>New Dashboard → <span class="font-semibold">“Cost vs Output”</span>.</span>
+        </li>
+      </ol>
+
+      <div class="mt-5 grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 1: Spend by Channel</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Costs table</div>
+            <div><span class="font-semibold">Metric:</span> Sum Amount</div>
+            <div><span class="font-semibold">Group by:</span> Channel</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5">
+          <div class="text-sm font-semibold">Widget 2: Meetings per $ Spend</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Opportunities + Costs</div>
+            <div><span class="font-semibold">Metric:</span> Meetings / Spend</div>
+            <div><span class="font-semibold">Group by:</span> Source/Channel</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/30 p-5 lg:col-span-2">
+          <div class="text-sm font-semibold">Widget 3: Activity Efficiency</div>
+          <div class="mt-3 space-y-1 text-sm text-white/80">
+            <div><span class="font-semibold">Data source:</span> Leads</div>
+            <div><span class="font-semibold">Metric:</span> Meetings / Total Activities (Emails + LI + Calls)</div>
+            <div><span class="font-semibold">Group by:</span> Campaign</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3.6 -->
+  <article id="section-3-6" class="mt-10 scroll-mt-24">
+    <header class="flex flex-col gap-2">
+      <h3 class="text-2xl font-semibold tracking-tight">3.6 How to build dashboards for first-time users</h3>
+    </header>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p class="text-white/80 font-semibold">Minimum viable dashboard setup:</p>
+      <ul class="mt-4 space-y-2 text-sm text-white/80">
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Start with Pipeline Pacing (most urgent).</li>
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Use only core objects: Leads, Tasks, Opportunities (no custom tables yet).</li>
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Add 1–2 widgets per day until complete.</li>
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Set view permissions: Team sees Pipeline Pacing, Exec sees Overview.</li>
+        <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-white/40"></span>Check daily: if numbers look wrong, check data fields (Created Date, Source, etc.).</li>
+      </ul>
+
+      <div class="mt-5 rounded-xl border border-white/10 bg-black/30 p-4">
+        <p class="text-sm text-white/80">
+          <span class="font-semibold">Pro tip:</span>
+          Name widgets clearly: “Meetings This Week (vs 20 Target)”.
+        </p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- =========================================================
+SECTION 4 — Automation Map (what to automate vs keep human)
+Copy/paste this whole block into your main HTML file.
+========================================================= -->
+
+<section id="section-4" class="scroll-mt-28">
+  <!-- Section Header -->
+  <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+    <div class="flex flex-col gap-3">
+      <div class="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+        <span class="h-1.5 w-1.5 rounded-full bg-white/60"></span>
+        Section 4
+      </div>
+
+      <h2 class="text-2xl font-semibold tracking-tight md:text-3xl">
+        Automation Map (what to automate vs keep human)
+      </h2>
+
+      <p class="text-white/70">
+        This section gives you the “automation boundary” for your HirePilot GTM operating system:
+        <span class="text-white">what the system should do automatically</span> vs
+        <span class="text-white">where humans must stay in the loop</span>.
+      </p>
+
+      <div class="mt-2 flex flex-wrap gap-2">
+        <a href="#section-4-1" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.1 Principle</a>
+        <a href="#section-4-2" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.2 Automate-first</a>
+        <a href="#section-4-3" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.3 Human-first</a>
+        <a href="#section-4-4" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.4 Guardrails</a>
+        <a href="#section-4-5" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.5 Blueprint</a>
+        <a href="#section-4-6" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10">4.6 Quarterly review</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.1 -->
+  <div id="section-4-1" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.1 The “80–90% automated” principle (and why not 100%)
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        Your GTM operating system should handle repetitive, rules-based work so your team can focus on conversations,
+        judgment, and relationships.
+      </p>
+
+      <div class="mt-6 grid gap-4 md:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/20 p-5">
+          <div class="text-sm font-semibold text-white">Why 80–90%, not 100%?</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <li class="flex gap-2">
+              <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span>
+              <span>Automation excels at scale and consistency (sending 100 emails, creating tasks, enriching contacts).</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span>
+              <span>Humans excel at nuance, personalization, and reading between the lines (handling objections, crafting a pitch for a specific exec).</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-black/20 p-5">
+          <div class="text-sm font-semibold text-white">The goal</div>
+          <p class="mt-3 text-sm text-white/70">
+            Spend <span class="text-white">10–20%</span> of GTM time on “system work” and
+            <span class="text-white">80–90%</span> on revenue conversations.
+          </p>
+
+          <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+            <span class="text-white font-medium">Practical meaning:</span>
+            if your team is stuck doing manual admin, your system isn’t finished yet.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.2 -->
+  <div id="section-4-2" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.2 Automate-first list: tasks the system should always do for you
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        These are non-negotiable automations. Once set up, they should run without thinking.
+      </p>
+
+      <!-- Table -->
+      <div class="mt-6 overflow-hidden rounded-xl border border-white/10">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <thead class="bg-black/30">
+              <tr class="text-white/80">
+                <th class="px-4 py-3 font-semibold">Task</th>
+                <th class="px-4 py-3 font-semibold">Why automate</th>
+                <th class="px-4 py-3 font-semibold">HirePilot feature + integrations</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 bg-black/10">
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">List pulls (Apollo, RB2B, partner lists)</td>
+                <td class="px-4 py-4 text-white/70">No one should manually export CSVs weekly</td>
+                <td class="px-4 py-4 text-white/70">Apollo → HirePilot Leads, RB2B → HirePilot via Zapier</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Sequence scheduling (email + LinkedIn timing)</td>
+                <td class="px-4 py-4 text-white/70">Humans forget follow-ups; consistency wins</td>
+                <td class="px-4 py-4 text-white/70">HirePilot Campaign Scheduler + send windows</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Task creation (from replies, no-shows, high-intent)</td>
+                <td class="px-4 py-4 text-white/70">Reps should only see “next best action”</td>
+                <td class="px-4 py-4 text-white/70">HirePilot Workflows (reply → call task)</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Data sync (Stripe revenue, Calendly meetings, email opens)</td>
+                <td class="px-4 py-4 text-white/70">Manual updates kill accuracy</td>
+                <td class="px-4 py-4 text-white/70">Zapier: Stripe → Opportunities, Calendly → Meetings</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Dedupe + recency checks</td>
+                <td class="px-4 py-4 text-white/70">Never contact the same person twice</td>
+                <td class="px-4 py-4 text-white/70">HirePilot native dedupe rules (email + LI URL)</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Dashboard updates</td>
+                <td class="px-4 py-4 text-white/70">Numbers must be live, not weekly exports</td>
+                <td class="px-4 py-4 text-white/70">HirePilot native (tables + core objects → live dashboards)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+        The punchline: if it’s <span class="text-white">repetitive</span>, <span class="text-white">rules-based</span>,
+        and <span class="text-white">happens every week</span>, the system should do it.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.3 -->
+  <div id="section-4-3" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.3 Human-first list: where judgment and nuance matter too much to automate
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        These require taste, relationships, and reading the room. Even AI can’t do these well (yet).
+      </p>
+
+      <!-- Table -->
+      <div class="mt-6 overflow-hidden rounded-xl border border-white/10">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <thead class="bg-black/30">
+              <tr class="text-white/80">
+                <th class="px-4 py-3 font-semibold">Task</th>
+                <th class="px-4 py-3 font-semibold">Why keep human</th>
+                <th class="px-4 py-3 font-semibold">When to do it</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 bg-black/10">
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">High-value personalization (ABM emails, first outreach to Tier 1)</td>
+                <td class="px-4 py-4 text-white/70">Generic = ignored, specific = opened</td>
+                <td class="px-4 py-4 text-white/70">Top 10–20 accounts</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Discovery calls + objection handling</td>
+                <td class="px-4 py-4 text-white/70">Humans read tone, body language, urgency</td>
+                <td class="px-4 py-4 text-white/70">All revenue conversations</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Proposals + pricing</td>
+                <td class="px-4 py-4 text-white/70">Context, competitive landscape, buyer psychology</td>
+                <td class="px-4 py-4 text-white/70">Every deal</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Partner strategy (VCs, agencies, key relationships)</td>
+                <td class="px-4 py-4 text-white/70">Trust, reciprocity, long-term thinking</td>
+                <td class="px-4 py-4 text-white/70">Quarterly partner syncs</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Content POV (founder posts, flagship playbooks)</td>
+                <td class="px-4 py-4 text-white/70">Your voice, credibility, differentiation</td>
+                <td class="px-4 py-4 text-white/70">Founder only</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Top 10 account planning</td>
+                <td class="px-4 py-4 text-white/70">Competitive intel, multi-threading, timing</td>
+                <td class="px-4 py-4 text-white/70">Weekly ABM review</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+        Protect these tasks. This is where your team’s “taste” becomes a competitive advantage.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.4 -->
+  <div id="section-4-4" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.4 Safety &amp; deliverability guardrails (non-negotiable)
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        Your system must protect itself from bounces, spam folders, and platform bans.
+      </p>
+
+      <!-- Table -->
+      <div class="mt-6 overflow-hidden rounded-xl border border-white/10">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <thead class="bg-black/30">
+              <tr class="text-white/80">
+                <th class="px-4 py-3 font-semibold">Guardrail</th>
+                <th class="px-4 py-3 font-semibold">Setting in HirePilot</th>
+                <th class="px-4 py-3 font-semibold">Why it matters</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 bg-black/10">
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Daily send limits</td>
+                <td class="px-4 py-4 text-white/70">Max 50–100 new sends/user/day</td>
+                <td class="px-4 py-4 text-white/70">Gmail/Outlook limits</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Send windows</td>
+                <td class="px-4 py-4 text-white/70">8:30–11:30am recipient local time</td>
+                <td class="px-4 py-4 text-white/70">Deliverability sweet spot</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Domain warmup</td>
+                <td class="px-4 py-4 text-white/70">New domains: 10–25 sends/day first 2 weeks</td>
+                <td class="px-4 py-4 text-white/70">Avoid spam traps</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Recency exclusion</td>
+                <td class="px-4 py-4 text-white/70">Skip contacts from last 30–90 days</td>
+                <td class="px-4 py-4 text-white/70">Don’t annoy good leads</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">Bounce monitoring</td>
+                <td class="px-4 py-4 text-white/70">Pause campaigns &gt;5% bounce rate</td>
+                <td class="px-4 py-4 text-white/70">Protect sender reputation</td>
+              </tr>
+
+              <tr class="align-top">
+                <td class="px-4 py-4 text-white/90">LinkedIn safety</td>
+                <td class="px-4 py-4 text-white/70">Max 50–75 connects/day, human delays</td>
+                <td class="px-4 py-4 text-white/70">Avoid LI restrictions</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+        <span class="text-white font-medium">Pro tip:</span>
+        Start every new campaign at <span class="text-white">20% volume</span>. Scale up only after
+        <span class="text-white">3–5 days</span> of good metrics.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.5 -->
+  <div id="section-4-5" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.5 Your default automation blueprint (on/off switches)
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        When a new team joins HirePilot, here’s what should be ON by default.
+      </p>
+
+      <div class="mt-6 grid gap-4 md:grid-cols-2">
+        <!-- ON -->
+        <div class="rounded-xl border border-white/10 bg-black/20 p-5">
+          <div class="text-sm font-semibold text-white">✅ Default ON</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>List pulls → HirePilot (Apollo weekly, RB2B daily)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Sequence scheduling → HirePilot (Campaign Scheduler)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Reply → Call task → HirePilot (native workflows)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Stripe → Revenue → HirePilot (Zapier)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Calendly → Meetings → HirePilot (Zapier)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Dedupe + recency → HirePilot (native)</span></li>
+            <li class="flex gap-2"><span class="mt-1">✅</span><span>Dashboard updates → HirePilot (live)</span></li>
+          </ul>
+        </div>
+
+        <!-- OFF / Human -->
+        <div class="rounded-xl border border-white/10 bg-black/20 p-5">
+          <div class="text-sm font-semibold text-white">❌ Default OFF (human-led)</div>
+          <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <li class="flex gap-2"><span class="mt-1">❌</span><span>High-value personalization (human)</span></li>
+            <li class="flex gap-2"><span class="mt-1">❌</span><span>Discovery calls (human)</span></li>
+            <li class="flex gap-2"><span class="mt-1">❌</span><span>Proposals (human)</span></li>
+            <li class="flex gap-2"><span class="mt-1">❌</span><span>Partner strategy (human)</span></li>
+          </ul>
+
+          <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+            <span class="text-white font-medium">90-day review:</span>
+            Look at dashboards. Anything consuming &gt;20% team time that could be automated? Add it.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4.6 -->
+  <div id="section-4-6" class="mt-8 scroll-mt-28">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
+      <h3 class="text-xl font-semibold tracking-tight md:text-2xl">
+        4.6 How to review and adjust your automation map every quarter
+      </h3>
+
+      <p class="mt-3 text-white/70">
+        Quarterly automation audit (30 minutes):
+      </p>
+
+      <div class="mt-6 rounded-xl border border-white/10 bg-black/20 p-5">
+        <ol class="space-y-3 text-sm text-white/70">
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">1</span>
+            <span>Check dashboards: Which channels/campaigns have best ROI? Double automation there.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">2</span>
+            <span>Review task lists: Are reps doing repetitive work? Automate it.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">3</span>
+            <span>Deliverability report: Any campaigns consistently &gt;3% bounce or low opens? Pause + diagnose.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">4</span>
+            <span>New tool evaluation: Worth adding (e.g., new enrichment tool, AI copy)? Test → measure → decide.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">5</span>
+            <span>Team feedback: “What’s still manual that feels stupid?” Fix it.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/80">6</span>
+            <span>Update your Automation Map doc with what changed. Share with team.</span>
+          </li>
+        </ol>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-white/10 bg-black/20 p-5">
+        <div class="text-sm font-semibold text-white">Automation maturity levels</div>
+        <ul class="mt-3 space-y-2 text-sm text-white/70">
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span><span><span class="text-white">Level 1:</span> Manual CSVs → HirePilot (start here)</span></li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span><span><span class="text-white">Level 2:</span> Basic sequences + Zapier for 1–2 tools</span></li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span><span><span class="text-white">Level 3:</span> Full workflows + live dashboards (this playbook)</span></li>
+          <li class="flex gap-2"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50"></span><span><span class="text-white">Level 4:</span> Custom tables + REX Chat insights + advanced ABM</span></li>
+        </ul>
+
+        <div class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+          Most teams win at <span class="text-white font-medium">Level 3</span>. Don’t optimize past what moves the revenue needle.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

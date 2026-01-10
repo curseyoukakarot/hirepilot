@@ -87,6 +87,7 @@ import UseCasesFractionalExecutives from './screens/UseCasesFractionalExecutives
 import UseCasesConsultants from './screens/UseCasesConsultants';
 import GtmStrategy from './pages/GtmStrategy';
 import GtmStrategyLandingPage from './pages/GtmStrategyLandingPage';
+import GtmGuide from './pages/GtmGuide';
 import OnboardingModals from './components/OnboardingModals';
 import JobSeekerRoutes from './pages/jobseeker/JobSeekerRoutes';
 import PublicLandingPage from './pages/jobseeker/PublicLandingPage';
@@ -438,7 +439,7 @@ function InnerApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleLower, hostname, handoffingToJobs]);
 
-  const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants", "/gtm-strategy", "/gtm-strategy/teaser"];
+  const landingPages = ["/", "/signup", "/join", "/login", "/reset-password", "/copilot", "/enterprise", "/pricing", "/rex", "/rexsupport", "/chromeextension", "/chromeextension/privacy", "/terms", "/apidoc", "/test-gmail", "/affiliates", "/blog/zapierguide", "/producthunt", "/dfydashboard", "/freeforever", "/jobs/share", "/apply", "/use-cases", "/use-cases/recruiting-agencies", "/use-cases/fractional-executives", "/use-cases/consultants", "/gtm-guide", "/gtm-strategy", "/gtm-strategy/teaser"];
   // Treat blog landing and article pages as public landing pages (no dashboard UI)
   const isPartnerArea = location.pathname.startsWith('/partners');
   // Public dynamic pages (e.g., share/apply) should not be gated by auth
@@ -673,6 +674,7 @@ function InnerApp() {
     if (
       dbRole &&
       landingPages.includes(location.pathname) &&
+      location.pathname !== '/gtm-guide' &&
       location.pathname !== '/gtm-strategy' &&
       location.pathname !== '/gtm-strategy/teaser' &&
       !['/login', '/signup', '/reset-password'].includes(location.pathname) &&
@@ -850,6 +852,7 @@ function InnerApp() {
               <Route path="/use-cases/recruiting-agencies" element={<UseCasesRecruitingAgencies />} />
               <Route path="/use-cases/fractional-executives" element={<UseCasesFractionalExecutives />} />
               <Route path="/use-cases/consultants" element={<UseCasesConsultants />} />
+              <Route path="/gtm-guide" element={<GtmGuide />} />
               <Route path="/gtm-strategy/teaser" element={<GtmStrategyLandingPage />} />
               <Route path="/gtm-strategy" element={<GtmStrategy />} />
               <Route path="/templates" element={<TemplateManager userId="mock-user-id" />} />
