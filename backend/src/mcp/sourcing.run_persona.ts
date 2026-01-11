@@ -145,6 +145,9 @@ export const sourcingRunPersonaTool = {
     let failureMode: any = 'other';
     let qualityScore = 0;
     let confidence = 0;
+    // Track best candidate by hard metrics so we never end with "no insert" when Apollo has viable hits.
+    let bestHardAttempt: any = null;
+    let bestHardScore = -Infinity;
 
     const signature = (p: any) => JSON.stringify({
       person_titles: p?.person_titles || null,
@@ -421,6 +424,17 @@ export const sourcingRunPersonaTool = {
       decision = (judgeValue as any).decision;
       failureMode = (judgeValue as any).failure_mode || 'other';
 
+      // Hard-metrics scoring: weighted fit + emailability, penalize duplicates estimate.
+      const hardScore =
+        (Number(observation.title_match_pct || 0) * 0.5) +
+        (Number(observation.geo_match_pct || 0) * 0.3) +
+        (Number(observation.email_coverage_pct || 0) * 0.2) -
+        Math.min(30, Number(observation.duplicates_estimate || 0) * 0.5);
+      if (!bestHardAttempt || hardScore > bestHardScore) {
+        bestHardScore = hardScore;
+        bestHardAttempt = { apollo_params: candidateParams, observation, judge: judgeValue, hardScore };
+      }
+
       // Heuristic safety net (hard metrics):
       // For simple title-only personas (no keywords/locations), don't block on GPT;
       // if Apollo returns hits, treat it as acceptable and proceed to enrich/insert.
@@ -431,6 +445,19 @@ export const sourcingRunPersonaTool = {
           decision = 'ACCEPT_RESULTS';
           failureMode = 'other';
         }
+      }
+
+      // General safety net: if hard metrics are clearly good, accept even if GPT says iterate.
+      // This prevents "0 leads" when Apollo returns strong matches.
+      if (
+        decision !== 'ACCEPT_RESULTS' &&
+        Number(observation.found_count || 0) > 0 &&
+        Number(observation.geo_match_pct || 0) >= 60 &&
+        Number(observation.title_match_pct || 0) >= 25 &&
+        Number(observation.email_coverage_pct || 0) >= 30
+      ) {
+        decision = 'ACCEPT_RESULTS';
+        failureMode = 'other';
       }
 
       usedQualityScores.push(qualityScore);
@@ -477,6 +504,13 @@ export const sourcingRunPersonaTool = {
     }
 
     // If no acceptance, do not enrich (avoid cost) and notify user on repeated failures.
+    // Fallback: if GPT never accepted but we have a strong bestHardAttempt, use it.
+    if (!accepted && bestHardAttempt && Number(bestHardAttempt?.observation?.found_count || 0) > 0 && bestHardScore >= 45) {
+      accepted = { apollo_params: bestHardAttempt.apollo_params, observation: bestHardAttempt.observation, judge: bestHardAttempt.judge };
+      decision = 'ACCEPT_RESULTS';
+      failureMode = 'other';
+      // preserve last quality score, but do not block
+    }
     const chosen = accepted;
     let leadsToInsert: any[] = [];
     let foundCountFinal = chosen?.observation?.found_count || 0;
