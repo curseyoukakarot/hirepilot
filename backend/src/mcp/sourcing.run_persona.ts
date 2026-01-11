@@ -87,6 +87,7 @@ export const sourcingRunPersonaTool = {
 
     // 3) Ensure sourcing campaign
     let effectiveCampaignId = campaignId;
+    const scheduleProvidedCampaign = Boolean(campaignId);
     if (!effectiveCampaignId) {
       // Create a lightweight campaign shell for persona run
       const { data: campRow, error: cErr } = await supabaseAdmin
@@ -96,6 +97,22 @@ export const sourcingRunPersonaTool = {
         .single();
       if (cErr) throw new Error(cErr.message);
       effectiveCampaignId = (campRow as any).id;
+    }
+    // If this is a scheduler-triggered run and no campaign was provided, persist it on the schedule
+    // so recurring runs reuse the same sourcing campaign (prevents dozens of blank campaigns).
+    if (scheduleId && effectiveCampaignId && !scheduleProvidedCampaign) {
+      try {
+        await supabaseAdmin
+          .from('schedules')
+          .update({
+            campaign_id: effectiveCampaignId,
+            linked_campaign_id: effectiveCampaignId,
+            persona_id: personaId,
+            linked_persona_id: personaId,
+          })
+          .eq('id', scheduleId)
+          .eq('user_id', userId);
+      } catch {}
     }
     // 4) Resolve Apollo API key
     let apiKey: string | undefined = process.env.SUPER_ADMIN_APOLLO_API_KEY || undefined;
@@ -395,14 +412,26 @@ export const sourcingRunPersonaTool = {
           decision: 'FALLBACK',
           failure_mode: 'other',
           reasons_good: [],
-          reasons_bad: ['invalid_gpt_output'],
-          recommended_adjustment: { type: 'paginate', notes: 'invalid_gpt_output' },
+          reasons_bad: [String((judge as any)?.error || 'invalid_gpt_output')],
+          recommended_adjustment: { type: 'paginate', notes: String((judge as any)?.error || 'invalid_gpt_output') },
         };
 
       qualityScore = Number((judgeValue as any).quality_score || 0);
       confidence = Number((judgeValue as any).confidence || 0);
       decision = (judgeValue as any).decision;
       failureMode = (judgeValue as any).failure_mode || 'other';
+
+      // Heuristic safety net (hard metrics):
+      // For simple title-only personas (no keywords/locations), don't block on GPT;
+      // if Apollo returns hits, treat it as acceptable and proceed to enrich/insert.
+      const personaHasKeywords = Array.isArray(persona.include_keywords) && persona.include_keywords.filter(Boolean).length > 0;
+      const personaHasLocations = Array.isArray(persona.locations) && persona.locations.filter(Boolean).length > 0;
+      if (!personaHasKeywords && !personaHasLocations && observation.found_count > 0) {
+        if (decision !== 'ACCEPT_RESULTS') {
+          decision = 'ACCEPT_RESULTS';
+          failureMode = 'other';
+        }
+      }
 
       usedQualityScores.push(qualityScore);
 

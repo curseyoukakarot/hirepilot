@@ -82,10 +82,16 @@ export async function callGptJsonWithRetry<T>(
       ? ''
       : `\n\nThe previous output was invalid JSON for schema "${args.name}". Return ONLY corrected JSON, no commentary.\nPrevious output:\n${lastRaw}\n\nError:\n${lastErr}\n`;
 
-    const raw = await chatLLM([
-      { role: 'system', content: `${args.system}\n\nYou MUST return strict JSON only. No markdown, no code fences.` },
-      { role: 'user', content: `${args.user}${correction}` },
-    ]);
+    let raw = '';
+    try {
+      raw = await chatLLM([
+        { role: 'system', content: `${args.system}\n\nYou MUST return strict JSON only. No markdown, no code fences.` },
+        { role: 'user', content: `${args.user}${correction}` },
+      ]);
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+      return { ok: false, error: `llm_unavailable:${args.name}:${lastErr}` };
+    }
     lastRaw = raw;
 
     try {
