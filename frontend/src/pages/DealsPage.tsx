@@ -52,6 +52,12 @@ export default function DealsPage() {
   const [oppFilters, setOppFilters] = useState<{ status: string; client: string; search: string }>({ status: '', client: '', search: '' });
   const [oppView, setOppView] = useState<OppView>('table');
   const [board, setBoard] = useState<Array<{ stage: string; weight_percent: number; order_index: number; total: number; weighted: number; items: any[] }>>([]);
+  const [oppStages, setOppStages] = useState<Array<{ id: string; name: string }>>([]);
+  const [oppAvailableReqs, setOppAvailableReqs] = useState<Array<{ id: string; title?: string; user_id?: string }>>([]);
+  const [editingOppId, setEditingOppId] = useState<string | null>(null);
+  const [oppDraft, setOppDraft] = useState<any>({});
+  const [savingOppId, setSavingOppId] = useState<string | null>(null);
+  const [attachReqDraftByOpp, setAttachReqDraftByOpp] = useState<Record<string, string>>({});
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invLoading, setInvLoading] = useState(false);
@@ -611,6 +617,94 @@ export default function DealsPage() {
     };
     fetchOpps();
   }, [access?.can_view_opportunities, oppFilters.status, oppFilters.client, oppFilters.search, oppView]);
+
+  useEffect(() => {
+    const fetchOppMeta = async () => {
+      if (!access?.can_view_opportunities) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const [stRes, reqRes] = await Promise.all([
+          fetch(`${BACKEND_BASE}/api/opportunities/stages`, { headers }),
+          fetch(`${BACKEND_BASE}/api/opportunities/available-reqs`, { headers })
+        ]);
+        const stages = stRes.ok ? await stRes.json() : null;
+        const reqs = reqRes.ok ? await reqRes.json() : null;
+        const fallbackStages = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name }));
+        setOppStages(Array.isArray(stages) && stages.length ? stages.map((s:any)=>({ id: String(s.id), name: String(s.name) })) : fallbackStages);
+        setOppAvailableReqs(Array.isArray(reqs) ? reqs : []);
+      } catch {
+        const fallbackStages = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name }));
+        setOppStages(fallbackStages);
+        setOppAvailableReqs([]);
+      }
+    };
+    fetchOppMeta();
+  }, [access?.can_view_opportunities]);
+
+  const beginEditOpp = (o: any) => {
+    setEditingOppId(o.id);
+    setOppDraft({
+      stage: String(o.stage || 'Pipeline'),
+      forecast_date: (o.forecast_date ? String(o.forecast_date).slice(0, 10) : ''),
+      start_date: (o.start_date ? String(o.start_date).slice(0, 10) : ''),
+      term_months: (o.term_months ?? '') as any,
+      margin: (o.margin ?? '') as any,
+      value: (o.value ?? '') as any,
+      req_ids: Array.isArray(o.reqs) ? [...o.reqs] : []
+    });
+  };
+
+  const cancelEditOpp = () => {
+    setEditingOppId(null);
+    setOppDraft({});
+  };
+
+  const saveOppEdits = async (id: string) => {
+    try {
+      setSavingOppId(id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const draft = oppDraft || {};
+      const payload: any = {
+        stage: draft.stage || 'Pipeline',
+        forecast_date: draft.forecast_date ? String(draft.forecast_date).slice(0, 10) : null,
+        start_date: draft.start_date ? String(draft.start_date).slice(0, 10) : null,
+        term_months: draft.term_months === '' || draft.term_months === null || draft.term_months === undefined ? null : Number(draft.term_months),
+        margin: draft.margin === '' || draft.margin === null || draft.margin === undefined ? null : Number(draft.margin),
+        value: draft.value === '' || draft.value === null || draft.value === undefined ? null : Number(draft.value),
+        req_ids: Array.isArray(draft.req_ids) ? draft.req_ids : []
+      };
+
+      const resp = await fetch(`${BACKEND_BASE}/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error('Failed to update opportunity');
+
+      // Optimistic local update for table UX (backend response doesn't include reqs join)
+      setOpps(prev => prev.map((row: any) => {
+        if (row.id !== id) return row;
+        return {
+          ...row,
+          stage: payload.stage,
+          forecast_date: payload.forecast_date,
+          start_date: payload.start_date,
+          term_months: payload.term_months,
+          margin: payload.margin,
+          value: payload.value,
+          reqs: payload.req_ids
+        };
+      }));
+      cancelEditOpp();
+    } catch {
+      // keep edit mode open on failure
+    } finally {
+      setSavingOppId(null);
+    }
+  };
 
   const refreshOpps = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -1176,6 +1270,9 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Tag</th>
                   <th className="p-4 text-left">Status</th>
                   <th className="p-4 text-left">Forecast Date</th>
+                  <th className="p-4 text-left">Start Date</th>
+                  <th className="p-4 text-left">Term</th>
+                  <th className="p-4 text-left">Margin</th>
                   <th className="p-4 text-right">Value ($)</th>
                   <th className="p-4 text-left">Job REQ(s)</th>
                   <th className="p-4 text-left">Owner</th>
@@ -1185,9 +1282,9 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {oppLoading ? (
-                  <tr><td colSpan={11} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                  <tr><td colSpan={14} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
-                  <tr><td colSpan={11} className="p-6 text-center text-gray-500">No opportunities</td></tr>
+                  <tr><td colSpan={14} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -1220,15 +1317,152 @@ export default function DealsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="p-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-200">{o.stage || 'Pipeline'}</span></td>
-                      <td className="p-4 text-gray-700 dark:text-gray-200">{formatDateOnly((o as any).forecast_date)}</td>
-                      <td className="p-4 text-right font-medium">{currency(Number(o.value)||0)}</td>
                       <td className="p-4">
-                        <div className="flex flex-wrap gap-1">
-                          {(o.reqs || []).map((rid: string) => (
-                            <span key={rid} className="bg-gray-100 dark:bg-gray-500/20 text-xs text-gray-600 dark:text-gray-200 px-2 py-1 rounded-md">{rid.slice(0,6)}</span>
-                          ))}
-                        </div>
+                        {editingOppId === o.id ? (
+                          <select
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.stage || '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, stage: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                          >
+                            {(oppStages.length ? oppStages : ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name,i)=>({id:`d_${i}`,name}))).map((s:any)=>(
+                              <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-200">
+                            {o.stage || 'Pipeline'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-700 dark:text-gray-200">
+                        {editingOppId === o.id ? (
+                          <input
+                            type="date"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.forecast_date || '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, forecast_date: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                          />
+                        ) : (
+                          formatDateOnly((o as any).forecast_date)
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-700 dark:text-gray-200">
+                        {editingOppId === o.id ? (
+                          <input
+                            type="date"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.start_date || '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, start_date: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                          />
+                        ) : (
+                          formatDateOnly((o as any).start_date)
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {editingOppId === o.id ? (
+                          <select
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.term_months ?? '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, term_months: e.target.value === '' ? '' : Number(e.target.value) }))}
+                            disabled={savingOppId===o.id}
+                          >
+                            <option value="">—</option>
+                            <option value="1">1 month</option>
+                            <option value="3">3 months</option>
+                            <option value="6">6 months</option>
+                            <option value="12">12 months</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-700 dark:text-gray-200">
+                            {(o as any).term_months ? `${Number((o as any).term_months)} mo` : '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {editingOppId === o.id ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.margin ?? '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                          />
+                        ) : (
+                          <span className="text-gray-700 dark:text-gray-200">{(o as any).margin ?? '—'}</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right font-medium">
+                        {editingOppId === o.id ? (
+                          <input
+                            type="number"
+                            step="1"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 text-right dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.value ?? '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, value: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                          />
+                        ) : (
+                          currency(Number(o.value)||0)
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {editingOppId === o.id ? (
+                          <div className="space-y-2" data-no-row-toggle>
+                            <div className="flex flex-wrap gap-1">
+                              {(oppDraft.req_ids || []).map((rid: string) => (
+                                <button
+                                  key={rid}
+                                  type="button"
+                                  className="bg-gray-100 dark:bg-gray-500/20 text-xs text-gray-600 dark:text-gray-200 px-2 py-1 rounded-md hover:opacity-80"
+                                  title="Click to unlink"
+                                  onClick={()=>{
+                                    setOppDraft((s:any)=>({ ...s, req_ids: (s.req_ids || []).filter((x:string)=>String(x)!==String(rid)) }));
+                                  }}
+                                >
+                                  {rid.slice(0,6)} ✕
+                                </button>
+                              ))}
+                              {(!(oppDraft.req_ids||[]).length) && (
+                                <span className="text-xs text-gray-500">No linked REQs</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <select
+                                className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200"
+                                value={attachReqDraftByOpp[o.id] || ''}
+                                onChange={(e)=>setAttachReqDraftByOpp(prev=>({ ...prev, [o.id]: e.target.value }))}
+                              >
+                                <option value="">Select job req…</option>
+                                {oppAvailableReqs.map((r:any)=> (
+                                  <option key={r.id} value={r.id}>{r.title || r.id.slice(0,6)}</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="text-sm text-blue-600 dark:text-blue-400"
+                                onClick={()=>{
+                                  const rid = (attachReqDraftByOpp[o.id] || '').trim();
+                                  if (!rid) return;
+                                  setOppDraft((s:any)=>({ ...s, req_ids: Array.from(new Set([...(s.req_ids || []), rid])) }));
+                                  setAttachReqDraftByOpp(prev=>({ ...prev, [o.id]: '' }));
+                                }}
+                              >
+                                Attach
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {(o.reqs || []).map((rid: string) => (
+                              <span key={rid} className="bg-gray-100 dark:bg-gray-500/20 text-xs text-gray-600 dark:text-gray-200 px-2 py-1 rounded-md">{rid.slice(0,6)}</span>
+                            ))}
+                            {(!(o.reqs||[]).length) && <span className="text-xs text-gray-500">—</span>}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
@@ -1240,7 +1474,19 @@ export default function DealsPage() {
                       </td>
                       <td className="p-4 text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleDateString()}</td>
                       <td className="p-4 text-right space-x-3">
-                        <a className="text-blue-600 dark:text-blue-400 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a>
+                        {editingOppId === o.id ? (
+                          <>
+                            <button className="text-blue-600 dark:text-blue-400 font-semibold" disabled={savingOppId===o.id} onClick={()=>saveOppEdits(o.id)}>
+                              {savingOppId===o.id ? 'Saving…' : 'Save'}
+                            </button>
+                            <button className="text-gray-600 dark:text-gray-300" disabled={savingOppId===o.id} onClick={cancelEditOpp}>Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="text-blue-600 dark:text-blue-400 font-semibold" onClick={()=>beginEditOpp(o)}>Edit</button>
+                            <a className="text-blue-600 dark:text-blue-400 font-semibold" href={`/deals/opportunities/${o.id}`}>View</a>
+                          </>
+                        )}
                         <button
                           className="text-red-600"
                           onClick={async ()=>{

@@ -33,7 +33,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     let base = supabase
       .from('opportunities')
-      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date');
+      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin');
 
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
@@ -94,6 +94,57 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     }));
 
     res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// GET /api/opportunities/available-reqs — list selectable job reqs for the user's scope (name sorted)
+router.get('/available-reqs', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewOpportunities(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+    const { role, team_id } = await getRoleTeam(userId);
+    const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
+    const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
+    const isTeamAdmin = role.toLowerCase() === 'team_admin';
+    let base = supabase.from('job_requisitions').select('id,title,user_id');
+    if (!(isSuper && forceAll)) {
+      if (isTeamAdmin && team_id) {
+        const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
+        const ids = (teamUsers || []).map((u: any) => u.id);
+        base = base.in('user_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        base = base.eq('user_id', userId);
+      }
+    }
+    const { data, error } = await base.order('title', { ascending: true });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json(data || []);
+  } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
+});
+
+// GET /api/opportunities/stages
+router.get('/stages', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const allowed = await canViewOpportunities(userId);
+    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
+
+    const { team_id } = await getRoleTeam(userId);
+    const { data, error } = await supabase
+      .from('opportunity_stages')
+      .select('id,name,order_index,team_id')
+      .eq('team_id', team_id)
+      .order('order_index', { ascending: true });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    // Fallback defaults if none defined
+    const defaults = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name, order_index: i }));
+    res.json((data && data.length) ? data : defaults);
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }
@@ -850,7 +901,18 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewOpportunities(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { title, client_id, stage, value, billing_type, tag, forecast_date: forecastDateRaw } = req.body || {};
+    const {
+      title,
+      client_id,
+      stage,
+      value,
+      billing_type,
+      tag,
+      forecast_date: forecastDateRaw,
+      start_date: startDateRaw,
+      term_months: termMonthsRaw,
+      margin: marginRaw
+    } = req.body || {};
     let forecast_date: string | null = null;
     if (forecastDateRaw === null || forecastDateRaw === undefined || forecastDateRaw === '') {
       forecast_date = null;
@@ -864,8 +926,38 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     } else {
       res.status(400).json({ error: 'invalid_forecast_date' }); return;
     }
+    // start_date supports explicit null to clear
+    let start_date: string | null = null;
+    if (startDateRaw === null || startDateRaw === undefined || startDateRaw === '') {
+      start_date = null;
+    } else if (typeof startDateRaw === 'string') {
+      start_date = startDateRaw.slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+        res.status(400).json({ error: 'invalid_start_date' }); return;
+      }
+    } else {
+      res.status(400).json({ error: 'invalid_start_date' }); return;
+    }
+    // term_months supports explicit null to clear
+    let term_months: number | null = null;
+    if (termMonthsRaw === null || termMonthsRaw === undefined || termMonthsRaw === '') {
+      term_months = null;
+    } else {
+      const n = Number(termMonthsRaw);
+      if (![1,3,6,12].includes(n)) { res.status(400).json({ error: 'invalid_term_months' }); return; }
+      term_months = n;
+    }
+    // margin supports explicit null to clear
+    let margin: number | null = null;
+    if (marginRaw === null || marginRaw === undefined || marginRaw === '') {
+      margin = null;
+    } else {
+      const n = Number(marginRaw);
+      if (!isFinite(n)) { res.status(400).json({ error: 'invalid_margin' }); return; }
+      margin = n;
+    }
     const nowIso = new Date().toISOString();
-    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
+    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, start_date, term_months, margin, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
     const { data, error } = await supabase.from('opportunities').insert(insert).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
@@ -916,6 +1008,41 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
         up.forecast_date = d;
       } else {
         res.status(400).json({ error: 'invalid_forecast_date' }); return;
+      }
+    }
+    // start_date supports explicit null to clear
+    if (req.body?.start_date !== undefined) {
+      const raw = req.body.start_date;
+      if (raw === null || raw === '') {
+        up.start_date = null;
+      } else if (typeof raw === 'string') {
+        const d = raw.slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { res.status(400).json({ error: 'invalid_start_date' }); return; }
+        up.start_date = d;
+      } else {
+        res.status(400).json({ error: 'invalid_start_date' }); return;
+      }
+    }
+    // term_months supports explicit null to clear
+    if (req.body?.term_months !== undefined) {
+      const raw = req.body.term_months;
+      if (raw === null || raw === '') {
+        up.term_months = null;
+      } else {
+        const n = Number(raw);
+        if (![1,3,6,12].includes(n)) { res.status(400).json({ error: 'invalid_term_months' }); return; }
+        up.term_months = n;
+      }
+    }
+    // margin supports explicit null to clear
+    if (req.body?.margin !== undefined) {
+      const raw = req.body.margin;
+      if (raw === null || raw === '') {
+        up.margin = null;
+      } else {
+        const n = Number(raw);
+        if (!isFinite(n)) { res.status(400).json({ error: 'invalid_margin' }); return; }
+        up.margin = n;
       }
     }
     up.updated_at = new Date().toISOString() as any;
@@ -985,30 +1112,6 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     const { error } = await supabase.from('opportunities').delete().eq('id', id);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message || 'Internal server error' });
-  }
-});
-
-// GET /api/opportunities/stages
-router.get('/stages', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id as string | undefined;
-    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const allowed = await canViewOpportunities(userId);
-    if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
-
-    const { team_id } = await getRoleTeam(userId);
-    const { data, error } = await supabase
-      .from('opportunity_stages')
-      .select('id,name,order_index,team_id')
-      .eq('team_id', team_id)
-      .order('order_index', { ascending: true });
-    if (error) { res.status(500).json({ error: error.message }); return; }
-
-    // Fallback defaults if none defined
-    const defaults = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name, order_index: i }));
-    res.json((data && data.length) ? data : defaults);
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Internal server error' });
   }

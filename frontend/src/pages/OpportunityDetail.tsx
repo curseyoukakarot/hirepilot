@@ -22,6 +22,14 @@ export default function OpportunityDetail() {
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
+  const [fields, setFields] = useState<any>({
+    stage: 'Pipeline',
+    value: '',
+    forecast_date: '',
+    start_date: '',
+    term_months: '',
+    margin: ''
+  });
   const [activity, setActivity] = useState<any[]>([]);
   const [newActivity, setNewActivity] = useState('');
   const [newActType, setNewActType] = useState<'call'|'email'|'meeting'|'note'|'task'|'update'>('note');
@@ -29,12 +37,16 @@ export default function OpportunityDetail() {
   const [newCollab, setNewCollab] = useState('');
   const [newReqId, setNewReqId] = useState('');
   const [availableReqs, setAvailableReqs] = useState<any[]>([]);
+  const [availableStages, setAvailableStages] = useState<Array<{ id: string; name: string }>>([]);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [submitOpen, setSubmitOpen] = useState<{ open: boolean; data: any|null }>({ open: false, data: null });
   const [signature, setSignature] = useState('');
   const [detailOpen, setDetailOpen] = useState<any|null>(null);
   const [me, setMe] = useState<any>(null);
-  const BACKEND = (window as any).VITE_BACKEND_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+  const BACKEND = (
+    (import.meta as any)?.env?.VITE_BACKEND_URL ||
+    ((typeof window !== 'undefined' && window.location.host.endsWith('thehirepilot.com')) ? 'https://api.thehirepilot.com' : '')
+  ).replace(/\/$/, '');
 
   useEffect(() => {
     const run = async () => {
@@ -71,6 +83,14 @@ export default function OpportunityDetail() {
         setOpp(js);
       }
       setNotes(js?.notes || '');
+      setFields({
+        stage: String(js?.stage || 'Pipeline'),
+        value: (js?.value ?? '') as any,
+        forecast_date: js?.forecast_date ? String(js.forecast_date).slice(0, 10) : '',
+        start_date: js?.start_date ? String(js.start_date).slice(0, 10) : '',
+        term_months: (js?.term_months ?? '') as any,
+        margin: (js?.margin ?? '') as any
+      });
       // load activity via unified deals activity
       try {
         const actRes = await fetch(`${BACKEND}/api/deals/activity?entityType=opportunity&entityId=${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
@@ -85,6 +105,15 @@ export default function OpportunityDetail() {
         const rRes = await fetch(`${BACKEND}/api/opportunities/${id}/available-reqs`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableReqs(rRes.ok ? await rRes.json() : []);
       } catch {}
+      try {
+        const stRes = await fetch(`${BACKEND}/api/opportunities/stages`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const st = stRes.ok ? await stRes.json() : [];
+        const fallbackStages = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name }));
+        setAvailableStages(Array.isArray(st) && st.length ? st.map((s:any)=>({ id: String(s.id), name: String(s.name) })) : fallbackStages);
+      } catch {
+        const fallbackStages = ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name, i) => ({ id: `default_${i}`, name }));
+        setAvailableStages(fallbackStages);
+      }
       try {
         const uRes = await fetch(`${BACKEND}/api/opportunities/${id}/available-users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setAvailableUsers(uRes.ok ? await uRes.json() : []);
@@ -102,6 +131,52 @@ export default function OpportunityDetail() {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ notes })
     });
+  };
+
+  const saveOpportunityDetails = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const payload: any = {
+      stage: fields.stage || 'Pipeline',
+      value: fields.value === '' || fields.value === null || fields.value === undefined ? null : Number(fields.value),
+      forecast_date: fields.forecast_date ? String(fields.forecast_date).slice(0, 10) : null,
+      start_date: fields.start_date ? String(fields.start_date).slice(0, 10) : null,
+      term_months: fields.term_months === '' || fields.term_months === null || fields.term_months === undefined ? null : Number(fields.term_months),
+      margin: fields.margin === '' || fields.margin === null || fields.margin === undefined ? null : Number(fields.margin),
+      req_ids: Array.isArray(opp?.req_ids) ? opp.req_ids : []
+    };
+    const resp = await fetch(`${BACKEND}/api/opportunities/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error('Failed to update opportunity');
+  };
+
+  const saveAll = async () => {
+    try {
+      await Promise.all([saveOpportunityDetails(), saveNotes()]);
+      toast.success('Saved');
+      // Re-fetch for canonical values
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const ref = await fetch(`${BACKEND}/api/opportunities/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const js = ref.ok ? await ref.json() : null;
+      if (js) {
+        setOpp(js);
+        setNotes(js?.notes || '');
+        setFields({
+          stage: String(js?.stage || 'Pipeline'),
+          value: (js?.value ?? '') as any,
+          forecast_date: js?.forecast_date ? String(js.forecast_date).slice(0, 10) : '',
+          start_date: js?.start_date ? String(js.start_date).slice(0, 10) : '',
+          term_months: (js?.term_months ?? '') as any,
+          margin: (js?.margin ?? '') as any
+        });
+      }
+    } catch (e:any) {
+      toast.error(e?.message || 'Failed to save');
+    }
   };
 
   const addActivity = async () => {
@@ -165,6 +240,21 @@ export default function OpportunityDetail() {
     }
   };
 
+  const unlinkReq = async (reqId: string) => {
+    const rid = String(reqId);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const reqIds = (opp?.req_ids || []).filter((x: string) => String(x) !== rid);
+    const resp = await fetch(`${BACKEND}/api/opportunities/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ req_ids: reqIds })
+    });
+    if (resp.ok) {
+      setOpp((o:any) => ({ ...o, req_ids: reqIds }));
+    }
+  };
+
   if (loading) return <div className="p-6">Loading…</div>;
   if (!opp) return <div className="p-6">Not found</div>;
 
@@ -189,7 +279,7 @@ export default function OpportunityDetail() {
             <h1 className="text-2xl font-semibold text-gray-900">Opportunity Details</h1>
           </div>
           <div className="flex items-center space-x-3">
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors" onClick={saveNotes}>
+            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors" onClick={saveAll}>
               <i className="fas fa-save mr-2"></i>Save Changes
             </button>
           </div>
@@ -210,7 +300,15 @@ export default function OpportunityDetail() {
                     <p className="text-lg text-gray-600">{opp.client?.name || opp.client?.domain || '—'}</p>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{opp.stage || 'Open'}</span>
+                    <select
+                      className="border border-gray-300 rounded-full text-sm font-medium px-3 py-1 bg-white"
+                      value={String(fields.stage || opp.stage || 'Pipeline')}
+                      onChange={(e)=>setFields((s:any)=>({ ...s, stage: e.target.value }))}
+                    >
+                      {(availableStages.length ? availableStages : ["Pipeline","Best Case","Commit","Close Won","Closed Lost"].map((name,i)=>({id:`d_${i}`,name}))).map((s:any)=>(
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
                     <span className="text-gray-500">•</span>
                     <span className="text-gray-600">Created {opp.created_at ? new Date(opp.created_at).toLocaleDateString() : '—'}</span>
                   </div>
@@ -219,7 +317,14 @@ export default function OpportunityDetail() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
-                      <p className="text-2xl font-bold text-green-600">{(Number(opp.value)||0).toLocaleString('en-US',{style:'currency',currency:'USD'})}</p>
+                      <input
+                        type="number"
+                        step="1"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-lg font-semibold text-green-700"
+                        value={String(fields.value ?? '')}
+                        onChange={(e)=>setFields((s:any)=>({ ...s, value: e.target.value }))}
+                        placeholder="0"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
@@ -227,9 +332,46 @@ export default function OpportunityDetail() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Forecast Close Date</label>
-                      <p className="text-gray-900">
-                        {opp.forecast_date ? new Date(`${String(opp.forecast_date).split('T')[0]}T00:00:00`).toLocaleDateString() : '—'}
-                      </p>
+                      <input
+                        type="date"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        value={String(fields.forecast_date || '')}
+                        onChange={(e)=>setFields((s:any)=>({ ...s, forecast_date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        value={String(fields.start_date || '')}
+                        onChange={(e)=>setFields((s:any)=>({ ...s, start_date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
+                      <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        value={String(fields.term_months ?? '')}
+                        onChange={(e)=>setFields((s:any)=>({ ...s, term_months: e.target.value }))}
+                      >
+                        <option value="">—</option>
+                        <option value="1">1 month</option>
+                        <option value="3">3 months</option>
+                        <option value="6">6 months</option>
+                        <option value="12">12 months</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Margin</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        value={String(fields.margin ?? '')}
+                        onChange={(e)=>setFields((s:any)=>({ ...s, margin: e.target.value }))}
+                        placeholder="—"
+                      />
                     </div>
                   </div>
                   <div>
@@ -281,6 +423,9 @@ export default function OpportunityDetail() {
                           <p className="text-gray-600">Linked REQ</p>
                         )}
                       </div>
+                      <button className="text-sm text-red-600 hover:text-red-700" onClick={()=>unlinkReq(rid)}>
+                        Unlink
+                      </button>
                     </div>
                   );
                 })}
