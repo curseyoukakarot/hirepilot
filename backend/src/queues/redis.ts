@@ -10,6 +10,7 @@ export const connection = new IORedis(redisUrl, {
 
 export const emailQueue = new Queue('emailQueue', { connection });
 export const campaignQueue = new Queue('campaignQueue', { connection });
+export const schedulerNotifyQueue = new Queue('scheduler:notify', { connection });
 export const sniperQueue = new Queue('sniper:capture', { connection });
 export const sniperOpenerQueue = new Queue('sniper:opener', { connection });
 export const sniperJobsQueue = new Queue('sniper:jobs', { connection });

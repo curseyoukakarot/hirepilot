@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { getDueJobs, computeNextRun, markRun } from '../lib/scheduler';
 import { executeAction } from '../lib/actions';
+import { schedulerNotifyQueue } from '../queues/redis';
 
 const INTERVAL_MS = Number(process.env.CRON_INTERVAL_MS || 60000);
 
@@ -41,6 +42,19 @@ async function tick() {
         const result = await executeAction(job);
         const next = computeNextRun(job);
         await markRun(job.id, { ranAt: now, nextRunAt: next ? new Date(next) : null, runResult: result });
+        // If the action returned a scheduler run log id, attach next_run_at and queue notifications async.
+        try {
+          const runLogId = (result as any)?.run_log_id as string | undefined;
+          if (runLogId) {
+            await supabaseAdmin
+              .from('schedule_run_logs')
+              .update({ next_run_at: next ? new Date(next).toISOString() : null })
+              .eq('id', runLogId);
+            await schedulerNotifyQueue.add('notify', { run_log_id: runLogId }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 1000 });
+          }
+        } catch (e: any) {
+          console.warn('[schedulerRunner] failed to queue notifications', { job_id: job.id, error: e?.message || String(e) });
+        }
         console.log(JSON.stringify({ event: 'run_end', job_id: job.id, result, next_run_at: next }));
       } catch (e: any) {
         console.error(JSON.stringify({ event: 'run_error', job_id: job.id, error: e?.message || String(e) }));

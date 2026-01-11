@@ -13,6 +13,7 @@ type Steps = { step1: any; step2?: any; step3?: any; spacingBusinessDays: number
 type MirrorMetadata = {
   lead_source?: string;
   tags?: string[];
+  scheduler_run_id?: string;
 };
 
 export async function createCampaign(payload: {
@@ -78,7 +79,8 @@ export async function addLeads(
   const payload = leads.map(l => ({
     campaign_id: campaignId,
     ...l,
-    enriched: !!l.email
+    enriched: !!l.email,
+    scheduler_run_id: options?.mirrorMetadata?.scheduler_run_id || null
   }));
   const { data, error } = await supabase.from('sourcing_leads').insert(payload).select('*');
   if (error) throw error;
@@ -122,11 +124,14 @@ export async function addLeads(
             linkedin_url: p.linkedin_url || null,
               // Important: base leads.campaign_id references classic campaigns. Leave null to avoid FK issues.
               campaign_id: null,
-              source: options?.mirrorMetadata?.lead_source || 'sourcing_campaign'
+              source: options?.mirrorMetadata?.lead_source || 'sourcing_campaign',
+              scheduler_run_id: options?.mirrorMetadata?.scheduler_run_id || null
             };
-            if (options?.mirrorMetadata?.tags?.length) {
-              insertRow.tags = options.mirrorMetadata.tags;
-            }
+            const tags = Array.isArray(options?.mirrorMetadata?.tags) ? options!.mirrorMetadata!.tags! : [];
+            const runId = options?.mirrorMetadata?.scheduler_run_id;
+            const runTag = runId ? [`scheduler_run:${runId}`] : [];
+            const mergedTags = Array.from(new Set([...(tags || []), ...runTag].filter(Boolean)));
+            if (mergedTags.length) insertRow.tags = mergedTags;
             return insertRow;
           });
 
@@ -268,6 +273,64 @@ export async function sendSequenceForLeads(params: {
   return { scheduled: targetLeads.length, skipped: validLeads.length - targetLeads.length };
 }
 
+/**
+ * Deterministic, queue-only kickoff for scheduler-sourced leads.
+ * Never sends inline (even when "immediate") to keep scheduler ticks fast and reliable.
+ * Also skips leads already marked as sent/scheduled/etc.
+ */
+export async function queueInitialOutreachForNewLeads(params: {
+  campaignId: string;
+  leadIds: string[];
+  sendDelayMinutes?: number | null;
+  dailySendCap?: number | null;
+}) {
+  const { campaignId, leadIds, sendDelayMinutes, dailySendCap } = params;
+  if (!leadIds.length) return { queued: 0, skipped: 0 };
+
+  const { data: seq } = await supabase
+    .from('sourcing_sequences')
+    .select('steps_json')
+    .eq('campaign_id', campaignId)
+    .maybeSingle();
+  if (!seq?.steps_json) throw new Error('campaign_missing_sequence');
+
+  const steps: Steps = seq.steps_json as Steps;
+  const spacing = steps.spacingBusinessDays ?? 2;
+
+  const { data: leadRows } = await supabase
+    .from('sourcing_leads')
+    .select('id,name,email,title,company,outreach_stage')
+    .in('id', leadIds);
+
+  const alreadyMessaged = new Set(
+    (leadRows || [])
+      .filter((l: any) => ['sent','scheduled','replied','bounced','unsubscribed'].includes(String(l?.outreach_stage || '').toLowerCase()))
+      .map((l: any) => l.id)
+  );
+  const validLeads = (leadRows || [])
+    .filter((l: any) => !!l?.email)
+    .filter((l: any) => !alreadyMessaged.has(l.id));
+  if (!validLeads.length) return { queued: 0, skipped: leadIds.length };
+
+  const cap = typeof dailySendCap === 'number' && dailySendCap > 0 ? dailySendCap : null;
+  const targetLeads = cap ? validLeads.slice(0, cap) : validLeads;
+  const anchor = dayjs().add(sendDelayMinutes || 0, 'minute');
+
+  for (const lead of targetLeads) {
+    try {
+      // Step 1: queue even if delay is 0 (queue-only behavior)
+      const delayMs = Math.max(0, anchor.diff(dayjs(), 'millisecond'));
+      await queueStepEmailAlways(campaignId, lead, steps.step1, delayMs);
+      if (steps.step2) await queueStepEmailAlways(campaignId, lead, steps.step2, Math.max(0, addBusinessDays(anchor, spacing).diff(dayjs(), 'millisecond')));
+      if (steps.step3) await queueStepEmailAlways(campaignId, lead, steps.step3, Math.max(0, addBusinessDays(anchor, spacing * 2).diff(dayjs(), 'millisecond')));
+    } catch (err) {
+      console.warn('[sourcing.queueInitialOutreachForNewLeads] failed to queue lead', lead.id, err);
+    }
+  }
+
+  return { queued: targetLeads.length, skipped: validLeads.length - targetLeads.length };
+}
+
 async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: number) {
   const headers = {
     'X-Campaign-Id': campaignId,
@@ -318,6 +381,36 @@ async function sendStepEmail(campaignId: string, lead: any, step: any, delayMs: 
     });
     try { await updateLeadOutreachStage(lead.id, 'scheduled'); } catch {}
   }
+}
+
+async function queueStepEmailAlways(campaignId: string, lead: any, step: any, delayMs: number) {
+  const headers = {
+    'X-Campaign-Id': campaignId,
+    'X-Lead-Id': lead.id,
+  };
+  // Ensure we include userId for queued emails
+  let payloadUserId: string | undefined = undefined;
+  try {
+    const { data: camp } = await supabase
+      .from('sourcing_campaigns')
+      .select('created_by')
+      .eq('id', campaignId)
+      .maybeSingle();
+    payloadUserId = (camp as any)?.created_by || undefined;
+  } catch {}
+  await emailQueue.add('send', {
+    to: lead.email,
+    subject: personalize(step.subject, lead),
+    html: personalize(step.body, lead),
+    headers,
+    userId: payloadUserId
+  }, {
+    delay: Math.max(0, delayMs),
+    attempts: 5,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: 1000
+  });
+  try { await updateLeadOutreachStage(lead.id, 'scheduled'); } catch {}
 }
 
 async function enqueueStepEmail(campaignId: string, lead: any, step: any, when: dayjs.Dayjs) {

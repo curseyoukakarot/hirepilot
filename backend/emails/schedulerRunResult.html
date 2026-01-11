@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>HirePilot Scheduler Results</title>
+    <style>
+      /* Client resets */
+      html, body { margin:0 !important; padding:0 !important; height:100% !important; width:100% !important; }
+      * { -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
+      table, td { mso-table-lspace:0pt !important; mso-table-rspace:0pt !important; border-collapse:collapse !important; }
+      img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+      a { text-decoration:none; }
+      /* Dark mode: keep readable */
+      @media (prefers-color-scheme: dark) {
+        .bg-page { background:#0b1220 !important; }
+        .card { background:#0f1b33 !important; border-color:#223458 !important; }
+        .text { color:#e7edf7 !important; }
+        .muted { color:#a9b6cc !important; }
+        .pill { background:#13284d !important; border-color:#2a4d86 !important; color:#e7edf7 !important; }
+        .btn { background:#3b82f6 !important; }
+        .btn-secondary { background:#1f2f4d !important; border-color:#2a4d86 !important; color:#e7edf7 !important; }
+        .hr { border-color:#223458 !important; }
+      }
+      /* Mobile */
+      @media screen and (max-width: 600px) {
+        .container { width:100% !important; }
+        .px { padding-left:16px !important; padding-right:16px !important; }
+        .stack { display:block !important; width:100% !important; }
+        .btn { display:block !important; width:100% !important; }
+        .btn-secondary { display:block !important; width:100% !important; }
+      }
+    </style>
+  </head>
+
+  <body class="bg-page" style="background:#f5f7fb; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji','Segoe UI Emoji';">
+    <!-- Preheader (hidden) -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+      {{preheader_text}}
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" style="width:600px; max-width:600px;">
+            <!-- Header -->
+            <tr>
+              <td class="px" style="padding:0 24px 14px 24px;">
+                <table role="presentation" width="100%">
+                  <tr>
+                    <td align="left" style="padding:0;">
+                      <img src="{{hirepilot_logo_url}}" width="36" height="36" alt="HirePilot" style="display:inline-block; vertical-align:middle; border-radius:8px;" />
+                      <span class="text" style="display:inline-block; vertical-align:middle; margin-left:10px; font-size:14px; font-weight:700; color:#0f172a;">
+                        HirePilot
+                      </span>
+                    </td>
+                    <td align="right" style="padding:0;">
+                      <span class="muted" style="font-size:12px; color:#64748b;">
+                        {{run_at_human}}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Hero card -->
+            <tr>
+              <td class="card px" style="background:#ffffff; border:1px solid #e5eaf2; border-radius:16px; padding:22px 24px;">
+                <div class="text" style="font-size:18px; line-height:1.25; font-weight:800; color:#0f172a;">
+                  {{#if action_needed}}Action needed{{else}}Scheduler run complete{{/if}}
+                </div>
+                <div class="muted" style="margin-top:6px; font-size:13px; line-height:1.45; color:#64748b;">
+                  Schedule: <strong class="text" style="color:#0f172a;">{{schedule_name}}</strong>
+                  · Persona: <strong class="text" style="color:#0f172a;">{{persona_name}}</strong>
+                </div>
+
+                <!-- Pills -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;">
+                  <tr>
+                    <td class="stack" style="padding:0 8px 8px 0;">
+                      <div class="pill" style="background:#f1f5ff; border:1px solid #dbe7ff; color:#1e3a8a; border-radius:999px; padding:10px 12px; font-size:12px;">
+                        Attempts: <strong>{{attempts_used}}/4</strong>
+                      </div>
+                    </td>
+                    <td class="stack" style="padding:0 0 8px 0;">
+                      <div class="pill" style="background:#f1f5ff; border:1px solid #dbe7ff; color:#1e3a8a; border-radius:999px; padding:10px 12px; font-size:12px;">
+                        Quality: <strong>{{quality_score}}/100</strong> · conf <strong>{{confidence}}</strong>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Metrics cards -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:8px;">
+                  <tr>
+                    <td class="stack" style="padding:0 10px 10px 0;">
+                      <div style="border:1px solid #e5eaf2; border-radius:14px; padding:14px;">
+                        <div class="muted" style="font-size:12px; color:#64748b;">Leads added</div>
+                        <div class="text" style="margin-top:4px; font-size:22px; font-weight:800; color:#0f172a;">{{inserted_count}}</div>
+                        <div class="muted" style="margin-top:4px; font-size:12px; color:#64748b;">
+                          {{deduped_count}} deduped · {{found_count}} found
+                        </div>
+                      </div>
+                    </td>
+                    <td class="stack" style="padding:0 0 10px 0;">
+                      <div style="border:1px solid #e5eaf2; border-radius:14px; padding:14px;">
+                        <div class="muted" style="font-size:12px; color:#64748b;">Fit snapshot</div>
+                        <div class="text" style="margin-top:4px; font-size:14px; font-weight:700; color:#0f172a;">
+                          Geo match: {{geo_match_pct}}% · Title match: {{title_match_pct}}%
+                        </div>
+                        <div class="muted" style="margin-top:6px; font-size:12px; color:#64748b;">
+                          Email coverage: {{email_coverage_pct}}% {{email_coverage_label}}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Outreach section -->
+                <div class="hr" style="border-top:1px solid #e5eaf2; margin:14px 0;"></div>
+
+                <div class="text" style="font-size:14px; font-weight:800; color:#0f172a;">
+                  Outreach status
+                </div>
+                <div class="muted" style="margin-top:6px; font-size:13px; line-height:1.5; color:#64748b;">
+                  {{#if outreach_enabled}}
+                    Step 1 queued for <strong class="text" style="color:#0f172a;">{{outreach_queued_count}}</strong> leads.
+                    Mode: <strong class="text" style="color:#0f172a;">{{outreach_mode_label}}</strong>
+                    {{#if delay_hours}}(after {{delay_hours}} hours){{/if}}.
+                    Daily cap: <strong class="text" style="color:#0f172a;">{{daily_send_cap_label}}</strong>.
+                  {{else}}
+                    Outreach is not enabled for this schedule. You can enable it anytime from schedule settings.
+                  {{/if}}
+                </div>
+
+                <!-- Action needed block -->
+                {{#if action_needed}}
+                <div style="margin-top:14px; border-radius:14px; padding:14px; border:1px solid #fde68a; background:#fffbeb;">
+                  <div style="font-size:13px; font-weight:800; color:#92400e;">
+                    Action needed
+                  </div>
+                  <div style="margin-top:6px; font-size:13px; color:#92400e; line-height:1.5;">
+                    <strong>Issue:</strong> {{failure_mode_label}}<br/>
+                    <strong>Why:</strong> {{failure_reason_short}}<br/>
+                    <strong>Recommended:</strong> {{recommended_fix_summary}}
+                  </div>
+                </div>
+                {{/if}}
+
+                <!-- CTAs -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;">
+                  <tr>
+                    <td class="stack" style="padding:0 10px 10px 0;">
+                      <a class="btn" href="{{agent_mode_url}}" style="background:#2563eb; color:#ffffff; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; display:inline-block; text-align:center; width:100%;">
+                        View in Agent Mode
+                      </a>
+                    </td>
+                    <td class="stack" style="padding:0 0 10px 0;">
+                      <a class="btn-secondary" href="{{leads_url}}" style="background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; border:1px solid #e5eaf2; display:inline-block; text-align:center; width:100%;">
+                        View Leads
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td class="stack" style="padding:0 10px 10px 0;">
+                      <a class="btn-secondary" href="{{campaign_url}}" style="background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; border:1px solid #e5eaf2; display:inline-block; text-align:center; width:100%;">
+                        View Campaign
+                      </a>
+                    </td>
+                    <td class="stack" style="padding:0 0 10px 0;">
+                      <a class="btn-secondary" href="{{schedule_settings_url}}" style="background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; border:1px solid #e5eaf2; display:inline-block; text-align:center; width:100%;">
+                        Schedule Settings
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                {{#if action_needed}}
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:6px;">
+                  <tr>
+                    <td class="stack" style="padding:0 10px 10px 0;">
+                      <a class="btn" href="{{approve_expansion_url}}" style="background:#16a34a; color:#ffffff; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; display:inline-block; text-align:center; width:100%;">
+                        Approve Suggested Expansion
+                      </a>
+                    </td>
+                    <td class="stack" style="padding:0 0 10px 0;">
+                      <a class="btn-secondary" href="{{keep_criteria_url}}" style="background:#ffffff; color:#0f172a; font-weight:800; font-size:14px; padding:12px 14px; border-radius:12px; border:1px solid #e5eaf2; display:inline-block; text-align:center; width:100%;">
+                        Keep Criteria (try next run)
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                {{/if}}
+
+                <div class="muted" style="margin-top:10px; font-size:12px; color:#64748b; line-height:1.5;">
+                  Next run: <strong class="text" style="color:#0f172a;">{{next_run_at_human}}</strong><br/>
+                  This email summarizes your scheduler run. Lead results are available across Agent Mode, Campaigns, and Leads.
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td class="px" style="padding:14px 24px 0 24px;">
+                <div class="muted" style="font-size:12px; color:#64748b; line-height:1.5;">
+                  You’re receiving this because scheduler notifications are enabled for your account.<br/>
+                  <a href="{{notification_settings_url}}" style="color:#2563eb; font-weight:700;">Manage notifications</a>
+                  ·
+                  <a href="{{unsubscribe_url}}" style="color:#2563eb; font-weight:700;">Unsubscribe</a>
+                </div>
+                <div class="muted" style="margin-top:10px; font-size:11px; color:#94a3b8;">
+                  © {{year}} HirePilot. All rights reserved.
+                </div>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+

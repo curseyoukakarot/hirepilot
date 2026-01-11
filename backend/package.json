@@ -47,6 +47,7 @@
         "test:free-cadence": "ts-node scripts/testFreeForeverCadence.ts",
         "send:free-welcome": "ts-node scripts/sendFreeWelcome.ts",
         "worker:scheduler": "ts-node src/workers/schedulerRunner.ts",
+        "worker:scheduler-notify": "ts-node src/workers/schedulerNotifications.worker.ts",
         "worker:campaign-stats": "ts-node src/workers/campaignStatsWorker.ts",
         "backfill:campaign-stats": "ts-node src/workers/campaignStatsBackfill.ts"
     },

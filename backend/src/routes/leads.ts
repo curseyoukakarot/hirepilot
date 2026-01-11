@@ -2014,6 +2014,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
+    const runId = (req.query.run_id || req.query.scheduler_run_id) as string | undefined;
 
     // Get user's team_id and role for team sharing
     const { data: userData, error: userError } = await supabase
@@ -2079,6 +2080,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Add campaign filter if provided
     if (campaignId && campaignId !== 'all') {
       query = query.eq('campaign_id', campaignId);
+    }
+    // Optional: filter to a specific scheduler run
+    if (runId) {
+      query = query.eq('scheduler_run_id', runId);
     }
 
     const { data: leads, error } = await query.order('created_at', { ascending: false });
@@ -3014,7 +3019,6 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
           sendGtmStrategyAccessEmail({
             to: leadEmail,
             firstName,
-            ownerUserId: String((data as any)?.user_id || originalLead.user_id || ''),
           }).catch((e: any) => console.warn('[leads] GTM access email failed', e?.message || e));
         }
       }

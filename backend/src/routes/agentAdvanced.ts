@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { scheduleFromPayload, computeNextRun, markRun } from '../lib/scheduler';
 import { executeAction } from '../lib/actions';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 
@@ -154,6 +155,125 @@ router.delete('/api/schedules/:id', async (req, res) => {
   const { error } = await supabaseAdmin.from('schedules').delete().eq('id', id).eq('user_id', userId);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ ok: true });
+});
+
+function getActionSecret() {
+  return process.env.SCHEDULER_ACTION_SECRET || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || '';
+}
+
+async function applySchedulePreferenceUpdate(opts: {
+  scheduleId: string;
+  userId: string;
+  mode: 'approve_expansion' | 'keep_criteria';
+  runLogId?: string | null;
+}) {
+  const { scheduleId, userId, mode, runLogId } = opts;
+
+  // Load schedule + merge agentic_prefs
+  const { data: sched } = await supabaseAdmin
+    .from('schedules')
+    .select('id,user_id,agentic_prefs')
+    .eq('id', scheduleId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!sched) throw new Error('schedule_not_found');
+
+  let recommended: any = null;
+  if (runLogId) {
+    try {
+      const { data: log } = await supabaseAdmin
+        .from('schedule_run_logs')
+        .select('id,metrics')
+        .eq('id', runLogId)
+        .eq('schedule_id', scheduleId)
+        .maybeSingle();
+      recommended = (log as any)?.metrics?.recommended_adjustment || (log as any)?.metrics?.judge_recommended_adjustment || null;
+    } catch {}
+  }
+
+  const prev = ((sched as any)?.agentic_prefs || {}) as any;
+  const next = { ...prev };
+  if (mode === 'approve_expansion') {
+    next.manual_override = {
+      mode: 'approve_expansion',
+      run_log_id: runLogId || null,
+      recommended_adjustment: recommended,
+      approved_at: new Date().toISOString(),
+    };
+    // Clear conservative freeze
+    if (next.force_baseline_until) delete next.force_baseline_until;
+  } else {
+    next.manual_override = {
+      mode: 'keep_criteria',
+      run_log_id: runLogId || null,
+      kept_at: new Date().toISOString(),
+    };
+    // Freeze to baseline for next run only (24h window)
+    next.force_baseline_until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  const { error } = await supabaseAdmin
+    .from('schedules')
+    .update({ agentic_prefs: next })
+    .eq('id', scheduleId)
+    .eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+// Approve / keep criteria via signed token (works from Slack/email buttons)
+router.get('/api/schedules/:id/approve-expansion', async (req, res) => {
+  try {
+    const t = String(req.query.t || '');
+    if (!t) return res.status(400).send('missing_token');
+    const secret = getActionSecret();
+    if (!secret) return res.status(500).send('missing_action_secret');
+    const decoded = jwt.verify(t, secret) as any;
+    if (decoded?.action !== 'approve_expansion') return res.status(400).send('invalid_action');
+    await applySchedulePreferenceUpdate({ scheduleId: req.params.id, userId: decoded.user_id, mode: 'approve_expansion', runLogId: decoded.run_log_id });
+    const appBase = (process.env.APP_WEB_URL || process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+    return res.redirect(`${appBase}/agent/advanced/schedules`);
+  } catch (e: any) {
+    return res.status(400).send(e?.message || 'invalid_token');
+  }
+});
+
+router.get('/api/schedules/:id/keep-criteria', async (req, res) => {
+  try {
+    const t = String(req.query.t || '');
+    if (!t) return res.status(400).send('missing_token');
+    const secret = getActionSecret();
+    if (!secret) return res.status(500).send('missing_action_secret');
+    const decoded = jwt.verify(t, secret) as any;
+    if (decoded?.action !== 'keep_criteria') return res.status(400).send('invalid_action');
+    await applySchedulePreferenceUpdate({ scheduleId: req.params.id, userId: decoded.user_id, mode: 'keep_criteria', runLogId: decoded.run_log_id });
+    const appBase = (process.env.APP_WEB_URL || process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+    return res.redirect(`${appBase}/agent/advanced/schedules`);
+  } catch (e: any) {
+    return res.status(400).send(e?.message || 'invalid_token');
+  }
+});
+
+// Authenticated variants (in-app)
+router.post('/api/schedules/:id/approve-expansion', async (req, res) => {
+  const userId = requireUser(req, res); if (!userId) return;
+  try {
+    const runLogId = typeof req.body?.run_log_id === 'string' ? req.body.run_log_id : null;
+    await applySchedulePreferenceUpdate({ scheduleId: req.params.id, userId, mode: 'approve_expansion', runLogId });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message || 'failed_to_update_schedule' });
+  }
+});
+
+router.post('/api/schedules/:id/keep-criteria', async (req, res) => {
+  const userId = requireUser(req, res); if (!userId) return;
+  try {
+    const runLogId = typeof req.body?.run_log_id === 'string' ? req.body.run_log_id : null;
+    await applySchedulePreferenceUpdate({ scheduleId: req.params.id, userId, mode: 'keep_criteria', runLogId });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message || 'failed_to_update_schedule' });
+  }
 });
 
 router.post('/api/schedules/:id/run', async (req, res) => {
