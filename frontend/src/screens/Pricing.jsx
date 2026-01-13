@@ -183,22 +183,24 @@ export default function Pricing() {
             <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-8">
               <h3 className="text-xl font-semibold text-white mb-4">All features on paid plans include:</h3>
               <div className="grid sm:grid-cols-2 gap-4 text-gray-300">
-                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and more</span></div>
-                <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated outreach with reply tracking and performance analytics</span></div>
+                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and AI-powered actions across HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated multi-channel outreach with reply tracking, sequencing logic, and performance analytics</span></div>
                 <div className="flex items-start"><span className="mr-3">🔎</span><span><strong className="text-white">Lead Enrichment</strong><br />Email + profile data via Apollo, Hunter, Skrapp, and fallback systems</span></div>
-                <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and scraping via Chrome Extension</span></div>
+                <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and LinkedIn workflows powered by the Chrome Extension</span></div>
                 <div className="flex items-start"><span className="mr-3">✉️</span><span><strong className="text-white">Smart Email Sending</strong><br />Send emails with built-in deliverability support (SendGrid + Gmail/Outlook ready)</span></div>
-                <div className="flex items-start"><span className="mr-3">📬</span><span><strong className="text-white">Unified Inbox</strong><br />Track replies by lead, campaign, and job — all in one view</span></div>
+                <div className="flex items-start"><span className="mr-3">📬</span><span><strong className="text-white">Unified Inbox</strong><br />Centralized inbox to track replies by lead, campaign, and job — all in one view</span></div>
                 <div className="flex items-start"><span className="mr-3">📊</span><span><strong className="text-white">Analytics Dashboard</strong><br />Real-time insights into sourcing, messaging, conversion, and hires</span></div>
                 <div className="flex items-start"><span className="mr-3">🧩</span><span><strong className="text-white">Integrations</strong><br />Slack, Zapier, Make.com, ATS tools, Google, Outlook, and Webhooks</span></div>
-                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span><strong className="text-white">Job Req Management</strong><br />Unlimited Job REQs with full candidate pipelines, stages, and activity tracking</span></div>
+                <div className="flex items-start"><span className="mr-3">🧑‍💼</span><span><strong className="text-white">Job Req Management</strong><br />Unlimited Job REQs with full ATS-style pipelines, stages, and activity tracking</span></div>
                 <div className="flex items-start"><span className="mr-3">🤝</span><span><strong className="text-white">Collaboration Tools</strong><br />Add team members or guests, assign roles, share notes, and manage together</span></div>
-                <div className="flex items-start"><span className="mr-3">💳</span><span><strong className="text-white">Billing & Invoicing</strong><br />Request payments, create invoices, and track revenue — right inside HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">💳</span><span><strong className="text-white">Billing & Invoicing</strong><br />Request payments, create invoices, and track recruiting revenue — right inside HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">📄</span><span><strong className="text-white">Proposals & Landing Pages</strong><br />Build and share custom HTML proposals and private client landing pages — powered by HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">🧱</span><span><strong className="text-white">Custom Tables & Dashboards</strong><br />Build custom tables, views, and dashboards to track sourcing, revenue, and performance</span></div>
                 <div className="flex items-start"><span className="mr-3">📅</span><span><strong className="text-white">Calendar Scheduling</strong><br />Auto-schedule interviews with candidates or clients</span></div>
                 <div className="flex items-start"><span className="mr-3">⚡</span><span><strong className="text-white">Custom Automations</strong><br />Trigger workflows with Zapier, Make, or native APIs</span></div>
-                <div className="flex items-start"><span className="mr-3">🪙</span><span><strong className="text-white">Credit System</strong><br />Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</span></div>
+                <div className="flex items-start"><span className="mr-3">🪙</span><span><strong className="text-white">Credit System</strong><br />Credits power enrichment, automation, messaging, and AI actions. Top up anytime.</span></div>
               </div>
-              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, automations, messaging, and AI actions. Top up anytime.</p>
+              <p className="text-sm text-gray-400 mt-4" aria-label="credits-explainer">Credits power enrichment, automation, messaging, and AI actions. Monthly credits reset while your plan is active. Top up anytime.</p>
             </div>
           </div>
         </div>
