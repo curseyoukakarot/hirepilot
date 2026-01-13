@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listPersonas, createPersona } from '../../lib/api/personas';
+import { listPersonas, createPersona, deletePersona } from '../../lib/api/personas';
 import PersonaForm from './personas/PersonaForm';
 
 type Persona = {
@@ -21,6 +21,8 @@ export default function PersonasPanel(props: {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editPersona, setEditPersona] = useState<any | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,6 +37,70 @@ export default function PersonasPanel(props: {
       }
     })();
   }, []);
+
+  // Close dropdown when clicking elsewhere / pressing Escape
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el) return;
+      if (el.closest('[data-persona-menu-root="true"]')) return;
+      setOpenMenuId(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenMenuId(null);
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
+
+  const refresh = async () => {
+    try {
+      const data = await listPersonas();
+      setItems(data || []);
+    } catch {}
+  };
+
+  const handleDuplicate = async (p: any) => {
+    try {
+      setActionBusyId(p.id);
+      const baseName = String(p?.name || 'Persona').trim() || 'Persona';
+      const copyName = `${baseName} (copy)`;
+      await createPersona({
+        name: copyName,
+        titles: Array.isArray(p?.titles) ? p.titles : [],
+        include_keywords: Array.isArray(p?.include_keywords) ? p.include_keywords : [],
+        exclude_keywords: Array.isArray(p?.exclude_keywords) ? p.exclude_keywords : [],
+        locations: Array.isArray(p?.locations) ? p.locations : [],
+        channels: Array.isArray(p?.channels) ? p.channels : ['email'],
+        goal_total_leads: typeof p?.goal_total_leads === 'number' ? p.goal_total_leads : null
+      });
+      await refresh();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to duplicate persona');
+    } finally {
+      setActionBusyId(null);
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleDelete = async (p: any) => {
+    const ok = window.confirm(`Delete persona "${p?.name || 'Untitled'}"? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      setActionBusyId(p.id);
+      await deletePersona(p.id);
+      setItems(prev => prev.filter(x => x.id !== p.id));
+    } catch (e: any) {
+      alert(e?.message || 'Failed to delete persona');
+    } finally {
+      setActionBusyId(null);
+      setOpenMenuId(null);
+    }
+  };
 
   return (
     <div>
@@ -53,7 +119,44 @@ export default function PersonasPanel(props: {
             <div key={p.id} className="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:shadow-xl hover:shadow-primary/10 transition-all hover:border-slate-600">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center"><i className="fa-solid fa-user-tie text-white" /></div>
-                <button className="text-slate-500 hover:text-slate-300"><i className="fa-solid fa-ellipsis-h" /></button>
+                <div className="relative" data-persona-menu-root="true">
+                  <button
+                    className="text-slate-500 hover:text-slate-300"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpenMenuId(prev => prev === p.id ? null : p.id); }}
+                    aria-haspopup="menu"
+                    aria-expanded={openMenuId === p.id}
+                    aria-label="Persona actions"
+                  >
+                    <i className="fa-solid fa-ellipsis-h" />
+                  </button>
+                  {openMenuId === p.id && (
+                    <div className="absolute right-0 mt-2 w-44 rounded-lg border border-slate-700 bg-slate-900 shadow-lg z-50 overflow-hidden">
+                      <button
+                        className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                        onClick={(e) => { e.preventDefault(); setOpenMenuId(null); setEditPersona(p); setShowForm(true); }}
+                      >
+                        <i className="fa-solid fa-pen-to-square text-slate-300 w-4" />
+                        Edit
+                      </button>
+                      <button
+                        className={`w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 flex items-center gap-2 ${actionBusyId === p.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        onClick={(e) => { e.preventDefault(); if (actionBusyId) return; handleDuplicate(p); }}
+                        disabled={!!actionBusyId}
+                      >
+                        <i className="fa-solid fa-clone text-slate-300 w-4" />
+                        Duplicate
+                      </button>
+                      <button
+                        className={`w-full text-left px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 flex items-center gap-2 ${actionBusyId === p.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        onClick={(e) => { e.preventDefault(); if (actionBusyId) return; handleDelete(p); }}
+                        disabled={!!actionBusyId}
+                      >
+                        <i className="fa-solid fa-trash text-red-300 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <h3 className="font-semibold text-white mb-3">{p.name}</h3>
               <div className="flex flex-wrap gap-1 mb-3">
