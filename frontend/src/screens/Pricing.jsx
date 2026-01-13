@@ -131,7 +131,7 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-wrench text-gray-400 mr-3"></i><span>Add credits anytime from Billing</span></li>
               </ul>
               <p className="text-gray-400 text-sm mb-6">Ideal for: 1 active role, light weekly sourcing, fast validation.</p>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('starter')}>Get Started for Free</button>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('starter')}>Full access. 14 days free.</button>
             </div>
             
             {/* Team Plan */}
@@ -164,7 +164,7 @@ export default function Pricing() {
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-brain text-purple-600 mr-3"></i><span>High-throughput sourcing + automations</span></li>
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-folder-tree text-blue-600 mr-3"></i><span>Great for multi-role pipelines and weekly hiring cycles</span></li>
               </ul>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('team')}>Get Started for Free</button>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('team')}>Full access. 14 days free.</button>
               <div className="text-xs text-gray-400 mt-3 text-center">Need more than 5 team members? Contact us!</div>
             </div>
           </div>

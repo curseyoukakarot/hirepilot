@@ -275,7 +275,9 @@ router.post('/webhook', validateStripeWebhook, async (req, res) => {
 router.post('/create-checkout-session', async (req, res) => {
   try {
     const { priceId, userId, planTier } = req.body;
-    const trialDays = 7;
+    // Starter + Team include a 14-day free trial (monthly + annual)
+    const normalizedTier = String(planTier || '').toLowerCase();
+    const trialDays = (normalizedTier === 'starter' || normalizedTier === 'team') ? 14 : 0;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -287,7 +289,7 @@ router.post('/create-checkout-session', async (req, res) => {
       success_url: `${process.env.FRONTEND_URL}/signup?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/pricing`,
       subscription_data: {
-        trial_period_days: trialDays,
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
         metadata: {
           user_id: userId,
           plan_tier: planTier
