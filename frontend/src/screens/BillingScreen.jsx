@@ -62,13 +62,13 @@ export default function BillingScreen() {
   const getRoleCreditLimit = (role) => {
     if (isFree || String(planTier || '').toLowerCase() === 'free') return 50;
     const creditLimits = {
-      'member': 350,
+      'member': 500,
       'admin': 1000,
-      'team_admin': 5000,
+      'team_admin': 500,
       'RecruitPro': 1000,
       'super_admin': 10000
     };
-    return creditLimits[role] || 350;
+    return creditLimits[role] || 500;
   };
 
   useEffect(() => {

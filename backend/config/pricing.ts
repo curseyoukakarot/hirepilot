@@ -67,9 +67,9 @@ export const PRICING_CONFIG: PricingConfig = {
   },
   starter: {
     name: 'Starter',
-    credits: 350,
+    credits: 500,
     features: [
-      '350 credits/month',
+      '500 credits/month',
       'Basic campaign features',
       'Email support',
       'Up to 2 team members'
@@ -79,8 +79,8 @@ export const PRICING_CONFIG: PricingConfig = {
       annual: resolvePriceId('STARTER', 'ANNUAL')
     },
     prices: {
-      monthly: 49,
-      annual: 470 // ~20% discount
+      monthly: 59,
+      annual: 468 // $39/mo billed annually
     }
   },
   pro: {
@@ -104,22 +104,21 @@ export const PRICING_CONFIG: PricingConfig = {
   },
   team: {
     name: 'Team',
-    credits: 2000,
+    credits: 500,
     features: [
-      '2,000 credits/month',
-      'All Pro features',
+      '500 credits/month',
+      'Everything in Starter',
       'Dedicated support',
-      'Unlimited team members',
-      'API access',
-      'Custom integrations'
+      'Up to 5 team members (contact us for more)',
+      'Team management'
     ],
     priceIds: {
       monthly: resolvePriceId('TEAM', 'MONTHLY'),
       annual: resolvePriceId('TEAM', 'ANNUAL')
     },
     prices: {
-      monthly: 199,
-      annual: 1910 // ~20% discount
+      monthly: 79,
+      annual: 708 // $59/mo billed annually
     }
   }
   ,
@@ -163,11 +162,11 @@ export const SUBSCRIPTION_PLANS = {
   STARTER: {
     id: 'starter',
     name: 'Starter',
-    price: 99,
-    credits: 350,
-    perCredit: 0.283,
+    price: 59,
+    credits: 500,
+    perCredit: 0.118,
     features: [
-      '350 credits/month',
+      '500 credits/month',
       'Basic support',
       'Core features'
     ]
@@ -188,11 +187,11 @@ export const SUBSCRIPTION_PLANS = {
   TEAM: {
     id: 'team',
     name: 'Team',
-    price: 450,
-    credits: 2000,
-    perCredit: 0.225,
+    price: 79,
+    credits: 500,
+    perCredit: 0.158,
     features: [
-      '2000 credits/month',
+      '500 credits/month',
       'Dedicated support',
       'All features',
       'Team management',

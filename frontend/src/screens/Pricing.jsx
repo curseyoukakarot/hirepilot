@@ -22,12 +22,10 @@ export default function Pricing() {
   const priceMap = {
     monthly: {
       starter: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_MONTHLY,
-      pro: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY,
       team: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_MONTHLY,
     },
     annual: {
       starter: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_ANNUAL,
-      pro: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL,
       team: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_ANNUAL,
     }
   };
@@ -62,7 +60,9 @@ export default function Pricing() {
         <div id="hero-header" className="pt-32 pb-20 px-6 text-center fade-in">
           <span className="inline-block text-blue-300 bg-blue-500/20 rounded-full px-4 py-1 text-sm mb-4">Pricing</span>
           <h1 className="text-4xl font-bold text-white mb-4">Choose Your Perfect Plan</h1>
-          <p className="text-gray-300 max-w-2xl mx-auto">Select the plan that best fits your needs. All plans include a 7-day free trial with full access to all features.</p>
+          <p className="text-gray-300 max-w-2xl mx-auto">
+            Select the plan that best fits your needs. Keep Free forever, and upgrade anytime.
+          </p>
           {/* Billing cycle toggle */}
           <div className="mt-8 flex items-center justify-center gap-4">
             <span className={annual ? 'text-gray-400 cursor-pointer' : 'font-semibold'} onClick={() => setAnnual(false)}>Monthly</span>
@@ -77,14 +77,14 @@ export default function Pricing() {
         {/* Pricing Plans (full-width, 4 across on xl) */}
         <div className="w-full py-12 fade-in">
           <div id="pricing-plans" className="max-w-screen-2xl 2xl:max-w-[1800px] mx-auto px-6 lg:px-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 items-stretch">
-            {/* Free Forever Plan */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+            {/* Free Plan */}
             <div id="free-plan" className="relative bg-gray-800 rounded-2xl p-8 border border-green-400/40 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="absolute -top-3 left-4 bg-green-600 text-white text-xs px-2 py-1 rounded-full">New</div>
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Free Forever</h2>
-                  <p className="text-gray-300 mt-1">Start free. No credit card.</p>
+                  <h2 className="text-2xl font-bold text-white">Free</h2>
+                  <p className="text-gray-300 mt-1">Keep Free forever. No credit card.</p>
                 </div>
                 <span className="bg-green-900/40 text-green-300 px-3 py-1 rounded-full text-sm">$0/mo</span>
               </div>
@@ -113,16 +113,17 @@ export default function Pricing() {
                 <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Popular</span>
               </div>
               {(() => {
-                const price = annual ? 79 : 99;
+                const price = annual ? 39 : 59;
                 return (
                   <div className="mb-6">
                     <span className="text-5xl font-bold text-white">${price}</span>
                     <span className="text-gray-300">/month</span>
+                    {annual && <div className="text-xs text-gray-400 mt-1">Billed annually</div>}
                   </div>
                 );
               })()}
               <div className="text-gray-200 mb-4" aria-label="credit-info-starter">
-                <div className="font-semibold">350 credits / month</div>
+                <div className="font-semibold">500 credits / month</div>
               </div>
               <ul className="space-y-4 mb-8 flex-1" aria-label="starter-features">
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
@@ -131,36 +132,6 @@ export default function Pricing() {
               </ul>
               <p className="text-gray-400 text-sm mb-6">Ideal for: 1 active role, light weekly sourcing, fast validation.</p>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('starter')}>Get Started for Free</button>
-            </div>
-            
-            {/* Pro Plan */}
-            <div id="pro-plan" className="bg-gray-800 rounded-2xl p-8 border-2 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-300">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Pro</h2>
-                  <p className="text-gray-300 mt-1">Built for growing teams</p>
-                </div>
-                <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">Best Value</span>
-              </div>
-              {(() => {
-                const price = annual ? 199 : 249;
-                return (
-                  <div className="mb-6">
-                    <span className="text-5xl font-bold text-white">${price}</span>
-                    <span className="text-gray-300">/month</span>
-                  </div>
-                );
-              })()}
-              <div className="text-gray-200 mb-4" aria-label="credit-info-pro">
-                <div className="font-semibold">1,000 credits / month</div>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1" aria-label="pro-features">
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter (all features unlocked)</span></li>
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-repeat text-blue-600 mr-3"></i><span>Higher-volume outreach + enrichment</span></li>
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-chart-line text-purple-600 mr-3"></i><span>Perfect for 2–3 concurrent roles and A/B testing</span></li>
-              </ul>
-              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('pro')}>Get Started for Free</button>
             </div>
             
             {/* Team Plan */}
@@ -173,25 +144,28 @@ export default function Pricing() {
                 <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">Enterprise</span>
               </div>
               {(() => {
-                const price = annual ? 69 : 99;
+                const price = annual ? 59 : 79;
                 return (
                   <div className="mb-6">
                     <span className="text-5xl font-bold text-white">${price}</span>
-                    <span className="text-gray-300">/month per user</span>
+                    <span className="text-gray-300">/month/user</span>
+                    <div className="text-xs text-gray-400 mt-1">Includes up to 5 users</div>
+                    {annual && <div className="text-xs text-gray-400 mt-1">Billed annually</div>}
                   </div>
                 );
               })()}
               <div className="text-gray-200 mb-4" aria-label="credit-info-team">
-                <div className="font-semibold">5,000 credits / month</div>
+                <div className="font-semibold">500 credits / month per user</div>
               </div>
               <ul className="space-y-4 mb-8 flex-1" aria-label="team-features">
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter & Pro (all features unlocked)</span></li>
-                <li className="flex items-center text-gray-300"><i className="fa-solid fa-users text-blue-600 mr-3"></i><span>5 users included (contact us if you need more)</span></li>
+                <li className="flex items-center text-gray-300"><i className="fa-solid fa-check text-green-500 mr-3"></i><span>Everything in Starter</span></li>
+                <li className="flex items-center text-gray-300"><i className="fa-solid fa-users text-blue-600 mr-3"></i><span>Up to 5 users included</span></li>
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-recycle text-green-500 mr-3"></i><span>Credit rollover while subscribed</span></li>
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-brain text-purple-600 mr-3"></i><span>High-throughput sourcing + automations</span></li>
                 <li className="flex items-center text-gray-300"><i className="fa-solid fa-folder-tree text-blue-600 mr-3"></i><span>Great for multi-role pipelines and weekly hiring cycles</span></li>
               </ul>
               <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-500 transition-colors" onClick={() => handleCheckout('team')}>Get Started for Free</button>
+              <div className="text-xs text-gray-400 mt-3 text-center">Need more than 5 team members? Contact us!</div>
             </div>
           </div>
         </div>
@@ -199,7 +173,7 @@ export default function Pricing() {
         {/* All-features banner (no paragraphs) */}
         <div className="w-full py-6 fade-in">
           <div className="max-w-4xl mx-auto px-6 text-center" aria-label="all-features-banner">
-            <h3 className="text-xl font-semibold text-gray-200">All plans include every feature.</h3>
+            <h3 className="text-xl font-semibold text-gray-200">All paid plans include every feature.</h3>
           </div>
         </div>
 
@@ -262,7 +236,7 @@ export default function Pricing() {
               </div>
               <div className="flex items-center justify-between bg-green-900/20 border border-green-600/30 p-4 rounded-xl shadow-sm">
                 <span className="text-gray-200 font-medium">HirePilot</span>
-                <span className="text-green-400 font-semibold">$99/mo</span>
+                <span className="text-green-400 font-semibold">$59/mo</span>
               </div>
             </div>
 

@@ -980,12 +980,12 @@ function FormsPaidRoute({ children }) {
         <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
           <span role="img" aria-label="lock">🔒</span>
         </div>
-        <h1 className="text-2xl font-semibold mb-2">Forms is a Pro feature</h1>
+        <h1 className="text-2xl font-semibold mb-2">Forms is a paid feature</h1>
         <p className="text-gray-600 dark:text-gray-300 mb-6">
           Upgrade your plan to create public forms, collect responses, and route submissions to Leads, Candidates, or Custom Tables.
         </p>
         <div className="flex items-center justify-center gap-3">
-          <a href="/pricing?plan=pro" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
+          <a href="/pricing?plan=starter" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
           <a href="/freeforever" className="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Learn more</a>
         </div>
       </div>
@@ -1011,7 +1011,7 @@ function LandingPagesPaidRoute({ children }) {
           Upgrade your plan to create and publish landing pages.
         </p>
         <div className="flex items-center justify-center gap-3">
-          <a href="/pricing?plan=pro" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
+          <a href="/pricing?plan=starter" className="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">View Plans</a>
           <a href="/freeforever" className="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Learn more</a>
         </div>
       </div>

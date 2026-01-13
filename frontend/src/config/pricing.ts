@@ -19,7 +19,7 @@ export interface PricingConfig {
 export const PRICING_CONFIG: PricingConfig = {
   starter: {
     name: 'Starter',
-    credits: 350,
+    credits: 500,
     features: [
       'Credit rollover while subscribed',
       'Unlimited job reqs & campaigns',
@@ -30,8 +30,8 @@ export const PRICING_CONFIG: PricingConfig = {
       annual: import.meta.env.VITE_STRIPE_PRICE_ID_STARTER_ANNUAL || ''
     },
     prices: {
-      monthly: 49,
-      annual: 470 // ~20% discount
+      monthly: 59,
+      annual: 468 // $39/mo billed annually
     }
   },
   pro: {
@@ -44,8 +44,9 @@ export const PRICING_CONFIG: PricingConfig = {
       'Perfect for 2–3 concurrent roles and A/B testing'
     ],
     priceIds: {
-      monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY || '',
-      annual: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL || ''
+      // Legacy plan (not sold anymore)
+      monthly: '',
+      annual: ''
     },
     prices: {
       monthly: 99,
@@ -54,10 +55,10 @@ export const PRICING_CONFIG: PricingConfig = {
   },
   team: {
     name: 'Team',
-    credits: 5000,
+    credits: 500,
     features: [
-      'Everything in Starter & Pro (all features unlocked)',
-      '5 users included (contact us if you need more)',
+      'Everything in Starter',
+      'Up to 5 team members (contact us if you need more)',
       'Credit rollover while subscribed',
       'High-throughput sourcing + automations',
       'Great for multi-role pipelines and weekly hiring cycles'
@@ -67,8 +68,8 @@ export const PRICING_CONFIG: PricingConfig = {
       annual: import.meta.env.VITE_STRIPE_PRICE_ID_TEAM_ANNUAL || ''
     },
     prices: {
-      monthly: 199,
-      annual: 1910 // ~20% discount
+      monthly: 79,
+      annual: 708 // $59/mo billed annually
     }
   }
 }; 

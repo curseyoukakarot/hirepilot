@@ -244,9 +244,9 @@ export class CreditService {
       'job_seeker_free': 50,
       'job_seeker_pro': 250,
       'job_seeker_elite': 500,
-      'member': 350,
+      'member': 500,
       'admin': 1000,
-      'team_admin': 5000,
+      'team_admin': 500,
       'RecruitPro': 1000,
       'super_admin': 10000
     };
