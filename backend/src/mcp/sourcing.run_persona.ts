@@ -21,7 +21,9 @@ export const sourcingRunPersonaTool = {
     schedule_id: z.string().optional(),
     leads_per_run: z.number().int().positive().max(500).optional(),
     send_delay_minutes: z.number().int().nonnegative().optional(),
-    daily_send_cap: z.number().int().positive().optional()
+    daily_send_cap: z.number().int().positive().optional(),
+    // Optional: enroll newly sourced leads into a saved Message Center sequence
+    message_sequence_id: z.string().optional(),
   }),
   handler: async (args: any) => {
     const userId: string = args.userId;
@@ -33,6 +35,7 @@ export const sourcingRunPersonaTool = {
     const creditMode: string = args.credit_mode || 'base';
     const sendDelayMinutes: number = typeof args.send_delay_minutes === 'number' ? Math.max(0, args.send_delay_minutes) : 0;
     const dailySendCap: number | null = typeof args.daily_send_cap === 'number' ? Math.max(1, args.daily_send_cap) : null;
+    const messageSequenceId: string | null = typeof args.message_sequence_id === 'string' && args.message_sequence_id ? args.message_sequence_id : null;
     const scheduleId: string | null = args.schedule_id || null;
     const startedAt = new Date();
 
@@ -652,13 +655,30 @@ export const sourcingRunPersonaTool = {
       const newLeadIds = ((addResult as any).leads as any[]).map((l: any) => l?.id).filter(Boolean);
       if (newLeadIds.length) {
         try {
-          const oq = await queueInitialOutreachForNewLeads({
-            campaignId: effectiveCampaignId,
-            leadIds: newLeadIds,
-            sendDelayMinutes,
-            dailySendCap
-          });
-          outreachQueued = Number((oq as any)?.queued || 0);
+          // If a Message Center sequence is specified, enroll into that system.
+          // Otherwise, fall back to the legacy sourcing_sequences-based outreach.
+          if (messageSequenceId) {
+            const { enrollLeadsInMessageSequence } = await import('../services/messageSequenceEnrollment');
+            const cap = dailySendCap && dailySendCap > 0 ? dailySendCap : null;
+            const targetIds = cap ? newLeadIds.slice(0, cap) : newLeadIds;
+            const startAtUtcIso = new Date(Date.now() + (sendDelayMinutes || 0) * 60 * 1000).toISOString();
+            const enr = await enrollLeadsInMessageSequence({
+              userId,
+              sequenceId: messageSequenceId,
+              leadIds: targetIds,
+              startAtUtcIso,
+              timezone: 'America/Chicago'
+            });
+            outreachQueued = Number((enr as any)?.enrolled || 0);
+          } else {
+            const oq = await queueInitialOutreachForNewLeads({
+              campaignId: effectiveCampaignId,
+              leadIds: newLeadIds,
+              sendDelayMinutes,
+              dailySendCap
+            });
+            outreachQueued = Number((oq as any)?.queued || 0);
+          }
         } catch (err: any) {
           console.warn('[sourcing.run_persona] auto-outreach queue failed', { campaignId: effectiveCampaignId, personaId, scheduleId, error: err?.message || err });
         }

@@ -12,8 +12,12 @@ type Props = {
 };
 
 export default function CreateScheduleModal({ open, onClose, defaultPersonaId }: Props) {
+  const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
+  const apiUrl = (p: string) => `${API_BASE}${p}`;
+
   const [personas, setPersonas] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [sequences, setSequences] = useState<any[]>([]);
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -33,6 +37,25 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
         setCampaigns(Array.isArray(list) ? list : []);
       } catch {
         setCampaigns([]);
+      }
+    })();
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const resp = await fetch(apiUrl('/api/sequences'), {
+          method: 'GET',
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          credentials: 'include'
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const list = await resp.json();
+        setSequences(Array.isArray(list) ? list : []);
+      } catch {
+        setSequences([]);
       }
     })();
   }, [open]);
@@ -61,12 +84,20 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
   const [sendDelayMode, setSendDelayMode] = useState<'immediate' | 'delay'>('immediate');
   const [sendDelayHours, setSendDelayHours] = useState<number>(0);
   const [dailySendCap, setDailySendCap] = useState<string>('');
+  const [outreachMode, setOutreachMode] = useState<'campaign_sequence' | 'saved_sequence'>('campaign_sequence');
+  const [messageSequenceId, setMessageSequenceId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (actionType !== 'persona_auto_outreach') {
       setCampaignMode('existing');
+    }
+  }, [actionType]);
+  useEffect(() => {
+    if (actionType !== 'launch_campaign' && actionType !== 'persona_auto_outreach') {
+      setOutreachMode('campaign_sequence');
+      setMessageSequenceId('');
     }
   }, [actionType]);
   useEffect(() => {
@@ -91,10 +122,11 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
   const existingCampaignSelected = Boolean(campaignId);
   const newCampaignValid = newCampaignName.trim().length >= 3;
   const personaAutoReady = personaSelected && (campaignMode === 'existing' ? existingCampaignSelected : newCampaignValid);
+  const outreachReady = outreachMode !== 'saved_sequence' || Boolean(messageSequenceId);
   const targetStepReady = actionType === 'launch_campaign'
-    ? existingCampaignSelected
+    ? (existingCampaignSelected && outreachReady)
     : actionType === 'persona_auto_outreach'
-      ? personaAutoReady
+      ? (personaAutoReady && outreachReady)
       : personaSelected;
 
   return (
@@ -148,12 +180,40 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
               </div>
             )}
             {actionType==='launch_campaign' && (
-              <div>
-                <label className="block text-sm text-slate-300 mb-1">Campaign</label>
-                <select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)} className="w-full bg-slate-800 text-white rounded px-3 py-2">
-                  {campaigns.length === 0 && <option value="" disabled>No campaigns found</option>}
-                  {campaigns.map(c => <option key={c.id} value={c.id}>{c.title || c.name}</option>)}
-                </select>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Campaign</label>
+                  <select value={campaignId} onChange={(e)=>setCampaignId(e.target.value)} className="w-full bg-slate-800 text-white rounded px-3 py-2">
+                    {campaigns.length === 0 && <option value="" disabled>No campaigns found</option>}
+                    {campaigns.map(c => <option key={c.id} value={c.id}>{c.title || c.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="border border-slate-700 rounded-lg p-4 bg-slate-900/40">
+                  <div className="mb-3">
+                    <p className="text-sm text-slate-300 font-semibold">Message sequence to send</p>
+                    <p className="text-xs text-slate-400">Pick what should be sent when this schedule runs.</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                    <label className={`flex-1 flex items-center gap-2 px-3 py-2 rounded border ${outreachMode==='campaign_sequence' ? 'border-violet-400 bg-violet-500/10 text-violet-100' : 'border-slate-700 bg-slate-800 text-slate-200'}`}>
+                      <input type="radio" name="launch-outreach-mode" className="accent-violet-500" checked={outreachMode==='campaign_sequence'} onChange={()=>setOutreachMode('campaign_sequence')} />
+                      <span>Use campaign’s built-in sequence</span>
+                    </label>
+                    <label className={`flex-1 flex items-center gap-2 px-3 py-2 rounded border ${outreachMode==='saved_sequence' ? 'border-emerald-400 bg-emerald-500/10 text-emerald-100' : 'border-slate-700 bg-slate-800 text-slate-200'}`}>
+                      <input type="radio" name="launch-outreach-mode" className="accent-emerald-500" checked={outreachMode==='saved_sequence'} onChange={()=>setOutreachMode('saved_sequence')} />
+                      <span>Use saved Message Sequence</span>
+                    </label>
+                  </div>
+                  {outreachMode === 'saved_sequence' && (
+                    <select value={messageSequenceId} onChange={(e)=>setMessageSequenceId(e.target.value)} className="w-full bg-slate-800 text-white rounded px-3 py-2">
+                      <option value="">Select a saved sequence…</option>
+                      {sequences.map((s:any) => <option key={s.id} value={s.id}>{s.name || 'Untitled sequence'}</option>)}
+                    </select>
+                  )}
+                  {outreachMode === 'saved_sequence' && sequences.length === 0 && (
+                    <div className="text-xs text-amber-300 mt-2">No saved sequences found. Create one in Messages → Sequences.</div>
+                  )}
+                </div>
               </div>
             )}
             {actionType==='persona_auto_outreach' && (
@@ -196,6 +256,30 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                       placeholder={`${personas.find(p => p.id === personaId)?.name || 'Persona'} – Evergreen`}
                     />
                   )}
+
+                  <div className="mt-4 border-t border-slate-700 pt-4">
+                    <p className="text-sm text-slate-300 font-semibold mb-1">Outreach message</p>
+                    <p className="text-xs text-slate-400 mb-3">Choose what gets auto-sent after sourcing completes.</p>
+                    <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                      <label className={`flex-1 flex items-center gap-2 px-3 py-2 rounded border ${outreachMode==='campaign_sequence' ? 'border-emerald-400 bg-emerald-500/10 text-emerald-100' : 'border-slate-700 bg-slate-800 text-slate-200'}`}>
+                        <input type="radio" name="persona-outreach-mode" className="accent-emerald-500" checked={outreachMode==='campaign_sequence'} onChange={()=>setOutreachMode('campaign_sequence')} />
+                        <span>Use campaign’s built-in sequence</span>
+                      </label>
+                      <label className={`flex-1 flex items-center gap-2 px-3 py-2 rounded border ${outreachMode==='saved_sequence' ? 'border-blue-400 bg-blue-500/10 text-blue-100' : 'border-slate-700 bg-slate-800 text-slate-200'}`}>
+                        <input type="radio" name="persona-outreach-mode" className="accent-blue-500" checked={outreachMode==='saved_sequence'} onChange={()=>setOutreachMode('saved_sequence')} />
+                        <span>Use saved Message Sequence</span>
+                      </label>
+                    </div>
+                    {outreachMode === 'saved_sequence' && (
+                      <select value={messageSequenceId} onChange={(e)=>setMessageSequenceId(e.target.value)} className="w-full bg-slate-800 text-white rounded px-3 py-2">
+                        <option value="">Select a saved sequence…</option>
+                        {sequences.map((s:any) => <option key={s.id} value={s.id}>{s.name || 'Untitled sequence'}</option>)}
+                      </select>
+                    )}
+                    {outreachMode === 'saved_sequence' && sequences.length === 0 && (
+                      <div className="text-xs text-amber-300 mt-2">No saved sequences found. Create one in Messages → Sequences.</div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -322,7 +406,12 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                 <div>Persona: {personas.find(p=>p.id===personaId)?.name || 'Select a persona'}</div>
               )}
               {actionType==='launch_campaign' && (
-                <div>Campaign: {campaigns.find(c=>c.id===campaignId)?.title || campaigns.find(c=>c.id===campaignId)?.name || 'Select a campaign'}</div>
+                <>
+                  <div>Campaign: {campaigns.find(c=>c.id===campaignId)?.title || campaigns.find(c=>c.id===campaignId)?.name || 'Select a campaign'}</div>
+                  <div>Outreach: {outreachMode === 'saved_sequence'
+                    ? `Saved sequence • ${sequences.find((s:any)=>s.id===messageSequenceId)?.name || 'Select a sequence'}`
+                    : 'Campaign built-in sequence'}</div>
+                </>
               )}
               {actionType==='persona_auto_outreach' && (
                 <>
@@ -330,6 +419,9 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                     ? (campaigns.find(c=>c.id===campaignId)?.title || campaigns.find(c=>c.id===campaignId)?.name || 'Select a campaign')
                     : (newCampaignName || 'New campaign')}
                   </div>
+                  <div>Outreach: {outreachMode === 'saved_sequence'
+                    ? `Saved sequence • ${sequences.find((s:any)=>s.id===messageSequenceId)?.name || 'Select a sequence'}`
+                    : 'Campaign built-in sequence'}</div>
                   <div>Leads per run: {leadsPerRun}</div>
                   <div>Step 1 send: {sendDelayMode==='immediate' ? 'Immediately' : `After ${sendDelayHours} hour(s)`}</div>
                   <div>Daily cap: {dailySendCap ? `${dailySendCap} sends/day` : 'Use campaign default limits'}</div>
@@ -383,9 +475,15 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                         tool_payload: { persona_id: personaId, batch_size: leadsPerRun }
                       };
                     } else if (actionType === 'launch_campaign') {
-                      body.action_type = 'launch_campaign';
-                      body.campaign_id = resolvedCampaignId;
-                      body.payload = { batch_size: leadsPerRun };
+                      if (outreachMode === 'saved_sequence' && messageSequenceId) {
+                        body.action_type = 'send_sequence';
+                        body.campaign_id = resolvedCampaignId;
+                        body.payload = { message_sequence_id: messageSequenceId };
+                      } else {
+                        body.action_type = 'launch_campaign';
+                        body.campaign_id = resolvedCampaignId;
+                        body.payload = { batch_size: leadsPerRun };
+                      }
                     } else if (actionType === 'persona_auto_outreach') {
                       body.action_type = 'persona_with_auto_outreach';
                       body.persona_id = personaId;
@@ -404,13 +502,12 @@ export default function CreateScheduleModal({ open, onClose, defaultPersonaId }:
                           auto_outreach_enabled: true,
                           leads_per_run: leadsPerRun,
                           send_delay_minutes: body.send_delay_minutes,
-                          daily_send_cap: body.daily_send_cap
+                          daily_send_cap: body.daily_send_cap,
+                          ...(outreachMode === 'saved_sequence' && messageSequenceId ? { message_sequence_id: messageSequenceId } : {})
                         }
                       };
                     }
 
-                    const API_BASE = (typeof window !== 'undefined' && (window as any).__HP_API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === 'app.thehirepilot.com' ? 'https://api.thehirepilot.com' : '');
-                    const apiUrl = (p: string) => `${API_BASE}${p}`;
                     const { data: { session } } = await supabase.auth.getSession();
                     const token = session?.access_token;
                     const resp = await fetch(apiUrl('/api/schedules'), { method:'POST', headers:{ 'Content-Type':'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, credentials:'include', body: JSON.stringify(body) });
