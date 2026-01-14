@@ -554,25 +554,44 @@ export default function SettingsIntegrations() {
   const openSendGridSenderPicker = async () => {
     try {
       setSendGridLoading(true); setValidationError('');
-      const [{ data: { user } }, { data: { session } }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.auth.getSession(),
-      ]);
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const token = session?.access_token;
-      const resp = await fetch(`${BACKEND}/api/sendgrid/get-senders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ user_id: user.id }),
-      });
-      const js = await resp.json();
-      if (!resp.ok) { setValidationError(js.error || 'Failed to load senders'); setShowSendGridModal(true); setSendGridStep('chooseSender'); return; }
-      const normalized = (js.senders || []).map((s) => ({
-        email: s.email || s.from_email || '',
-        name: s.name || s.from_name || s.nickname || '',
-      })).filter(s => s.email);
+
+      // Keep Settings and Sourcing Campaigns consistent: both use the cached sender table,
+      // refreshed by the same sync endpoint (which uses user_sendgrid_keys).
+      try {
+        await api('/api/sourcing/senders/sync', { method: 'POST' });
+      } catch (e) {
+        setValidationError(e instanceof Error ? e.message : 'Failed to sync SendGrid senders');
+        setShowSendGridModal(true);
+        setSendGridStep('chooseSender');
+        return;
+      }
+
+      const senders = await api('/api/sourcing/senders');
+      const normalized = (senders || [])
+        .map((s) => ({
+          email: s.from_email || s.email || '',
+          name: s.from_name || s.name || '',
+        }))
+        .filter(s => s.email);
+
+      if (!normalized.length) {
+        setValidationError('No verified senders found.');
+      }
+
       setAllowedSenders(normalized);
-      const current = js.current_sender || (normalized[0]?.email || '');
+
+      let current = normalized[0]?.email || '';
+      try {
+        const { data: keyRow } = await supabase
+          .from('user_sendgrid_keys')
+          .select('default_sender')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        current = keyRow?.default_sender || current;
+      } catch {}
+
       setSelectedSender(current);
       setShowSendGridModal(true);
       setSendGridStep('chooseSender');
@@ -601,6 +620,8 @@ export default function SettingsIntegrations() {
         body: JSON.stringify(body)
       });
       if (resp.ok) {
+        // Immediately refresh cached sender list so Sourcing Campaigns reflect the latest SendGrid state
+        try { await api('/api/sourcing/senders/sync', { method: 'POST' }); } catch {}
         setSendgridConnected(true);
         setShowSendGridModal(false);
         setSendGridApiKey(''); // clear from memory after saving

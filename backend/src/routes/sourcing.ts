@@ -600,11 +600,19 @@ router.post('/senders/sync', requireAuth, async (req: ApiRequest, res: Response)
     const upserts = Array.from(byEmail.values()).map(v => ({ user_id: userId, email: v.email, name: v.name || null, verified: v.verified }));
     if (!upserts.length) return res.status(400).json({ error: 'No verified senders found in SendGrid account' });
 
-    const { error: upErr } = await supabase
+    // Replace rows so removed SendGrid senders disappear (keeps UI consistent with Settings list)
+    const { error: delErr } = await supabase
       .from('user_sendgrid_senders')
-      .upsert(upserts, { onConflict: 'user_id,email' });
-    if (upErr) throw upErr;
-    return res.json({ synced: upserts.length });
+      .delete()
+      .eq('user_id', userId);
+    if (delErr) throw delErr;
+
+    const { error: insErr } = await supabase
+      .from('user_sendgrid_senders')
+      .insert(upserts);
+    if (insErr) throw insErr;
+
+    return res.json({ synced: upserts.length, replaced: true });
   } catch (error: any) {
     console.error('Error syncing senders:', error?.response?.data || error.message);
     return res.status(400).json({ error: error.message });
