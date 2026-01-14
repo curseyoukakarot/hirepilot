@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { api } from '../../../lib/api';
+import toast from 'react-hot-toast';
 
 type CampaignData = {
   campaign: {
@@ -103,20 +104,22 @@ export default function CampaignDetailPage() {
   useEffect(() => {
     (async () => {
       try {
+        // Fast path: load cached senders (if any), then do a best-effort background sync
+        // so the list matches the connected SendGrid account.
         const senders = await api('/api/sourcing/senders');
         const normalized = (senders || []).map((s:any) => ({ id: s.id, email: s.from_email }));
         setSenderOptions(normalized);
-        // Auto-sync once if empty
-        if (!normalized.length) {
-          setSenderSyncing(true);
-          try {
-            await api('/api/sourcing/senders/sync', { method: 'POST' });
-            const refreshed = await api('/api/sourcing/senders');
-            const n2 = (refreshed || []).map((s:any) => ({ id: s.id, email: s.from_email }));
-            setSenderOptions(n2);
-          } catch {}
-          setSenderSyncing(false);
-        }
+      } catch (e) {
+        // Keep UI usable even if this fails (button below can retry).
+        console.warn('Failed to load cached senders', e);
+      }
+
+      // Background refresh: keep sender list in sync with SendGrid without requiring manual action.
+      try {
+        await api('/api/sourcing/senders/sync', { method: 'POST' });
+        const refreshed = await api('/api/sourcing/senders');
+        const n2 = (refreshed || []).map((s:any) => ({ id: s.id, email: s.from_email }));
+        setSenderOptions(n2);
       } catch {}
     })();
   }, []);
@@ -374,7 +377,12 @@ export default function CampaignDetailPage() {
                   const refreshed = await api('/api/sourcing/senders');
                   const n2 = (refreshed || []).map((s:any) => ({ id: s.id, email: s.from_email }));
                   setSenderOptions(n2);
-                } catch {}
+                  toast.success('SendGrid senders synced');
+                } catch (e: any) {
+                  const msg = e?.message || 'Failed to sync SendGrid senders';
+                  setError(msg);
+                  toast.error(msg);
+                }
                 setSenderSyncing(false);
               }}
               className="ml-auto px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm disabled:opacity-50"

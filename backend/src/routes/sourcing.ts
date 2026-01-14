@@ -539,6 +539,28 @@ router.post('/campaigns/:id/send-single', requireAuth, async (req: ApiRequest, r
   }
 });
 
+async function fetchAllSendgridVerifiedSenders(apiKey: string) {
+  const headers = { Authorization: `Bearer ${apiKey}` } as any;
+  const limit = 500;
+  let offset = 0;
+  const out: any[] = [];
+
+  // Safety cap to avoid infinite loops if SendGrid behavior changes
+  for (let page = 0; page < 20; page++) {
+    const resp = await axios.get('https://api.sendgrid.com/v3/verified_senders', {
+      headers,
+      params: { limit, offset },
+      timeout: 15000,
+    });
+    const results = Array.isArray(resp.data?.results) ? resp.data.results : [];
+    out.push(...results);
+    if (results.length < limit) break;
+    offset += limit;
+  }
+
+  return out;
+}
+
 // Sync SendGrid senders for current user from SendGrid API
 router.post('/senders/sync', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
@@ -550,32 +572,38 @@ router.post('/senders/sync', requireAuth, async (req: ApiRequest, res: Response)
       .maybeSingle();
     if (!keyRow?.api_key) return res.status(400).json({ error: 'SendGrid not connected' });
 
-    const headers = { Authorization: `Bearer ${keyRow.api_key}` } as any;
-    let merged: Array<{ email: string; name?: string; verified: boolean }> = [];
+    let rawVerified: any[] = [];
     try {
-      const r1 = await axios.get('https://api.sendgrid.com/v3/verified_senders', { headers });
-      const a1 = Array.isArray(r1.data?.results) ? r1.data.results : [];
-      merged.push(...a1.map((s: any) => ({ email: s.from_email, name: s.from_name, verified: !!s.verified })));
-    } catch {}
-    try {
-      const r2 = await axios.get('https://api.sendgrid.com/v3/senders', { headers });
-      const a2 = Array.isArray(r2.data?.results) ? r2.data.results : Array.isArray(r2.data) ? r2.data : [];
-      merged.push(...a2.map((s: any) => ({ email: s.from?.email || s.from_email || s.email, name: s.from?.name || s.nickname || s.name, verified: !!(s.verified || s.reviewed || s.verification?.status === 'completed') })));
-    } catch {}
+      rawVerified = await fetchAllSendgridVerifiedSenders(keyRow.api_key);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+      console.error('[senders/sync] SendGrid verified_senders failed', { userId, status, data });
+      return res.status(502).json({ error: 'Failed to fetch verified senders from SendGrid' });
+    }
 
     const byEmail = new Map<string, { email: string; name?: string; verified: boolean }>();
-    merged.forEach(s => {
-      if (!s?.email) return;
-      const prev = byEmail.get(s.email);
-      byEmail.set(s.email, { email: s.email, name: s.name || prev?.name, verified: s.verified || prev?.verified || false });
+    rawVerified.forEach((s: any) => {
+      const emailRaw = String(s?.from_email || s?.email || '').trim();
+      if (!emailRaw) return;
+      const email = emailRaw.toLowerCase();
+      const prev = byEmail.get(email);
+      const name = String(s?.from_name || s?.nickname || s?.name || '').trim() || undefined;
+      const verified = Boolean(s?.verified ?? true);
+      byEmail.set(email, {
+        email,
+        name: name || prev?.name,
+        verified: verified || prev?.verified || false,
+      });
     });
+
     const upserts = Array.from(byEmail.values()).map(v => ({ user_id: userId, email: v.email, name: v.name || null, verified: v.verified }));
-    if (upserts.length) {
-      const { error: upErr } = await supabase
-        .from('user_sendgrid_senders')
-        .upsert(upserts);
-      if (upErr) throw upErr;
-    }
+    if (!upserts.length) return res.status(400).json({ error: 'No verified senders found in SendGrid account' });
+
+    const { error: upErr } = await supabase
+      .from('user_sendgrid_senders')
+      .upsert(upserts, { onConflict: 'user_id,email' });
+    if (upErr) throw upErr;
     return res.json({ synced: upserts.length });
   } catch (error: any) {
     console.error('Error syncing senders:', error?.response?.data || error.message);
