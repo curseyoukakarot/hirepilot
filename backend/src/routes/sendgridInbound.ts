@@ -46,15 +46,17 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
       // Try to parse reply-to address format: msg_{messageId}.u_{userId}.c_{campaignOrNone}@domain
       const parseAddr = (addr: string) => {
         const raw = String(addr || '');
-        const match = raw.match(/msg_([^.\s]+)\.u_([0-9a-fA-F-]+)\.c_([^@\s>]+)/);
+        // Supports optional lead: msg_<id>.u_<user>.c_<campaign|none>.l_<lead|none>@domain
+        const match = raw.match(/msg_([^.\s]+)\.u_([0-9a-fA-F-]+)\.c_([0-9a-fA-F-]+|none)(?:\.l_([0-9a-fA-F-]+|none))?/i);
         if (match) {
-          return { messageId: match[1], userId: match[2], campaignPart: match[3] };
+          return { messageId: match[1], userId: match[2], campaignId: match[3], leadId: match[4] || null };
         }
-        return { messageId: null, userId: null, campaignPart: null };
+        return { messageId: null, userId: null, campaignId: null, leadId: null };
       };
-      const { messageId: trackingMsgId, userId: addrUserId, campaignPart } = parseAddr(to || '');
-      // Use c_part if present (may be 'none')
-      if (!campaignId && campaignPart && campaignPart.toLowerCase() !== 'none') campaignId = campaignPart;
+      const { messageId: trackingMsgId, userId: addrUserId, campaignId: addrCampaignId, leadId: addrLeadId } = parseAddr(to || '');
+      // Use c_/l_ parts if present (may be 'none')
+      if (!campaignId && addrCampaignId && String(addrCampaignId).toLowerCase() !== 'none') campaignId = addrCampaignId;
+      if (!leadId && addrLeadId && String(addrLeadId).toLowerCase() !== 'none') leadId = addrLeadId;
       // Try to recover lead/campaign from messages or email_events by trackingMsgId
       if (trackingMsgId) {
         try {
@@ -94,54 +96,30 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
         const userScopeId = addrUserId || null;
         if (fromEmail && userScopeId) {
           try {
-            // Prefer an existing base lead for this user
-            const { data: baseLead } = await supabase
-              .from('leads')
-              .select('id,campaign_id')
-              .eq('user_id', userScopeId)
-              .ilike('email', fromEmail)
-              .maybeSingle();
-            if (baseLead?.id) {
-              leadId = baseLead.id;
-              campaignId = campaignId || (baseLead as any).campaign_id || null;
-            } else {
-              // Fallback: try sourcing_leads then mirror into base leads
-              const { data: srcLead } = await supabase
+            // Prefer sourcing_leads (since sourcing_replies.lead_id references sourcing_leads)
+            if (campaignId) {
+              const { data: srcLeadByCampaign } = await supabase
                 .from('sourcing_leads')
-                .select('id,name,title,company,campaign_id,email,linkedin_url')
+                .select('id,campaign_id')
+                .eq('campaign_id', campaignId)
                 .ilike('email', fromEmail)
                 .maybeSingle();
-              if (srcLead) {
-                // Create or upsert minimal base lead for the user
-                const { data: existingBase } = await supabase
-                  .from('leads')
-                  .select('id')
-                  .eq('user_id', userScopeId)
-                  .ilike('email', fromEmail)
-                  .maybeSingle();
-                if (existingBase?.id) {
-                  leadId = existingBase.id;
-                } else {
-                  const insert = {
-                    user_id: userScopeId,
-                    name: (srcLead as any).name || fromEmail,
-                    email: fromEmail,
-                    title: (srcLead as any).title || null,
-                    company: (srcLead as any).company || null,
-                    linkedin_url: (srcLead as any).linkedin_url || null,
-                    source: 'sourcing_campaign',
-                    created_at: new Date().toISOString()
-                  } as any;
-                  const { data: created, error: createErr } = await supabase
-                    .from('leads')
-                    .insert(insert)
-                    .select('id')
-                    .single();
-                  if (!createErr && created?.id) {
-                    leadId = created.id;
-                  }
-                }
-                campaignId = campaignId || (srcLead as any).campaign_id || null;
+              if (srcLeadByCampaign?.id) {
+                leadId = srcLeadByCampaign.id;
+              }
+            }
+            // Broader fallback: any sourcing_lead matching the email (may be ambiguous across campaigns)
+            if (!leadId) {
+              const { data: srcLeadAny } = await supabase
+                .from('sourcing_leads')
+                .select('id,campaign_id,created_at')
+                .ilike('email', fromEmail)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (srcLeadAny?.id) {
+                leadId = srcLeadAny.id;
+                campaignId = campaignId || (srcLeadAny as any).campaign_id || null;
               }
             }
           } catch (e) {

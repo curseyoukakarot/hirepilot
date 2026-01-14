@@ -183,7 +183,7 @@ export default function Pricing() {
             <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-8">
               <h3 className="text-xl font-semibold text-white mb-4">All features on paid plans include:</h3>
               <div className="grid sm:grid-cols-2 gap-4 text-gray-300">
-                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX AI Assistant</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and AI-powered actions across HirePilot</span></div>
+                <div className="flex items-start"><span className="mr-3">🤖</span><span><strong className="text-white">REX: AI Agent</strong><br />Candidate summaries, message drafting, scoring, auto-follow-ups, and AI-powered actions across HirePilot</span></div>
                 <div className="flex items-start"><span className="mr-3">📈</span><span><strong className="text-white">Campaigns & Sequences</strong><br />Automated multi-channel outreach with reply tracking, sequencing logic, and performance analytics</span></div>
                 <div className="flex items-start"><span className="mr-3">🔎</span><span><strong className="text-white">Lead Enrichment</strong><br />Email + profile data via Apollo, Hunter, Skrapp, and fallback systems</span></div>
                 <div className="flex items-start"><span className="mr-3">🔗</span><span><strong className="text-white">LinkedIn Automation</strong><br />Connection requests, profile capture, and LinkedIn workflows powered by the Chrome Extension</span></div>
