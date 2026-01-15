@@ -264,6 +264,58 @@ async function insertLead(payload: {
   return data?.id as string;
 }
 
+async function saveWidgetMessage(sessionId: string, role: 'user' | 'assistant', text: string) {
+  try {
+    if (!sessionId || !text) return;
+    await supabase
+      .from('rex_widget_messages')
+      .insert({
+        session_id: sessionId,
+        role,
+        text,
+      });
+  } catch (err: any) {
+    console.error('[offr/messages] insert failed', err?.message || err);
+  }
+}
+
+async function notifySlackUserMessage(params: { sessionId: string; text: string; pageUrl?: string | null }) {
+  const slackChannel = process.env.OFFR_WEBSITE_CHAT_SLACK_CHANNEL || '';
+  const botToken = process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN || '';
+  const webhookUrl = process.env.OFFR_WEBSITE_CHAT_SLACK_WEBHOOK_URL || '';
+  const snippet = (params.text || '').slice(0, 280);
+  const pageLine = params.pageUrl ? `Page: ${params.pageUrl}` : null;
+  const textLines = [
+    `Offr website chat (session: ${params.sessionId})`,
+    pageLine,
+    `User: ${snippet}`,
+  ].filter(Boolean).join('\n');
+
+  // Try Slack API first
+  if (slackChannel && botToken) {
+    try {
+      const slack = new WebClient(botToken);
+      await slack.chat.postMessage({
+        channel: slackChannel,
+        text: textLines,
+        unfurl_links: false,
+        unfurl_media: false,
+      });
+      return;
+    } catch (err: any) {
+      console.error('[offr/user-msg] slack post failed', err?.message || err);
+    }
+  }
+  // Fallback to webhook
+  if (webhookUrl) {
+    try {
+      await postSlack(webhookUrl, textLines);
+    } catch (err: any) {
+      console.error('[offr/user-msg] webhook failed', err?.message || err);
+    }
+  }
+}
+
 async function handleLeadCapture(args: any, pageUrl: string | null, sessionId: string) {
   const requiredMissing = ['first_name', 'last_name', 'email'].filter(k => !args?.[k]);
   if (requiredMissing.length) {
@@ -480,6 +532,9 @@ router.post('/public-chat/offr', async (req: Request, res: Response) => {
 
   const sessionId = ensureSessionId(parsed.data.session_id);
   const userMessage = parsed.data.message;
+  // Persist and mirror user message for visibility
+  await saveWidgetMessage(sessionId, 'user', userMessage);
+  await notifySlackUserMessage({ sessionId, text: userMessage, pageUrl: parsed.data.page_url });
   const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: MASTER_PROMPT },
   ];
@@ -619,6 +674,9 @@ router.post('/public-chat/offr', async (req: Request, res: Response) => {
 
     const finalText = assistantMessage?.content || 'Thanks — how can Offr Group help?';
     const captureLead = toolCalls.some(c => c.function?.name === 'offr_capture_website_lead');
+
+    // Persist assistant reply
+    await saveWidgetMessage(sessionId, 'assistant', finalText);
 
     res.json({
       response: finalText,
