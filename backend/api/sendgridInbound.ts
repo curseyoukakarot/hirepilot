@@ -49,9 +49,16 @@ async function resolveRoutingFromAddress(toHeader: string) {
     } catch {}
   }
   // Fallback to legacy VERP parsing
-  const legacy = addr.match(/msg_([a-f0-9-]+)\.u_([a-f0-9-]+)\.c_([A-Za-z0-9-]+)@/i);
+  // Supports optional sourcing lead component: msg_<id>.u_<user>.c_<campaign|none>.l_<lead|none>@domain
+  const legacy = addr.match(/msg_([a-f0-9-]+)\.u_([a-f0-9-]+)\.c_([A-Za-z0-9-]+)(?:\.l_([A-Za-z0-9-]+))?@/i);
   if (legacy) {
-    return { messageId: legacy[1], userId: legacy[2], campaignId: legacy[3] === 'none' ? null : legacy[3], via: 'legacy' as const };
+    return {
+      messageId: legacy[1],
+      userId: legacy[2],
+      campaignId: legacy[3] === 'none' ? null : legacy[3],
+      leadId: legacy[4] === 'none' ? null : (legacy[4] || null),
+      via: 'legacy' as const
+    };
   }
   throw new Error('Unable to resolve message context from To address');
 }
@@ -385,13 +392,13 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       res.status(400).send('invalid to token');
       return;
     }
-    const { messageId, userId } = routing as any;
+    const { messageId, userId, campaignId: routingCampaignId, leadId: routingLeadId } = routing as any;
     if (!messageId) {
       console.error('[sendgrid/inbound] Missing original messageId; cannot forward or notify', { routing });
       res.status(204).end();
       return;
     }
-    let campaignId = (routing as any)?.campaignId || null;
+    let campaignId = routingCampaignId || null;
     let eventProvider: 'sendgrid' | 'gmail' = 'sendgrid';
     if ((routing as any)?.via === 'gmail_map') {
       eventProvider = 'gmail';
@@ -399,6 +406,10 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
 
     // Resolve attribution: try messages by tracking message_id, then by id; then email_events; then email-based
     let lead_id: string | null = null;
+    // If legacy VERP includes lead id, use it early (helps sourcing campaigns)
+    if (routingLeadId) {
+      lead_id = String(routingLeadId);
+    }
     try {
       // messages.message_id == tracking id from VERP
       const { data: msgByTracking } = await supabase
@@ -521,6 +532,17 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     // For sourcing campaigns, resolve sourcing lead + persist reply to sourcing_replies (so it shows in campaign UI)
     if (isSourcingCampaign) {
       try {
+        // If routingLeadId looks like a sourcing lead id, trust it
+        if (lead_id) {
+          try {
+            const { data: sl0 } = await supabase
+              .from('sourcing_leads')
+              .select('id')
+              .eq('id', lead_id as any)
+              .maybeSingle();
+            if (sl0?.id) sourcingLeadId = sl0.id;
+          } catch {}
+        }
         if (cleanFromEmail) {
           const { data: sl } = await supabase
             .from('sourcing_leads')

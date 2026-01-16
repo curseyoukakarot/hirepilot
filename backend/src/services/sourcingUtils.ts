@@ -27,8 +27,25 @@ export async function getCampaignStats(campaignId: string) {
   if (error) throw error;
 
   const total = leads?.length || 0;
-  const emailsSent = (leads || []).filter((l: any) => ['sent','scheduled','replied','bounced','unsubscribed'].includes(String(l.outreach_stage || '').toLowerCase())).length;
-  const replied = (leads || []).filter((l: any) => String(l.reply_status || '').toLowerCase() === 'replied').length;
+  const stage = (v: any) => String(v || '').toLowerCase();
+  // Treat any "step*_sent" as an email send.
+  const emailsSent = (leads || []).filter((l: any) => {
+    const s = stage(l.outreach_stage);
+    return [
+      'sent',
+      'scheduled',
+      'step1_sent',
+      'step2_sent',
+      'step3_sent',
+      'replied',
+      'bounced',
+      'unsubscribed'
+    ].includes(s);
+  }).length;
+  const replied = (leads || []).filter((l: any) => stage(l.outreach_stage) === 'replied' || stage(l.reply_status) === 'replied').length;
+  const positiveReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'positive').length;
+  const neutralReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'neutral').length;
+  const negativeReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'negative').length;
 
   return {
     total,
@@ -39,9 +56,9 @@ export async function getCampaignStats(campaignId: string) {
     replied,
     bounced: 0,
     unsubscribed: 0,
-    positive_replies: 0,
-    neutral_replies: 0,
-    negative_replies: 0
+    positive_replies: positiveReplies,
+    neutral_replies: neutralReplies,
+    negative_replies: negativeReplies
   };
 }
 
