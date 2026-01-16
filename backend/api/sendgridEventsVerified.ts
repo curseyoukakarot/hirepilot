@@ -68,6 +68,9 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       } = ev || {};
 
       let { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
+      // Support our newer SendGrid payloads which send hp_user_id instead of user_id (especially for sourcing)
+      const hpUserId = (custom_args as any)?.hp_user_id || null;
+      if (!user_id && hpUserId) user_id = hpUserId;
       const hpSourcingCampaignId = (custom_args as any)?.hp_sourcing_campaign_id || null;
       const hpSourcingLeadId = (custom_args as any)?.hp_sourcing_lead_id || null;
       const eventTimestamp = new Date((Number(ts) || Math.floor(Date.now() / 1000)) * 1000).toISOString();

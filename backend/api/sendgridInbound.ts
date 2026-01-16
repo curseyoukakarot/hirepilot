@@ -405,11 +405,9 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     }
 
     // Resolve attribution: try messages by tracking message_id, then by id; then email_events; then email-based
-    let lead_id: string | null = null;
-    // If legacy VERP includes lead id, use it early (helps sourcing campaigns)
-    if (routingLeadId) {
-      lead_id = String(routingLeadId);
-    }
+    // IMPORTANT: email_replies.lead_id references base leads(id). Never store sourcing_leads.id here.
+    let lead_id: string | null = null; // base leads.id only
+    const routingSourcingLeadId = routingLeadId ? String(routingLeadId) : null;
     try {
       // messages.message_id == tracking id from VERP
       const { data: msgByTracking } = await supabase
@@ -532,13 +530,13 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     // For sourcing campaigns, resolve sourcing lead + persist reply to sourcing_replies (so it shows in campaign UI)
     if (isSourcingCampaign) {
       try {
-        // If routingLeadId looks like a sourcing lead id, trust it
-        if (lead_id) {
+        // If routingLeadId looks like a sourcing lead id, trust it (but do NOT treat it as base lead id)
+        if (routingSourcingLeadId) {
           try {
             const { data: sl0 } = await supabase
               .from('sourcing_leads')
               .select('id')
-              .eq('id', lead_id as any)
+              .eq('id', routingSourcingLeadId as any)
               .maybeSingle();
             if (sl0?.id) sourcingLeadId = sl0.id;
           } catch {}

@@ -220,7 +220,10 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
 
     const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    // Pull recent replies for this user and filter in-memory by raw.to containing ".c_<campaignId>"
+    // Pull recent replies for this user.
+    // Prefer strict matching on raw.to containing ".c_<campaignId>", but also allow
+    // fallback matching by from_email against sourcing_leads in this campaign (older replies
+    // may not have had campaign-id encoded in Reply-To).
     const { data: replies } = await supabase
       .from('email_replies')
       .select('id, user_id, from_email, subject, text_body, html_body, raw, reply_ts')
@@ -253,14 +256,12 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
       const raw = (r as any).raw || {};
       const toRaw = raw?.to || raw?.envelope_to || raw?.to_raw || '';
       const parsed = parseToForLead(toRaw);
-      if (!parsed?.campaign || String(parsed.campaign).toLowerCase() !== String(campaignId).toLowerCase()) {
-        skipped += 1;
-        continue;
-      }
+      const matchesCampaignInTo =
+        !!parsed?.campaign && String(parsed.campaign).toLowerCase() === String(campaignId).toLowerCase();
 
       let sourcingLeadId: string | null = null;
       // Prefer explicit sourcing lead id from to-address
-      if (parsed.lead && looksLikeUuid(parsed.lead)) {
+      if (matchesCampaignInTo && parsed.lead && looksLikeUuid(parsed.lead)) {
         sourcingLeadId = parsed.lead;
       }
 
@@ -276,6 +277,8 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
           .maybeSingle();
         if (sl?.id) sourcingLeadId = sl.id;
       }
+      // If it doesn't match campaign by to-address and we couldn't match by email, skip.
+      if (!matchesCampaignInTo && !sourcingLeadId) { skipped += 1; continue; }
       if (!sourcingLeadId) { skipped += 1; continue; }
 
       const receivedAt = (r as any).reply_ts || new Date().toISOString();

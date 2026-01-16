@@ -63,6 +63,8 @@ export async function sendEmail(
       // Safe SendGrid event attribution: only set hp_user_id + message_id (avoid invalid FK writes for campaign/lead).
       customArgs = {
         message_id: trackingMessageId,
+        // Include both keys so webhooks can attribute immediately (no waiting for the attribution worker)
+        user_id: userId,
         hp_user_id: userId,
         hp_sourcing_campaign_id: campaignId || null,
         hp_sourcing_lead_id: leadId || null,
