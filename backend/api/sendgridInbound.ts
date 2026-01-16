@@ -126,6 +126,14 @@ function basicAuthOk(req: express.Request): boolean {
   return token === Buffer.from(basic).toString('base64');
 }
 
+function extractEmailAddress(input: string | null | undefined): string | null {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  const m = raw.match(/<([^>]+)>/);
+  const addr = (m ? m[1] : raw).trim().replace(/^"+|"+$/g, '');
+  return addr ? addr.toLowerCase() : null;
+}
+
 async function computeForwardRecipients(userId: string): Promise<string[]> {
   try {
     // Get user's primary email
@@ -429,7 +437,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
 
     // Email-based fallback to ensure we attach a base lead when possible
     if (!lead_id) {
-      const cleanEmail = (parsed.from || '').toLowerCase();
+      const cleanEmail = extractEmailAddress(parsed.from) || '';
       if (cleanEmail && userId) {
         try {
           const { data: baseLead } = await supabase
@@ -485,10 +493,78 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
       }
     }
 
+    // Determine whether this inbound belongs to a sourcing campaign (campaignId references sourcing_campaigns, not campaigns)
+    let isSourcingCampaign = false;
+    let sourcingLeadId: string | null = null;
+    const cleanFromEmail = extractEmailAddress(parsed.from);
+    if (campaignId) {
+      try {
+        // Classic campaigns FK target (public.campaigns)
+        const { data: classicCampaign } = await supabase
+          .from('campaigns')
+          .select('id')
+          .eq('id', campaignId)
+          .maybeSingle();
+        if (!classicCampaign?.id) {
+          const { data: sc } = await supabase
+            .from('sourcing_campaigns')
+            .select('id')
+            .eq('id', campaignId)
+            .maybeSingle();
+          if (sc?.id) {
+            isSourcingCampaign = true;
+          }
+        }
+      } catch {}
+    }
+
+    // For sourcing campaigns, resolve sourcing lead + persist reply to sourcing_replies (so it shows in campaign UI)
+    if (isSourcingCampaign) {
+      try {
+        if (cleanFromEmail) {
+          const { data: sl } = await supabase
+            .from('sourcing_leads')
+            .select('id,campaign_id')
+            .eq('campaign_id', campaignId as any)
+            .ilike('email', cleanFromEmail)
+            .maybeSingle();
+          if (sl?.id) sourcingLeadId = sl.id;
+        }
+        if (sourcingLeadId) {
+          const bodyText = parsed.text || parsed.html || '';
+          const { error: srErr } = await supabase
+            .from('sourcing_replies')
+            .insert({
+              campaign_id: campaignId,
+              lead_id: sourcingLeadId,
+              direction: 'inbound',
+              subject: parsed.subject || null,
+              body: bodyText,
+              email_from: parsed.from || null,
+              email_to: to || null,
+              received_at: new Date().toISOString()
+            });
+          if (srErr) {
+            console.warn('[sendgrid/inbound] failed to insert sourcing_replies:', srErr.message);
+          } else {
+            // Keep sourcing lead state in sync for campaign stats
+            await supabase
+              .from('sourcing_leads')
+              .update({ outreach_stage: 'replied', reply_status: 'replied' })
+              .eq('id', sourcingLeadId);
+          }
+        }
+      } catch (e) {
+        console.warn('[sendgrid/inbound] sourcing reply mirror failed:', (e as any)?.message || e);
+      }
+    }
+
     // Save reply to database using parsed data
+    // NOTE: email_replies.campaign_id references classic campaigns. For sourcing campaigns we must keep this null.
+    const classicCampaignId = isSourcingCampaign ? null : campaignId;
     const { data: replyRow } = await supabase.from('email_replies').insert({
       user_id: userId,
-      campaign_id: campaignId,
+      campaign_id: classicCampaignId,
       lead_id,
       message_id: messageId,
       from_email: parsed.from,
@@ -501,7 +577,7 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     // Also store an event into email_events for convenience
     await supabase.from('email_events').insert({
       user_id: userId,
-      campaign_id: campaignId,
+      campaign_id: classicCampaignId,
       lead_id,
       provider: eventProvider,
       message_id: messageId,
@@ -515,10 +591,13 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
     // Create Action Inbox notification (in-app) for the user
     try {
       if (userId) {
+        // Prefer sourcing context when available (so "View Replies" shows it on the sourcing campaign)
+        const notifCampaignId = isSourcingCampaign ? (campaignId ?? 'none') : ((classicCampaignId ?? 'none') as any);
+        const notifLeadId = (isSourcingCampaign && sourcingLeadId) ? sourcingLeadId : ((lead_id ?? 'none') as any);
         await SourcingNotifications.newReply({
           userId,
-          campaignId: (campaignId ?? 'none') as any,
-          leadId: (lead_id ?? 'none') as any,
+          campaignId: notifCampaignId as any,
+          leadId: notifLeadId as any,
           replyId: (replyRow as any)?.id || messageId,
           classification: 'neutral',
           subject: parsed.subject || '',
@@ -530,7 +609,9 @@ router.post('/sendgrid/inbound', upload.any(), async (req, res) => {
           await supabase.from('notifications').insert({
             user_id: userId,
             source: 'inapp',
-            thread_key: (campaignId && lead_id) ? `sourcing:${campaignId}:${lead_id}` : null,
+            thread_key: (notifCampaignId && notifLeadId && notifCampaignId !== 'none' && notifLeadId !== 'none')
+              ? `sourcing:${notifCampaignId}:${notifLeadId}`
+              : null,
             title: `New reply from ${parsed.from || 'candidate'}`,
             body_md: `${(parsed.text || parsed.html || '').slice(0,700)}`,
             type: 'sourcing_reply',

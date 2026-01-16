@@ -68,6 +68,8 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       } = ev || {};
 
       let { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
+      const hpSourcingCampaignId = (custom_args as any)?.hp_sourcing_campaign_id || null;
+      const hpSourcingLeadId = (custom_args as any)?.hp_sourcing_lead_id || null;
       const eventTimestamp = new Date((Number(ts) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
 
       // Strip SendGrid suffix (e.g., ".filterdrecv") for matching against our stored message identifiers
@@ -143,6 +145,19 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         .upsert(row, { onConflict: 'sg_event_id' });
       if (upsertError) {
         console.error('[sendgridEventsHandler] upsert email_events failed:', upsertError);
+      }
+
+      // If this SendGrid event includes sourcing context, keep sourcing_leads state in sync for campaign stats.
+      // Note: we do NOT write sourcing ids into email_events.campaign_id/lead_id (those FKs are for classic campaigns/leads).
+      if (hpSourcingLeadId && (eventType === 'bounce' || eventType === 'dropped')) {
+        try {
+          await supabase
+            .from('sourcing_leads')
+            .update({ outreach_stage: 'bounced' })
+            .eq('id', String(hpSourcingLeadId));
+        } catch (e) {
+          console.warn('[sendgridEventsHandler] failed to mark sourcing lead bounced', { hpSourcingCampaignId, hpSourcingLeadId, err: (e as any)?.message || e });
+        }
       }
 
       // Update message flags/status for quick UI access (avoid referencing non-existent columns)

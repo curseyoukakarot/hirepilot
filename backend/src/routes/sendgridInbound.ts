@@ -175,8 +175,11 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
     
     // Update lead status to 'replied'
     try {
-      await updateLeadOutreachStage(leadId, 'replied');
-      console.log(`✅ Updated lead ${leadId} status to 'replied'`);
+      await supabase
+        .from('sourcing_leads')
+        .update({ outreach_stage: 'replied', reply_status: 'replied' })
+        .eq('id', leadId);
+      console.log(`✅ Updated lead ${leadId} status to 'replied' + reply_status`);
     } catch (error) {
       console.error('❌ Error updating lead status:', error);
     }
