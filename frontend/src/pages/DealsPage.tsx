@@ -659,6 +659,7 @@ export default function DealsPage() {
   const beginEditOpp = (o: any) => {
     setEditingOppId(o.id);
     setOppDraft({
+      title: String(o.title || ''),
       stage: String(o.stage || 'Pipeline'),
       forecast_date: (o.forecast_date ? String(o.forecast_date).slice(0, 10) : ''),
       start_date: (o.start_date ? String(o.start_date).slice(0, 10) : ''),
@@ -680,7 +681,9 @@ export default function DealsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       const draft = oppDraft || {};
+      const title = draft.title == null ? '' : String(draft.title).trim();
       const payload: any = {
+        ...(title ? { title } : {}),
         stage: draft.stage || 'Pipeline',
         forecast_date: draft.forecast_date ? String(draft.forecast_date).slice(0, 10) : null,
         start_date: draft.start_date ? String(draft.start_date).slice(0, 10) : null,
@@ -702,6 +705,7 @@ export default function DealsPage() {
         if (row.id !== id) return row;
         return {
           ...row,
+          title: payload.title ?? row.title,
           stage: payload.stage,
           forecast_date: payload.forecast_date,
           start_date: payload.start_date,
@@ -711,6 +715,15 @@ export default function DealsPage() {
           reqs: payload.req_ids
         };
       }));
+      // Keep pipeline board in sync (so switching views reflects rename immediately)
+      if (payload.title) {
+        setBoard(prev => prev.map((col: any) => ({
+          ...col,
+          items: Array.isArray(col.items)
+            ? col.items.map((it: any) => (it.id === id ? { ...it, title: payload.title } : it))
+            : col.items
+        })));
+      }
       cancelEditOpp();
     } catch {
       // keep edit mode open on failure
@@ -1335,7 +1348,27 @@ export default function DealsPage() {
                           }}
                         />
                       </td>
-                      <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{o.title}</td>
+                      <td className="p-4 font-medium text-gray-900 dark:text-gray-100">
+                        {editingOppId === o.id ? (
+                          <input
+                            type="text"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-full max-w-[320px] dark:bg-gray-800 dark:text-gray-200"
+                            value={String(oppDraft.title ?? '')}
+                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, title: e.target.value }))}
+                            disabled={savingOppId===o.id}
+                            autoFocus
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-left hover:underline decoration-dotted underline-offset-2"
+                            title="Click to edit opportunity name"
+                            onClick={() => beginEditOpp(o)}
+                          >
+                            {o.title}
+                          </button>
+                        )}
+                      </td>
                       <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
                       <td className="p-4">
                         {editingTagId === o.id ? (
