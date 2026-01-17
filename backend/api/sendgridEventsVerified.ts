@@ -75,6 +75,21 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       const hpSourcingLeadId = (custom_args as any)?.hp_sourcing_lead_id || null;
       const eventTimestamp = new Date((Number(ts) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
 
+      // Normalize SendGrid event types to HirePilot canonical types used by analytics.
+      // SendGrid commonly uses: processed, delivered, open, click, bounce, dropped, deferred, spamreport, unsubscribe, group_unsubscribe...
+      const normalizedEventType = (() => {
+        const t = String(eventType || '').toLowerCase();
+        if (t === 'processed') return 'sent';
+        if (t === 'delivered') return 'delivered';
+        if (t === 'open') return 'open';
+        if (t === 'click') return 'click';
+        if (t === 'bounce') return 'bounce';
+        if (t === 'dropped') return 'bounce';
+        if (t === 'spamreport') return 'reply'; // treat as reply-like for surfacing (rare)
+        if (t === 'unsubscribe' || t === 'group_unsubscribe') return 'reply'; // downstream can treat as engagement
+        return t || 'sent';
+      })();
+
       // Strip SendGrid suffix (e.g., ".filterdrecv") for matching against our stored message identifiers
       const strippedSgId = sg_message_id ? String(sg_message_id).split('.')[0] : null;
       const smtpIdAny: string | undefined = (ev['smtp-id'] || ev['smtp_id']) as any;
@@ -133,7 +148,7 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
         message_id: resolvedMessageId,
         sg_message_id: sg_message_id || null,
         sg_event_id: sg_event_id || `${sg_message_id || resolvedMessageId}:${eventType}:${ts}`,
-        event_type: eventType,
+        event_type: normalizedEventType,
         event_timestamp: eventTimestamp,
         metadata: {
           email,

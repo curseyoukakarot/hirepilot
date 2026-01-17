@@ -5,6 +5,27 @@ import { supabase as db } from '../src/lib/supabase';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
 
+// Cache campaign-id → isSourcing to avoid hammering DB
+const campaignTypeCache = new Map<string, { isSourcing: boolean; at: number }>();
+const CAMPAIGN_TYPE_TTL_MS = 5 * 60 * 1000;
+
+async function isSourcingCampaignId(id?: string): Promise<boolean> {
+  const cid = String(id || '').trim();
+  if (!cid) return false;
+  const cached = campaignTypeCache.get(cid);
+  if (cached && (Date.now() - cached.at) < CAMPAIGN_TYPE_TTL_MS) return cached.isSourcing;
+  try {
+    // If it exists in sourcing_campaigns, treat as sourcing
+    const { data: sc } = await db.from('sourcing_campaigns').select('id').eq('id', cid).maybeSingle();
+    const isSourcing = !!sc?.id;
+    campaignTypeCache.set(cid, { isSourcing, at: Date.now() });
+    return isSourcing;
+  } catch {
+    campaignTypeCache.set(cid, { isSourcing: false, at: Date.now() });
+    return false;
+  }
+}
+
 // Email queue worker to process scheduled emails
 async function resolveProvider(userId?: string): Promise<'sendgrid'|'google'|'outlook'|'none'> {
   try {
@@ -56,11 +77,31 @@ const emailWorker = new Worker('emailQueue', async (job) => {
     } else if (provider === 'google') {
       const campaignId = headers?.['X-Campaign-Id'];
       const leadId = headers?.['X-Lead-Id'];
-      await GmailTrackingService.sendEmail(userId!, to, subject, html, campaignId, leadId);
+      const isSourcing = await isSourcingCampaignId(campaignId);
+      await GmailTrackingService.sendEmail(
+        userId!,
+        to,
+        subject,
+        html,
+        isSourcing ? undefined : campaignId,
+        isSourcing ? undefined : leadId,
+        undefined,
+        isSourcing ? { sourcingCampaignId: campaignId, sourcingLeadId: leadId } : undefined
+      );
     } else if (provider === 'outlook') {
       const campaignId = headers?.['X-Campaign-Id'];
       const leadId = headers?.['X-Lead-Id'];
-      await OutlookTrackingService.sendEmail(userId!, to, subject, html, campaignId, leadId);
+      const isSourcing = await isSourcingCampaignId(campaignId);
+      await OutlookTrackingService.sendEmail(
+        userId!,
+        to,
+        subject,
+        html,
+        isSourcing ? undefined : campaignId,
+        isSourcing ? undefined : leadId,
+        undefined,
+        isSourcing ? { sourcingCampaignId: campaignId, sourcingLeadId: leadId } : undefined
+      );
     } else {
       throw new Error('NO_EMAIL_PROVIDER');
     }

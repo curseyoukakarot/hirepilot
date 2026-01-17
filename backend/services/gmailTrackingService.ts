@@ -5,6 +5,12 @@ import { getGoogleAccessToken, forceRefreshGoogleAccessToken } from './googleTok
 import { generateUniqueReplyToken, buildReplyToAddress } from '../utils/generateReplyAddress';
 import { buildGmailRawMessage } from './gmailMime';
 
+type SendOptions = {
+  // When set, we treat this send as belonging to a sourcing campaign and avoid writing FK-invalid campaign_id/lead_id into email_events.
+  sourcingCampaignId?: string;
+  sourcingLeadId?: string;
+};
+
 export class GmailTrackingService {
   /**
    * Generate a tracking pixel URL for Gmail
@@ -35,7 +41,8 @@ export class GmailTrackingService {
     html: string,
     campaignId?: string,
     leadId?: string,
-    bccList?: string[]
+    bccList?: string[],
+    opts?: SendOptions
   ): Promise<{
     trackingMessageId: string;
     gmailMessageId?: string;
@@ -57,7 +64,14 @@ export class GmailTrackingService {
 
     // Generate reply token/address
     const replyToken = generateUniqueReplyToken(12);
-    const replyToAddress = buildReplyToAddress(replyToken);
+    // For sourcing sends, use VERP-style Reply-To so inbound parsing can recover campaign+lead.
+    const replyToAddress = (() => {
+      if (opts?.sourcingCampaignId && opts?.sourcingLeadId) {
+        const domain = process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com';
+        return `msg_${trackingMessageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${domain}`;
+      }
+      return buildReplyToAddress(replyToken);
+    })();
 
     // We don't know "from" for the user; Gmail will use the authenticated account.
     // Set a descriptive name-less from placeholder (Gmail ignores it and uses actual account).
@@ -101,8 +115,8 @@ export class GmailTrackingService {
     // Store sent event
     await EmailEventService.storeEvent({
       user_id: userId,
-      campaign_id: campaignId,
-      lead_id: leadId,
+      campaign_id: (opts?.sourcingCampaignId ? undefined : campaignId),
+      lead_id: (opts?.sourcingLeadId ? undefined : leadId),
       provider: 'gmail',
       message_id: trackingMessageId,
       event_type: 'sent',
@@ -111,6 +125,8 @@ export class GmailTrackingService {
         thread_id: response.data.threadId,
         message_id_header: messageIdHeader,
         reply_to: replyToAddress,
+        ...(opts?.sourcingCampaignId ? { hp_sourcing_campaign_id: opts.sourcingCampaignId } : {}),
+        ...(opts?.sourcingLeadId ? { hp_sourcing_lead_id: opts.sourcingLeadId } : {}),
       },
     });
 
@@ -134,9 +150,10 @@ export class GmailTrackingService {
     html: string,
     campaignId?: string,
     leadId?: string,
-    bccList?: string[]
+    bccList?: string[],
+    opts?: SendOptions
   ): Promise<string> {
-    const meta = await this.sendEmailWithReplyMeta(userId, to, subject, html, campaignId, leadId, bccList);
+    const meta = await this.sendEmailWithReplyMeta(userId, to, subject, html, campaignId, leadId, bccList, opts);
     return meta.trackingMessageId;
   }
 

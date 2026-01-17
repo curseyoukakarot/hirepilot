@@ -5,6 +5,11 @@ import { getOutlookAccessToken } from './outlookTokenHelper';
 import { SourcingNotifications } from '../src/lib/notifications';
 import { postToSlack } from '../src/lib/slackPoster';
 
+type SendOptions = {
+  sourcingCampaignId?: string;
+  sourcingLeadId?: string;
+};
+
 export class OutlookTrackingService {
   /**
    * Generate a tracking pixel URL for Outlook
@@ -34,7 +39,8 @@ export class OutlookTrackingService {
     html: string,
     campaignId?: string,
     leadId?: string,
-    bccList?: string[]
+    bccList?: string[],
+    opts?: SendOptions
   ): Promise<string> {
     try {
       const accessToken = await getOutlookAccessToken(userId);
@@ -51,6 +57,13 @@ export class OutlookTrackingService {
       const htmlWithTracking = this.addTrackingPixel(html, messageId);
 
       // Create email message
+      const replyToAddress = (() => {
+        if (opts?.sourcingCampaignId && opts?.sourcingLeadId) {
+          const domain = process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com';
+          return `msg_${messageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${domain}`;
+        }
+        return null;
+      })();
       const message = {
         message: {
           subject,
@@ -65,6 +78,7 @@ export class OutlookTrackingService {
               }
             }
           ],
+          ...(replyToAddress ? { replyTo: [{ emailAddress: { address: replyToAddress } }] } : {}),
           ...(bccList && bccList.length
             ? {
                 bccRecipients: bccList.map(address => ({
@@ -83,14 +97,17 @@ export class OutlookTrackingService {
       // Store sent event
       await EmailEventService.storeEvent({
         user_id: userId,
-        campaign_id: campaignId,
-        lead_id: leadId,
+        campaign_id: (opts?.sourcingCampaignId ? undefined : campaignId),
+        lead_id: (opts?.sourcingLeadId ? undefined : leadId),
         provider: 'outlook',
         message_id: messageId,
         event_type: 'sent',
         metadata: {
           outlook_message_id: response.id,
-          conversation_id: response.conversationId
+          conversation_id: response.conversationId,
+          ...(replyToAddress ? { reply_to: replyToAddress } : {}),
+          ...(opts?.sourcingCampaignId ? { hp_sourcing_campaign_id: opts.sourcingCampaignId } : {}),
+          ...(opts?.sourcingLeadId ? { hp_sourcing_lead_id: opts.sourcingLeadId } : {}),
         }
       });
 
