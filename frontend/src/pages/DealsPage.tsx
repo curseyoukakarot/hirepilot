@@ -543,6 +543,19 @@ export default function DealsPage() {
     ));
   }, [clients, clientsSearch]);
 
+  const clientRevenueTotals = useMemo(() => {
+    let totalAnnualRevenue = 0;
+    let totalMonthlyRevenue = 0;
+    for (const c of filteredClients) {
+      // NOTE: `monthly_revenue` currently stores the annualized revenue number.
+      const annual = c?.monthly_revenue != null ? Number(c.monthly_revenue) : NaN;
+      if (!Number.isFinite(annual)) continue;
+      totalAnnualRevenue += annual;
+      totalMonthlyRevenue += annual / 12;
+    }
+    return { totalAnnualRevenue, totalMonthlyRevenue };
+  }, [filteredClients]);
+
   const getClientLogo = (c: any): string | null => {
     const org = c?.org_meta?.apollo?.organization || c?.org_meta?.apollo || {};
     const logo = org?.logo_url || org?.logo || null;
@@ -1154,6 +1167,27 @@ export default function DealsPage() {
                   </React.Fragment>
                 ))}
               </tbody>
+              {filteredClients.length > 0 && (
+                <tfoot className="bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700">
+                  <tr>
+                    <td className="p-4 w-10"></td>
+                    <td className="p-4 font-semibold text-gray-900 dark:text-gray-100">Total</td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                    <td className="p-4 font-semibold text-gray-900 dark:text-gray-100">
+                      {clientRevenueTotals.totalMonthlyRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </td>
+                    <td className="p-4 font-semibold text-gray-900 dark:text-gray-100">
+                      {clientRevenueTotals.totalAnnualRevenue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
