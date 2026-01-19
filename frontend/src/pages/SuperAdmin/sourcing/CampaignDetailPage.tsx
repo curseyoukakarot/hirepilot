@@ -32,6 +32,7 @@ type CampaignData = {
     company?: string;
     outreach_stage: string;
     reply_status?: string;
+    scheduler_run_id?: string | null;
     created_at: string;
   }>;
 };
@@ -50,6 +51,8 @@ export default function CampaignDetailPage() {
   const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [senderSaving, setSenderSaving] = useState<boolean>(false);
   const [senderSyncing, setSenderSyncing] = useState<boolean>(false);
+  const [autoOutreachEnabled, setAutoOutreachEnabled] = useState<boolean>(true);
+  const [showNewOnly, setShowNewOnly] = useState<boolean>(false);
   // Saved sequences integration
   const [savedSequences, setSavedSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
@@ -77,6 +80,23 @@ export default function CampaignDetailPage() {
     if (id) {
       loadCampaign();
     }
+  }, [id]);
+
+  // Load campaign config (sender behavior + auto outreach)
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const cfg = await api(`/api/sourcing/campaign-config/${id}`);
+        const behavior = String((cfg as any)?.sender_behavior || 'single') as any;
+        if (behavior === 'single' || behavior === 'rotate' || behavior === 'specific') {
+          setSenderBehavior(behavior);
+        }
+        setSenderEmail(String((cfg as any)?.sender_email || ''));
+        setSenderEmails(Array.isArray((cfg as any)?.sender_emails) ? (cfg as any).sender_emails : []);
+        setAutoOutreachEnabled((cfg as any)?.auto_outreach_enabled !== false);
+      } catch {}
+    })();
   }, [id]);
 
   // Realtime: refresh campaign details when status or related fields change
@@ -223,6 +243,18 @@ export default function CampaignDetailPage() {
   }
 
   const { campaign, sequence, leads } = data;
+
+  const allLeads = Array.isArray(leads) ? leads : [];
+  const latestSchedulerRunId =
+    allLeads.find((l: any) => l?.scheduler_run_id)?.scheduler_run_id || null;
+  const isLeadNew = (lead: any) => {
+    if (latestSchedulerRunId) return String(lead?.scheduler_run_id || '') === String(latestSchedulerRunId);
+    const ts = lead?.created_at ? new Date(lead.created_at).getTime() : NaN;
+    if (!Number.isFinite(ts)) return false;
+    return (Date.now() - ts) <= (24 * 60 * 60 * 1000);
+  };
+  const newLeadCount = allLeads.filter(isLeadNew).length;
+  const displayedLeads = showNewOnly ? allLeads.filter(isLeadNew) : allLeads;
 
   return (
     <div className="p-6 bg-gray-900 min-h-screen space-y-6">
@@ -549,23 +581,76 @@ export default function CampaignDetailPage() {
         <div className="rounded-2xl border border-slate-700 bg-slate-800/70 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white font-semibold text-lg">
-              Leads ({leads?.length || 0})
+              Leads ({displayedLeads.length}{showNewOnly ? ` of ${allLeads.length}` : ''})
             </h2>
-            <Link
-              to="/rex-chat"
-              className="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded font-medium transition-colors"
-            >
-              + Add More
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowNewOnly(v => !v)}
+                className={`text-sm px-3 py-1 rounded font-medium transition-colors border ${
+                  showNewOnly
+                    ? 'bg-emerald-600/20 text-emerald-200 border-emerald-600/40'
+                    : 'bg-gray-700 text-white border-slate-600 hover:bg-gray-600'
+                }`}
+                title={latestSchedulerRunId ? 'Filter to leads from the latest scheduler run' : 'Filter to leads added in the last 24 hours'}
+                disabled={newLeadCount === 0}
+              >
+                New ({newLeadCount})
+              </button>
+
+              <label className="flex items-center gap-2 text-sm text-gray-300 select-none">
+                <span className="text-xs text-gray-400">Auto outreach</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!id) return;
+                    const next = !autoOutreachEnabled;
+                    setAutoOutreachEnabled(next);
+                    try {
+                      await api(`/api/sourcing/campaign-config/${id}/auto-outreach`, {
+                        method: 'POST',
+                        body: JSON.stringify({ enabled: next })
+                      });
+                      toast.success(next ? 'Auto outreach enabled' : 'Auto outreach disabled');
+                    } catch (e: any) {
+                      setAutoOutreachEnabled(!next);
+                      toast.error(e?.message || 'Failed to update auto outreach');
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    autoOutreachEnabled ? 'bg-emerald-600' : 'bg-slate-600'
+                  }`}
+                  aria-pressed={autoOutreachEnabled}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      autoOutreachEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </label>
+
+              <Link
+                to="/rex-chat"
+                className="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded font-medium transition-colors"
+              >
+                + Add More
+              </Link>
+            </div>
           </div>
           
-          {leads && leads.length > 0 ? (
+          {displayedLeads && displayedLeads.length > 0 ? (
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {leads.map((lead) => (
+              {displayedLeads.map((lead) => (
                 <div key={lead.id} className="flex items-center justify-between border-b border-slate-700/50 py-3">
                   <div className="flex-1">
-                    <div className="text-white font-medium">
-                      {lead.name || lead.email || 'Unknown'}
+                    <div className="text-white font-medium flex items-center gap-2">
+                      <span>{lead.name || lead.email || 'Unknown'}</span>
+                      {isLeadNew(lead) && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-500/30">
+                          New
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-gray-400">
                       {lead.title && `${lead.title} • `}

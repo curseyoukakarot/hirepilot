@@ -651,7 +651,22 @@ export const sourcingRunPersonaTool = {
       : { inserted: 0, leads: [] as any[] };
 
     let outreachQueued = 0;
-    if (autoOutreachEnabled && effectiveCampaignId && Array.isArray((addResult as any).leads)) {
+    // Campaign-level kill switch: allow UI to disable auto outreach without editing schedules.
+    let effectiveAutoOutreachEnabled = autoOutreachEnabled;
+    if (effectiveAutoOutreachEnabled && effectiveCampaignId) {
+      try {
+        const { data: cfg } = await supabaseAdmin
+          .from('campaign_configs')
+          .select('auto_outreach_enabled')
+          .eq('campaign_id', effectiveCampaignId)
+          .maybeSingle();
+        if (cfg && (cfg as any).auto_outreach_enabled === false) {
+          effectiveAutoOutreachEnabled = false;
+        }
+      } catch {}
+    }
+
+    if (effectiveAutoOutreachEnabled && effectiveCampaignId && Array.isArray((addResult as any).leads)) {
       const newLeadIds = ((addResult as any).leads as any[]).map((l: any) => l?.id).filter(Boolean);
       if (newLeadIds.length) {
         try {
@@ -746,7 +761,7 @@ export const sourcingRunPersonaTool = {
       failure_mode: failureMode,
       notify_user: decision === 'NOTIFY_USER',
       notify_payload: notifyPayload,
-      auto_send: autoOutreachEnabled,
+      auto_send: effectiveAutoOutreachEnabled,
       outreach_queued_count: outreachQueued,
       credit_mode: creditMode,
     };

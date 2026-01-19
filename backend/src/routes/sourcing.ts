@@ -409,6 +409,83 @@ router.post('/campaign-config/:id/sender', requireAuth, async (req: ApiRequest, 
   }
 });
 
+// Get campaign config (sender behavior + auto outreach)
+router.get('/campaign-config/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id as string;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const { data: campaign } = await supabase
+      .from('sourcing_campaigns')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (!campaign?.id) return res.status(404).json({ error: 'campaign_not_found' });
+
+    const meRole = String((req.user as any)?.role || '').toLowerCase();
+    const isSuper = ['super_admin', 'superadmin'].includes(meRole);
+    if (!isSuper && String((campaign as any).created_by || '') !== String(userId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { data: cfg } = await supabase
+      .from('campaign_configs')
+      .select('*')
+      .eq('campaign_id', id)
+      .maybeSingle();
+
+    return res.json({
+      campaign_id: id,
+      sender_behavior: (cfg as any)?.sender_behavior || 'single',
+      sender_email: (cfg as any)?.sender_email || null,
+      sender_emails: (cfg as any)?.sender_emails || [],
+      auto_outreach_enabled: (cfg as any)?.auto_outreach_enabled !== false
+    });
+  } catch (error: any) {
+    console.error('Error fetching campaign config:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+// Toggle campaign-level auto outreach
+router.post('/campaign-config/:id/auto-outreach', requireAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const body = z.object({ enabled: z.boolean() }).parse(req.body);
+
+    const userId = req.user?.id as string;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const { data: campaign } = await supabase
+      .from('sourcing_campaigns')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (!campaign?.id) return res.status(404).json({ error: 'campaign_not_found' });
+
+    const meRole = String((req.user as any)?.role || '').toLowerCase();
+    const isSuper = ['super_admin', 'superadmin'].includes(meRole);
+    if (!isSuper && String((campaign as any).created_by || '') !== String(userId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { error } = await supabase
+      .from('campaign_configs')
+      .upsert({
+        campaign_id: id,
+        auto_outreach_enabled: body.enabled,
+        updated_at: new Date().toISOString()
+      });
+    if (error) throw error;
+
+    return res.json({ ok: true, auto_outreach_enabled: body.enabled });
+  } catch (error: any) {
+    console.error('Error toggling auto outreach:', error);
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 // Get email senders
 router.get('/senders', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
