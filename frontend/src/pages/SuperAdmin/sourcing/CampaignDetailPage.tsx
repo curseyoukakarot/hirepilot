@@ -115,6 +115,24 @@ export default function CampaignDetailPage() {
           }, async () => {
             await loadCampaign();
           });
+        // Keep stats/lead list fresh as outreach events update lead state
+        channel = channel
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'sourcing_leads',
+            filter: `campaign_id=eq.${id}`
+          }, async () => {
+            await loadCampaign();
+          })
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'sourcing_leads',
+            filter: `campaign_id=eq.${id}`
+          }, async () => {
+            await loadCampaign();
+          });
         await channel.subscribe();
       } catch {}
     })();

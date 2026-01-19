@@ -167,14 +167,37 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
 
       // If this SendGrid event includes sourcing context, keep sourcing_leads state in sync for campaign stats.
       // Note: we do NOT write sourcing ids into email_events.campaign_id/lead_id (those FKs are for classic campaigns/leads).
-      if (hpSourcingLeadId && (eventType === 'bounce' || eventType === 'dropped')) {
+      if (hpSourcingLeadId) {
+        const t = String(eventType || '').toLowerCase();
         try {
-          await supabase
-            .from('sourcing_leads')
-            .update({ outreach_stage: 'bounced' })
-            .eq('id', String(hpSourcingLeadId));
+          // Keep the lead's state machine updated so /agent/campaigns and the drawer show accurate counts.
+          // We intentionally keep this coarse-grained (per-lead), since SendGrid events don't tell us which step was sent.
+          if (t === 'bounce' || t === 'dropped' || t === 'deferred') {
+            await supabase
+              .from('sourcing_leads')
+              .update({ outreach_stage: 'bounced' })
+              .eq('id', String(hpSourcingLeadId));
+          } else if (t === 'unsubscribe' || t === 'group_unsubscribe' || t === 'spamreport') {
+            await supabase
+              .from('sourcing_leads')
+              .update({ outreach_stage: 'unsubscribed' })
+              .eq('id', String(hpSourcingLeadId));
+          } else if (t === 'processed' || t === 'delivered' || t === 'open' || t === 'click') {
+            // Mark as "messaged" once we have any proof of sending/delivery/engagement.
+            // Do not overwrite terminal states like replied/bounced/unsubscribed.
+            await supabase
+              .from('sourcing_leads')
+              .update({ outreach_stage: 'step1_sent' })
+              .eq('id', String(hpSourcingLeadId))
+              .in('outreach_stage', ['queued', 'scheduled', 'sent', 'step1_sent'] as any);
+          }
         } catch (e) {
-          console.warn('[sendgridEventsHandler] failed to mark sourcing lead bounced', { hpSourcingCampaignId, hpSourcingLeadId, err: (e as any)?.message || e });
+          console.warn('[sendgridEventsHandler] failed to sync sourcing lead state', {
+            hpSourcingCampaignId,
+            hpSourcingLeadId,
+            eventType,
+            err: (e as any)?.message || e
+          });
         }
       }
 
