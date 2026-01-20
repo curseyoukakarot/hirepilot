@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useRexAgent } from '../../hooks/useRexAgent';
 import { supabase } from '../../lib/supabaseClient';
 
-export default function REXConsole() {
+export default function REXConsole({ embedded = false } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const personaId = new URLSearchParams(location.search).get('persona');
@@ -355,7 +355,7 @@ export default function REXConsole() {
   }, []);
 
   return (
-    <div id="rex-console" className="flex flex-col h-screen bg-gray-900">
+    <div id="rex-console" className={`flex flex-col ${embedded ? 'h-full' : 'h-screen'} bg-gray-900`}>
       <header id="console-header" className="border-b border-gray-700 bg-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-semibold text-white">REX Console</h1>

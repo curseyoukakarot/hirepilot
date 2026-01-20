@@ -874,52 +874,9 @@ export default function AgentModeCenter() {
 
           {/* REX TAB */}
           <section id="tab-rex" className={`tabPanel fade-in ${activeTab === 'rex' ? '' : 'hidden'}`}>
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-2xl font-extrabold">REX Console</h2>
-                  <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-                    The console is your direct command line to the agent system. Use it to create campaigns, generate
-                    messaging, analyze results, and troubleshoot workflows.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href="/rex-chat"
-                    className="rounded-xl bg-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-fuchsia-500"
-                  >
-                    Open REX Console
-                  </a>
-                  <a
-                    href="/agent"
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-800"
-                  >
-                    Back to Agent Center
-                  </a>
-                </div>
-              </div>
-
-              <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
-                  <h3 className="text-sm font-bold">Best for</h3>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    Strategy, campaign creation, message generation, and fast actions.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
-                  <h3 className="text-sm font-bold">Try asking</h3>
-                  <ul className="mt-2 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                    <li>• “Build a persona for VP of Engineering in SF.”</li>
-                    <li>• “Run sourcing for my Tax Seniors persona.”</li>
-                    <li>• “Write a 3-step follow up sequence.”</li>
-                  </ul>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
-                  <h3 className="text-sm font-bold">Outputs</h3>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    Personas, campaigns, sequences, analysis, and automation triggers.
-                  </p>
-                </div>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+              <div className="h-[calc(100vh-280px)] min-h-[640px]">
+                <REXConsole embedded />
               </div>
             </div>
           </section>
