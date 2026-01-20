@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../lib/api";
+import { supabase } from "../lib/supabaseClient";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -78,8 +79,8 @@ function MissionNav({ activeMission, onChange }) {
     { id: "jobs_intent", name: "Jobs Intent Miner", status: "coming_soon" },
     { id: "sales_nav_scrape", name: "Sales Navigator Scrape", status: "coming_soon" },
     { id: "recruiter_scrape", name: "LinkedIn Recruiter Scrape", status: "coming_soon" },
-    { id: "connect_requests", name: "Connect Requests", status: "coming_soon" },
-    { id: "send_message", name: "Send Message", status: "coming_soon" },
+    { id: "connect_requests", name: "Connect Requests", status: "implemented" },
+    { id: "send_message", name: "Send Message", status: "implemented" },
   ];
 
   const badge = (m) =>
@@ -144,7 +145,11 @@ function MissionNav({ activeMission, onChange }) {
                   <div className="mt-1 text-xs text-slate-500">
                     {m.id === "post_engagement"
                       ? "Collect likers/commenters from a LinkedIn post."
-                      : "UI scaffold only — wiring coming soon."}
+                      : m.id === "connect_requests"
+                        ? "Queue connection requests via Cloud Engine."
+                        : m.id === "send_message"
+                          ? "Send messages to 1st connections via Cloud Engine."
+                          : "UI scaffold only — wiring coming soon."}
                   </div>
                 </button>
               );
@@ -227,6 +232,413 @@ function ComingSoonPanel({ title, bullets }) {
   );
 }
 
+function normalizeLinkedinUrl(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+  if (!/^https?:\/\//i.test(raw)) return null;
+  if (!/linkedin\.com/i.test(raw)) return null;
+  try {
+    const u = new URL(raw);
+    // remove obvious tracking params; keep path stable
+    ["trk", "lipi"].forEach((k) => u.searchParams.delete(k));
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function extractLinkedinUrls(rows, columnKey) {
+  const arr = Array.isArray(rows) ? rows : [];
+  const urls = [];
+  for (const r of arr) {
+    const obj = r && typeof r === "object" ? r : {};
+    const candidates = [];
+    if (columnKey) candidates.push(obj[columnKey]);
+    candidates.push(
+      obj.linkedin_url,
+      obj.linkedinUrl,
+      obj.linkedin,
+      obj.profile_url,
+      obj.profileUrl,
+      obj.url
+    );
+    for (const c of candidates) {
+      const n = normalizeLinkedinUrl(c);
+      if (n) {
+        urls.push(n);
+        break;
+      }
+    }
+  }
+  // dedupe
+  return Array.from(new Set(urls));
+}
+
+function AddLeadsModal({ open, onClose, onConfirm }) {
+  const [source, setSource] = useState("campaigns"); // campaigns | sourcing | table
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [campaigns, setCampaigns] = useState([]);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState([]);
+
+  const [sourcingCampaigns, setSourcingCampaigns] = useState([]);
+  const [selectedSourcingIds, setSelectedSourcingIds] = useState([]);
+
+  const [tables, setTables] = useState([]);
+  const [selectedTableId, setSelectedTableId] = useState("");
+  const [tableColumnKey, setTableColumnKey] = useState("linkedin_url");
+
+  const [previewUrls, setPreviewUrls] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setError("");
+    setPreviewUrls([]);
+    setSelectedCampaignIds([]);
+    setSelectedSourcingIds([]);
+    // don’t reset table selection each time; keep last used
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const loadCampaigns = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await apiGet("/api/getCampaigns");
+      setCampaigns(Array.isArray(resp?.campaigns) ? resp.campaigns : []);
+    } catch (e) {
+      setError(e?.message || "Failed to load campaigns");
+      setCampaigns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSourcingCampaigns = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await apiGet("/api/sourcing/campaigns");
+      setSourcingCampaigns(Array.isArray(resp) ? resp : resp?.campaigns || []);
+    } catch (e) {
+      setError(e?.message || "Failed to load sourcing campaigns");
+      setSourcingCampaigns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTables = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error("unauthenticated");
+      const { data: rows, error: supaErr } = await supabase
+        .from("custom_tables")
+        .select("id,name,updated_at,schema_json,data_json")
+        .order("updated_at", { ascending: false });
+      if (supaErr) throw new Error(supaErr.message);
+      setTables(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setError(e?.message || "Failed to load tables");
+      setTables([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (source === "campaigns") void loadCampaigns();
+    if (source === "sourcing") void loadSourcingCampaigns();
+    if (source === "table") void loadTables();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, source]);
+
+  const toggleId = (arr, id) => {
+    const key = String(id);
+    return arr.includes(key) ? arr.filter((x) => x !== key) : [...arr, key];
+  };
+
+  const preview = async () => {
+    setLoading(true);
+    setError("");
+    setPreviewUrls([]);
+    try {
+      if (source === "campaigns") {
+        if (!selectedCampaignIds.length) throw new Error("Select at least one campaign.");
+        const all = [];
+        // Fetch leads per campaign using existing filtered endpoint
+        for (const id of selectedCampaignIds) {
+          const resp = await apiGet(`/api/getLeads?campaignId=${encodeURIComponent(id)}`);
+          all.push(...(Array.isArray(resp) ? resp : []));
+        }
+        const urls = extractLinkedinUrls(all);
+        setPreviewUrls(urls);
+        return;
+      }
+      if (source === "sourcing") {
+        if (!selectedSourcingIds.length) throw new Error("Select at least one sourcing campaign.");
+        const all = [];
+        for (const id of selectedSourcingIds) {
+          const resp = await apiGet(`/api/sourcing/campaigns/${encodeURIComponent(id)}/leads?limit=2000&offset=0`);
+          const leads = Array.isArray(resp?.leads) ? resp.leads : [];
+          all.push(...leads);
+        }
+        const urls = extractLinkedinUrls(all);
+        setPreviewUrls(urls);
+        return;
+      }
+      if (source === "table") {
+        const t = tables.find((x) => String(x.id) === String(selectedTableId));
+        if (!t) throw new Error("Select a table.");
+        const rows = Array.isArray(t.data_json) ? t.data_json : [];
+        const urls = extractLinkedinUrls(rows, tableColumnKey);
+        setPreviewUrls(urls);
+        return;
+      }
+    } catch (e) {
+      setError(e?.message || "Failed to preview leads");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-950/80 shadow-2xl backdrop-blur">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <div className="text-lg font-bold text-slate-100">Add Leads</div>
+            <div className="mt-1 text-sm text-slate-400">Import LinkedIn profile URLs from Campaigns, Sourcing Campaigns, or a Table.</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: "campaigns", label: "Campaigns" },
+              { id: "sourcing", label: "Sourcing Campaigns" },
+              { id: "table", label: "Custom Table" },
+            ].map((t) => {
+              const active = t.id === source;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSource(t.id)}
+                  className={cx(
+                    "rounded-xl border px-3 py-2 text-sm font-semibold",
+                    active ? "border-sky-700/50 bg-sky-950/30 text-slate-100" : "border-slate-800 bg-slate-950/40 text-slate-200 hover:bg-slate-950/70"
+                  )}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {error ? (
+            <div className="mt-4 rounded-xl border border-rose-800/60 bg-rose-950/20 p-3 text-sm text-rose-200">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+            {source === "campaigns" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-200">Select campaign(s)</div>
+                  <button
+                    type="button"
+                    onClick={loadCampaigns}
+                    className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                    disabled={loading}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="mt-3 max-h-56 overflow-auto rounded-xl border border-slate-800">
+                  {(campaigns || []).length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-slate-400">No campaigns found.</div>
+                  ) : (
+                    <div className="divide-y divide-slate-800">
+                      {campaigns.map((c) => {
+                        const id = String(c.id);
+                        const checked = selectedCampaignIds.includes(id);
+                        return (
+                          <label key={id} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-200">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setSelectedCampaignIds((prev) => toggleId(prev, id))}
+                            />
+                            <span className="flex-1">
+                              <span className="font-semibold text-slate-100">{c.name || c.title || "Campaign"}</span>
+                              <span className="ml-2 text-xs text-slate-500">({Number(c.total_leads || 0)} leads)</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {source === "sourcing" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-200">Select sourcing campaign(s)</div>
+                  <button
+                    type="button"
+                    onClick={loadSourcingCampaigns}
+                    className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                    disabled={loading}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="mt-3 max-h-56 overflow-auto rounded-xl border border-slate-800">
+                  {(sourcingCampaigns || []).length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-slate-400">No sourcing campaigns found.</div>
+                  ) : (
+                    <div className="divide-y divide-slate-800">
+                      {sourcingCampaigns.map((c) => {
+                        const id = String(c.id);
+                        const checked = selectedSourcingIds.includes(id);
+                        return (
+                          <label key={id} className="flex items-center gap-3 px-4 py-3 text-sm text-slate-200">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setSelectedSourcingIds((prev) => toggleId(prev, id))}
+                            />
+                            <span className="flex-1">
+                              <span className="font-semibold text-slate-100">{c.title || c.name || "Sourcing Campaign"}</span>
+                              {c.status ? <span className="ml-2 text-xs text-slate-500">({String(c.status)})</span> : null}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {source === "table" ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-200">Select a table</div>
+                  <button
+                    type="button"
+                    onClick={loadTables}
+                    className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                    disabled={loading}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  <label className="lg:col-span-2">
+                    <div className="text-xs font-semibold text-slate-400">Table</div>
+                    <select
+                      value={selectedTableId}
+                      onChange={(e) => setSelectedTableId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                    >
+                      <option value="">Select…</option>
+                      {tables.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name || "Untitled Table"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <div className="text-xs font-semibold text-slate-400">LinkedIn URL column</div>
+                    <input
+                      value={tableColumnKey}
+                      onChange={(e) => setTableColumnKey(e.target.value)}
+                      placeholder="linkedin_url"
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                    />
+                  </label>
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  Tip: We’ll also auto-detect common fields like <span className="font-mono">linkedin_url</span>, <span className="font-mono">profile_url</span>, or <span className="font-mono">url</span>.
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-sm text-slate-400">
+              {previewUrls.length ? (
+                <>
+                  Found <span className="font-semibold text-slate-100">{previewUrls.length}</span> LinkedIn profile URL(s).
+                </>
+              ) : (
+                "Preview to calculate how many LinkedIn URLs will be added."
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={preview}
+                disabled={loading}
+                className={cx(
+                  "rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70",
+                  loading && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {loading ? "Loading…" : "Preview"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onConfirm(previewUrls)}
+                disabled={!previewUrls.length || loading}
+                className={cx(
+                  "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                  (!previewUrls.length || loading) && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                Add {previewUrls.length ? `(${previewUrls.length})` : ""} leads
+              </button>
+            </div>
+          </div>
+
+          {previewUrls.length ? (
+            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <div className="text-xs font-semibold text-slate-400">Preview</div>
+              <div className="mt-2 space-y-1 text-sm text-slate-200">
+                {previewUrls.slice(0, 5).map((u) => (
+                  <div key={u} className="break-all">
+                    {u}
+                  </div>
+                ))}
+                {previewUrls.length > 5 ? <div className="text-xs text-slate-500">+ {previewUrls.length - 5} more…</div> : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SniperTargets() {
   const navigate = useNavigate();
   const [targets, setTargets] = useState([]);
@@ -239,6 +651,12 @@ export default function SniperTargets() {
   const [runLimit, setRunLimit] = useState(200);
   const [sniperSettings, setSniperSettings] = useState(null);
   const [linkedinStatus, setLinkedinStatus] = useState(null);
+  const [connectProfileUrls, setConnectProfileUrls] = useState([]);
+  const [connectNote, setConnectNote] = useState("");
+  const [messageProfileUrls, setMessageProfileUrls] = useState([]);
+  const [messageText, setMessageText] = useState("");
+  const [addLeadsOpen, setAddLeadsOpen] = useState(false);
+  const [addLeadsFor, setAddLeadsFor] = useState(null); // 'connect' | 'message'
 
   const showToast = (message, type = "info") => {
     setToast({ show: true, message, type });
@@ -366,9 +784,72 @@ export default function SniperTargets() {
         ? <Pill tone="warn" label="LinkedIn" value="Not connected" />
         : <Pill tone="neutral" label="LinkedIn" value="Unknown" />;
 
+  const openAddLeads = (mode) => {
+    setAddLeadsFor(mode);
+    setAddLeadsOpen(true);
+  };
+
+  const applyAddedUrls = (urls) => {
+    const list = Array.isArray(urls) ? urls : [];
+    if (!list.length) {
+      setAddLeadsOpen(false);
+      return;
+    }
+    if (addLeadsFor === "connect") {
+      setConnectProfileUrls((prev) => Array.from(new Set([...(Array.isArray(prev) ? prev : []), ...list])));
+    } else if (addLeadsFor === "message") {
+      setMessageProfileUrls((prev) => Array.from(new Set([...(Array.isArray(prev) ? prev : []), ...list])));
+    }
+    setAddLeadsOpen(false);
+  };
+
+  const queueConnectRequests = async () => {
+    if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to queue requests.", "info");
+    if (!connectProfileUrls.length) return showToast("Add leads first (LinkedIn profile URLs).", "info");
+    const note = String(connectNote || "").trim();
+    if (note.length > 300) return showToast("Connect note must be 300 characters or less.", "error");
+    setWorkingId("connect");
+    try {
+      await apiPost("/api/sniper/actions/connect", {
+        profile_urls: connectProfileUrls,
+        note: note || null,
+      });
+      showToast("Queued connection requests. Track progress in Sniper Activity.", "success");
+    } catch (e) {
+      showToast(e?.message || "Failed to queue connection requests", "error");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const queueSendMessages = async () => {
+    if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to queue messages.", "info");
+    if (!messageProfileUrls.length) return showToast("Add leads first (LinkedIn profile URLs).", "info");
+    const msg = String(messageText || "").trim();
+    if (!msg) return showToast("Message is required.", "info");
+    if (msg.length > 3000) return showToast("Message must be 3000 characters or less.", "error");
+    setWorkingId("message");
+    try {
+      await apiPost("/api/sniper/actions/message", {
+        profile_urls: messageProfileUrls,
+        message: msg,
+      });
+      showToast("Queued messages. Track progress in Sniper Activity.", "success");
+    } catch (e) {
+      showToast(e?.message || "Failed to queue messages", "error");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   return (
     <div className="p-6">
       <Toast show={toast.show} message={toast.message} type={toast.type} />
+      <AddLeadsModal
+        open={addLeadsOpen}
+        onClose={() => setAddLeadsOpen(false)}
+        onConfirm={applyAddedUrls}
+      />
 
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -595,23 +1076,232 @@ export default function SniperTargets() {
               ]}
             />
           ) : activeMission === "connect_requests" ? (
-            <ComingSoonPanel
-              title="Connect Requests"
-              bullets={[
-                "Send connection requests safely with randomized spacing.",
-                "Support per-lead notes and scheduled execution windows.",
-                "Track statuses across queued/sent/skipped/failed outcomes.",
-              ]}
-            />
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">Connect Requests</div>
+                  <div className="mt-1 text-sm text-slate-400">Queue LinkedIn connection requests via Cloud Engine.</div>
+                </div>
+                <span className="rounded-full border border-emerald-700/50 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Implemented
+                </span>
+              </div>
+
+              {!cloudEngineEnabled ? (
+                <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4">
+                  <div className="text-sm font-semibold text-amber-200">Cloud Engine is disabled</div>
+                  <div className="mt-1 text-sm text-amber-200/80">
+                    Enable Cloud Engine in <a className="text-sky-300 hover:underline" href="/sniper/settings">Sniper Settings</a> to queue requests.
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold text-slate-400">Leads</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openAddLeads("connect")}
+                        className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-500"
+                      >
+                        Add Leads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConnectProfileUrls([])}
+                        className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                        disabled={!connectProfileUrls.length}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-200">
+                    {connectProfileUrls.length ? (
+                      <>
+                        <span className="font-semibold text-slate-100">{connectProfileUrls.length}</span> LinkedIn profile(s) selected.
+                      </>
+                    ) : (
+                      <span className="text-slate-400">No leads added yet.</span>
+                    )}
+                  </div>
+                  {connectProfileUrls.length ? (
+                    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                      <div className="text-xs font-semibold text-slate-400">Preview</div>
+                      <div className="mt-2 space-y-1 text-sm text-slate-200">
+                        {connectProfileUrls.slice(0, 5).map((u) => (
+                          <div key={u} className="break-all">{u}</div>
+                        ))}
+                        {connectProfileUrls.length > 5 ? <div className="text-xs text-slate-500">+ {connectProfileUrls.length - 5} more…</div> : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Schedule</div>
+                  <select
+                    disabled
+                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none opacity-70"
+                    title="Scheduling will be wired next."
+                  >
+                    <option>Manual (now)</option>
+                    <option>Daily (coming soon)</option>
+                  </select>
+                  <div className="mt-3 text-xs text-slate-500">
+                    Runs respect guardrails (caps, delays, active hours). Track progress in <a className="text-sky-300 hover:underline" href="/sniper/activity">Activity</a>.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs font-semibold text-slate-400">Optional connect note (max 300 chars)</div>
+                <textarea
+                  value={connectNote}
+                  onChange={(e) => setConnectNote(e.target.value)}
+                  rows={3}
+                  maxLength={300}
+                  placeholder="Optional note to include with the connection request."
+                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <a
+                  href="/sniper/activity"
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                >
+                  View Activity
+                </a>
+                <button
+                  type="button"
+                  disabled={!cloudEngineEnabled || !connectProfileUrls.length || workingId === "connect"}
+                  onClick={queueConnectRequests}
+                  className={cx(
+                    "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                    (!cloudEngineEnabled || !connectProfileUrls.length || workingId === "connect") && "opacity-70 cursor-not-allowed"
+                  )}
+                >
+                  {workingId === "connect" ? "Queuing…" : "Run now"}
+                </button>
+              </div>
+            </div>
           ) : (
-            <ComingSoonPanel
-              title="Send Message"
-              bullets={[
-                "Send messages to 1st connections with templates and tokens.",
-                "Schedule runs and enforce hourly/daily caps automatically.",
-                "Centralize delivery status + errors in Results.",
-              ]}
-            />
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">Send Message</div>
+                  <div className="mt-1 text-sm text-slate-400">Queue LinkedIn messages to 1st connections via Cloud Engine.</div>
+                </div>
+                <span className="rounded-full border border-emerald-700/50 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Implemented
+                </span>
+              </div>
+
+              {!cloudEngineEnabled ? (
+                <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4">
+                  <div className="text-sm font-semibold text-amber-200">Cloud Engine is disabled</div>
+                  <div className="mt-1 text-sm text-amber-200/80">
+                    Enable Cloud Engine in <a className="text-sky-300 hover:underline" href="/sniper/settings">Sniper Settings</a> to queue messages.
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold text-slate-400">Leads</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openAddLeads("message")}
+                        className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-500"
+                      >
+                        Add Leads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMessageProfileUrls([])}
+                        className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                        disabled={!messageProfileUrls.length}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-200">
+                    {messageProfileUrls.length ? (
+                      <>
+                        <span className="font-semibold text-slate-100">{messageProfileUrls.length}</span> LinkedIn profile(s) selected.
+                      </>
+                    ) : (
+                      <span className="text-slate-400">No leads added yet.</span>
+                    )}
+                  </div>
+                  {messageProfileUrls.length ? (
+                    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                      <div className="text-xs font-semibold text-slate-400">Preview</div>
+                      <div className="mt-2 space-y-1 text-sm text-slate-200">
+                        {messageProfileUrls.slice(0, 5).map((u) => (
+                          <div key={u} className="break-all">{u}</div>
+                        ))}
+                        {messageProfileUrls.length > 5 ? <div className="text-xs text-slate-500">+ {messageProfileUrls.length - 5} more…</div> : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Schedule</div>
+                  <select
+                    disabled
+                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none opacity-70"
+                    title="Scheduling will be wired next."
+                  >
+                    <option>Manual (now)</option>
+                    <option>Daily (coming soon)</option>
+                  </select>
+                  <div className="mt-3 text-xs text-slate-500">
+                    Messages are best-effort and may be skipped (e.g. not 1st-degree). Track progress in <a className="text-sky-300 hover:underline" href="/sniper/activity">Activity</a>.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs font-semibold text-slate-400">Message (required, max 3000 chars)</div>
+                <textarea
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows={5}
+                  maxLength={3000}
+                  placeholder="Write your message…"
+                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                />
+                <div className="mt-2 text-xs text-slate-500">{String(messageText || "").length}/3000</div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <a
+                  href="/sniper/activity"
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                >
+                  View Activity
+                </a>
+                <button
+                  type="button"
+                  disabled={!cloudEngineEnabled || !messageProfileUrls.length || !String(messageText || "").trim() || workingId === "message"}
+                  onClick={queueSendMessages}
+                  className={cx(
+                    "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                    (!cloudEngineEnabled || !messageProfileUrls.length || !String(messageText || "").trim() || workingId === "message") && "opacity-70 cursor-not-allowed"
+                  )}
+                >
+                  {workingId === "message" ? "Queuing…" : "Run now"}
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Saved missions table (Post Engagement only for now) */}
