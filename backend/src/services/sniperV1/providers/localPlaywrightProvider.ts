@@ -1,7 +1,7 @@
 import type { Cookie } from 'playwright';
 import { startBrowser, newContext } from '../../../lib/browser/provider';
 import { getUserLinkedinAuth, upsertUserLinkedinAuth } from '../linkedinAuth';
-import { prospectPostEngagersOnPage, sendConnectionRequestOnPage, sendMessageOnPage } from './linkedinActions';
+import { prospectJobsFromSearchOnPage, prospectPeopleSearchOnPage, prospectPostEngagersOnPage, sendConnectionRequestOnPage, sendMessageOnPage } from './linkedinActions';
 import type { SniperExecutionProvider } from './types';
 
 async function createLocalLinkedInPage(userId: string, workspaceId: string) {
@@ -37,6 +37,38 @@ export const localPlaywrightProvider: SniperExecutionProvider = {
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
       await assertAuthenticatedLinkedIn(page);
       return await prospectPostEngagersOnPage(page, postUrl, Math.max(1, Math.min(limit || 200, 1000)));
+    } catch (e: any) {
+      if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+        await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);
+      }
+      throw e;
+    } finally {
+      try { await browser.close(); } catch {}
+    }
+  },
+
+  prospectPeopleSearch: async ({ userId, workspaceId, searchUrl, limit }) => {
+    const { browser, page } = await createLocalLinkedInPage(userId, workspaceId);
+    try {
+      await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+      await assertAuthenticatedLinkedIn(page);
+      return await prospectPeopleSearchOnPage(page as any, searchUrl, Math.max(1, Math.min(limit || 200, 2000)));
+    } catch (e: any) {
+      if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+        await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);
+      }
+      throw e;
+    } finally {
+      try { await browser.close(); } catch {}
+    }
+  },
+
+  prospectJobsIntent: async ({ userId, workspaceId, searchUrl, limit }) => {
+    const { browser, page } = await createLocalLinkedInPage(userId, workspaceId);
+    try {
+      await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+      await assertAuthenticatedLinkedIn(page);
+      return await prospectJobsFromSearchOnPage(page as any, searchUrl, Math.max(1, Math.min(limit || 200, 2000)));
     } catch (e: any) {
       if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
         await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);

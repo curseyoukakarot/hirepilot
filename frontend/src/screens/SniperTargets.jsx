@@ -75,8 +75,8 @@ function Pill({ tone = "neutral", label, value }) {
 function MissionNav({ activeMission, onChange }) {
   const missions = [
     { id: "post_engagement", name: "Post Engagement", status: "implemented" },
-    { id: "people_search", name: "People Search URL", status: "coming_soon" },
-    { id: "jobs_intent", name: "Jobs Intent Miner", status: "coming_soon" },
+    { id: "people_search", name: "People Search URL", status: "implemented" },
+    { id: "jobs_intent", name: "Jobs Intent Miner", status: "implemented" },
     { id: "sales_nav_scrape", name: "Sales Navigator Scrape", status: "coming_soon" },
     { id: "recruiter_scrape", name: "LinkedIn Recruiter Scrape", status: "coming_soon" },
     { id: "connect_requests", name: "Connect Requests", status: "implemented" },
@@ -145,6 +145,10 @@ function MissionNav({ activeMission, onChange }) {
                   <div className="mt-1 text-xs text-slate-500">
                     {m.id === "post_engagement"
                       ? "Collect likers/commenters from a LinkedIn post."
+                      : m.id === "people_search"
+                        ? "Extract profiles from a LinkedIn people search URL."
+                        : m.id === "jobs_intent"
+                          ? "Extract job postings from a LinkedIn Jobs search URL."
                       : m.id === "connect_requests"
                         ? "Queue connection requests via Cloud Engine."
                         : m.id === "send_message"
@@ -657,6 +661,10 @@ export default function SniperTargets() {
   const [messageText, setMessageText] = useState("");
   const [addLeadsOpen, setAddLeadsOpen] = useState(false);
   const [addLeadsFor, setAddLeadsFor] = useState(null); // 'connect' | 'message'
+  const [peopleSearchUrl, setPeopleSearchUrl] = useState("");
+  const [peopleSearchLimit, setPeopleSearchLimit] = useState(200);
+  const [jobsSearchUrl, setJobsSearchUrl] = useState("");
+  const [jobsSearchLimit, setJobsSearchLimit] = useState(100);
 
   const showToast = (message, type = "info") => {
     setToast({ show: true, message, type });
@@ -837,6 +845,55 @@ export default function SniperTargets() {
       showToast("Queued messages. Track progress in Sniper Activity.", "success");
     } catch (e) {
       showToast(e?.message || "Failed to queue messages", "error");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const queuePeopleSearch = async () => {
+    if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to run this mission.", "info");
+    const url = String(peopleSearchUrl || "").trim();
+    if (!url) return showToast("Paste a LinkedIn people search URL.", "info");
+    setWorkingId("people_search");
+    try {
+      const limit = Math.max(1, Math.min(Number(peopleSearchLimit) || 200, 2000));
+      const out = await apiPost("/api/sniper/jobs", {
+        target_id: null,
+        job_type: "people_search",
+        input_json: { search_url: url, limit },
+      });
+      showToast("People Search queued. Track progress in Sniper Activity.", "success");
+      // best-effort: open activity with job id if returned
+      const jobId = out?.job?.id || out?.job_id;
+      if (jobId) {
+        try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
+      }
+    } catch (e) {
+      showToast(e?.message || "Failed to queue People Search", "error");
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const queueJobsIntent = async () => {
+    if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to run this mission.", "info");
+    const url = String(jobsSearchUrl || "").trim();
+    if (!url) return showToast("Paste a LinkedIn Jobs search URL.", "info");
+    setWorkingId("jobs_intent");
+    try {
+      const limit = Math.max(1, Math.min(Number(jobsSearchLimit) || 100, 2000));
+      const out = await apiPost("/api/sniper/jobs", {
+        target_id: null,
+        job_type: "jobs_intent",
+        input_json: { search_url: url, limit },
+      });
+      showToast("Jobs Intent queued. Track progress in Sniper Activity.", "success");
+      const jobId = out?.job?.id || out?.job_id;
+      if (jobId) {
+        try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
+      }
+    } catch (e) {
+      showToast(e?.message || "Failed to queue Jobs Intent", "error");
     } finally {
       setWorkingId(null);
     }
@@ -1040,23 +1097,150 @@ export default function SniperTargets() {
               </div>
             </div>
           ) : activeMission === "people_search" ? (
-            <ComingSoonPanel
-              title="People Search URL"
-              bullets={[
-                "Paste a LinkedIn/Sales Nav people search URL and save as a recurring mission.",
-                "Pull leads daily, enrich, and add to a sourcing campaign automatically.",
-                "Optionally trigger email + connection request sequences when guardrails allow.",
-              ]}
-            />
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">People Search URL</div>
+                  <div className="mt-1 text-sm text-slate-400">Extract LinkedIn profiles from a people search results URL.</div>
+                </div>
+                <span className="rounded-full border border-emerald-700/50 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Implemented
+                </span>
+              </div>
+
+              {!cloudEngineEnabled ? (
+                <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4">
+                  <div className="text-sm font-semibold text-amber-200">Cloud Engine is disabled</div>
+                  <div className="mt-1 text-sm text-amber-200/80">
+                    Enable Cloud Engine in <a className="text-sky-300 hover:underline" href="/sniper/settings">Sniper Settings</a> to run this mission.
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Search URL</div>
+                  <input
+                    value={peopleSearchUrl}
+                    onChange={(e) => setPeopleSearchUrl(e.target.value)}
+                    placeholder="https://www.linkedin.com/search/results/people/?keywords=..."
+                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none"
+                  />
+                  <div className="mt-2 text-xs text-slate-500">
+                    Tip: Use the URL from your LinkedIn people search results page.
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Limit</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={2000}
+                    value={peopleSearchLimit}
+                    onChange={(e) => setPeopleSearchLimit(Number(e.target.value))}
+                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                  />
+                  <div className="mt-3 text-xs text-slate-500">Schedule: Manual for now (scheduling coming soon).</div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <a
+                  href="/sniper/activity"
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                >
+                  View Activity
+                </a>
+                <button
+                  type="button"
+                  disabled={!cloudEngineEnabled || workingId === "people_search"}
+                  onClick={queuePeopleSearch}
+                  className={cx(
+                    "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                    (!cloudEngineEnabled || workingId === "people_search") && "opacity-70 cursor-not-allowed"
+                  )}
+                >
+                  {workingId === "people_search" ? "Queuing…" : "Run now"}
+                </button>
+              </div>
+            </div>
           ) : activeMission === "jobs_intent" ? (
-            <ComingSoonPanel
-              title="Jobs Intent Miner"
-              bullets={[
-                "Scrape job postings for intent signals and new hiring activity.",
-                "Enrich companies (Apollo) and infer decision makers/titles with GPT.",
-                "Find contacts and launch outreach sequences automatically.",
-              ]}
-            />
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">Jobs Intent Miner</div>
+                  <div className="mt-1 text-sm text-slate-400">Extract job postings from a LinkedIn Jobs search URL (v1). Enrichment/outreach steps come next.</div>
+                </div>
+                <span className="rounded-full border border-emerald-700/50 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Implemented (v1)
+                </span>
+              </div>
+
+              {!cloudEngineEnabled ? (
+                <div className="mt-4 rounded-xl border border-amber-800/60 bg-amber-950/20 p-4">
+                  <div className="text-sm font-semibold text-amber-200">Cloud Engine is disabled</div>
+                  <div className="mt-1 text-sm text-amber-200/80">
+                    Enable Cloud Engine in <a className="text-sky-300 hover:underline" href="/sniper/settings">Sniper Settings</a> to run this mission.
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Jobs search URL</div>
+                  <input
+                    value={jobsSearchUrl}
+                    onChange={(e) => setJobsSearchUrl(e.target.value)}
+                    placeholder="https://www.linkedin.com/jobs/search/?keywords=..."
+                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none"
+                  />
+                  <div className="mt-2 text-xs text-slate-500">
+                    Tip: Use the URL from your LinkedIn Jobs search results page.
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <div className="text-xs font-semibold text-slate-400">Limit</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={2000}
+                    value={jobsSearchLimit}
+                    onChange={(e) => setJobsSearchLimit(Number(e.target.value))}
+                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
+                  />
+                  <div className="mt-3 text-xs text-slate-500">Schedule: Manual for now (automation coming soon).</div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs font-semibold text-slate-400">What v1 does</div>
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                  <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-600" />Scrapes job cards (title/company/location/job link).</li>
+                  <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-600" />Stores results as Sniper extracts (view in Activity).</li>
+                  <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-600" />Next iteration: enrich companies + infer decision makers + outreach automation.</li>
+                </ul>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <a
+                  href="/sniper/activity"
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+                >
+                  View Activity
+                </a>
+                <button
+                  type="button"
+                  disabled={!cloudEngineEnabled || workingId === "jobs_intent"}
+                  onClick={queueJobsIntent}
+                  className={cx(
+                    "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+                    (!cloudEngineEnabled || workingId === "jobs_intent") && "opacity-70 cursor-not-allowed"
+                  )}
+                >
+                  {workingId === "jobs_intent" ? "Queuing…" : "Run now"}
+                </button>
+              </div>
+            </div>
           ) : activeMission === "sales_nav_scrape" ? (
             <ComingSoonPanel
               title="Sales Navigator Scrape"

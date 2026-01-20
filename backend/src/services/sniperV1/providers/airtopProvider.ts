@@ -8,7 +8,7 @@ import {
   terminateSession
 } from '../../airtop/sessions';
 import { createAirtopAuthSession, getAirtopAuthSession, markAirtopAuthSession, upsertUserLinkedinAuth, getUserLinkedinAuth } from '../linkedinAuth';
-import { prospectPostEngagersOnPage, sendConnectionRequestOnPage, sendMessageOnPage } from './linkedinActions';
+import { prospectJobsFromSearchOnPage, prospectPeopleSearchOnPage, prospectPostEngagersOnPage, sendConnectionRequestOnPage, sendMessageOnPage } from './linkedinActions';
 import type { SniperExecutionProvider } from './types';
 
 function requireAirtop() {
@@ -117,6 +117,64 @@ export const airtopProvider: SniperExecutionProvider = {
         await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
         await assertAuthenticatedLinkedIn(page);
         const results = await prospectPostEngagersOnPage(page, postUrl, Math.max(1, Math.min(limit || 200, 1000)));
+        return results;
+      } finally {
+        try { await browser.close(); } catch {}
+      }
+    } catch (e: any) {
+      if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+        await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);
+      }
+      throw e;
+    } finally {
+      const sessionId = String(session?.data?.id || session?.id || '');
+      if (sessionId) {
+        try { await terminateSession(sessionId); } catch {}
+      }
+    }
+  },
+
+  prospectPeopleSearch: async ({ userId, workspaceId, searchUrl, limit }) => {
+    requireAirtop();
+    const auth = await getUserLinkedinAuth(userId, workspaceId);
+    if (!auth?.airtop_profile_id) throw new Error('needs_reauth');
+
+    const session: any = await createSession({ profileName: auth.airtop_profile_id, timeoutMinutes: 30 });
+    try {
+      const { browser, page } = await connectAirtopPlaywright(session);
+      try {
+        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+        await assertAuthenticatedLinkedIn(page);
+        const results = await prospectPeopleSearchOnPage(page, searchUrl, Math.max(1, Math.min(limit || 200, 2000)));
+        return results;
+      } finally {
+        try { await browser.close(); } catch {}
+      }
+    } catch (e: any) {
+      if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+        await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);
+      }
+      throw e;
+    } finally {
+      const sessionId = String(session?.data?.id || session?.id || '');
+      if (sessionId) {
+        try { await terminateSession(sessionId); } catch {}
+      }
+    }
+  },
+
+  prospectJobsIntent: async ({ userId, workspaceId, searchUrl, limit }) => {
+    requireAirtop();
+    const auth = await getUserLinkedinAuth(userId, workspaceId);
+    if (!auth?.airtop_profile_id) throw new Error('needs_reauth');
+
+    const session: any = await createSession({ profileName: auth.airtop_profile_id, timeoutMinutes: 30 });
+    try {
+      const { browser, page } = await connectAirtopPlaywright(session);
+      try {
+        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+        await assertAuthenticatedLinkedIn(page);
+        const results = await prospectJobsFromSearchOnPage(page, searchUrl, Math.max(1, Math.min(limit || 200, 2000)));
         return results;
       } finally {
         try { await browser.close(); } catch {}

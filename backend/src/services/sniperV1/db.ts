@@ -13,7 +13,12 @@ export type SniperTargetRow = {
   updated_at: string;
 };
 
-export type SniperJobType = 'prospect_post_engagers' | 'send_connect_requests' | 'send_messages';
+export type SniperJobType =
+  | 'prospect_post_engagers'
+  | 'send_connect_requests'
+  | 'send_messages'
+  | 'people_search'
+  | 'jobs_intent';
 export type SniperProvider = 'airtop' | 'local_playwright';
 export type SniperJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'partially_succeeded' | 'canceled';
 

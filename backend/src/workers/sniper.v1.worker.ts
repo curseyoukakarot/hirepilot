@@ -109,6 +109,70 @@ export const sniperV1Worker = new Worker(
         return { ok: true, discovered: profiles.length };
       }
 
+      if (jobRow.job_type === 'people_search') {
+        const searchUrl = String(jobRow.input_json?.search_url || jobRow.input_json?.url || '').trim();
+        if (!searchUrl) throw new Error('missing_search_url');
+        const limit = clamp(Number(jobRow.input_json?.limit || 200), 1, 2000);
+
+        const profiles = await provider.prospectPeopleSearch({
+          userId: jobRow.created_by,
+          workspaceId: jobRow.workspace_id,
+          searchUrl,
+          limit
+        });
+
+        await insertJobItems(
+          profiles.map((p) => ({
+            job_id: jobId,
+            workspace_id: jobRow.workspace_id,
+            profile_url: p.profile_url,
+            action_type: 'extract',
+            status: 'success',
+            result_json: { name: p.name || null, headline: p.headline || null, source: 'people_search', search_url: searchUrl }
+          }))
+        );
+
+        await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
+        return { ok: true, extracted: profiles.length };
+      }
+
+      if (jobRow.job_type === 'jobs_intent') {
+        const searchUrl = String(jobRow.input_json?.search_url || jobRow.input_json?.url || '').trim();
+        if (!searchUrl) throw new Error('missing_search_url');
+        const limit = clamp(Number(jobRow.input_json?.limit || 100), 1, 2000);
+
+        const jobs = await provider.prospectJobsIntent({
+          userId: jobRow.created_by,
+          workspaceId: jobRow.workspace_id,
+          searchUrl,
+          limit
+        });
+
+        await insertJobItems(
+          jobs.map((j) => ({
+            job_id: jobId,
+            workspace_id: jobRow.workspace_id,
+            // job_url stored in profile_url for now; results view will interpret by job_type
+            profile_url: String(j.job_url || ''),
+            action_type: 'extract',
+            status: 'success',
+            result_json: {
+              source: 'jobs_intent',
+              search_url: searchUrl,
+              title: j.title || null,
+              company: j.company || null,
+              company_url: j.company_url || null,
+              location: j.location || null
+            }
+          }))
+        );
+
+        await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        try { await notifySniperJobFinished(jobId); } catch {}
+        return { ok: true, extracted: jobs.length };
+      }
+
       if (jobRow.job_type === 'send_connect_requests') {
         const note = (jobRow.input_json?.note ?? null) as string | null;
         const items = await listJobItems(jobId, 5000);
