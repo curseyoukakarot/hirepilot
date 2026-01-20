@@ -61,6 +61,7 @@ import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
 import SniperTargets from './screens/SniperTargets';
+import SniperRequirementsGate from './components/SniperRequirementsGate';
 import { flags } from './config/flags';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
 import AffiliatePayouts from './pages/partners/AffiliatePayouts';
@@ -824,11 +825,21 @@ function InnerApp() {
               <Route path="/apply/:jobId" element={<ApplyForm />} />
               <Route path="/apply/:jobId/*" element={<ApplyForm />} />
               <Route path="/apply/:jobId/success" element={<ApplySuccess />} />
-              <Route path="/sniper" element={<SniperTargets />} />
-              <Route path="/sniper/settings" element={<SniperSettings />} />
-              <Route path="/sniper/results" element={<SniperResults />} />
-              {flags.sniperV1 && <Route path="/sniper/activity" element={<SniperActivity />} />}
-              {flags.sniperIntelligence && !flags.sniperV1 && <Route path="/sniper-intelligence" element={<SniperIntelligence />} />}
+              <Route path="/sniper" element={<SniperRequirementsGate><SniperTargets /></SniperRequirementsGate>} />
+              <Route path="/sniper/settings" element={<SniperRequirementsGate><SniperSettings /></SniperRequirementsGate>} />
+              <Route path="/sniper/results" element={<SniperRequirementsGate><SniperResults /></SniperRequirementsGate>} />
+              {flags.sniperV1 && (
+                <Route
+                  path="/sniper/activity"
+                  element={<SniperRequirementsGate><SniperActivity /></SniperRequirementsGate>}
+                />
+              )}
+              {flags.sniperIntelligence && !flags.sniperV1 && (
+                <Route
+                  path="/sniper-intelligence"
+                  element={<SniperRequirementsGate><SniperIntelligence /></SniperRequirementsGate>}
+                />
+              )}
               {/* Agent Mode Center and drawers */}
               <Route path="/agent" element={<AgentModeCenter />}>
                 <Route path="campaign/:id" element={<CampaignDetailDrawer />} />
