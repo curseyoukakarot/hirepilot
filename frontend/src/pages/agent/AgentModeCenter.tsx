@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 import CampaignsPanel from './CampaignsPanel';
 import SniperTargetsPanel from './SniperTargetsPanel';
 import ActionInboxPanel from './ActionInboxPanel';
+import ActionInboxDrawer from './ActionInboxDrawer';
 import SalesAgentSettingsCard from './SalesAgentSettingsCard';
 import PersonasPanel from './PersonasPanel';
 import SchedulesPanel from './SchedulesPanel';
@@ -161,32 +162,11 @@ export default function AgentModeCenter() {
   // Never block super admins regardless of plan
   const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(normalizedRole);
-
-  if (isFree && !isSuperAdmin) {
-    return (
-      <div className="p-6 w-full min-h-screen bg-gray-900">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mt-8">
-            <h2 className="text-xl font-bold text-yellow-800 mb-2">Agent Mode is a paid plan feature</h2>
-            <p className="text-yellow-700 mb-4">Upgrade to unlock autonomous sourcing and campaigns.</p>
-            <a
-              href="/pricing"
-              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              See Plans
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Preserve legacy advanced routes for now (these routes already exist in the app).
-  if (location.pathname.startsWith('/agent/advanced')) {
-    return <LegacyAgentModeAdvanced />;
-  }
+  const isBlocked = !!isFree && !isSuperAdmin;
+  const isAdvanced = (location.pathname || '').startsWith('/agent/advanced');
 
   useEffect(() => {
+    if (isAdvanced || isBlocked) return;
     let cancelled = false;
     (async () => {
       // Workspace / company name (same source as Settings -> Profile Info)
@@ -276,9 +256,10 @@ export default function AgentModeCenter() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdvanced, isBlocked]);
 
   useEffect(() => {
+    if (isAdvanced || isBlocked) return;
     if (!showSalesSettings) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowSalesSettings(false);
@@ -295,7 +276,7 @@ export default function AgentModeCenter() {
         document.body.style.overflow = prevOverflow || '';
       } catch {}
     };
-  }, [showSalesSettings]);
+  }, [showSalesSettings, isAdvanced, isBlocked]);
 
   const activeTab: AgentTuningTab = useMemo(() => normalizeAgentTuningTab(searchParams.get('s')), [searchParams]);
   const setActiveTab = (next: AgentTuningTab) => {
@@ -310,6 +291,30 @@ export default function AgentModeCenter() {
     if (isActive) return `${base} bg-indigo-600 text-white dark:bg-indigo-500`;
     return `${base} bg-white dark:bg-slate-900`;
   };
+
+  if (isBlocked) {
+    return (
+      <div className="p-6 w-full min-h-screen bg-gray-900">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mt-8">
+            <h2 className="text-xl font-bold text-yellow-800 mb-2">Agent Mode is a paid plan feature</h2>
+            <p className="text-yellow-700 mb-4">Upgrade to unlock autonomous sourcing and campaigns.</p>
+            <a
+              href="/pricing"
+              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              See Plans
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Preserve legacy advanced routes for now (these routes already exist in the app).
+  if (isAdvanced) {
+    return <LegacyAgentModeAdvanced />;
+  }
 
   return (
     <div className="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
@@ -892,6 +897,25 @@ export default function AgentModeCenter() {
                   </ol>
                 </div>
               </aside>
+            </div>
+
+            {/* Action Inbox */}
+            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-zinc-950 shadow-soft dark:border-slate-800">
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-800 px-6 py-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Action Inbox</h3>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Approve suggested replies, offer meetings, and escalate hot threads.
+                  </p>
+                </div>
+                <a
+                  href="/agent/advanced/inbox"
+                  className="text-xs font-semibold text-zinc-200 hover:text-white"
+                >
+                  Open full inbox →
+                </a>
+              </div>
+              <ActionInboxDrawer />
             </div>
           </section>
 
