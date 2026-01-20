@@ -156,6 +156,7 @@ export default function AgentModeCenter() {
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const [leadsSourced, setLeadsSourced] = useState<number | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [showSalesSettings, setShowSalesSettings] = useState(false);
 
   // Never block super admins regardless of plan
   const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
@@ -276,6 +277,25 @@ export default function AgentModeCenter() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!showSalesSettings) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSalesSettings(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    // Prevent background scroll while modal is open
+    const prevOverflow = document?.body?.style?.overflow;
+    try {
+      document.body.style.overflow = 'hidden';
+    } catch {}
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      try {
+        document.body.style.overflow = prevOverflow || '';
+      } catch {}
+    };
+  }, [showSalesSettings]);
 
   const activeTab: AgentTuningTab = useMemo(() => normalizeAgentTuningTab(searchParams.get('s')), [searchParams]);
   const setActiveTab = (next: AgentTuningTab) => {
@@ -715,9 +735,10 @@ export default function AgentModeCenter() {
 
                   <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Sales Settings */}
-                    <a
-                      href="/agent/sales-settings"
-                      className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+                    <button
+                      type="button"
+                      onClick={() => setShowSalesSettings(true)}
+                      className="group w-full text-left rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
                     >
                       <div className="flex items-center justify-between">
                         <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
@@ -739,7 +760,7 @@ export default function AgentModeCenter() {
                           Calendly
                         </span>
                       </div>
-                    </a>
+                    </button>
 
                     {/* Campaigns */}
                     <a
@@ -792,12 +813,13 @@ export default function AgentModeCenter() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <a
-                        href="/agent/sales-settings"
+                      <button
+                        type="button"
+                        onClick={() => setShowSalesSettings(true)}
                         className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                       >
                         Tune Sales Agent
-                      </a>
+                      </button>
                       <a
                         href="/agent/advanced/campaigns"
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-800"
@@ -837,12 +859,13 @@ export default function AgentModeCenter() {
                     <p className="mt-1">Add a demo video URL + pricing page URL to improve conversions.</p>
                   </div>
 
-                  <a
-                    href="/agent/sales-settings"
+                  <button
+                    type="button"
+                    onClick={() => setShowSalesSettings(true)}
                     className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                   >
                     Open Sales Settings
-                  </a>
+                  </button>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
@@ -890,6 +913,38 @@ export default function AgentModeCenter() {
 
       {/* Nested drawers mount here */}
       <Outlet />
+      {showSalesSettings && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setShowSalesSettings(false)}
+        >
+          <div
+            className="w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sales Agent Settings"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-950">
+              <div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">Sales Agent Settings</div>
+                <div className="text-xs text-slate-600 dark:text-slate-300">Control replies, links, scheduling, and limits.</div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                onClick={() => setShowSalesSettings(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[calc(90vh-72px)] overflow-y-auto bg-gray-900 p-6">
+              <SalesAgentSettingsCard />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
