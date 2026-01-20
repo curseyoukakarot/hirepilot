@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePlan } from '../../context/PlanContext';
 import { useTheme } from '../../context/ThemeContext';
+import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 import CampaignsPanel from './CampaignsPanel';
 import SniperTargetsPanel from './SniperTargetsPanel';
 import ActionInboxPanel from './ActionInboxPanel';
@@ -150,6 +152,9 @@ export default function AgentModeCenter() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [agentModeEnabled, setAgentModeEnabled] = useState<boolean | null>(null);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
+  const [leadsSourced, setLeadsSourced] = useState<number | null>(null);
 
   // Never block super admins regardless of plan
   const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
@@ -178,6 +183,73 @@ export default function AgentModeCenter() {
   if (location.pathname.startsWith('/agent/advanced')) {
     return <LegacyAgentModeAdvanced />;
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Agent Mode status (same source as Settings -> Integrations Hub and CampaignsPanel)
+      try {
+        const data = await api('/api/agent-mode');
+        if (!cancelled) setAgentModeEnabled(!!(data as any)?.agent_mode_enabled);
+      } catch {
+        if (!cancelled) setAgentModeEnabled(null);
+      }
+
+      // Credits remaining (same source as /billing)
+      try {
+        // Prefer backend canonical status (handles fallbacks server-side)
+        const credit = await api('/api/credits/status');
+        const remaining = Number((credit as any)?.remaining_credits);
+        if (!cancelled) setCreditsRemaining(Number.isFinite(remaining) ? remaining : null);
+      } catch {
+        // Fallback to direct Supabase table read if backend fails
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('No user');
+          const { data: row } = await supabase
+            .from('user_credits')
+            .select('remaining_credits')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          const remaining = Number((row as any)?.remaining_credits);
+          if (!cancelled) setCreditsRemaining(Number.isFinite(remaining) ? remaining : null);
+        } catch {
+          if (!cancelled) setCreditsRemaining(null);
+        }
+      }
+
+      // Leads sourced (sum of "new leads found" across sourcing campaigns)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        const resp = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
+        const list: any[] = Array.isArray(resp)
+          ? resp
+          : Array.isArray((resp as any)?.campaigns)
+            ? (resp as any).campaigns
+            : [];
+
+        const statsResults = await Promise.all(
+          list.map(async (c: any) => {
+            try {
+              const s = await api(`/api/sourcing/campaigns/${c.id}/stats`);
+              return Number((s as any)?.total_leads || 0);
+            } catch {
+              return 0;
+            }
+          })
+        );
+        const total = statsResults.reduce((acc, n) => acc + (Number.isFinite(n) ? n : 0), 0);
+        if (!cancelled) setLeadsSourced(total);
+      } catch {
+        if (!cancelled) setLeadsSourced(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeTab: AgentTuningTab = useMemo(() => normalizeAgentTuningTab(searchParams.get('s')), [searchParams]);
   const setActiveTab = (next: AgentTuningTab) => {
@@ -304,11 +376,21 @@ export default function AgentModeCenter() {
                 <div className="flex items-start gap-4">
                   <div className="rounded-2xl bg-grid border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                      <span className="text-sm font-semibold">Agent System Online</span>
+                      <span
+                        className={`inline-flex h-2.5 w-2.5 rounded-full ${
+                          agentModeEnabled ? 'bg-emerald-500' : agentModeEnabled === false ? 'bg-slate-400' : 'bg-slate-400'
+                        }`}
+                      ></span>
+                      <span className="text-sm font-semibold">
+                        {agentModeEnabled ? 'Agent System Online' : agentModeEnabled === false ? 'Agent Mode Off' : 'Agent System Online'}
+                      </span>
                     </div>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      Your agents are ready. Configure controls below, then run or schedule.
+                      {agentModeEnabled
+                        ? 'Your agents are ready. Configure controls below, then run or schedule.'
+                        : agentModeEnabled === false
+                          ? 'Agent Mode is currently disabled. Enable it in Settings to run or schedule.'
+                          : 'Your agents are ready. Configure controls below, then run or schedule.'}
                     </p>
                   </div>
 
@@ -328,11 +410,11 @@ export default function AgentModeCenter() {
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                         <p className="text-xs text-slate-500 dark:text-slate-400">Credits remaining</p>
-                        <p className="mt-1 text-lg font-bold">842</p>
+                        <p className="mt-1 text-lg font-bold">{creditsRemaining == null ? '—' : creditsRemaining.toLocaleString()}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                         <p className="text-xs text-slate-500 dark:text-slate-400">Today: leads sourced</p>
-                        <p className="mt-1 text-lg font-bold">18</p>
+                        <p className="mt-1 text-lg font-bold">{leadsSourced == null ? '—' : leadsSourced.toLocaleString()}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                         <p className="text-xs text-slate-500 dark:text-slate-400">Today: replies handled</p>
@@ -343,12 +425,6 @@ export default function AgentModeCenter() {
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <a
-                    href="/agent/run"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
-                  >
-                    ▶ Run agent now
-                  </a>
                   <a
                     href="/agent/advanced/schedules"
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-800"
