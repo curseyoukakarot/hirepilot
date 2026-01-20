@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../lib/api";
 
 function cx(...classes) {
@@ -53,6 +54,7 @@ function StatusPill({ status }) {
 }
 
 export default function SniperTargets() {
+  const navigate = useNavigate();
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [postUrl, setPostUrl] = useState("");
@@ -148,6 +150,13 @@ export default function SniperTargets() {
 
       <div className="flex items-start justify-between">
         <div>
+          <button
+            onClick={() => navigate("/agent")}
+            className="mb-3 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+            type="button"
+          >
+            ← Back to Agent Center
+          </button>
           <div className="text-2xl font-bold text-slate-100">Sniper Targets</div>
           <div className="mt-1 text-sm text-slate-400">
             Create a target from a LinkedIn post. Sniper will collect likers/commenters and store them as results.

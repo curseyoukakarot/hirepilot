@@ -104,6 +104,15 @@ export default function PersonasPanel(props: {
 
   return (
     <div>
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => navigate('/agent')}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+        >
+          ← Back to Agent Center
+        </button>
+      </div>
       {loading && (<div className="text-slate-400">Loading personas…</div>)}
       {!loading && items.length === 0 && (
         <div className="bg-slate-800 rounded-xl border-2 border-dashed border-slate-600 p-8 flex flex-col items-center justify-center text-center">

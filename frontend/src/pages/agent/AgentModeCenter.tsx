@@ -155,6 +155,7 @@ export default function AgentModeCenter() {
   const [agentModeEnabled, setAgentModeEnabled] = useState<boolean | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const [leadsSourced, setLeadsSourced] = useState<number | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   // Never block super admins regardless of plan
   const normalizedRole = String(role || '').toLowerCase().replace(/\s|-/g, '_');
@@ -187,6 +188,31 @@ export default function AgentModeCenter() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Workspace / company name (same source as Settings -> Profile Info)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const fromMeta = String(user?.user_metadata?.company || '').trim();
+        if (fromMeta) {
+          if (!cancelled) setCompanyName(fromMeta);
+        } else if (user?.id) {
+          try {
+            const { data: row } = await supabase
+              .from('users')
+              .select('company')
+              .eq('id', user.id)
+              .maybeSingle();
+            const fromDb = String((row as any)?.company || '').trim();
+            if (!cancelled) setCompanyName(fromDb || null);
+          } catch {
+            if (!cancelled) setCompanyName(null);
+          }
+        } else {
+          if (!cancelled) setCompanyName(null);
+        }
+      } catch {
+        if (!cancelled) setCompanyName(null);
+      }
+
       // Agent Mode status (same source as Settings -> Integrations Hub and CampaignsPanel)
       try {
         const data = await api('/api/agent-mode');
@@ -396,9 +422,11 @@ export default function AgentModeCenter() {
 
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        Workspace: <span className="font-bold">Offr Group</span>
-                      </span>
+                      {companyName ? (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          Workspace: <span className="font-bold">{companyName}</span>
+                        </span>
+                      ) : null}
                       <span className="inline-flex items-center gap-2 rounded-full bg-indigo-600/10 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
                         Active persona: <span className="font-bold">None selected</span>
                       </span>

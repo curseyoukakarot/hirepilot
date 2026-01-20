@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LinkedinEngineCard from '../components/LinkedinEngineCard';
 import { flags } from '../config/flags';
 
 export default function SniperSettings() {
+  const navigate = useNavigate();
   const html = `<!DOCTYPE html>
 
 <html>
@@ -68,6 +70,10 @@ export default function SniperSettings() {
         <div class="flex items-center justify-between">
 
             <div class="flex items-center space-x-4">
+
+                <button id="back-to-agent" class="px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    ← Back to Agent Center
+                </button>
 
                 <h1 class="text-2xl font-bold text-gray-900">Sniper Settings</h1>
 
@@ -264,6 +270,14 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
 </html>`;
 
   useEffect(() => {
+    // Back button (scripts in innerHTML won't execute)
+    const backBtn = document.getElementById('back-to-agent');
+    const onBack = (e) => {
+      try { e?.preventDefault?.(); } catch {}
+      navigate('/agent');
+    };
+    backBtn?.addEventListener('click', onBack);
+
     // Wire tab navigation (scripts in innerHTML won't execute)
     const tabLinkedin = document.getElementById('tab-linkedin');
     // Ensure Control Center tab exists even if HTML string wasn't refreshed (runtime injection)
@@ -369,10 +383,11 @@ document.querySelectorAll('.px-3.py-2').forEach(button => {
     showLinkedin();
 
     return () => {
+      backBtn?.removeEventListener('click', onBack);
       tabLinkedin?.removeEventListener('click', showLinkedin);
       tabControl?.removeEventListener('click', showControl);
     };
-  }, []);
+  }, [navigate]);
 
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
 }

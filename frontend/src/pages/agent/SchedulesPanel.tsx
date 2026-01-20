@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 
 type Schedule = {
@@ -17,6 +18,7 @@ export default function SchedulesPanel(props: {
   onPause?: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   const [items, setItems] = React.useState<Schedule[]>(props.schedules || []);
   const [loading, setLoading] = React.useState(true);
   React.useEffect(() => { (async () => {
@@ -45,6 +47,13 @@ export default function SchedulesPanel(props: {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <button
+            type="button"
+            onClick={() => navigate('/agent')}
+            className="mb-3 inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+          >
+            ← Back to Agent Center
+          </button>
           <h2 className="text-2xl font-bold text-white">Schedules & Automations</h2>
           <p className="text-slate-400">Manage your automated sourcing and campaign schedules</p>
         </div>
