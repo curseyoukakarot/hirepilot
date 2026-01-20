@@ -108,3 +108,21 @@ html.dark #app-main { background-color: #0b0f17; }
 .dark .text-green-600 { color: #86efac !important; }
 .dark .text-amber-700 { color: #fcd34d !important; }
 .dark .text-red-600 { color: #fca5a5 !important; }
+
+/* --- Agent Mode Center prototype helpers (ported from provided HTML) --- */
+html { scroll-behavior: smooth; }
+.fade-in { animation: fadeIn .22s ease-out; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Nice background texture without images */
+.bg-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148,163,184,.25) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+.dark .bg-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148,163,184,.10) 1px, transparent 0);
+}
