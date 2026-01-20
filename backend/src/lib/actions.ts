@@ -27,6 +27,18 @@ async function executeToolAction(job: ScheduleRow) {
       return { ok: true } as any;
     }
   }
+  if (actionTool === 'sniper.run_job') {
+    const { sniperRunJobTool } = await import('../mcp/sniper.run_job');
+    const payload = { ...(job.payload && job.payload.tool_payload ? job.payload.tool_payload : {}) } as Record<string, any>;
+    // Pass schedule_id as hint (optional) for future audit trails
+    if (payload.schedule_id === undefined) payload.schedule_id = job.id;
+    const result = await sniperRunJobTool.handler({ userId: job.user_id, tool_payload: payload });
+    try {
+      return JSON.parse(result.content?.[0]?.text || '{}');
+    } catch {
+      return { ok: true } as any;
+    }
+  }
   return null;
 }
 

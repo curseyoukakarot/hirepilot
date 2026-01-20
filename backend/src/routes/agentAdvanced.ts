@@ -96,7 +96,7 @@ const scheduleSchema = z.object({
   schedule_kind: z.enum(['one_time','recurring']),
   cron_expr: z.string().optional().nullable(),
   run_at: z.string().datetime().optional().nullable(),
-  action_tool: z.enum(['sourcing.run_persona']).optional(),
+  action_tool: z.enum(['sourcing.run_persona','sniper.run_job']).optional(),
   tool_payload: z.record(z.any()).optional()
 });
 

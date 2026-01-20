@@ -15,7 +15,7 @@ export const schedulerTools = [
       schedule_kind: z.enum(['one_time','recurring']),
       cron_expr: z.string().optional(),
       run_at: z.string().optional(),
-      action_tool: z.enum(['sourcing.run_persona']).optional(),
+      action_tool: z.enum(['sourcing.run_persona','sniper.run_job']).optional(),
       tool_payload: z.record(z.any()).optional()
     }),
     handler: async (args: any) => {

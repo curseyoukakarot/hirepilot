@@ -643,6 +643,177 @@ function AddLeadsModal({ open, onClose, onConfirm }) {
   );
 }
 
+function SchedulePicker({ title, disabled, timezone, buildToolPayload, apiPost, showToast }) {
+  const [mode, setMode] = useState("manual"); // manual | run_at | daily | weekly
+  const [name, setName] = useState(title ? `Sniper • ${title}` : "Sniper • Mission");
+  const [runAtLocal, setRunAtLocal] = useState("");
+  const [timeLocal, setTimeLocal] = useState("09:00");
+  const [weekday, setWeekday] = useState("1"); // 0=Sun ... 6=Sat
+  const [saving, setSaving] = useState(false);
+
+  const tz = String(timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+
+  const buildCronExpr = () => {
+    const parts = String(timeLocal || "09:00").split(":");
+    const h = Math.max(0, Math.min(Number(parts[0] || 9), 23));
+    const m = Math.max(0, Math.min(Number(parts[1] || 0), 59));
+    if (mode === "daily") return `${m} ${h} * * *`;
+    if (mode === "weekly") return `${m} ${h} * * ${weekday}`;
+    return null;
+  };
+
+  const toIsoFromDatetimeLocal = (val) => {
+    const v = String(val || "").trim();
+    if (!v) return null;
+    const d = new Date(v);
+    if (!Number.isFinite(d.getTime())) return null;
+    return d.toISOString();
+  };
+
+  const saveSchedule = async () => {
+    if (disabled) return;
+    if (mode === "manual") return showToast("Select a schedule type first.", "info");
+    const toolPayload = { ...(buildToolPayload ? buildToolPayload() : {}), timezone: tz };
+    if (!toolPayload?.job_type) return showToast("Missing job type for schedule.", "error");
+
+    let schedule_kind = "one_time";
+    let run_at = null;
+    let cron_expr = null;
+    if (mode === "run_at") {
+      run_at = toIsoFromDatetimeLocal(runAtLocal);
+      if (!run_at) return showToast("Pick a valid date/time.", "info");
+      schedule_kind = "one_time";
+    } else {
+      cron_expr = buildCronExpr();
+      if (!cron_expr) return showToast("Pick a valid recurring time.", "info");
+      schedule_kind = "recurring";
+    }
+
+    setSaving(true);
+    try {
+      await apiPost("/api/schedules", {
+        name: String(name || `Sniper • ${title || "Mission"}`),
+        schedule_kind,
+        cron_expr,
+        run_at,
+        action_tool: "sniper.run_job",
+        tool_payload: toolPayload,
+      });
+      showToast("Schedule saved. It will run automatically.", "success");
+    } catch (e) {
+      showToast(e?.message || "Failed to create schedule", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-slate-400">Schedule</div>
+          <div className="mt-1 text-xs text-slate-500">Timezone: {tz}</div>
+        </div>
+        <span className="rounded-full border border-slate-800 bg-slate-950/40 px-2.5 py-1 text-[10px] font-semibold text-slate-200">
+          {mode === "manual" ? "Manual" : mode === "run_at" ? "One-time" : "Recurring"}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        <label>
+          <div className="text-xs font-semibold text-slate-400">Mode</div>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            disabled={disabled}
+            className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none disabled:opacity-70"
+          >
+            <option value="manual">Manual (no schedule)</option>
+            <option value="run_at">Run at (one-time)</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+
+        {mode === "run_at" ? (
+          <label>
+            <div className="text-xs font-semibold text-slate-400">Run at</div>
+            <input
+              type="datetime-local"
+              value={runAtLocal}
+              onChange={(e) => setRunAtLocal(e.target.value)}
+              disabled={disabled}
+              className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none disabled:opacity-70"
+            />
+          </label>
+        ) : null}
+
+        {mode === "daily" || mode === "weekly" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {mode === "weekly" ? (
+              <label>
+                <div className="text-xs font-semibold text-slate-400">Day</div>
+                <select
+                  value={weekday}
+                  onChange={(e) => setWeekday(e.target.value)}
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none disabled:opacity-70"
+                >
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+              </label>
+            ) : (
+              <div />
+            )}
+            <label>
+              <div className="text-xs font-semibold text-slate-400">Time</div>
+              <input
+                type="time"
+                value={timeLocal}
+                onChange={(e) => setTimeLocal(e.target.value)}
+                disabled={disabled}
+                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none disabled:opacity-70"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        <label>
+          <div className="text-xs font-semibold text-slate-400">Schedule name</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={disabled}
+            className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none disabled:opacity-70"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={saveSchedule}
+          disabled={disabled || saving || mode === "manual"}
+          className={cx(
+            "w-full rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+            (disabled || saving || mode === "manual") && "opacity-70 cursor-not-allowed"
+          )}
+        >
+          {saving ? "Saving…" : "Save schedule"}
+        </button>
+
+        <div className="text-xs text-slate-500">
+          You can manage schedules in <a className="text-sky-300 hover:underline" href="/agent/advanced/schedules">Agent Schedules</a>.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SniperTargets() {
   const navigate = useNavigate();
   const [targets, setTargets] = useState([]);
@@ -1023,19 +1194,23 @@ export default function SniperTargets() {
                         className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                       />
                     </label>
-                    <label>
-                      <div className="text-xs font-semibold text-slate-500">Schedule</div>
-                      <select
-                        disabled
-                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none opacity-70"
-                        title="Scheduling UI will be wired soon."
-                      >
-                        <option>Manual</option>
-                        <option>Daily (coming soon)</option>
-                      </select>
-                    </label>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <SchedulePicker
+                  title="Post Engagement"
+                  disabled={!cloudEngineEnabled || !(selectedTarget?.post_url || String(postUrl || "").trim())}
+                  timezone={sniperSettings?.timezone}
+                  apiPost={apiPost}
+                  showToast={showToast}
+                  buildToolPayload={() => ({
+                    job_type: "prospect_post_engagers",
+                    post_url: selectedTarget?.post_url || String(postUrl || "").trim(),
+                    limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                  })}
+                />
               </div>
 
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
@@ -1140,8 +1315,22 @@ export default function SniperTargets() {
                     onChange={(e) => setPeopleSearchLimit(Number(e.target.value))}
                     className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                   />
-                  <div className="mt-3 text-xs text-slate-500">Schedule: Manual for now (scheduling coming soon).</div>
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <SchedulePicker
+                  title="People Search"
+                  disabled={!cloudEngineEnabled || !String(peopleSearchUrl || "").trim()}
+                  timezone={sniperSettings?.timezone}
+                  apiPost={apiPost}
+                  showToast={showToast}
+                  buildToolPayload={() => ({
+                    job_type: "people_search",
+                    search_url: String(peopleSearchUrl || "").trim(),
+                    limit: Math.max(1, Math.min(Number(peopleSearchLimit) || 200, 2000)),
+                  })}
+                />
               </div>
 
               <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
@@ -1208,8 +1397,22 @@ export default function SniperTargets() {
                     onChange={(e) => setJobsSearchLimit(Number(e.target.value))}
                     className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                   />
-                  <div className="mt-3 text-xs text-slate-500">Schedule: Manual for now (automation coming soon).</div>
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <SchedulePicker
+                  title="Jobs Intent"
+                  disabled={!cloudEngineEnabled || !String(jobsSearchUrl || "").trim()}
+                  timezone={sniperSettings?.timezone}
+                  apiPost={apiPost}
+                  showToast={showToast}
+                  buildToolPayload={() => ({
+                    job_type: "jobs_intent",
+                    search_url: String(jobsSearchUrl || "").trim(),
+                    limit: Math.max(1, Math.min(Number(jobsSearchLimit) || 100, 2000)),
+                  })}
+                />
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1324,20 +1527,18 @@ export default function SniperTargets() {
                   ) : null}
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <div className="text-xs font-semibold text-slate-400">Schedule</div>
-                  <select
-                    disabled
-                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none opacity-70"
-                    title="Scheduling will be wired next."
-                  >
-                    <option>Manual (now)</option>
-                    <option>Daily (coming soon)</option>
-                  </select>
-                  <div className="mt-3 text-xs text-slate-500">
-                    Runs respect guardrails (caps, delays, active hours). Track progress in <a className="text-sky-300 hover:underline" href="/sniper/activity">Activity</a>.
-                  </div>
-                </div>
+                <SchedulePicker
+                  title="Connect Requests"
+                  disabled={!cloudEngineEnabled || !connectProfileUrls.length}
+                  timezone={sniperSettings?.timezone}
+                  apiPost={apiPost}
+                  showToast={showToast}
+                  buildToolPayload={() => ({
+                    job_type: "send_connect_requests",
+                    profile_urls: connectProfileUrls,
+                    note: String(connectNote || "").trim() ? String(connectNote || "").trim().slice(0, 300) : null,
+                  })}
+                />
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1437,20 +1638,18 @@ export default function SniperTargets() {
                   ) : null}
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <div className="text-xs font-semibold text-slate-400">Schedule</div>
-                  <select
-                    disabled
-                    className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none opacity-70"
-                    title="Scheduling will be wired next."
-                  >
-                    <option>Manual (now)</option>
-                    <option>Daily (coming soon)</option>
-                  </select>
-                  <div className="mt-3 text-xs text-slate-500">
-                    Messages are best-effort and may be skipped (e.g. not 1st-degree). Track progress in <a className="text-sky-300 hover:underline" href="/sniper/activity">Activity</a>.
-                  </div>
-                </div>
+                <SchedulePicker
+                  title="Send Message"
+                  disabled={!cloudEngineEnabled || !messageProfileUrls.length || !String(messageText || "").trim()}
+                  timezone={sniperSettings?.timezone}
+                  apiPost={apiPost}
+                  showToast={showToast}
+                  buildToolPayload={() => ({
+                    job_type: "send_messages",
+                    profile_urls: messageProfileUrls,
+                    message: String(messageText || "").trim().slice(0, 3000),
+                  })}
+                />
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">

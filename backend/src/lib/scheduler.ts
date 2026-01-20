@@ -14,7 +14,8 @@ export async function getDueJobs(now: Date = new Date()): Promise<ScheduleRow[]>
 
 export function computeNextRun(job: ScheduleRow): string | null {
   if (job.schedule_kind === 'recurring' && job.cron_expr) {
-    const next = parseNextRun(job.cron_expr, new Date());
+    const tz = (job as any)?.payload?.timezone ? String((job as any).payload.timezone) : null;
+    const next = parseNextRun(job.cron_expr, new Date(), tz);
     return next ? next.toISOString() : null;
   }
   return null; // one-time jobs have no next run after execution
@@ -49,7 +50,8 @@ export async function scheduleFromPayload(userId: string, input: ScheduleInput):
   // compute initial next_run_at
   let nextRunAt: string | null = null;
   if (input.schedule_kind === 'recurring') {
-    const next = input.cron_expr ? parseNextRun(input.cron_expr) : null;
+    const tz = (input.payload && (input.payload as any).timezone) ? String((input.payload as any).timezone) : null;
+    const next = input.cron_expr ? parseNextRun(input.cron_expr, new Date(), tz) : null;
     nextRunAt = next ? next.toISOString() : null;
   } else if (input.schedule_kind === 'one_time') {
     nextRunAt = input.run_at || null;
