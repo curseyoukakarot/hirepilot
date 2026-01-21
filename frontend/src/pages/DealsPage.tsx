@@ -92,7 +92,9 @@ export default function DealsPage() {
   // Removed modal caret refs
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
-  const oppTitleInputRef = useRef<HTMLInputElement | null>(null);
+  const marginInputRef = useRef<HTMLInputElement | null>(null);
+  const valueInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeOppField, setActiveOppField] = useState<null | 'margin' | 'value'>(null);
 
   const parseNumberLike = (raw: any): number | null => {
     const s = raw == null ? '' : String(raw).trim();
@@ -104,9 +106,16 @@ export default function DealsPage() {
   };
 
   useEffect(() => {
-    if (!editingOppId) return;
-    oppTitleInputRef.current?.focus();
+    if (!editingOppId) setActiveOppField(null);
   }, [editingOppId]);
+
+  useEffect(() => {
+    if (!editingOppId || !activeOppField) return;
+    const target = activeOppField === 'margin' ? marginInputRef.current : valueInputRef.current;
+    if (target && document.activeElement !== target) {
+      target.focus({ preventScroll: true });
+    }
+  }, [editingOppId, activeOppField, oppDraft?.margin, oppDraft?.value]);
 
   const getTabFromLocation = (): ViewTab => {
     try {
@@ -1371,7 +1380,6 @@ export default function DealsPage() {
                           <input
                             type="text"
                             className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-full max-w-[320px] dark:bg-gray-800 dark:text-gray-200"
-                            ref={oppTitleInputRef}
                             value={String(oppDraft.title ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, title: e.target.value }))}
                             disabled={savingOppId===o.id}
@@ -1472,8 +1480,11 @@ export default function DealsPage() {
                             type="text"
                             inputMode="decimal"
                             className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 dark:bg-gray-800 dark:text-gray-200 cursor-text"
+                            ref={marginInputRef}
                             value={String(oppDraft.margin ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin: e.target.value }))}
+                            onFocus={() => setActiveOppField('margin')}
+                            onBlur={() => setActiveOppField(null)}
                             disabled={savingOppId===o.id}
                           />
                         ) : (
@@ -1486,8 +1497,11 @@ export default function DealsPage() {
                             type="text"
                             inputMode="numeric"
                             className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 text-right dark:bg-gray-800 dark:text-gray-200 cursor-text"
+                            ref={valueInputRef}
                             value={String(oppDraft.value ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, value: e.target.value }))}
+                            onFocus={() => setActiveOppField('value')}
+                            onBlur={() => setActiveOppField(null)}
                             disabled={savingOppId===o.id}
                           />
                         ) : (
