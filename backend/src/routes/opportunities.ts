@@ -33,7 +33,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     let base = supabase
       .from('opportunities')
-      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin');
+      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin,margin_type');
 
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
@@ -911,7 +911,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       forecast_date: forecastDateRaw,
       start_date: startDateRaw,
       term_months: termMonthsRaw,
-      margin: marginRaw
+      margin: marginRaw,
+      margin_type: marginTypeRaw
     } = req.body || {};
     let forecast_date: string | null = null;
     if (forecastDateRaw === null || forecastDateRaw === undefined || forecastDateRaw === '') {
@@ -956,8 +957,16 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       if (!isFinite(n)) { res.status(400).json({ error: 'invalid_margin' }); return; }
       margin = n;
     }
+    let margin_type: string | null = 'currency';
+    if (marginTypeRaw === null || marginTypeRaw === undefined || marginTypeRaw === '') {
+      margin_type = 'currency';
+    } else {
+      const v = String(marginTypeRaw || '').toLowerCase();
+      if (v !== 'currency' && v !== 'percent') { res.status(400).json({ error: 'invalid_margin_type' }); return; }
+      margin_type = v;
+    }
     const nowIso = new Date().toISOString();
-    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, start_date, term_months, margin, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
+    const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, start_date, term_months, margin, margin_type, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
     const { data, error } = await supabase.from('opportunities').insert(insert).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
@@ -1043,6 +1052,16 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
         const n = Number(raw);
         if (!isFinite(n)) { res.status(400).json({ error: 'invalid_margin' }); return; }
         up.margin = n;
+      }
+    }
+    if (req.body?.margin_type !== undefined) {
+      const raw = req.body.margin_type;
+      if (raw === null || raw === '') {
+        up.margin_type = 'currency';
+      } else {
+        const v = String(raw || '').toLowerCase();
+        if (v !== 'currency' && v !== 'percent') { res.status(400).json({ error: 'invalid_margin_type' }); return; }
+        up.margin_type = v;
       }
     }
     up.updated_at = new Date().toISOString() as any;

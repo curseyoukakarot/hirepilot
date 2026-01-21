@@ -105,6 +105,12 @@ export default function DealsPage() {
     return Number.isFinite(n) ? n : null;
   };
 
+  const normalizeMarginType = (raw: any): 'currency' | 'percent' => {
+    const v = String(raw || '').toLowerCase();
+    if (v === 'percent' || v === 'percentage') return 'percent';
+    return 'currency';
+  };
+
   useEffect(() => {
     if (!editingOppId) setActiveOppField(null);
   }, [editingOppId]);
@@ -691,6 +697,7 @@ export default function DealsPage() {
       // Use strings for edit fields to keep cursor/selection stable while typing.
       margin: o.margin === null || o.margin === undefined ? '' : String(o.margin),
       value: o.value === null || o.value === undefined ? '' : String(o.value),
+      margin_type: normalizeMarginType(o.margin_type),
       req_ids: Array.isArray(o.reqs) ? [...o.reqs] : []
     });
   };
@@ -709,6 +716,7 @@ export default function DealsPage() {
       const title = draft.title == null ? '' : String(draft.title).trim();
       const marginNum = parseNumberLike(draft.margin);
       const valueNum = parseNumberLike(draft.value);
+      const marginType = normalizeMarginType(draft.margin_type);
       const payload: any = {
         ...(title ? { title } : {}),
         stage: draft.stage || 'Pipeline',
@@ -717,6 +725,7 @@ export default function DealsPage() {
         term_months: draft.term_months === '' || draft.term_months === null || draft.term_months === undefined ? null : Number(draft.term_months),
         margin: marginNum,
         value: valueNum,
+        margin_type: marginType,
         req_ids: Array.isArray(draft.req_ids) ? draft.req_ids : []
       };
 
@@ -739,6 +748,7 @@ export default function DealsPage() {
           term_months: payload.term_months,
           margin: payload.margin,
           value: payload.value,
+          margin_type: payload.margin_type ?? row.margin_type,
           reqs: payload.req_ids
         };
       }));
@@ -1237,6 +1247,20 @@ export default function DealsPage() {
   );
 
   const currency = (n: number) => (isFinite(n as any) ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '$0');
+  const formatMargin = (margin: any, marginTypeRaw: any) => {
+    const marginType = normalizeMarginType(marginTypeRaw);
+    if (margin === null || margin === undefined || margin === '') return '—';
+    const n = Number(margin);
+    if (!isFinite(n)) return '—';
+    return marginType === 'percent' ? `${n}%` : currency(n);
+  };
+  const computeNetRevenue = (valueRaw: any, marginRaw: any, marginTypeRaw: any) => {
+    const value = parseNumberLike(valueRaw) ?? 0;
+    const marginType = normalizeMarginType(marginTypeRaw);
+    const marginNum = parseNumberLike(marginRaw) ?? 0;
+    const marginCost = marginType === 'percent' ? value * (marginNum / 100) : marginNum;
+    return value - marginCost;
+  };
   const formatDateOnly = (d: any): string => {
     if (!d) return '—';
     const s = String(d);
@@ -1348,6 +1372,7 @@ export default function DealsPage() {
                   <th className="p-4 text-left">Term</th>
                   <th className="p-4 text-left">Margin</th>
                   <th className="p-4 text-right">Value ($)</th>
+                  <th className="p-4 text-right">Net Revenue</th>
                   <th className="p-4 text-left">Job REQ(s)</th>
                   <th className="p-4 text-left">Owner</th>
                   <th className="p-4 text-left">Created</th>
@@ -1356,9 +1381,9 @@ export default function DealsPage() {
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {oppLoading ? (
-                  <tr><td colSpan={14} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                  <tr><td colSpan={15} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
-                  <tr><td colSpan={14} className="p-6 text-center text-gray-500">No opportunities</td></tr>
+                  <tr><td colSpan={15} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -1476,19 +1501,30 @@ export default function DealsPage() {
                       </td>
                       <td className="p-4">
                         {editingOppId === o.id ? (
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 dark:bg-gray-800 dark:text-gray-200 cursor-text"
-                            ref={marginInputRef}
-                            value={String(oppDraft.margin ?? '')}
-                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin: e.target.value }))}
-                            onFocus={() => setActiveOppField('margin')}
-                            onBlur={() => setActiveOppField(null)}
-                            disabled={savingOppId===o.id}
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-24 dark:bg-gray-800 dark:text-gray-200 cursor-text"
+                              ref={marginInputRef}
+                              value={String(oppDraft.margin ?? '')}
+                              onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin: e.target.value }))}
+                              onFocus={() => setActiveOppField('margin')}
+                              onBlur={() => setActiveOppField(null)}
+                              disabled={savingOppId===o.id}
+                            />
+                            <select
+                              className="border dark:border-gray-700 rounded px-2 py-1 text-xs dark:bg-gray-800 dark:text-gray-200"
+                              value={normalizeMarginType(oppDraft.margin_type)}
+                              onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin_type: e.target.value }))}
+                              disabled={savingOppId===o.id}
+                            >
+                              <option value="currency">Currency</option>
+                              <option value="percent">Percentage %</option>
+                            </select>
+                          </div>
                         ) : (
-                          <span className="text-gray-700 dark:text-gray-200">{(o as any).margin ?? '—'}</span>
+                          <span className="text-gray-700 dark:text-gray-200">{formatMargin((o as any).margin, (o as any).margin_type)}</span>
                         )}
                       </td>
                       <td className="p-4 text-right font-medium">
@@ -1506,6 +1542,15 @@ export default function DealsPage() {
                           />
                         ) : (
                           currency(Number(o.value)||0)
+                        )}
+                      </td>
+                      <td className="p-4 text-right font-semibold text-gray-900 dark:text-gray-100">
+                        {currency(
+                          computeNetRevenue(
+                            editingOppId === o.id ? oppDraft.value : (o as any).value,
+                            editingOppId === o.id ? oppDraft.margin : (o as any).margin,
+                            editingOppId === o.id ? oppDraft.margin_type : (o as any).margin_type
+                          )
                         )}
                       </td>
                       <td className="p-4">
