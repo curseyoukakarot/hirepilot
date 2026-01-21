@@ -93,6 +93,15 @@ export default function DealsPage() {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
 
+  const parseNumberLike = (raw: any): number | null => {
+    const s = raw == null ? '' : String(raw).trim();
+    if (!s) return null;
+    // Allow users to type currency/commas/percent; normalize before casting.
+    const cleaned = s.replace(/[\s$,]/g, '').replace(/%/g, '');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+
   const getTabFromLocation = (): ViewTab => {
     try {
       const params = new URLSearchParams(location.search || '');
@@ -664,8 +673,9 @@ export default function DealsPage() {
       forecast_date: (o.forecast_date ? String(o.forecast_date).slice(0, 10) : ''),
       start_date: (o.start_date ? String(o.start_date).slice(0, 10) : ''),
       term_months: (o.term_months ?? '') as any,
-      margin: (o.margin ?? '') as any,
-      value: (o.value ?? '') as any,
+      // Use strings for edit fields to keep cursor/selection stable while typing.
+      margin: o.margin === null || o.margin === undefined ? '' : String(o.margin),
+      value: o.value === null || o.value === undefined ? '' : String(o.value),
       req_ids: Array.isArray(o.reqs) ? [...o.reqs] : []
     });
   };
@@ -682,14 +692,16 @@ export default function DealsPage() {
       const token = session?.access_token;
       const draft = oppDraft || {};
       const title = draft.title == null ? '' : String(draft.title).trim();
+      const marginNum = parseNumberLike(draft.margin);
+      const valueNum = parseNumberLike(draft.value);
       const payload: any = {
         ...(title ? { title } : {}),
         stage: draft.stage || 'Pipeline',
         forecast_date: draft.forecast_date ? String(draft.forecast_date).slice(0, 10) : null,
         start_date: draft.start_date ? String(draft.start_date).slice(0, 10) : null,
         term_months: draft.term_months === '' || draft.term_months === null || draft.term_months === undefined ? null : Number(draft.term_months),
-        margin: draft.margin === '' || draft.margin === null || draft.margin === undefined ? null : Number(draft.margin),
-        value: draft.value === '' || draft.value === null || draft.value === undefined ? null : Number(draft.value),
+        margin: marginNum,
+        value: valueNum,
         req_ids: Array.isArray(draft.req_ids) ? draft.req_ids : []
       };
 
@@ -1451,9 +1463,9 @@ export default function DealsPage() {
                       <td className="p-4">
                         {editingOppId === o.id ? (
                           <input
-                            type="number"
-                            step="0.01"
-                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 dark:bg-gray-800 dark:text-gray-200"
+                            type="text"
+                            inputMode="decimal"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 dark:bg-gray-800 dark:text-gray-200 cursor-text"
                             value={String(oppDraft.margin ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, margin: e.target.value }))}
                             disabled={savingOppId===o.id}
@@ -1465,9 +1477,9 @@ export default function DealsPage() {
                       <td className="p-4 text-right font-medium">
                         {editingOppId === o.id ? (
                           <input
-                            type="number"
-                            step="1"
-                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 text-right dark:bg-gray-800 dark:text-gray-200"
+                            type="text"
+                            inputMode="numeric"
+                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-28 text-right dark:bg-gray-800 dark:text-gray-200 cursor-text"
                             value={String(oppDraft.value ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, value: e.target.value }))}
                             disabled={savingOppId===o.id}
