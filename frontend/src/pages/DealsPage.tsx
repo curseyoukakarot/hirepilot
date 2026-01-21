@@ -95,6 +95,7 @@ export default function DealsPage() {
   const marginInputRef = useRef<HTMLInputElement | null>(null);
   const valueInputRef = useRef<HTMLInputElement | null>(null);
   const [activeOppField, setActiveOppField] = useState<null | 'margin' | 'value'>(null);
+  const [showOppColumns, setShowOppColumns] = useState(false);
 
   const parseNumberLike = (raw: any): number | null => {
     const s = raw == null ? '' : String(raw).trim();
@@ -111,9 +112,58 @@ export default function DealsPage() {
     return 'currency';
   };
 
+  const oppColumns = [
+    { id: 'title', label: 'Opportunity Title' },
+    { id: 'client', label: 'Client' },
+    { id: 'tag', label: 'Tag' },
+    { id: 'status', label: 'Status' },
+    { id: 'forecast_date', label: 'Forecast Date' },
+    { id: 'start_date', label: 'Start Date' },
+    { id: 'term', label: 'Term' },
+    { id: 'margin', label: 'Margin' },
+    { id: 'value', label: 'Value ($)' },
+    { id: 'net_revenue', label: 'Net Revenue' },
+    { id: 'job_reqs', label: 'Job REQ(s)' },
+    { id: 'owner', label: 'Owner' },
+    { id: 'created', label: 'Created' },
+    { id: 'actions', label: 'Actions', locked: true }
+  ] as const;
+  const defaultOppColumns = oppColumns.map((c) => c.id);
+  const [oppVisibleColumns, setOppVisibleColumns] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return defaultOppColumns;
+    try {
+      const raw = window.localStorage.getItem('hp.deals.oppColumns');
+      if (!raw) return defaultOppColumns;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return defaultOppColumns;
+      const valid = parsed.filter((id) => oppColumns.some((c) => c.id === id));
+      const locked = oppColumns.filter((c) => (c as any).locked).map((c) => c.id);
+      const next = Array.from(new Set([...valid, ...locked]));
+      return next.length ? next : defaultOppColumns;
+    } catch {
+      return defaultOppColumns;
+    }
+  });
+  const isOppColumnVisible = (id: string) => oppVisibleColumns.includes(id);
+  const toggleOppColumn = (id: string) => {
+    const col = oppColumns.find((c) => c.id === id);
+    if (col && (col as any).locked) return;
+    setOppVisibleColumns((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+  const oppVisibleColSpan = 1 + oppColumns.filter((c) => isOppColumnVisible(c.id)).length;
+
   useEffect(() => {
     if (!editingOppId) setActiveOppField(null);
   }, [editingOppId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('hp.deals.oppColumns', JSON.stringify(oppVisibleColumns));
+    } catch {}
+  }, [oppVisibleColumns]);
 
   useEffect(() => {
     if (!editingOppId || !activeOppField) return;
@@ -1330,6 +1380,44 @@ export default function DealsPage() {
               <span className="font-semibold">{currency(board.reduce((s, col)=>s+col.weighted, 0))}</span>
             </>
           )}
+          {oppView === 'table' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-md bg-white dark:bg-gray-900"
+                onClick={() => setShowOppColumns((s) => !s)}
+              >
+                Columns
+              </button>
+              {showOppColumns && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-lg shadow-lg p-3 z-20">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Visible columns</div>
+                  <div className="space-y-2">
+                    {oppColumns.map((col) => (
+                      <label key={col.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={isOppColumnVisible(col.id)}
+                          disabled={(col as any).locked}
+                          onChange={() => toggleOppColumn(col.id)}
+                        />
+                        <span className={(col as any).locked ? 'text-gray-400' : ''}>{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      onClick={() => setOppVisibleColumns(defaultOppColumns)}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <button className="ml-4 px-3 py-2 text-sm bg-indigo-600 text-white rounded-md" onClick={()=>{ setAddStage('Pipeline'); setForm({ title:'', client_id:'', value:'', billing_type:'' }); setAddOpen(true); }}>New Opportunity</button>
         </div>
       </div>
@@ -1363,27 +1451,27 @@ export default function DealsPage() {
                       }}
                     />
                   </th>
-                  <th className="p-4 text-left">Opportunity Title</th>
-                  <th className="p-4 text-left">Client</th>
-                  <th className="p-4 text-left">Tag</th>
-                  <th className="p-4 text-left">Status</th>
-                  <th className="p-4 text-left">Forecast Date</th>
-                  <th className="p-4 text-left">Start Date</th>
-                  <th className="p-4 text-left">Term</th>
-                  <th className="p-4 text-left">Margin</th>
-                  <th className="p-4 text-right">Value ($)</th>
-                  <th className="p-4 text-right">Net Revenue</th>
-                  <th className="p-4 text-left">Job REQ(s)</th>
-                  <th className="p-4 text-left">Owner</th>
-                  <th className="p-4 text-left">Created</th>
-                  <th className="p-4 text-right">Actions</th>
+                  {isOppColumnVisible('title') && <th className="p-4 text-left">Opportunity Title</th>}
+                  {isOppColumnVisible('client') && <th className="p-4 text-left">Client</th>}
+                  {isOppColumnVisible('tag') && <th className="p-4 text-left">Tag</th>}
+                  {isOppColumnVisible('status') && <th className="p-4 text-left">Status</th>}
+                  {isOppColumnVisible('forecast_date') && <th className="p-4 text-left">Forecast Date</th>}
+                  {isOppColumnVisible('start_date') && <th className="p-4 text-left">Start Date</th>}
+                  {isOppColumnVisible('term') && <th className="p-4 text-left">Term</th>}
+                  {isOppColumnVisible('margin') && <th className="p-4 text-left">Margin</th>}
+                  {isOppColumnVisible('value') && <th className="p-4 text-right">Value ($)</th>}
+                  {isOppColumnVisible('net_revenue') && <th className="p-4 text-right">Net Revenue</th>}
+                  {isOppColumnVisible('job_reqs') && <th className="p-4 text-left">Job REQ(s)</th>}
+                  {isOppColumnVisible('owner') && <th className="p-4 text-left">Owner</th>}
+                  {isOppColumnVisible('created') && <th className="p-4 text-left">Created</th>}
+                  {isOppColumnVisible('actions') && <th className="p-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-gray-800">
                 {oppLoading ? (
-                  <tr><td colSpan={15} className="p-6 text-center text-gray-500">Loading…</td></tr>
+                  <tr><td colSpan={oppVisibleColSpan} className="p-6 text-center text-gray-500">Loading…</td></tr>
                 ) : opps.length === 0 ? (
-                  <tr><td colSpan={15} className="p-6 text-center text-gray-500">No opportunities</td></tr>
+                  <tr><td colSpan={oppVisibleColSpan} className="p-6 text-center text-gray-500">No opportunities</td></tr>
                 ) : (
                   opps.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -1400,28 +1488,33 @@ export default function DealsPage() {
                           }}
                         />
                       </td>
-                      <td className="p-4 font-medium text-gray-900 dark:text-gray-100">
-                        {editingOppId === o.id ? (
-                          <input
-                            type="text"
-                            className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-full max-w-[320px] dark:bg-gray-800 dark:text-gray-200"
-                            value={String(oppDraft.title ?? '')}
-                            onChange={(e)=>setOppDraft((s:any)=>({ ...s, title: e.target.value }))}
-                            disabled={savingOppId===o.id}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="text-left hover:underline decoration-dotted underline-offset-2"
-                            title="Click to edit opportunity name"
-                            onClick={() => beginEditOpp(o)}
-                          >
-                            {o.title}
-                          </button>
-                        )}
-                      </td>
-                      <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
-                      <td className="p-4">
+                      {isOppColumnVisible('title') && (
+                        <td className="p-4 font-medium text-gray-900 dark:text-gray-100">
+                          {editingOppId === o.id ? (
+                            <input
+                              type="text"
+                              className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-full max-w-[320px] dark:bg-gray-800 dark:text-gray-200"
+                              value={String(oppDraft.title ?? '')}
+                              onChange={(e)=>setOppDraft((s:any)=>({ ...s, title: e.target.value }))}
+                              disabled={savingOppId===o.id}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-left hover:underline decoration-dotted underline-offset-2"
+                              title="Click to edit opportunity name"
+                              onClick={() => beginEditOpp(o)}
+                            >
+                              {o.title}
+                            </button>
+                          )}
+                        </td>
+                      )}
+                      {isOppColumnVisible('client') && (
+                        <td className="p-4"><div className="flex items-center gap-2">{(() => { const u = o.client && clientsLogoMap.get(String(o.client.id || o.client_id)); return u ? <img src={u} alt="logo" className="w-6 h-6 rounded" /> : <div className="w-6 h-6 rounded bg-gray-200" />; })()} <span className="font-medium">{o.client?.name || o.client?.domain || '—'}</span></div></td>
+                      )}
+                      {isOppColumnVisible('tag') && (
+                        <td className="p-4">
                         {editingTagId === o.id ? (
                           <div className="flex items-center gap-2" data-no-row-toggle>
                             <input className="border dark:border-gray-700 rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-gray-200" value={tagDraft} onChange={e=>setTagDraft(e.target.value)} placeholder="e.g. Job Seeker" />
@@ -1435,6 +1528,8 @@ export default function DealsPage() {
                           </div>
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('status') && (
                       <td className="p-4">
                         {editingOppId === o.id ? (
                           <select
@@ -1453,6 +1548,8 @@ export default function DealsPage() {
                           </span>
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('forecast_date') && (
                       <td className="p-4 text-gray-700 dark:text-gray-200">
                         {editingOppId === o.id ? (
                           <input
@@ -1466,6 +1563,8 @@ export default function DealsPage() {
                           formatDateOnly((o as any).forecast_date)
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('start_date') && (
                       <td className="p-4 text-gray-700 dark:text-gray-200">
                         {editingOppId === o.id ? (
                           <input
@@ -1479,6 +1578,8 @@ export default function DealsPage() {
                           formatDateOnly((o as any).start_date)
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('term') && (
                       <td className="p-4">
                         {editingOppId === o.id ? (
                           <select
@@ -1499,6 +1600,8 @@ export default function DealsPage() {
                           </span>
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('margin') && (
                       <td className="p-4">
                         {editingOppId === o.id ? (
                           <div className="flex items-center gap-2">
@@ -1527,6 +1630,8 @@ export default function DealsPage() {
                           <span className="text-gray-700 dark:text-gray-200">{formatMargin((o as any).margin, (o as any).margin_type)}</span>
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('value') && (
                       <td className="p-4 text-right font-medium">
                         {editingOppId === o.id ? (
                           <input
@@ -1544,6 +1649,8 @@ export default function DealsPage() {
                           currency(Number(o.value)||0)
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('net_revenue') && (
                       <td className="p-4 text-right font-semibold text-gray-900 dark:text-gray-100">
                         {currency(
                           computeNetRevenue(
@@ -1553,6 +1660,8 @@ export default function DealsPage() {
                           )
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('job_reqs') && (
                       <td className="p-4">
                         {editingOppId === o.id ? (
                           <div className="space-y-2" data-no-row-toggle>
@@ -1608,6 +1717,8 @@ export default function DealsPage() {
                           </div>
                         )}
                       </td>
+                      )}
+                      {isOppColumnVisible('owner') && (
                       <td className="p-4">
                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                           {(() => {
@@ -1616,7 +1727,11 @@ export default function DealsPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="p-4 text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleDateString()}</td>
+                      )}
+                      {isOppColumnVisible('created') && (
+                        <td className="p-4 text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleDateString()}</td>
+                      )}
+                      {isOppColumnVisible('actions') && (
                       <td className="p-4 text-right space-x-3">
                         {editingOppId === o.id ? (
                           <>
@@ -1649,6 +1764,7 @@ export default function DealsPage() {
                           }}
                         >Delete</button>
                       </td>
+                      )}
                     </tr>
                   ))
                 )}

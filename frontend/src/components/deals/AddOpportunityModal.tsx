@@ -83,7 +83,6 @@ function AddOpportunityModal({ open, clients, onClose, onCreated }: AddOpportuni
               <select className="w-full border rounded-md px-3 py-2" value={billingType} onChange={e=>setBillingType(e.target.value)}>
                 <option value="">Select…</option>
                 <option value="contingency">Contingency</option>
-                <option value="retainer">Retained Search</option>
                 <option value="retainer">Retainer</option>
                 <option value="down_payment">Down Payment</option>
                 <option value="rpo">RPO (Monthly)</option>
