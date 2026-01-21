@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import ClientRowEditor from '../components/deals/ClientRowEditor';
@@ -92,6 +92,7 @@ export default function DealsPage() {
   // Removed modal caret refs
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
+  const oppTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const parseNumberLike = (raw: any): number | null => {
     const s = raw == null ? '' : String(raw).trim();
@@ -101,6 +102,11 @@ export default function DealsPage() {
     const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
   };
+
+  useEffect(() => {
+    if (!editingOppId) return;
+    oppTitleInputRef.current?.focus();
+  }, [editingOppId]);
 
   const getTabFromLocation = (): ViewTab => {
     try {
@@ -1365,10 +1371,10 @@ export default function DealsPage() {
                           <input
                             type="text"
                             className="border dark:border-gray-700 rounded px-2 py-1 text-sm w-full max-w-[320px] dark:bg-gray-800 dark:text-gray-200"
+                            ref={oppTitleInputRef}
                             value={String(oppDraft.title ?? '')}
                             onChange={(e)=>setOppDraft((s:any)=>({ ...s, title: e.target.value }))}
                             disabled={savingOppId===o.id}
-                            autoFocus
                           />
                         ) : (
                           <button
