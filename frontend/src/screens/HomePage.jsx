@@ -155,15 +155,13 @@ const HomePage = () => {
               <a href="/pricing" className="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-indigo-700 transition shadow-lg">
                 Use Free Forever
               </a>
-              <a
-                href="https://youtu.be/IlhH59n-xn0"
+              <button
                 onClick={() => setIsDemoOpen((v) => !v)}
-                target="_blank"
-                rel="noreferrer"
+                aria-expanded={isDemoOpen}
                 className="border border-gray-700 px-8 py-4 rounded-xl text-lg font-semibold text-gray-300 hover:bg-gray-800 transition-colors"
               >
                 <i className="fa-solid fa-play mr-2"></i>Watch Demo
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -176,7 +174,7 @@ const HomePage = () => {
             <div className="aspect-video w-full rounded-xl overflow-hidden">
               <iframe
                 className="w-full h-full"
-                src="https://www.youtube.com/embed/zhwZg_8ruyU?rel=0&modestbranding=1"
+                src="https://www.youtube.com/embed/IlhH59n-xn0?rel=0&modestbranding=1"
                 title="HirePilot Demo"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
