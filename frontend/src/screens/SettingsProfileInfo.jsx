@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { apiGet, apiPatch } from '../lib/api';
 import AdvancedInfoCard from '../components/settings/AdvancedInfoCard';
 import ThemeToggle from '../components/settings/ThemeToggle';
 
@@ -10,6 +11,7 @@ export default function SettingsProfileInfo() {
     email: '',
     company: ''
   });
+  const [initialProfile, setInitialProfile] = useState({ firstName: '', company: '' });
   const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,6 +40,10 @@ export default function SettingsProfileInfo() {
           email: user.email || '',
           company: user.user_metadata?.company || ''
         });
+        setInitialProfile({
+          firstName: user.user_metadata?.first_name || '',
+          company: user.user_metadata?.company || ''
+        });
         setAvatarUrl(user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent((user.user_metadata?.first_name || '') + ' ' + (user.user_metadata?.last_name || ''))}&background=random`);
       }
       setLoading(false);
@@ -62,6 +68,29 @@ export default function SettingsProfileInfo() {
     // Save name and company to user_metadata and users table
     await supabase.auth.updateUser({ data: { ...user.user_metadata, first_name: formData.firstName, last_name: formData.lastName, company: formData.company } });
     await supabase.from('users').update({ first_name: formData.firstName, last_name: formData.lastName, company: formData.company }).eq('id', user.id);
+    // Sync workspace name to company/first name defaults (recruiter only, non-destructive)
+    try {
+      const isRecruiterHost = !window.location.hostname.startsWith('jobs.');
+      if (isRecruiterHost) {
+        const workspaceId = window.localStorage.getItem('hp_active_workspace_id');
+        const company = (formData.company || '').trim();
+        const firstName = (formData.firstName || '').trim();
+        const desiredName = company || (firstName ? `${firstName}'s Workspace` : 'My Workspace');
+        const prevCompany = (initialProfile.company || '').trim();
+        const prevFirstName = (initialProfile.firstName || '').trim();
+        const prevDefault = prevCompany || (prevFirstName ? `${prevFirstName}'s Workspace` : 'My Workspace');
+        if (workspaceId && desiredName) {
+          const resp = await apiGet('/api/workspaces/mine');
+          const list = Array.isArray(resp?.workspaces) ? resp.workspaces : [];
+          const active = list.find((w) => String(w.workspace_id) === String(workspaceId));
+          const activeName = String(active?.name || '').trim();
+          if (!activeName || activeName === prevDefault) {
+            await apiPatch(`/api/workspaces/${workspaceId}`, { name: desiredName });
+          }
+        }
+      }
+    } catch {}
+    setInitialProfile({ firstName: formData.firstName, company: formData.company });
     setSaving(false);
     alert('Profile updated!');
   };

@@ -15,13 +15,15 @@ type WorkspaceContextValue = {
   activeWorkspaceId: string | null;
   activeWorkspace: WorkspaceRow | null;
   setActiveWorkspace: (workspaceId: string) => void;
+  refreshWorkspaces: () => Promise<void>;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue>({
   workspaces: [],
   activeWorkspaceId: null,
   activeWorkspace: null,
-  setActiveWorkspace: () => {}
+  setActiveWorkspace: () => {},
+  refreshWorkspaces: async () => {}
 });
 
 const WORKSPACE_STORAGE_KEY = 'hp_active_workspace_id';
@@ -33,7 +35,7 @@ export function WorkspaceProvider({
   children: React.ReactNode;
   role?: string | null;
 }) {
-  const { workspaces, activeWorkspaceId, activeWorkspace } = useWorkspaceBootstrap(role);
+  const { workspaces, activeWorkspaceId, activeWorkspace, refreshWorkspaces } = useWorkspaceBootstrap(role);
 
   const setActiveWorkspace = (workspaceId: string) => {
     try {
@@ -45,7 +47,7 @@ export function WorkspaceProvider({
   };
 
   return (
-    <WorkspaceContext.Provider value={{ workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace }}>
+    <WorkspaceContext.Provider value={{ workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace, refreshWorkspaces }}>
       {children}
     </WorkspaceContext.Provider>
   );

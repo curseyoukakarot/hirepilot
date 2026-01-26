@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiGet } from '../lib/api';
+import { apiGet, apiPatch } from '../lib/api';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { workspacePlanLabel } from '../lib/workspacePlanLabel';
 
@@ -58,10 +58,12 @@ function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
 }
 
 export default function WorkspacesPage() {
-  const { workspaces: cached, activeWorkspaceId, setActiveWorkspace } = useWorkspace();
+  const { workspaces: cached, activeWorkspaceId, setActiveWorkspace, refreshWorkspaces } = useWorkspace();
   const [workspaces, setWorkspaces] = useState(cached || []);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [savingRename, setSavingRename] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -81,6 +83,12 @@ export default function WorkspacesPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (Array.isArray(cached) && cached.length) {
+      setWorkspaces(cached);
+    }
+  }, [cached]);
 
   const activeName = useMemo(() => {
     const found = workspaces.find((w) => String(w.workspace_id) === String(activeWorkspaceId));
@@ -129,7 +137,10 @@ export default function WorkspacesPage() {
                 workspace={ws}
                 isActive={String(ws.workspace_id) === String(activeWorkspaceId)}
                 onSwitch={setActiveWorkspace}
-                onManage={(row) => setSelected(row)}
+                onManage={(row) => {
+                  setSelected(row);
+                  setRenameValue(row?.name || '');
+                }}
               />
             ))}
           </div>
@@ -170,10 +181,51 @@ export default function WorkspacesPage() {
                   ✕
                 </button>
               </div>
-              <div className="mt-4 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                Member management and invitations are coming soon.
+              <div className="mt-5 space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Workspace name
+                </label>
+                <input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  placeholder="Workspace name"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-100"
+                />
+                <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                  Member management and invitations are coming soon.
+                </div>
               </div>
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selected) return;
+                    const trimmed = String(renameValue || '').trim();
+                    if (!trimmed) return;
+                    setSavingRename(true);
+                    try {
+                      const resp = await apiPatch(`/api/workspaces/${selected.workspace_id}`, { name: trimmed });
+                      const updated = resp?.workspace || { ...selected, name: trimmed };
+                      setWorkspaces((prev) =>
+                        prev.map((w) =>
+                          String(w.workspace_id) === String(selected.workspace_id)
+                            ? { ...w, name: updated.name }
+                            : w
+                        )
+                      );
+                      setSelected((prev) => (prev ? { ...prev, name: updated.name } : prev));
+                      await refreshWorkspaces();
+                    } catch {
+                      // Non-blocking
+                    } finally {
+                      setSavingRename(false);
+                    }
+                  }}
+                  disabled={savingRename}
+                  className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 disabled:opacity-60"
+                >
+                  {savingRename ? 'Saving...' : 'Save'}
+                </button>
                 <button
                   type="button"
                   onClick={() => setSelected(null)}

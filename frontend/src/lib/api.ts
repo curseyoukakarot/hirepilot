@@ -96,5 +96,8 @@ export const apiPost = (endpoint: string, data?: any, options?: ApiOptions) =>
 export const apiPut = (endpoint: string, data?: any, options?: ApiOptions) =>
   api(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) });
 
+export const apiPatch = (endpoint: string, data?: any, options?: ApiOptions) =>
+  api(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(data) });
+
 export const apiDelete = (endpoint: string, options?: ApiOptions) =>
   api(endpoint, { ...options, method: 'DELETE' }); 
