@@ -21,9 +21,32 @@ router.get('/mine', async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     if (isJobSeekerRole(role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
 
+    const normalizeRole = (value: any) => String(value || '').toLowerCase().replace(/[\s-]/g, '_');
+    let resolvedAuthRole = normalizeRole(role);
+    if (!resolvedAuthRole || resolvedAuthRole === 'guest' || resolvedAuthRole === 'free') {
+      try {
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('role, account_type')
+          .eq('id', userId)
+          .maybeSingle();
+        const candidate = (userRow as any)?.account_type || (userRow as any)?.role || null;
+        if (candidate) resolvedAuthRole = normalizeRole(candidate);
+      } catch {}
+    }
+    if (!resolvedAuthRole || resolvedAuthRole === 'guest' || resolvedAuthRole === 'free') {
+      try {
+        const { data } = await supabase.auth.admin.getUserById(userId);
+        const authUser: any = data?.user || {};
+        const meta = (authUser?.user_metadata || {}) as any;
+        const app = (authUser?.app_metadata || {}) as any;
+        const candidate = meta?.account_type || meta?.user_type || app?.role || null;
+        if (candidate) resolvedAuthRole = normalizeRole(candidate);
+      } catch {}
+    }
+
     // Best-effort: sync team members into workspace for team admins
-    const roleLc = String(role || '').toLowerCase();
-    if (roleLc === 'team_admin' || roleLc === 'teamadmin') {
+    if (resolvedAuthRole === 'team_admin' || resolvedAuthRole === 'teamadmin') {
       try {
         await supabase.rpc('sync_team_workspace_members', { p_user_id: userId });
       } catch {}
@@ -39,8 +62,8 @@ router.get('/mine', async (req: Request, res: Response) => {
       teamId = ctx.teamId ? String(ctx.teamId) : null;
       teamRole = ctx.role ? String(ctx.role) : null;
     } catch {}
-    const normalizedAuthRole = String(role || '').toLowerCase();
-    const normalizedTeamRole = String(teamRole || role || '').toLowerCase();
+    const normalizedAuthRole = resolvedAuthRole || normalizeRole(role);
+    const normalizedTeamRole = normalizeRole(teamRole || resolvedAuthRole || role);
     const isTeamAdmin = normalizedTeamRole === 'team_admin' || normalizedTeamRole === 'teamadmin';
 
     let teamWorkspaceId: string | null = null;
