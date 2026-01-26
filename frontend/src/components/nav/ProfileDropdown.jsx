@@ -10,8 +10,9 @@ export default function ProfileDropdown({ avatarUrl }) {
   const menuRef = useRef(null);
 
   const workspaceName = activeWorkspace?.name || 'Workspace';
-  const workspaceRole = activeWorkspace?.role
-    ? String(activeWorkspace.role).replace(/_/g, ' ')
+  const displayRole = activeWorkspace?.display_role || activeWorkspace?.role;
+  const workspaceRole = displayRole
+    ? String(displayRole).replace(/_/g, ' ')
     : null;
 
   useEffect(() => {

@@ -5,6 +5,9 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { workspacePlanLabel } from '../lib/workspacePlanLabel';
 
 function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
+  const displayRole = workspace.display_role || workspace.role;
+  const displayPlan = workspace.display_plan || workspace.plan;
+  const displaySeats = workspace.display_seat_count ?? workspace.seat_count;
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/80 dark:bg-gray-900/70 p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -14,11 +17,11 @@ function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <span className="rounded-full bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
-              {workspacePlanLabel(workspace.plan, workspace.role)}
+              {workspacePlanLabel(displayPlan, displayRole)}
             </span>
-            {workspace.role && (
+            {displayRole && (
               <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
-                {String(workspace.role).replace(/_/g, ' ')}
+                {String(displayRole).replace(/_/g, ' ')}
               </span>
             )}
             {isActive && (
@@ -51,7 +54,7 @@ function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
         </div>
       </div>
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Seats: {workspace.seat_count ?? '—'}
+        Seats: {displaySeats ?? '—'}
       </div>
     </div>
   );
@@ -170,7 +173,7 @@ export default function WorkspacesPage() {
                     {selected.name || 'Workspace'}
                   </div>
                   <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {workspacePlanLabel(selected.plan, selected.role)} • Seats: {selected.seat_count ?? '—'}
+                    {workspacePlanLabel(selected.display_plan || selected.plan, selected.display_role || selected.role)} • Seats: {selected.display_seat_count ?? selected.seat_count ?? '—'}
                   </div>
                 </div>
                 <button
