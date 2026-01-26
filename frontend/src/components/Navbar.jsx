@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import ProfileDropdown from './nav/ProfileDropdown';
 
 export default function Navbar() {
   const [isGuest, setIsGuest] = useState(false);
@@ -108,13 +109,7 @@ export default function Navbar() {
         >
           Dashboard
         </NavLink>
-        <NavLink to="/settings" className="flex items-center">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gray-200" />
-          )}
-        </NavLink>
+        <ProfileDropdown avatarUrl={avatarUrl} />
       </nav>
       {/* Mobile hamburger */}
       <button type="button" className="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800" onClick={()=>setMobileOpen(v=>!v)} aria-label="Toggle menu">

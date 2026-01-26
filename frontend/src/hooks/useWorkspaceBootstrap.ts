@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { apiGet } from '../lib/api';
 import { useAppMode } from '../lib/appMode';
@@ -7,10 +7,15 @@ const WORKSPACE_STORAGE_KEY = 'hp_active_workspace_id';
 
 type WorkspaceRow = {
   workspace_id: string;
+  name?: string | null;
+  plan?: string | null;
+  seat_count?: number | null;
 };
 
 export function useWorkspaceBootstrap(role?: string | null) {
   const mode = useAppMode();
+  const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (mode !== 'recruiter') return;
@@ -35,11 +40,14 @@ export function useWorkspaceBootstrap(role?: string | null) {
         } catch {}
 
         const hasStored = stored && list.some((w) => String(w.workspace_id) === String(stored));
+        const nextActive = hasStored ? String(stored) : String(list[0].workspace_id);
         if (!hasStored) {
           try {
-            window.localStorage.setItem(WORKSPACE_STORAGE_KEY, String(list[0].workspace_id));
+            window.localStorage.setItem(WORKSPACE_STORAGE_KEY, nextActive);
           } catch {}
         }
+        setWorkspaces(list);
+        setActiveWorkspaceId(nextActive);
       } catch {
         // Non-blocking: proceed without workspace header
       }
@@ -49,4 +57,11 @@ export function useWorkspaceBootstrap(role?: string | null) {
       cancelled = true;
     };
   }, [mode, role]);
+
+  const activeWorkspace = useMemo(
+    () => workspaces.find((w) => String(w.workspace_id) === String(activeWorkspaceId)) || null,
+    [workspaces, activeWorkspaceId]
+  );
+
+  return { workspaces, activeWorkspaceId, activeWorkspace };
 }

@@ -53,7 +53,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import useVersionNotifier from './hooks/useVersionNotifier.jsx';
-import { useWorkspaceBootstrap } from './hooks/useWorkspaceBootstrap';
+import { WorkspaceProvider } from './context/WorkspaceContext';
 import IntegrationsAndWorkflows from './pages/IntegrationsAndWorkflows';
 import WorkflowsPage from './pages/WorkflowsPage';
 import SandboxPage from './pages/SandboxPage';
@@ -61,6 +61,7 @@ import AffiliateProgram from './screens/AffiliateProgram';
 import ProductHunt from './screens/ProductHunt';
 import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
+import WorkspacesPage from './pages/WorkspacesPage';
 import SniperTargets from './screens/SniperTargets';
 import SniperRequirementsGate from './components/SniperRequirementsGate';
 import { flags } from './config/flags';
@@ -354,7 +355,6 @@ function InnerApp() {
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const [role, setRole] = useState(null);
-  useWorkspaceBootstrap(role);
 
   // Supabase may redirect magic links back to Site URL (often `https://thehirepilot.com/#...`).
   // If auth parameters exist but we are not on `/auth/callback`, force-load the callback route
@@ -736,7 +736,8 @@ function InnerApp() {
   const bannerHeightPx = hasImpersonationCookie ? 48 : 0;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <WorkspaceProvider role={role}>
+      <div className="min-h-screen flex flex-col">
       <ImpersonationBanner offsetTop={bannerOffsetTop} />
       {paymentWarning && !isSuspended && (
         <div className="w-full bg-red-600 text-white text-center py-2 text-sm flex items-center justify-center gap-3">
@@ -816,6 +817,7 @@ function InnerApp() {
               <Route path="/messages" element={<MessagingCenter />} />
               <Route path="/sequences/:id" element={<SequenceDetail />} />
               <Route path="/settings/*" element={<Settings />} />
+              <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/accept-guest" element={<GuestLayout><AcceptGuest /></GuestLayout>} />
               <Route path="/settings" element={isGuestUser ? <GuestLayout><SettingsGuest /></GuestLayout> : <Settings />} />
               <Route path="/signout" element={<SignOutRedirect />} />
@@ -981,7 +983,8 @@ function InnerApp() {
       {isAuthPage && !location.pathname.startsWith('/blog/') && (
         <PromoBanner show={true} />
       )}
-    </div>
+      </div>
+    </WorkspaceProvider>
   );
 }
 
