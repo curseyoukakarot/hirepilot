@@ -2493,6 +2493,8 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    const workspaceId = (req as any).workspaceId || null;
+
     // Normalize leads data from Sales Navigator scraping
     const normalizedLeads = leads.map((lead: any) => {
       const first = lead.first_name || (lead.name ? lead.name.split(' ')[0] : '') || '';
@@ -2500,6 +2502,7 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
 
       return {
         user_id: userId,
+        workspace_id: workspaceId,
         first_name: first,
         last_name: last,
         name: lead.name || `${first} ${last}`.trim(),
@@ -2542,7 +2545,8 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Insert leads into the database
-    const { data, error } = await scoped(req, 'leads')
+    const { data, error } = await supabase
+      .from('leads')
       .insert(normalizedLeads)
       .select('*');
 
