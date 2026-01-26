@@ -110,3 +110,49 @@ export const sendTeamInviteEmail = async (data: {
     throw error;
   }
 }; 
+
+export const sendWorkspaceInviteEmail = async (data: {
+  to: string;
+  inviteLink: string;
+  invitedBy: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  workspaceName: string;
+  role: string;
+  expiresInHours?: number;
+}) => {
+  try {
+    const fromEmail = process.env.SENDGRID_INVITE_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com';
+    const fromName = process.env.SENDGRID_INVITE_FROM_NAME || process.env.SENDGRID_FROM_NAME || 'HirePilot';
+    const invitedByName = `${data.invitedBy.firstName || ''} ${data.invitedBy.lastName || ''}`.trim() || data.invitedBy.email;
+    const subject = `You're invited to join "${data.workspaceName}" on HirePilot`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+        <h2 style="color:#111;">Join ${data.workspaceName}</h2>
+        <p>${invitedByName} invited you to join the workspace <strong>${data.workspaceName}</strong> as <strong>${data.role}</strong>.</p>
+        <p>Click the button below to accept this workspace invite:</p>
+        <p style="margin: 24px 0;">
+          <a href="${data.inviteLink}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;">
+            Accept Workspace Invite
+          </a>
+        </p>
+        <p style="color:#666;font-size:12px;">If you did not expect this invite, you can ignore this email.</p>
+      </div>
+    `;
+    const text = `You were invited to join the workspace "${data.workspaceName}" as ${data.role}. Accept here: ${data.inviteLink}`;
+    await sgMail.send({
+      to: data.to,
+      from: { email: fromEmail, name: fromName },
+      replyTo: data.invitedBy.email,
+      subject,
+      text,
+      html
+    } as MailDataRequired);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending workspace invite email:', error);
+    throw error;
+  }
+};

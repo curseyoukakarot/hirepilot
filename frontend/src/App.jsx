@@ -138,6 +138,7 @@ const SigninScreen = lazy(() => import("./screens/SigninScreen"));
 const ResetPassword = lazy(() => import("./screens/ResetPassword"));
 const SignupScreen = lazy(() => import("./screens/SignupScreen"));
 const JoinInvite = lazy(() => import("./screens/JoinInvite"));
+const WorkspaceInvite = lazy(() => import("./screens/WorkspaceInvite"));
 const OnboardingWizard = lazy(() => import("./screens/OnboardingWizard"));
 const Dashboard = lazy(() => import("./screens/Dashboard"));
 const CampaignBuilder = lazy(() => import("./screens/CampaignBuilder"));
@@ -807,6 +808,7 @@ function InnerApp() {
               <Route path="/forms/public/:slug" element={<PublicFormRoute />} />
               <Route path="/signup" element={<SignupScreen />} />
               <Route path="/join" element={<JoinInvite />} />
+              <Route path="/workspace-invite" element={<WorkspaceInvite />} />
               <Route path="/login" element={<SigninScreen />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/auth/callback" element={<AuthCallback />} />

@@ -293,6 +293,38 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
           }
         } catch {}
 
+        // Accept any pending workspace invites for this email
+        try {
+          const { data: wsInvites, error: wsInviteErr } = await supabase
+            .from('workspace_invites')
+            .select('id,workspace_id,role')
+            .eq('email', userEmail)
+            .eq('status', 'pending');
+          if (!wsInviteErr) {
+            for (const inv of (wsInvites || [])) {
+              const workspaceId = String((inv as any).workspace_id || '');
+              if (!workspaceId) continue;
+              const role = String((inv as any).role || 'member').toLowerCase();
+              const memberRole = role === 'admin' ? 'admin' : 'member';
+              await supabase
+                .from('workspace_members')
+                .upsert(
+                  [{ workspace_id: workspaceId, user_id: userId, role: memberRole, status: 'active' }],
+                  { onConflict: 'workspace_id,user_id' } as any
+                );
+              await supabase
+                .from('workspace_invites')
+                .update({ status: 'accepted', accepted_at: new Date().toISOString(), user_id: userId, updated_at: new Date().toISOString() })
+                .eq('id', (inv as any).id);
+            }
+          } else if ((wsInviteErr as any)?.code !== '42P01') {
+            console.warn('[ONBOARDING] Failed to accept workspace invites', wsInviteErr);
+          }
+        } catch (wsInviteErr) {
+          const code = (wsInviteErr as any)?.code;
+          if (code !== '42P01') console.warn('[ONBOARDING] Failed to accept workspace invites', wsInviteErr);
+        }
+
         // Accept any pending job guest invites for this email
         await supabase
           .from('job_guest_collaborators')

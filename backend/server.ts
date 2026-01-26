@@ -154,6 +154,7 @@ import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
 import rexConversationsRouter from './src/routes/rexConversations';
 import { rexTools as rexToolsRouter } from './src/routes/rex/tools';
 import workspacesRouter from './src/routes/workspaces';
+import workspaceInvitesRouter from './src/routes/workspaceInvites';
 import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
@@ -520,6 +521,7 @@ app.get('/api/health/auth', authHealth);
 app.get('/api/health/workers', requireAuthFlag, workersHealth);
 app.use('/api/user', userRouter);
 app.use('/api/workspaces', workspacesRouter);
+app.use('/api/workspace-invites', workspaceInvitesRouter);
 app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);

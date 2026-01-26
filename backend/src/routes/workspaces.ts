@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { getUserTeamContextDb } from '../lib/userTeamContext';
 import { stripe } from '../services/stripe';
 import { PRICING_CONFIG } from '../../config/pricing';
+import { sendWorkspaceInviteEmail } from '../../services/emailService';
 
 const router = express.Router();
 
@@ -21,9 +22,37 @@ router.get('/mine', async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     const role = (req as any)?.user?.role;
+    const userEmail = String((req as any)?.user?.email || '').toLowerCase();
     res.set('Cache-Control', 'no-store');
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     if (isJobSeekerRole(role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    if (userEmail) {
+      try {
+        const { data: wsInvites, error: wsInviteErr } = await supabase
+          .from('workspace_invites')
+          .select('id,workspace_id,role,status,expires_at')
+          .eq('email', userEmail)
+          .eq('status', 'pending');
+        if (!wsInviteErr && Array.isArray(wsInvites) && wsInvites.length) {
+          for (const inv of wsInvites) {
+            const expired = inv.expires_at ? new Date(inv.expires_at).getTime() < Date.now() : false;
+            if (expired) continue;
+            const memberRole = String(inv.role || 'member').toLowerCase() === 'admin' ? 'admin' : 'member';
+            await supabase
+              .from('workspace_members')
+              .upsert(
+                [{ workspace_id: inv.workspace_id, user_id: userId, role: memberRole, status: 'active' }],
+                { onConflict: 'workspace_id,user_id' } as any
+              );
+            await supabase
+              .from('workspace_invites')
+              .update({ status: 'accepted', accepted_at: new Date().toISOString(), user_id: userId, updated_at: new Date().toISOString() })
+              .eq('id', inv.id);
+          }
+        }
+      } catch {}
+    }
 
     const normalizeRole = (value: any) => String(value || '').toLowerCase().replace(/[\s-]/g, '_');
     const isPlaceholderRole = (value: string) =>
@@ -217,6 +246,76 @@ router.patch('/:id', activeWorkspace as any, async (req: Request, res: Response)
     return res.json({ workspace: data });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+// POST /api/workspaces/:id/invite { email, role }
+router.post('/:id/invite', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    const userEmail = String((req as any)?.user?.email || '').toLowerCase();
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const workspaceId = String(req.params.id || '').trim();
+    const email = String((req.body as any)?.email || '').trim().toLowerCase();
+    const roleRaw = String((req.body as any)?.role || 'member').trim().toLowerCase();
+    const role = roleRaw === 'admin' ? 'admin' : 'member';
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_id_required' });
+    if (!email) return res.status(400).json({ error: 'email_required' });
+    if (email === userEmail) return res.status(400).json({ error: 'cannot_invite_self' });
+
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('role,status')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const memberRole = String((membership as any)?.role || '').toLowerCase();
+    const memberStatus = String((membership as any)?.status || '').toLowerCase();
+    if (memberStatus !== 'active' || !['owner','admin'].includes(memberRole)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('id,name')
+      .eq('id', workspaceId)
+      .maybeSingle();
+    if (!workspace?.id) return res.status(404).json({ error: 'workspace_not_found' });
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString();
+    const { data: invite, error: inviteErr } = await supabase
+      .from('workspace_invites')
+      .insert({
+        workspace_id: workspaceId,
+        email,
+        role,
+        invited_by: userId,
+        token,
+        status: 'pending',
+        expires_at: expiresAt
+      })
+      .select('id')
+      .maybeSingle();
+    if (inviteErr) return res.status(500).json({ error: inviteErr.message });
+
+    const inviteLink = `${process.env.APP_BASE_URL || 'https://app.thehirepilot.com'}/workspace-invite?token=${token}`;
+    await sendWorkspaceInviteEmail({
+      to: email,
+      inviteLink,
+      invitedBy: {
+        firstName: (req as any)?.user?.first_name || '',
+        lastName: (req as any)?.user?.last_name || '',
+        email: userEmail
+      },
+      workspaceName: workspace.name || 'Workspace',
+      role
+    });
+
+    return res.json({ success: true, invite_id: invite?.id || null });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'invite_failed' });
   }
 });
 

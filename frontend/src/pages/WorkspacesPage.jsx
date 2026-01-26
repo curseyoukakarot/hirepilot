@@ -67,6 +67,9 @@ export default function WorkspacesPage() {
   const [selected, setSelected] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [savingRename, setSavingRename] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createPlan, setCreatePlan] = useState('free');
@@ -147,6 +150,8 @@ export default function WorkspacesPage() {
                 onManage={(row) => {
                   setSelected(row);
                   setRenameValue(row?.name || '');
+                  setInviteEmail('');
+                  setInviteRole('member');
                 }}
               />
             ))}
@@ -203,6 +208,47 @@ export default function WorkspacesPage() {
                 />
                 <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                   Member management and invitations are coming soon.
+                </div>
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-4 text-sm text-gray-600 dark:text-gray-300 space-y-3">
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Invite to workspace</div>
+                  <input
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Email address"
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-100"
+                  />
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-100"
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={inviteLoading}
+                    onClick={async () => {
+                      if (!selected) return;
+                      const email = String(inviteEmail || '').trim();
+                      if (!email) return;
+                      setInviteLoading(true);
+                      try {
+                        await apiPost(`/api/workspaces/${selected.workspace_id}/invite`, {
+                          email,
+                          role: inviteRole
+                        });
+                        setInviteEmail('');
+                      } catch {
+                        // Non-blocking
+                      } finally {
+                        setInviteLoading(false);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white disabled:opacity-60"
+                  >
+                    {inviteLoading ? 'Sending...' : 'Send Invite'}
+                  </button>
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">

@@ -2042,9 +2042,14 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    const userRow = userData || { team_id: null, role: (req as ApiRequest).user?.role || null };
+    if (!userData) {
+      console.warn('[GET /api/leads] Missing public.users row, falling back to auth role');
+    }
+
     let teamSharing = DEFAULT_TEAM_SETTINGS;
-    if (userData.team_id) {
-      teamSharing = await fetchTeamSettingsForTeam(userData.team_id);
+    if (userRow.team_id) {
+      teamSharing = await fetchTeamSettingsForTeam(userRow.team_id);
     }
     const shareLeadsEnabled = !!teamSharing.share_leads;
     const allowTeamEditing = shareLeadsEnabled && !!teamSharing.allow_team_editing;
@@ -2053,19 +2058,26 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     let query = scoped(req, 'leads')
       .select('*');
 
-    const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
+    const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userRow.role);
     const adminViewPool = isAdmin && teamSharing.team_admin_view_pool;
     
     let teamUserIds: string[] = [];
-    if (userData.team_id) {
-      const { data: teamUsers } = await supabase
-        .from('users')
-        .select('id')
-        .eq('team_id', userData.team_id);
-      teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+    if (userRow.team_id) {
+      try {
+        const { data: teamUsers, error: teamUsersError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('team_id', userRow.team_id);
+        if (teamUsersError) {
+          console.warn('[GET /api/leads] Failed to fetch team users:', teamUsersError);
+        }
+        teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+      } catch (teamUsersError) {
+        console.warn('[GET /api/leads] Failed to fetch team users (exception):', teamUsersError);
+      }
     }
 
-    if (userData.team_id && teamUserIds.length > 0) {
+    if (userRow.team_id && teamUserIds.length > 0) {
       const otherTeamMembers = teamUserIds.filter(id => id !== userId);
       if (isAdmin) {
         if (adminViewPool) {
@@ -2107,7 +2119,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     const decorated = (leads || []).map((lead: any) => {
       const sharedFromTeamMate =
-        !!userData.team_id &&
+        !!userRow.team_id &&
         lead.user_id &&
         lead.user_id !== userId &&
         teamUserIds.includes(lead.user_id);
@@ -2127,7 +2139,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     res.json(decorated);
   } catch (error) {
     console.error('Error fetching leads:', error);
-    res.status(500).json({ error: 'Failed to fetch leads' });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: 'Failed to fetch leads', details: message });
   }
 });
 
