@@ -10,6 +10,9 @@ export default function ProfileDropdown({ avatarUrl }) {
   const menuRef = useRef(null);
 
   const workspaceName = activeWorkspace?.name || 'Workspace';
+  const workspaceRole = activeWorkspace?.role
+    ? String(activeWorkspace.role).replace(/_/g, ' ')
+    : null;
 
   useEffect(() => {
     if (!open) return;
@@ -76,8 +79,13 @@ export default function ProfileDropdown({ avatarUrl }) {
               <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 Current Workspace
               </div>
-              <div className="mt-1 text-sm text-gray-800 dark:text-gray-100">
-                Workspace: {workspaceName}
+              <div className="mt-1 flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
+                <span>Workspace: {workspaceName}</span>
+                {workspaceRole && (
+                  <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:text-gray-300">
+                    {workspaceRole}
+                  </span>
+                )}
               </div>
             </div>
             <div className="px-3 pb-3">

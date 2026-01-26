@@ -14,7 +14,7 @@ function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <span className="rounded-full bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
-              {workspacePlanLabel(workspace.plan)}
+              {workspacePlanLabel(workspace.plan, workspace.role)}
             </span>
             {workspace.role && (
               <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -170,7 +170,7 @@ export default function WorkspacesPage() {
                     {selected.name || 'Workspace'}
                   </div>
                   <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {workspacePlanLabel(selected.plan)} • Seats: {selected.seat_count ?? '—'}
+                    {workspacePlanLabel(selected.plan, selected.role)} • Seats: {selected.seat_count ?? '—'}
                   </div>
                 </div>
                 <button

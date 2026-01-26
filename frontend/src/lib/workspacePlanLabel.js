@@ -1,5 +1,7 @@
-export function workspacePlanLabel(plan) {
+export function workspacePlanLabel(plan, role) {
   const value = String(plan || '').toLowerCase();
+  const roleValue = String(role || '').toLowerCase();
+  if (roleValue === 'team_admin' || roleValue === 'teamadmin') return 'Team Admin';
   if (value === 'free') return 'Free';
   if (value === 'starter') return 'Starter';
   if (value === 'member') return 'Starter';

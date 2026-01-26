@@ -10,6 +10,8 @@ type WorkspaceRow = {
   name?: string | null;
   plan?: string | null;
   seat_count?: number | null;
+  role?: string | null;
+  status?: string | null;
 };
 
 export function useWorkspaceBootstrap(role?: string | null) {
