@@ -14,7 +14,7 @@ function isJobSeekerRole(role: any): boolean {
   return r.startsWith('job_seeker');
 }
 
-router.use(requireAuth as any, activeWorkspace as any);
+router.use(requireAuth as any);
 
 // GET /api/workspaces/mine
 router.get('/mine', async (req: Request, res: Response) => {
@@ -183,7 +183,7 @@ router.get('/mine', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/workspaces/:id  { name }
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', activeWorkspace as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -221,7 +221,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/workspaces/checkout { name, plan, interval, success_url, cancel_url }
-router.post('/checkout', async (req: Request, res: Response) => {
+router.post('/checkout', activeWorkspace as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     const role = (req as any)?.user?.role;
@@ -269,7 +269,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 });
 
 // POST /api/workspaces  { name, plan }
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', activeWorkspace as any, async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     const role = (req as any)?.user?.role;
