@@ -18,29 +18,32 @@ router.get('/mine', async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     const role = (req as any)?.user?.role;
+    res.set('Cache-Control', 'no-store');
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     if (isJobSeekerRole(role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
 
     const normalizeRole = (value: any) => String(value || '').toLowerCase().replace(/[\s-]/g, '_');
+    const isPlaceholderRole = (value: string) =>
+      !value || value === 'guest' || value === 'free' || value === 'authenticated';
     let resolvedAuthRole = normalizeRole(role);
-    if (!resolvedAuthRole || resolvedAuthRole === 'guest' || resolvedAuthRole === 'free') {
+    if (isPlaceholderRole(resolvedAuthRole)) {
       try {
         const { data: userRow } = await supabase
           .from('users')
           .select('role, account_type')
           .eq('id', userId)
           .maybeSingle();
-        const candidate = (userRow as any)?.account_type || (userRow as any)?.role || null;
+        const candidate = (userRow as any)?.role || (userRow as any)?.account_type || null;
         if (candidate) resolvedAuthRole = normalizeRole(candidate);
       } catch {}
     }
-    if (!resolvedAuthRole || resolvedAuthRole === 'guest' || resolvedAuthRole === 'free') {
+    if (isPlaceholderRole(resolvedAuthRole)) {
       try {
         const { data } = await supabase.auth.admin.getUserById(userId);
         const authUser: any = data?.user || {};
         const meta = (authUser?.user_metadata || {}) as any;
         const app = (authUser?.app_metadata || {}) as any;
-        const candidate = meta?.account_type || meta?.user_type || app?.role || null;
+        const candidate = meta?.account_type || meta?.user_type || meta?.role || app?.role || null;
         if (candidate) resolvedAuthRole = normalizeRole(candidate);
       } catch {}
     }
@@ -62,6 +65,10 @@ router.get('/mine', async (req: Request, res: Response) => {
       teamId = ctx.teamId ? String(ctx.teamId) : null;
       teamRole = ctx.role ? String(ctx.role) : null;
     } catch {}
+    if (!teamId) {
+      const reqTeamId = (req as any)?.user?.team_id || null;
+      teamId = reqTeamId ? String(reqTeamId) : null;
+    }
     const normalizedAuthRole = resolvedAuthRole || normalizeRole(role);
     const normalizedTeamRole = normalizeRole(teamRole || resolvedAuthRole || role);
     const isTeamAdmin = normalizedTeamRole === 'team_admin' || normalizedTeamRole === 'teamadmin';
@@ -72,8 +79,24 @@ router.get('/mine', async (req: Request, res: Response) => {
     }
 
     let teamSeatCount: number | null = null;
+    let teamPlanTier: string | null = null;
     if (isTeamAdmin && teamId) {
       try {
+        // Prefer teams table for plan + seat counts
+        try {
+          const { data: teamRow } = await supabase
+            .from('teams')
+            .select('plan_tier, seat_count, included_seats')
+            .eq('id', teamId)
+            .maybeSingle();
+          teamPlanTier = (teamRow as any)?.plan_tier ? String((teamRow as any).plan_tier) : null;
+          const teamSeats =
+            Number((teamRow as any)?.seat_count ?? 0) ||
+            Number((teamRow as any)?.included_seats ?? 0) ||
+            0;
+          if (teamSeats > 0) teamSeatCount = teamSeats;
+        } catch {}
+
         // Prefer team_members if available; fallback to users.team_id
         let memberIds: string[] = [];
         const { data: teamMembers, error: tmErr } = await supabase
@@ -97,7 +120,11 @@ router.get('/mine', async (req: Request, res: Response) => {
           memberIds = members.map((m: any) => String(m.id));
         }
 
-        teamSeatCount = Math.max(5, memberIds.length || 0);
+        if (!teamSeatCount) {
+          teamSeatCount = Math.max(5, memberIds.length || 0);
+        } else if (teamSeatCount && memberIds.length) {
+          teamSeatCount = Math.max(teamSeatCount, memberIds.length);
+        }
 
         if (teamWorkspaceId) {
           const rows = memberIds
@@ -114,7 +141,7 @@ router.get('/mine', async (req: Request, res: Response) => {
           }
           await supabase
             .from('workspaces')
-            .update({ plan: 'team', seat_count: teamSeatCount })
+            .update({ plan: teamPlanTier || 'team', seat_count: teamSeatCount })
             .eq('id', teamWorkspaceId);
         }
       } catch {}
@@ -131,7 +158,7 @@ router.get('/mine', async (req: Request, res: Response) => {
         : (normalizedAuthRole === 'super_admin' || normalizedAuthRole === 'admin')
           ? normalizedAuthRole
           : memberRole || normalizedAuthRole || null;
-      const displayPlan = isTeamWorkspace ? 'team' : basePlan;
+      const displayPlan = isTeamWorkspace ? (teamPlanTier || 'team') : basePlan;
       const displaySeat = isTeamWorkspace && teamSeatCount ? teamSeatCount : baseSeat;
       return {
         workspace_id: workspaceId,
