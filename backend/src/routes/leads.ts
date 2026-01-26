@@ -1309,8 +1309,10 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 
     let updatedLead: any = null;
     if (entityType === 'lead') {
-      const { data, error: updateError } = await scoped(req, 'leads')
-        .update(updateData)
+      const { data, error: updateError } = await applyWorkspaceScope(
+        supabase.from('leads').update(updateData),
+        { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
+      )
         .eq('id', targetId)
         .select()
         .maybeSingle();
@@ -1332,8 +1334,10 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       if (updateData.phone !== undefined) candidateUpdate.phone = updateData.phone;
       if (updateData.title !== undefined) candidateUpdate.title = updateData.title;
 
-      const { data, error: updateError } = await scoped(req, 'candidates')
-        .update(candidateUpdate)
+      const { data, error: updateError } = await applyWorkspaceScope(
+        supabase.from('candidates').update(candidateUpdate),
+        { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
+      )
         .eq('id', targetId)
         .select('*')
         .maybeSingle();
