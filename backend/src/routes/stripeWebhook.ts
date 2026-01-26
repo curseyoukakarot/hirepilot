@@ -109,6 +109,43 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     }
   }
 
+  async function ensureWorkspaceFromCheckout(meta: any) {
+    try {
+      const workspaceId = meta?.workspace_id ? String(meta.workspace_id) : '';
+      const ownerId = meta?.workspace_owner ? String(meta.workspace_owner) : '';
+      if (!workspaceId || !ownerId) return;
+
+      const { data: existing } = await supabaseAdmin
+        .from('workspaces')
+        .select('id')
+        .eq('id', workspaceId)
+        .maybeSingle();
+      if (existing?.id) return;
+
+      const planRaw = String(meta?.workspace_plan || 'starter').toLowerCase();
+      const nameRaw = String(meta?.workspace_name || 'Workspace').trim() || 'Workspace';
+      const seatCount = planRaw === 'team' ? 5 : 1;
+
+      await supabaseAdmin
+        .from('workspaces')
+        .insert({
+          id: workspaceId,
+          name: nameRaw,
+          type: 'recruiter',
+          plan: planRaw,
+          seat_count: seatCount,
+          created_by: ownerId
+        } as any);
+
+      await supabaseAdmin.from('workspace_members').upsert(
+        [{ workspace_id: workspaceId, user_id: ownerId, role: 'owner', status: 'active' }],
+        { onConflict: 'workspace_id,user_id' } as any
+      );
+    } catch (e) {
+      console.error('[stripe webhook] ensureWorkspaceFromCheckout error', e);
+    }
+  }
+
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as any;
@@ -118,14 +155,18 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
 
       const referralId = await upsertReferralFromMeta(meta, customerId);
 
-      // Map paid checkout to role/plan
-      try {
-        const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
-        if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
-          await upsertJobSeekerCredits(result.userId, result.nextRole);
+      if (meta?.workspace_id) {
+        await ensureWorkspaceFromCheckout(meta);
+      } else {
+        // Map paid checkout to role/plan
+        try {
+          const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+          if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
+            await upsertJobSeekerCredits(result.userId, result.nextRole);
+          }
+        } catch (e) {
+          console.error('[stripe webhook] setUserRoleFromStripe error (checkout.session.completed)', e);
         }
-      } catch (e) {
-        console.error('[stripe webhook] setUserRoleFromStripe error (checkout.session.completed)', e);
       }
 
       // DIY one-time bounty (if purchase contains DIY price)
@@ -157,14 +198,16 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
 
       const referralId = await upsertReferralFromMeta(meta, customerId);
 
-      // Map recurring invoice to role/plan
-      try {
-        const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
-        if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
-          await upsertJobSeekerCredits(result.userId, result.nextRole);
+      if (!meta?.workspace_id) {
+        // Map recurring invoice to role/plan
+        try {
+          const result = await setUserRoleFromStripe(customerId, priceId, meta?.plan_type);
+          if (result?.userId && typeof result?.nextRole === 'string' && result.nextRole.startsWith('job_seeker_')) {
+            await upsertJobSeekerCredits(result.userId, result.nextRole);
+          }
+        } catch (e) {
+          console.error('[stripe webhook] setUserRoleFromStripe error (invoice.paid)', e);
         }
-      } catch (e) {
-        console.error('[stripe webhook] setUserRoleFromStripe error (invoice.paid)', e);
       }
 
       // DFY recurring commission (10%, up to 6 months)

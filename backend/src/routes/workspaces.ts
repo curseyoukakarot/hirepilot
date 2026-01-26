@@ -1,8 +1,11 @@
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
 import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace, { getUserWorkspaces } from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { getUserTeamContextDb } from '../lib/userTeamContext';
+import { stripe } from '../services/stripe';
+import { PRICING_CONFIG } from '../config/pricing';
 
 const router = express.Router();
 
@@ -212,6 +215,93 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ workspace: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+// POST /api/workspaces/checkout { name, plan, interval, success_url, cancel_url }
+router.post('/checkout', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    const role = (req as any)?.user?.role;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (isJobSeekerRole(role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const nameRaw = String((req.body as any)?.name || '').trim();
+    const planRaw = String((req.body as any)?.plan || '').trim().toLowerCase();
+    const intervalRaw = String((req.body as any)?.interval || 'monthly').trim().toLowerCase();
+    if (!nameRaw || nameRaw.length < 2) return res.status(400).json({ error: 'invalid_name' });
+    if (!['starter', 'team'].includes(planRaw)) return res.status(400).json({ error: 'invalid_plan' });
+    if (!['monthly', 'annual'].includes(intervalRaw)) return res.status(400).json({ error: 'invalid_interval' });
+
+    const priceId = (PRICING_CONFIG as any)?.[planRaw]?.priceIds?.[intervalRaw] || '';
+    if (!priceId) return res.status(400).json({ error: 'missing_price_id' });
+
+    const successUrl = String((req.body as any)?.success_url || '').trim() ||
+      `${process.env.APP_BASE_URL || 'https://app.thehirepilot.com'}/workspaces`;
+    const cancelUrl = String((req.body as any)?.cancel_url || '').trim() ||
+      `${process.env.APP_BASE_URL || 'https://app.thehirepilot.com'}/workspaces`;
+
+    const workspaceId = crypto.randomUUID();
+    const metadata: Record<string, string> = {
+      workspace_id: workspaceId,
+      workspace_name: nameRaw,
+      workspace_plan: planRaw,
+      workspace_owner: userId
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      allow_promotion_codes: true,
+      metadata,
+      subscription_data: { metadata },
+      client_reference_id: userId,
+    });
+
+    return res.json({ id: session.id, url: session.url, workspace_id: workspaceId });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed' });
+  }
+});
+
+// POST /api/workspaces  { name, plan }
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    const role = (req as any)?.user?.role;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (isJobSeekerRole(role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+
+    const nameRaw = String((req.body as any)?.name || '').trim();
+    const planRaw = String((req.body as any)?.plan || 'free').trim().toLowerCase();
+    if (!nameRaw || nameRaw.length < 2) return res.status(400).json({ error: 'invalid_name' });
+    if (!['free'].includes(planRaw)) return res.status(400).json({ error: 'plan_not_supported' });
+
+    const seatCount = planRaw === 'team' ? 5 : 1;
+    const { data: workspace, error: wsErr } = await supabase
+      .from('workspaces')
+      .insert({
+        name: nameRaw,
+        type: 'recruiter',
+        plan: planRaw,
+        seat_count: seatCount,
+        created_by: userId
+      })
+      .select('*')
+      .maybeSingle();
+    if (wsErr) return res.status(500).json({ error: wsErr.message });
+    if (!workspace?.id) return res.status(500).json({ error: 'workspace_create_failed' });
+
+    await supabase.from('workspace_members').upsert(
+      [{ workspace_id: workspace.id, user_id: userId, role: 'owner', status: 'active' }],
+      { onConflict: 'workspace_id,user_id' } as any
+    );
+
+    return res.json({ workspace });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed' });
   }

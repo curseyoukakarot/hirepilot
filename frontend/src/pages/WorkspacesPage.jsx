@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiGet, apiPatch } from '../lib/api';
+import { apiGet, apiPatch, apiPost } from '../lib/api';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { workspacePlanLabel } from '../lib/workspacePlanLabel';
 
@@ -67,6 +67,10 @@ export default function WorkspacesPage() {
   const [selected, setSelected] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [savingRename, setSavingRename] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPlan, setCreatePlan] = useState('free');
+  const [createLoading, setCreateLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -116,10 +120,10 @@ export default function WorkspacesPage() {
             )}
             <button
               type="button"
-              disabled
-              className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 text-sm cursor-not-allowed"
+              onClick={() => setCreateOpen(true)}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition"
             >
-              Create Workspace (Coming soon)
+              Create Workspace
             </button>
           </div>
         </div>
@@ -238,6 +242,134 @@ export default function WorkspacesPage() {
                   className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition"
                 >
                   Done
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {createOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+            onClick={() => setCreateOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Create Workspace
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    New workspaces are separate billing boundaries.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Workspace name
+                  </label>
+                  <input
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="Workspace name"
+                    className="mt-2 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Plan
+                  </label>
+                  <div className="mt-2 grid gap-2">
+                    {[
+                      { id: 'free', name: 'Free', description: 'Basic usage, no payment required.' },
+                      { id: 'starter', name: 'Starter', description: 'Paid plan for more credits and features.' },
+                      { id: 'team', name: 'Team', description: 'Team plan with seats and pooled credits.' }
+                    ].map((plan) => (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setCreatePlan(plan.id)}
+                        className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
+                          createPlan === plan.id
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'
+                            : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                        }`}
+                      >
+                        <div className="font-semibold">{plan.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{plan.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={createLoading}
+                  onClick={async () => {
+                    const trimmed = String(createName || '').trim();
+                    if (!trimmed) return;
+                    setCreateLoading(true);
+                    try {
+                      if (createPlan === 'free') {
+                        const resp = await apiPost('/api/workspaces', { name: trimmed, plan: 'free' });
+                        const created = resp?.workspace;
+                        await refreshWorkspaces();
+                        if (created?.id) {
+                          setActiveWorkspace(created.id);
+                        }
+                        setCreateOpen(false);
+                      } else {
+                        const resp = await apiPost('/api/workspaces/checkout', {
+                          name: trimmed,
+                          plan: createPlan,
+                          interval: 'monthly',
+                          success_url: `${window.location.origin}/workspaces`,
+                          cancel_url: window.location.href
+                        });
+                        if (resp?.url) {
+                          window.location.assign(resp.url);
+                        }
+                      }
+                    } catch {
+                      // Non-blocking
+                    } finally {
+                      setCreateLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition disabled:opacity-60"
+                >
+                  {createLoading ? 'Working...' : createPlan === 'free' ? 'Create Workspace' : 'Continue to Checkout'}
                 </button>
               </div>
             </motion.div>
