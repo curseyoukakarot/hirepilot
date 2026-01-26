@@ -167,10 +167,9 @@ async function resolveLeadOrCandidateEntity(
   let targetId: string = leadId;
 
   const { data: leadData } = await applyWorkspaceScope(
-    supabase.from('leads'),
+    supabase.from('leads').select('*'),
     { workspaceId, userId, ownerColumn: 'user_id' }
   )
-    .select('*')
     .eq('id', leadId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -178,10 +177,9 @@ async function resolveLeadOrCandidateEntity(
 
   if (!lead) {
     const { data: candidate } = await applyWorkspaceScope(
-      supabase.from('candidates'),
+      supabase.from('candidates').select('*'),
       { workspaceId, userId, ownerColumn: 'user_id' }
     )
-      .select('*')
       .eq('id', leadId)
       .maybeSingle();
 
@@ -206,10 +204,9 @@ async function resolveLeadOrCandidateEntity(
       targetId = candidate.id;
     } else {
       const { data: candidateByLead } = await applyWorkspaceScope(
-        supabase.from('candidates'),
+        supabase.from('candidates').select('*'),
         { workspaceId, userId, ownerColumn: 'user_id' }
       )
-        .select('*')
         .eq('lead_id', leadId)
         .maybeSingle();
 
@@ -234,10 +231,9 @@ async function resolveLeadOrCandidateEntity(
         targetId = candidateByLead.id;
       } else {
         const { data: leadAny } = await applyWorkspaceScope(
-          supabase.from('leads'),
+          supabase.from('leads').select('*, user_id'),
           { workspaceId, userId, ownerColumn: 'user_id' }
         )
-          .select('*, user_id')
           .eq('id', leadId)
           .maybeSingle();
 
@@ -257,10 +253,9 @@ async function resolveLeadOrCandidateEntity(
 
         if (!lead) {
           const { data: candAny } = await applyWorkspaceScope(
-            supabase.from('candidates'),
+            supabase.from('candidates').select('*'),
             { workspaceId, userId, ownerColumn: 'user_id' }
           )
-            .select('*')
             .or(`id.eq.${leadId},lead_id.eq.${leadId}`)
             .maybeSingle();
 
@@ -2608,8 +2603,10 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     }
 
     // Fetch the lead first
-    const { data: lead, error: leadErr } = await scoped(req, 'leads')
-      .select('*, user_id')
+    const { data: lead, error: leadErr } = await applyWorkspaceScope(
+      supabase.from('leads').select('*, user_id'),
+      { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
+    )
       .eq('id', id)
       .single();
 
@@ -2634,8 +2631,10 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
 
       let hasCandidateAccess = false;
       if (!privilegedSameTeam && !shareViewAllowed) {
-        const { data: candidate } = await scoped(req, 'candidates')
-          .select('id')
+        const { data: candidate } = await applyWorkspaceScope(
+          supabase.from('candidates').select('id'),
+          { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
+        )
           .eq('lead_id', id)
           .eq('user_id', userId)
           .single();
