@@ -5,7 +5,7 @@ import activeWorkspace, { getUserWorkspaces } from '../middleware/activeWorkspac
 import { supabase } from '../lib/supabase';
 import { getUserTeamContextDb } from '../lib/userTeamContext';
 import { stripe } from '../services/stripe';
-import { PRICING_CONFIG } from '../config/pricing';
+import { PRICING_CONFIG } from '../../config/pricing';
 
 const router = express.Router();
 
