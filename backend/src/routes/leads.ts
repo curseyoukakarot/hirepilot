@@ -6,12 +6,14 @@ import { enrichWithApollo } from '../services/apollo/enrichLead';
 import { scrapeLinkedInProfile, BrightDataProfile } from '../services/brightdataClient';
 import { analyzeProfile } from '../services/gpt/analyzeProfile';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { searchAndEnrichPeople } from '../../utils/apolloApi';
 import { ApiRequest } from '../../types/api';
 import { EmailEventService } from '../../services/emailEventService';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { CreditService } from '../../services/creditService';
 import { emitZapEvent, ZAP_EVENT_TYPES, createLeadEventData } from '../../lib/zapEventEmitter';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 import axios from 'axios';
 import decodoRouter from './leads/decodo/salesNavigatorScraper';
 import enrichmentRouter from './leads/decodo/enrichLeadProfile';
@@ -28,6 +30,22 @@ import { getUserTeamContextDb } from '../lib/userTeamContext';
 import { sendGtmStrategyAccessEmail } from '../lib/emails/gtmStrategyAccessEmail';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
+const scopedNoOwner = (req: Request, table: string) => {
+  const base: any = supabase.from(table);
+  const workspaceId = (req as any).workspaceId;
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
 
 function summarizeSupabaseError(error: any): string {
   if (!error) return 'Unknown Supabase error';
@@ -139,13 +157,19 @@ async function resolveLeadSharingContext(viewerId: string, ownerId: string) {
   return { viewer, owner, sameTeam, teamSettings, privileged };
 }
 
-async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Promise<LeadResolutionResult | null> {
+async function resolveLeadOrCandidateEntity(
+  leadId: string,
+  userId: string,
+  workspaceId?: string | null
+): Promise<LeadResolutionResult | null> {
   let entityType: LeadEntityType = 'lead';
   let lead: any = null;
   let targetId: string = leadId;
 
-  const { data: leadData } = await supabase
-    .from('leads')
+  const { data: leadData } = await applyWorkspaceScope(
+    supabase.from('leads'),
+    { workspaceId, userId, ownerColumn: 'user_id' }
+  )
     .select('*')
     .eq('id', leadId)
     .eq('user_id', userId)
@@ -153,8 +177,10 @@ async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Pro
   lead = leadData;
 
   if (!lead) {
-    const { data: candidate } = await supabase
-      .from('candidates')
+    const { data: candidate } = await applyWorkspaceScope(
+      supabase.from('candidates'),
+      { workspaceId, userId, ownerColumn: 'user_id' }
+    )
       .select('*')
       .eq('id', leadId)
       .maybeSingle();
@@ -179,8 +205,10 @@ async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Pro
       };
       targetId = candidate.id;
     } else {
-      const { data: candidateByLead } = await supabase
-        .from('candidates')
+      const { data: candidateByLead } = await applyWorkspaceScope(
+        supabase.from('candidates'),
+        { workspaceId, userId, ownerColumn: 'user_id' }
+      )
         .select('*')
         .eq('lead_id', leadId)
         .maybeSingle();
@@ -205,8 +233,10 @@ async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Pro
         };
         targetId = candidateByLead.id;
       } else {
-        const { data: leadAny } = await supabase
-          .from('leads')
+        const { data: leadAny } = await applyWorkspaceScope(
+          supabase.from('leads'),
+          { workspaceId, userId, ownerColumn: 'user_id' }
+        )
           .select('*, user_id')
           .eq('id', leadId)
           .maybeSingle();
@@ -226,8 +256,10 @@ async function resolveLeadOrCandidateEntity(leadId: string, userId: string): Pro
         }
 
         if (!lead) {
-          const { data: candAny } = await supabase
-            .from('candidates')
+          const { data: candAny } = await applyWorkspaceScope(
+            supabase.from('candidates'),
+            { workspaceId, userId, ownerColumn: 'user_id' }
+          )
             .select('*')
             .or(`id.eq.${leadId},lead_id.eq.${leadId}`)
             .maybeSingle();
@@ -860,7 +892,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       });
     }
 
-    const resolved = await resolveLeadOrCandidateEntity(leadId, userId);
+    const resolved = await resolveLeadOrCandidateEntity(leadId, userId, (req as any).workspaceId);
     if (!resolved) {
       return res.status(404).json({
         success: false,
@@ -1282,8 +1314,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
 
     let updatedLead: any = null;
     if (entityType === 'lead') {
-      const { data, error: updateError } = await supabase
-        .from('leads')
+      const { data, error: updateError } = await scoped(req, 'leads')
         .update(updateData)
         .eq('id', targetId)
         .select()
@@ -1306,8 +1337,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
       if (updateData.phone !== undefined) candidateUpdate.phone = updateData.phone;
       if (updateData.title !== undefined) candidateUpdate.title = updateData.title;
 
-      const { data, error: updateError } = await supabase
-        .from('candidates')
+      const { data, error: updateError } = await scoped(req, 'candidates')
         .update(candidateUpdate)
         .eq('id', targetId)
         .select('*')
@@ -1382,8 +1412,7 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
     }
 
     // Fetch lead
-    const { data: lead, error: leadErr } = await supabase
-      .from('leads')
+    const { data: lead, error: leadErr } = await scoped(req, 'leads')
       .select('*')
       .eq('id', leadId)
       .maybeSingle();
@@ -1409,8 +1438,7 @@ router.post('/:id/unlock-enhanced', requireAuth, async (req: ApiRequest, res: Re
     await CreditService.deductCredits(userId, 1, 'api_usage', 'Enhanced enrichment toggle');
 
     // Update lead flag
-    const { data: updatedLead, error: updErr } = await supabase
-      .from('leads')
+    const { data: updatedLead, error: updErr } = await scoped(req, 'leads')
       .update({
         has_enhanced_enrichment: true,
         enhanced_insights_unlocked: true,
@@ -1457,7 +1485,7 @@ router.post('/:id/enhanced-insights', requireAuth, async (req: ApiRequest, res: 
       return;
     }
 
-    const resolved = await resolveLeadOrCandidateEntity(leadId, userId);
+    const resolved = await resolveLeadOrCandidateEntity(leadId, userId, (req as any).workspaceId);
     if (!resolved) {
       res.status(404).json({ success: false, message: 'Lead not found or access denied' });
       return;
@@ -1560,8 +1588,7 @@ router.post('/candidates/bulk-status', requireAuth, async (req: ApiRequest, res:
     if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'Missing ids' }); return; }
     if (!ALLOWED_STATUS.includes(status)) { res.status(400).json({ error: 'Invalid status' }); return; }
 
-    const { error } = await supabase
-      .from('candidates')
+    const { error } = await scoped(req, 'candidates')
       .update({ status })
       .in('id', ids)
       .eq('user_id', userId);
@@ -1604,16 +1631,14 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
         .select('id')
         .eq('team_id', myTeamId);
       const teamUserIds = (teamUsers || []).map((u: any) => u.id);
-      const { data: teamOwned } = await supabase
-        .from('candidates')
+      const { data: teamOwned } = await scoped(req, 'candidates')
         .select('id')
         .in('id', ids)
         .in('user_id', [...teamUserIds, userId]);
       allowedIds = (teamOwned || []).map((r: any) => r.id);
     } else {
       // Regular members can delete only their own candidates
-      const { data: owned } = await supabase
-        .from('candidates')
+      const { data: owned } = await scoped(req, 'candidates')
         .select('id')
         .in('id', ids)
         .eq('user_id', userId);
@@ -1630,8 +1655,7 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
     // 1) Delete candidate_jobs in chunks
     for (let i = 0; i < allowedIds.length; i += chunkSize) {
       const chunk = allowedIds.slice(i, i + chunkSize);
-      const { error: cjErr } = await supabase
-        .from('candidate_jobs')
+      const { error: cjErr } = await scopedNoOwner(req, 'candidate_jobs')
         .delete()
         .in('candidate_id', chunk);
       if (cjErr) {
@@ -1643,8 +1667,7 @@ router.post('/candidates/bulk-delete', requireAuth, async (req: ApiRequest, res:
     // 2) Delete candidates in chunks, collect deleted ids
     for (let i = 0; i < allowedIds.length; i += chunkSize) {
       const chunk = allowedIds.slice(i, i + chunkSize);
-      const { data: delRows, error: delErr } = await supabase
-        .from('candidates')
+      const { data: delRows, error: delErr } = await scoped(req, 'candidates')
         .delete()
         .in('id', chunk)
         .select('id');
@@ -1699,8 +1722,7 @@ router.get('/candidates', requireAuth, async (req: Request, res: Response) => {
     const shareCandidatesEnabled = !!teamSharing.share_candidates;
 
     // Build query based on user role
-    let query = supabase
-      .from('candidates')
+    let query = scoped(req, 'candidates')
       .select('*');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
@@ -1792,8 +1814,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
 
     // If a real email is provided, proactively check for duplicates to return a clear message
     if (providedEmail) {
-      const { data: existingAny } = await supabase
-        .from('candidates')
+      const { data: existingAny } = await scoped(req, 'candidates')
         .select('id,user_id')
         .eq('email', providedEmail)
         .maybeSingle();
@@ -1819,8 +1840,7 @@ router.post('/candidates', requireAuth, async (req: ApiRequest, res: Response) =
       notes: null
     };
 
-    const { data, error } = await supabase
-      .from('candidates')
+    const { data, error } = await scoped(req, 'candidates')
       .insert(insertRow)
       .select('*')
       .single();
@@ -1866,8 +1886,7 @@ router.post('/candidates/:id/resume', requireAuth, async (req: ApiRequest, res: 
     if (!candidateId) { res.status(400).json({ error: 'Missing candidate id' }); return; }
 
     // Verify ownership
-    const { data: existing, error: ownErr } = await supabase
-      .from('candidates')
+    const { data: existing, error: ownErr } = await scoped(req, 'candidates')
       .select('id, user_id')
       .eq('id', candidateId)
       .maybeSingle();
@@ -1906,8 +1925,7 @@ router.post('/candidates/:id/resume', requireAuth, async (req: ApiRequest, res: 
       const publicUrl = pub?.publicUrl || null;
       if (!publicUrl) { res.status(500).json({ error: 'Failed to get public URL' }); return; }
 
-      const { data: updated, error: updErr } = await supabase
-        .from('candidates')
+      const { data: updated, error: updErr } = await scoped(req, 'candidates')
         .update({ resume_url: publicUrl, updated_at: new Date().toISOString() })
         .eq('id', candidateId)
         .eq('user_id', userId)
@@ -1933,8 +1951,7 @@ router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
 
-    const { data: existing, error: ownErr } = await supabase
-      .from('candidates')
+    const { data: existing, error: ownErr } = await scoped(req, 'candidates')
       .select('id, user_id')
       .eq('id', id)
       .single();
@@ -1953,8 +1970,7 @@ router.put('/candidates/:id', requireAuth, async (req: ApiRequest, res: Response
     if (phone !== undefined) update.phone = phone;
     if (notes !== undefined) update.notes = notes;
 
-    const { data, error } = await supabase
-      .from('candidates')
+    const { data, error } = await scoped(req, 'candidates')
       .update(update)
       .eq('id', id)
       .eq('user_id', userId)
@@ -1977,21 +1993,18 @@ router.delete('/candidates/:id', requireAuth, async (req: ApiRequest, res: Respo
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
 
-    const { data: existing, error: ownErr } = await supabase
-      .from('candidates')
+    const { data: existing, error: ownErr } = await scoped(req, 'candidates')
       .select('id, user_id')
       .eq('id', id)
       .single();
     if (ownErr || !existing || existing.user_id !== userId) { res.status(404).json({ error: 'Candidate not found' }); return; }
 
     // Remove job links first to avoid FK violations
-    await supabase
-      .from('candidate_jobs')
+    await scopedNoOwner(req, 'candidate_jobs')
       .delete()
       .eq('candidate_id', id);
 
-    const { error } = await supabase
-      .from('candidates')
+    const { error } = await scoped(req, 'candidates')
       .delete()
       .eq('id', id)
       .eq('user_id', userId);
@@ -2037,8 +2050,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const allowTeamEditing = shareLeadsEnabled && !!teamSharing.allow_team_editing;
 
     // Build query based on user role
-    let query = supabase
-      .from('leads')
+    let query = scoped(req, 'leads')
       .select('*');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userData.role);
@@ -2321,8 +2333,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     });
 
     // Insert leads into the database
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await scoped(req, 'leads')
       .insert(normalizedLeads)
       .select('*');
 
@@ -2351,13 +2362,11 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
     console.log('📊 Updating campaign totals for campaign:', campaignId);
     try {
       // Get total and enriched lead counts for this campaign
-      const { count: totalLeads, error: totalError } = await supabase
-        .from('leads')
+      const { count: totalLeads, error: totalError } = await scoped(req, 'leads')
         .select('id', { count: 'exact' })
         .eq('campaign_id', campaignId);
 
-      const { count: enrichedLeads, error: enrichedError } = await supabase
-        .from('leads')
+      const { count: enrichedLeads, error: enrichedError } = await scoped(req, 'leads')
         .select('id', { count: 'exact' })
         .eq('campaign_id', campaignId)
         .not('email', 'is', null)
@@ -2390,8 +2399,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
         campaignUpdate.source = source;
       }
 
-      const { error: campaignError } = await supabase
-        .from('campaigns')
+      const { error: campaignError } = await scoped(req, 'campaigns')
         .update(campaignUpdate)
         .eq('id', campaignId);
 
@@ -2524,8 +2532,7 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Insert leads into the database
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await scoped(req, 'leads')
       .insert(normalizedLeads)
       .select('*');
 
@@ -2586,8 +2593,7 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     }
 
     // Fetch the lead first
-    const { data: lead, error: leadErr } = await supabase
-      .from('leads')
+    const { data: lead, error: leadErr } = await scoped(req, 'leads')
       .select('*, user_id')
       .eq('id', id)
       .single();
@@ -2613,8 +2619,7 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
 
       let hasCandidateAccess = false;
       if (!privilegedSameTeam && !shareViewAllowed) {
-        const { data: candidate } = await supabase
-          .from('candidates')
+        const { data: candidate } = await scoped(req, 'candidates')
           .select('id')
           .eq('lead_id', id)
           .eq('user_id', userId)
@@ -2684,8 +2689,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
 
   try {
     // 1. Get the lead
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
+    const { data: lead, error: leadError } = await scoped(req, 'leads')
       .select('*')
       .eq('id', id)
       .single();
@@ -2720,8 +2724,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
     let candidateEmail = providedEmail && providedEmail.length > 0
       ? providedEmail
       : `unknown+${(user.id || '').slice(0,8)}+${Date.now()}@noemail.hirepilot`;
-    const { data: candidate, error: candidateError } = await supabase
-      .from('candidates')
+    const { data: candidate, error: candidateError } = await scoped(req, 'candidates')
       .insert({
         lead_id: lead.id,
         user_id: user.id,
@@ -2748,8 +2751,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
       // Handle duplicate email: retry once with a unique placeholder
       if ((candidateError as any)?.code === '23505') {
         const retryEmail = `unknown+${(user.id || '').slice(0,8)}+${Date.now()}-dup@noemail.hirepilot`;
-        const { data: candidate2, error: retryErr } = await supabase
-          .from('candidates')
+        const { data: candidate2, error: retryErr } = await scoped(req, 'candidates')
           .insert({
             lead_id: lead.id,
             user_id: user.id,
@@ -2806,8 +2808,7 @@ router.post('/:id/convert', async (req: Request, res: Response) => {
     }
 
     // 4. Delete the lead
-    const { error: deleteError } = await supabase
-      .from('leads')
+    const { error: deleteError } = await scoped(req, 'leads')
       .delete()
       .eq('id', id);
 
@@ -2847,8 +2848,7 @@ router.delete('/', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { data: deletedRows, error } = await supabase
-      .from('leads')
+    const { data: deletedRows, error } = await scoped(req, 'leads')
       .delete()
       .in('id', ids)
       .eq('user_id', userId)
@@ -2880,8 +2880,7 @@ export const getLeads = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await scoped(req, 'leads')
       .select('*')
       .eq('user_id', req.user.id);
 
@@ -2904,8 +2903,7 @@ export const createLead = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await scoped(req, 'leads')
       .insert([{ ...req.body, user_id: req.user.id }])
       .select()
       .single();
@@ -2932,8 +2930,7 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     const { id } = req.params;
     
     // Get the original lead data for comparison
-    const { data: originalLead, error: fetchError } = await supabase
-      .from('leads')
+    const { data: originalLead, error: fetchError } = await scoped(req, 'leads')
       .select('*')
       .eq('id', id)
       .single();
@@ -2975,8 +2972,7 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     updatePayload.updated_at = new Date().toISOString();
 
     // Update the lead, handling unique email conflicts gracefully
-    let { data, error } = await supabase
-      .from('leads')
+    let { data, error } = await scoped(req, 'leads')
       .update(updatePayload)
       .eq('id', id)
       .select()
@@ -3028,8 +3024,7 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
 
     // Sync changes to the corresponding candidate record if it exists
     try {
-      const { data: candidate } = await supabase
-        .from('candidates')
+      const { data: candidate } = await scoped(req, 'candidates')
         .select('id')
         .eq('lead_id', id)
         .eq('user_id', originalLead.user_id)
@@ -3044,8 +3039,7 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
         
         // Only update candidate if there are fields to sync
         if (Object.keys(candidateUpdate).length > 0) {
-          await supabase
-            .from('candidates')
+          await scoped(req, 'candidates')
             .update(candidateUpdate)
             .eq('id', candidate.id)
             .eq('user_id', req.user.id);
@@ -3130,8 +3124,7 @@ export const deleteLead = async (req: ApiRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const { error } = await supabase
-      .from('leads')
+    const { error } = await scoped(req, 'leads')
       .delete()
       .eq('id', id)
       .eq('user_id', req.user.id);
@@ -3156,8 +3149,7 @@ export const getLeadById = async (req: ApiRequest, res: Response) => {
     }
 
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await scoped(req, 'leads')
       .select('*')
       .eq('id', id)
       .eq('user_id', req.user.id)
@@ -3214,8 +3206,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
     }
 
     // Verify that the user owns the campaign
-    const { data: campaign, error: campaignError } = await supabase
-      .from('campaigns')
+    const { data: campaign, error: campaignError } = await scoped(req, 'campaigns')
       .select('id, name, title')
       .eq('id', campaignId)
       .eq('user_id', userId)
@@ -3259,8 +3250,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       const chunk = ids.slice(i, i + OWNERSHIP_CHUNK);
       try {
         const { data: chunkRows } = await execWithRetry<any[]>(async () =>
-          await supabase
-            .from('leads')
+          await scoped(req, 'leads')
             .select('id')
             .in('id', chunk)
             .eq('user_id', userId)
@@ -3293,8 +3283,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       const chunk = ownedIds.slice(i, i + SANITIZE_CHUNK);
       try {
         await execWithRetry<null>(async () =>
-          await supabase
-            .from('leads')
+          await scoped(req, 'leads')
             .update({ linkedin_url: null })
             .in('id', chunk)
             .eq('user_id', userId)
@@ -3321,8 +3310,7 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
       const chunk = ownedIds.slice(i, i + UPDATE_CHUNK);
       try {
         await execWithRetry<null>(async () =>
-          await supabase
-            .from('leads')
+          await scoped(req, 'leads')
             .update({ campaign_id: campaignId, updated_at: nowIso })
             .in('id', chunk)
             .eq('user_id', userId)
@@ -3343,15 +3331,13 @@ router.post('/attach-to-campaign', requireAuth, async (req: ApiRequest, res: Res
 
     // If the campaign is currently in draft, flip it to active
     try {
-      const { data: c, error: fetchCampaignStatusErr } = await supabase
-        .from('campaigns')
+      const { data: c, error: fetchCampaignStatusErr } = await scoped(req, 'campaigns')
         .select('id, status')
         .eq('id', campaignId)
         .eq('user_id', userId)
         .single();
       if (!fetchCampaignStatusErr && c && (c as any).status === 'draft') {
-        const { error: setActiveErr } = await supabase
-          .from('campaigns')
+        const { error: setActiveErr } = await scoped(req, 'campaigns')
           .update({ status: 'active' })
           .eq('id', campaignId)
           .eq('user_id', userId);
@@ -3412,7 +3398,7 @@ async function handleLeadRemoteAction(req: ApiRequest, res: Response, action: Li
       });
     }
 
-    const lead = await fetchLeadForRemoteAction(userId, leadId);
+    const lead = await fetchLeadForRemoteAction(userId, leadId, (req as any).workspaceId);
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found or access denied' });
     }
@@ -3445,10 +3431,12 @@ async function handleLeadRemoteAction(req: ApiRequest, res: Response, action: Li
   }
 }
 
-async function fetchLeadForRemoteAction(userId: string, leadId: string) {
+async function fetchLeadForRemoteAction(userId: string, leadId: string, workspaceId?: string | null) {
   try {
-    const { data, error } = await supabase
-      .from('leads')
+    const { data, error } = await applyWorkspaceScope(
+      supabase.from('leads'),
+      { workspaceId, userId, ownerColumn: 'user_id' }
+    )
       .select('id, user_id, account_id, linkedin_url')
       .eq('id', leadId)
       .maybeSingle();

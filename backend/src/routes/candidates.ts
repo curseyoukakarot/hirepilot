@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 import { ApiRequest } from '../../types/api';
 import { supabase } from '../lib/supabase';
 import multer from 'multer';
@@ -11,13 +13,23 @@ import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { getSystemSettingBoolean } from '../utils/systemSettings';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
 
 const ALLOWED_STATUS = ['sourced','contacted','responded','interviewed','offered','hired','rejected'];
 
 // Verify ownership helper
-async function ensureCandidateOwnership(candidateId: string, userId: string) {
-  const { data, error } = await supabase
-    .from('candidates')
+async function ensureCandidateOwnership(candidateId: string, userId: string, workspaceId?: string | null) {
+  const { data, error } = await applyWorkspaceScope(
+    supabase.from('candidates'),
+    { workspaceId, userId, ownerColumn: 'user_id' }
+  )
     .select('id, user_id')
     .eq('id', candidateId)
     .single();
@@ -64,8 +76,10 @@ async function ensureCandidateOwnership(candidateId: string, userId: string) {
     
     if (candidateUser?.team_id === userData.team_id) {
       // Check if candidate is shared
-      const { data: candidate } = await supabase
-        .from('candidates')
+      const { data: candidate } = await applyWorkspaceScope(
+        supabase.from('candidates'),
+        { workspaceId, userId, ownerColumn: 'user_id' }
+      )
         .select('shared')
         .eq('id', candidateId)
         .single();
@@ -88,7 +102,7 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!id) return res.status(400).json({ error: 'Missing candidate id' });
 
-    const own = await ensureCandidateOwnership(id, userId);
+    const own = await ensureCandidateOwnership(id, userId, (req as any).workspaceId);
     if (!own.ok) return res.status(404).json({ error: own.error });
 
     const { status, first_name, last_name, email, phone, notes } = req.body || {};
@@ -105,8 +119,7 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     if (phone !== undefined) update.phone = phone;
     if (notes !== undefined) update.notes = notes;
 
-    const { data, error } = await supabase
-      .from('candidates')
+    const { data, error } = await scoped(req, 'candidates')
       .update(update)
       .eq('id', id)
       .eq('user_id', userId)
@@ -126,8 +139,7 @@ router.put('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
       // Only update lead if there are fields to sync
       if (Object.keys(leadUpdate).length > 0) {
         try {
-          await supabase
-            .from('leads')
+          await scoped(req, 'leads')
             .update(leadUpdate)
             .eq('id', data.lead_id)
             .eq('user_id', userId);
@@ -159,11 +171,10 @@ router.delete('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!id) return res.status(400).json({ error: 'Missing candidate id' });
 
-    const own = await ensureCandidateOwnership(id, userId);
+    const own = await ensureCandidateOwnership(id, userId, (req as any).workspaceId);
     if (!own.ok) return res.status(404).json({ error: own.error });
 
-    const { error } = await supabase
-      .from('candidates')
+    const { error } = await scoped(req, 'candidates')
       .delete()
       .eq('id', id)
       .eq('user_id', userId);
@@ -191,8 +202,7 @@ router.post('/bulk-status', requireAuth, async (req: ApiRequest, res: Response) 
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Missing ids' });
     if (!ALLOWED_STATUS.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
-    const { error } = await supabase
-      .from('candidates')
+    const { error } = await scoped(req, 'candidates')
       .update({ status })
       .in('id', ids)
       .eq('user_id', userId);
@@ -213,8 +223,7 @@ router.post('/bulk-delete', requireAuth, async (req: ApiRequest, res: Response) 
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Missing ids' });
 
-    const { error } = await supabase
-      .from('candidates')
+    const { error } = await scoped(req, 'candidates')
       .delete()
       .in('id', ids)
       .eq('user_id', userId);
@@ -236,7 +245,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!id) return res.status(400).json({ error: 'Missing candidate id' });
 
-    const own = await ensureCandidateOwnership(id, userId);
+    const own = await ensureCandidateOwnership(id, userId, (req as any).workspaceId);
     if (!own.ok) return res.status(404).json({ error: own.error });
 
     // If async requested: enqueue job and return quickly
@@ -247,8 +256,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // Get candidate data for enrichment (sync)
-    const { data: candidate, error: candidateError } = await supabase
-      .from('candidates')
+    const { data: candidate, error: candidateError } = await scoped(req, 'candidates')
       .select('*')
       .eq('id', id)
       .eq('user_id', userId)
@@ -285,8 +293,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     }
 
     // Update candidates table with enriched email
-    const { data, error } = await supabase
-      .from('candidates')
+    const { data, error } = await scoped(req, 'candidates')
       .update({ 
         email: enrichedEmail,
         enrichment_source: enrichmentSource,
@@ -302,8 +309,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     // Also sync to the corresponding lead record if it exists
     if (data.lead_id) {
       try {
-        await supabase
-          .from('leads')
+        await scoped(req, 'leads')
           .update({ 
             email: enrichedEmail,
             updated_at: new Date().toISOString()
@@ -437,14 +443,14 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
 
-    const own = await ensureCandidateOwnership(id, userId);
+    const own = await ensureCandidateOwnership(id, userId, (req as any).workspaceId);
     if (!own.ok) { res.status(404).json({ error: own.error }); return; }
 
     // Reuse existing enrichment providers (lead flow) via a light wrapper
     // Simple inline enrichment: reuse existing candidate enrichment worker logic when possible
     try {
       const skrappApolloFallbackEnabled = await getSystemSettingBoolean('skrapp_apollo_fallback_enabled', false);
-      const { data: cand } = await supabase.from('candidates').select('id, email, enrichment_data').eq('id', id).maybeSingle();
+      const { data: cand } = await scoped(req, 'candidates').select('id, email, enrichment_data').eq('id', id).maybeSingle();
       let email: string | null = null;
       const enr = (cand as any)?.enrichment_data || {};
       email =
@@ -454,7 +460,7 @@ router.post('/:id/enrich', requireAuth, async (req: ApiRequest, res: Response) =
         enr?.decodo?.email ||
         null;
       if (email) {
-        await supabase.from('candidates').update({ email }).eq('id', id);
+        await scoped(req, 'candidates').update({ email }).eq('id', id);
         res.json({ ok: true, email });
         return;
       }
@@ -473,11 +479,10 @@ router.get('/:id', requireAuth, async (req: ApiRequest, res: Response) => {
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     if (!id) { res.status(400).json({ error: 'Missing candidate id' }); return; }
 
-    const own = await ensureCandidateOwnership(id, userId);
+    const own = await ensureCandidateOwnership(id, userId, (req as any).workspaceId);
     if (!own.ok) { res.status(404).json({ error: own.error }); return; }
 
-    const { data: cand, error: cErr } = await supabase
-      .from('candidates')
+    const { data: cand, error: cErr } = await scoped(req, 'candidates')
       .select('*')
       .eq('id', id)
       .maybeSingle();

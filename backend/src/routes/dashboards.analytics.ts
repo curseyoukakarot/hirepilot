@@ -1,10 +1,20 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 import { computeFormula, Filter, SourceSpec, JoinSpec } from '../services/analytics/formulaEngine';
 import { runWidgetQuery, resolveColumn, type TableColumn, type WidgetQueryInput } from '../services/analytics/widgetQueryEngine';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
 
 // -------------------- Sharing helpers (recruiter-only) --------------------
 const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
@@ -70,16 +80,24 @@ function parseCollaborators(raw: any): Array<{ user_id: string; role: 'view' | '
   return out;
 }
 
-async function getDashboardById(id: string): Promise<{ id: string; user_id: string; layout: any; collaborators: any; updated_at: any } | null> {
+async function getDashboardById(
+  id: string,
+  workspaceId?: string | null,
+  userId?: string | null
+): Promise<{ id: string; user_id: string; layout: any; collaborators: any; updated_at: any } | null> {
   // collaborators may not exist in old envs; treat missing as empty list
-  const { data, error } = await supabase
-    .from('user_dashboards')
+  const base = workspaceId
+    ? applyWorkspaceScope(supabase.from('user_dashboards'), { workspaceId, userId, ownerColumn: 'user_id' })
+    : supabase.from('user_dashboards');
+  const { data, error } = await base
     .select('id,user_id,layout,updated_at,collaborators')
     .eq('id', id)
     .maybeSingle();
   if (error && String((error as any)?.code || '') === '42703') {
-    const { data: d2 } = await supabase
-      .from('user_dashboards')
+    const fallbackBase = workspaceId
+      ? applyWorkspaceScope(supabase.from('user_dashboards'), { workspaceId, userId, ownerColumn: 'user_id' })
+      : supabase.from('user_dashboards');
+    const { data: d2 } = await fallbackBase
       .select('id,user_id,layout,updated_at')
       .eq('id', id)
       .maybeSingle();
@@ -96,8 +114,13 @@ async function getDashboardById(id: string): Promise<{ id: string; user_id: stri
   };
 }
 
-async function upsertDashboardCollaborator(dashboardId: string, userId: string, role: 'view' | 'edit'): Promise<void> {
-  const dash = await getDashboardById(dashboardId);
+async function upsertDashboardCollaborator(
+  dashboardId: string,
+  userId: string,
+  role: 'view' | 'edit',
+  workspaceId?: string | null
+): Promise<void> {
+  const dash = await getDashboardById(dashboardId, workspaceId, userId);
   if (!dash) throw new Error('not_found');
   const existing = Array.isArray(dash.collaborators) ? dash.collaborators : [];
   const map = new Map<string, { user_id: string; role: 'view' | 'edit' }>();
@@ -108,16 +131,20 @@ async function upsertDashboardCollaborator(dashboardId: string, userId: string, 
   }
   map.set(String(userId), { user_id: String(userId), role });
   const merged = Array.from(map.values());
-  await supabase
-    .from('user_dashboards')
+  const base = workspaceId
+    ? applyWorkspaceScope(supabase.from('user_dashboards'), { workspaceId, userId, ownerColumn: 'user_id' })
+    : supabase.from('user_dashboards');
+  await base
     .update({ collaborators: merged, updated_at: new Date().toISOString() })
     .eq('id', dashboardId);
 }
 
-async function canAccessTable(userId: string, tableId: string): Promise<boolean> {
+async function canAccessTable(userId: string, tableId: string, workspaceId?: string | null): Promise<boolean> {
   try {
-    const { data } = await supabase
-      .from('custom_tables')
+    const base = workspaceId
+      ? applyWorkspaceScope(supabase.from('custom_tables'), { workspaceId, userId, ownerColumn: 'user_id' })
+      : supabase.from('custom_tables');
+    const { data } = await base
       .select('id,user_id,collaborators')
       .eq('id', tableId)
       .maybeSingle();
@@ -133,7 +160,7 @@ async function canAccessTable(userId: string, tableId: string): Promise<boolean>
 
 async function canAccessDashboard(userId: string, dashboardId: string): Promise<boolean> {
   try {
-    const dash = await getDashboardById(dashboardId);
+    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
     if (!dash) return false;
     if (String(dash.user_id) === String(userId)) return true;
     const collabs = parseCollaborators(dash.collaborators);
@@ -145,7 +172,7 @@ async function canAccessDashboard(userId: string, dashboardId: string): Promise<
 
 async function canAccessDashboardTable(userId: string, dashboardId: string, tableId: string): Promise<boolean> {
   try {
-    const dash = await getDashboardById(dashboardId);
+    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
     if (!dash) return false;
     const hasDashAccess =
       String(dash.user_id) === String(userId)
@@ -177,7 +204,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
     if (!sources.length) { res.status(400).json({ error: 'sources_required' }); return; }
     // Access checks
     for (const s of sources) {
-      const ok = await canAccessTable(userId, s.tableId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId));
+      const ok = await canAccessTable(userId, s.tableId, (req as any).workspaceId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId));
       if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId: s.tableId }); return; }
     }
     const joins: JoinSpec[] | undefined = Array.isArray(cfg.joins) ? cfg.joins : undefined;
@@ -188,8 +215,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
 
     // Row loader from Supabase (service role; we enforce access above)
     const loadRows = async (tableId: string) => {
-      const { data } = await supabase
-        .from('custom_tables')
+      const { data } = await scoped(req, 'custom_tables')
         .select('schema_json,data_json')
         .eq('id', tableId)
         .maybeSingle();
@@ -226,14 +252,13 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     const tableId = String(cfg.table_id || '').trim();
     if (!tableId) { res.status(400).json({ error: 'table_id_required' }); return; }
     const dashboardId = String((cfg as any)?.dashboard_id || '').trim();
-    const ok = await canAccessTable(userId, tableId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId) : false);
+    const ok = await canAccessTable(userId, tableId, (req as any).workspaceId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId) : false);
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
     if (!metrics.length) { res.status(400).json({ error: 'metrics_required' }); return; }
 
-    const { data } = await supabase
-      .from('custom_tables')
+    const { data } = await scoped(req, 'custom_tables')
       .select('schema_json,data_json')
       .eq('id', tableId)
       .maybeSingle();
@@ -287,7 +312,7 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
 
     const { id } = req.params;
-    const dash = await getDashboardById(id);
+    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
 
     const collabs = parseCollaborators(dash.collaborators);
@@ -361,7 +386,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
     if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
 
     const { id } = req.params;
-    const dash = await getDashboardById(id);
+    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
 
     if (!isSuper) {
@@ -393,8 +418,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
       if (invalid.length) return res.status(400).json({ error: 'invalid_collaborators', invalid_user_ids: invalid });
     }
 
-    const { data: updated, error } = await supabase
-      .from('user_dashboards')
+    const { data: updated, error } = await scoped(req, 'user_dashboards')
       .update({ collaborators: cleaned, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select('id')
@@ -424,7 +448,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const role: 'view' | 'edit' = roleIn === 'edit' ? 'edit' : 'view';
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const dash = await getDashboardById(id);
+    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
 
     if (!isSuper) {
@@ -444,7 +468,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const existingUser = existingUserResp.data as any;
     if (existingUser?.id && isJobSeekerRole(existingUser?.role)) return res.status(400).json({ error: 'jobseeker_not_allowed' });
     if (existingUser?.id) {
-      await upsertDashboardCollaborator(id, String(existingUser.id), role);
+      await upsertDashboardCollaborator(id, String(existingUser.id), role, (req as any).workspaceId);
       try { await supabase.from('dashboard_guest_collaborators').delete().eq('dashboard_id', id).eq('email', email); } catch {}
 
       // best-effort email (simple)
@@ -541,7 +565,7 @@ router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Respon
     const email = String((req.query as any)?.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const dash = await getDashboardById(id);
+    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
     if (!isSuper) {
       const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {

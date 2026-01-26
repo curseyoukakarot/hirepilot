@@ -16,12 +16,15 @@ type MirrorMetadata = {
   scheduler_run_id?: string;
 };
 
-export async function createCampaign(payload: {
+export async function createCampaign(
+  payload: {
   title: string;
   audience_tag?: string;
   sender_id?: string;
   created_by?: string;
-}) {
+  },
+  workspaceId?: string | null
+) {
   // Free plan limit: max 3 active campaigns per user
   try {
     if (payload.created_by) {
@@ -52,7 +55,8 @@ export async function createCampaign(payload: {
       title: payload.title,
       audience_tag: payload.audience_tag || null,
       default_sender_id: payload.sender_id || null,
-      created_by: payload.created_by || null
+      created_by: payload.created_by || null,
+      workspace_id: workspaceId || null
     })
     .select().single();
   if (error) throw error;
@@ -73,14 +77,15 @@ export async function saveSequence(campaignId: string, steps: Steps) {
 export async function addLeads(
   campaignId: string,
   leads: any[],
-  options?: { source?: string; userId?: string; mirrorMetadata?: MirrorMetadata }
+  options?: { source?: string; userId?: string; mirrorMetadata?: MirrorMetadata; workspaceId?: string | null }
 ) {
   if (!leads?.length) return { inserted: 0 };
   const payload = leads.map(l => ({
     campaign_id: campaignId,
     ...l,
     enriched: !!l.email,
-    scheduler_run_id: options?.mirrorMetadata?.scheduler_run_id || null
+    scheduler_run_id: options?.mirrorMetadata?.scheduler_run_id || null,
+    workspace_id: options?.workspaceId || null
   }));
   const { data, error } = await supabase.from('sourcing_leads').insert(payload).select('*');
   if (error) throw error;

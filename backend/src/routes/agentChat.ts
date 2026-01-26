@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { sourcingRunPersonaTool } from '../mcp/sourcing.run_persona';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { buildSourcingQuery } from '../lib/personaMapper';
 import OpenAI from 'openai';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 
 const router = Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -11,10 +13,11 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 const CALM_REX_SYSTEM_PROMPT =
   'You are REX, an AI Recruiting Agent inside HirePilot. Mode: Calm Professional Assistant. Be concise and neutral. Use personas to guide sourcing. When asked to source, schedule, or edit personas, offer 2 clear options, not more. Avoid exclamation marks. Never assume user intent; confirm next step.';
 
-router.post('/send-message', requireAuthUnified as any, async (req, res) => {
+router.post('/send-message', requireAuthUnified as any, activeWorkspace as any, async (req, res) => {
   try {
     const userId = (req as any)?.user?.id;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = (req as any)?.workspaceId as string | undefined;
 
     const { message = '', personaId, action, args = {} } = req.body || {};
 
@@ -72,7 +75,7 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
           // Ensure campaign (only create after we know we have results)
           const { data: campRow, error: cErr } = await supabaseAdmin
             .from('sourcing_campaigns')
-            .insert({ title: `Persona • ${persona.name}`, created_by: userId, audience_tag: 'rex' })
+            .insert({ title: `Persona • ${persona.name}`, created_by: userId, audience_tag: 'rex', workspace_id: workspaceId || null })
             .select('id')
             .single();
           if (cErr) throw new Error(cErr.message);
@@ -114,7 +117,7 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
             if (!classicCampaignId) {
               const { data: classicRow, error: classicErr } = await supabaseAdmin
                 .from('campaigns')
-                .insert({ user_id: userId, title: classicTitle, status: 'draft' })
+                .insert({ user_id: userId, title: classicTitle, status: 'draft', workspace_id: workspaceId || null })
                 .select('id')
                 .single();
               if (!classicErr && classicRow) classicCampaignId = (classicRow as any).id;
@@ -159,8 +162,10 @@ router.post('/send-message', requireAuthUnified as any, async (req, res) => {
       if (action === 'start_outreach') {
         try {
           // 1) Resolve the most recent classic campaign for this user (mirror created during run_now)
-          const { data: latestCamp } = await supabaseAdmin
-            .from('campaigns')
+          const { data: latestCamp } = await applyWorkspaceScope(
+            supabaseAdmin.from('campaigns'),
+            { workspaceId, userId, ownerColumn: 'user_id' }
+          )
             .select('id,title,created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })

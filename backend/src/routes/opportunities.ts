@@ -1,12 +1,30 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
 import { isDealsEntitled } from '../lib/dealsEntitlement';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
+const scopedNoOwner = (req: Request, table: string) => {
+  const base = supabase.from(table);
+  const workspaceId = (req as any).workspaceId;
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
 
 async function getRoleTeam(userId: string): Promise<{ role: string; team_id: string | null }> {
   const { data } = await supabase.from('users').select('role, team_id').eq('id', userId).maybeSingle();
@@ -31,8 +49,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const teamCtx = await getDealsSharingContext(userId);
 
-    let base = supabase
-      .from('opportunities')
+    let base = scoped(req, 'opportunities', 'owner_id')
       .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin,margin_type');
 
     if (isSuper) {
@@ -59,9 +76,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const oppIds = Array.from(new Set((opps || []).map((o: any) => o.id)));
 
     const [{ data: clients }, { data: owners }, { data: links }] = await Promise.all([
-      clientIds.length ? supabase.from('clients').select('id,name,domain').in('id', clientIds) : Promise.resolve({ data: [] as any }),
+      clientIds.length ? scoped(req, 'clients', 'owner_id').select('id,name,domain').in('id', clientIds) : Promise.resolve({ data: [] as any }),
       ownerIds.length ? supabase.from('users').select('id,first_name,last_name,avatar_url').in('id', ownerIds) : Promise.resolve({ data: [] as any }),
-      oppIds.length ? supabase.from('opportunity_job_reqs').select('opportunity_id,req_id').in('opportunity_id', oppIds) : Promise.resolve({ data: [] as any })
+      oppIds.length ? scopedNoOwner(req, 'opportunity_job_reqs').select('opportunity_id,req_id').in('opportunity_id', oppIds) : Promise.resolve({ data: [] as any })
     ] as any);
 
     type ClientLite = { id: string; name?: string | null; domain?: string | null };
@@ -110,7 +127,7 @@ router.get('/available-reqs', requireAuth, async (req: Request, res: Response) =
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
-    let base = supabase.from('job_requisitions').select('id,title,user_id');
+    let base = scoped(req, 'job_requisitions').select('id,title,user_id');
     if (!(isSuper && forceAll)) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
@@ -135,8 +152,7 @@ router.get('/stages', requireAuth, async (req: Request, res: Response) => {
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { team_id } = await getRoleTeam(userId);
-    const { data, error } = await supabase
-      .from('opportunity_stages')
+    const { data, error } = await scopedNoOwner(req, 'opportunity_stages')
       .select('id,name,order_index,team_id')
       .eq('team_id', team_id)
       .order('order_index', { ascending: true });
@@ -165,7 +181,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const teamCtx = await getDealsSharingContext(userId);
 
-    let oppQuery = supabase.from('opportunities').select('*').eq('id', id);
+    let oppQuery = scoped(req, 'opportunities', 'owner_id').select('*').eq('id', id);
     if (isSuper) {
       if (!forceAll) oppQuery = oppQuery.eq('owner_id', userId);
     } else {
@@ -178,10 +194,10 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
 
     // fetch req links
-    const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
+    const { data: links } = await scopedNoOwner(req, 'opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
     // fetch client and owner
     const [{ data: clientRow }, { data: ownerRow }] = await Promise.all([
-      opp.client_id ? supabase.from('clients').select('id,name,domain').eq('id', opp.client_id).maybeSingle() : Promise.resolve({ data: null }),
+      opp.client_id ? scoped(req, 'clients', 'owner_id').select('id,name,domain').eq('id', opp.client_id).maybeSingle() : Promise.resolve({ data: null }),
       opp.owner_id ? supabase.from('users').select('id,first_name,last_name,email').eq('id', opp.owner_id).maybeSingle() : Promise.resolve({ data: null })
     ] as any);
     const owner_name = ownerRow ? [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(' ') || ownerRow.email : null;
@@ -191,8 +207,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       supabase.from('candidate_applications').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }),
       supabase.from('candidate_submissions').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }),
       (reqIds.length
-        ? supabase
-            .from('candidates')
+        ? scoped(req, 'candidates')
             .select('id,first_name,last_name,email,linkedin_url,resume_url,notes,job_id,created_at,source')
             .in('job_id', reqIds)
             .eq('source', 'public_application')
@@ -205,8 +220,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     if (reqIds.length) {
       try {
         // Step 1: fetch candidate_ids for the linked REQs
-        const { data: cjRows, error: cjErr } = await supabase
-          .from('candidate_jobs')
+        const { data: cjRows, error: cjErr } = await scopedNoOwner(req, 'candidate_jobs')
           .select('candidate_id')
           .in('job_id', reqIds);
         if (cjErr) {
@@ -217,18 +231,15 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         // Step 2: fetch candidates by ids, with progressive fallbacks for columns missing in prod
         if (candIds.length) {
           let candRows: any[] = [];
-          let attempt: any = await supabase
-            .from('candidates')
+          let attempt: any = await scoped(req, 'candidates')
             .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at,enrichment_data')
             .in('id', candIds);
           if (attempt.error && String((attempt.error as any).code || '') === '42703') {
-            attempt = await supabase
-              .from('candidates')
+            attempt = await scoped(req, 'candidates')
               .select('id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at')
               .in('id', candIds);
             if (attempt.error && String((attempt.error as any).code || '') === '42703') {
-              attempt = await supabase
-                .from('candidates')
+              attempt = await scoped(req, 'candidates')
                 .select('id,first_name,last_name,email,linkedin_url,resume_url,title,created_at')
                 .in('id', candIds);
             }
@@ -320,7 +331,7 @@ router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Resp
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
     const { id } = req.params;
-    const { data: links } = await supabase.from('opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
+    const { data: links } = await scopedNoOwner(req, 'opportunity_job_reqs').select('req_id').eq('opportunity_id', id);
     const reqIds = (links || []).map((l: any) => l.req_id);
 
     // Preferred: single join identical to pipeline route
@@ -329,15 +340,13 @@ router.get('/:id/linked-candidates', requireAuth, async (req: Request, res: Resp
     if (reqIds.length) {
       let data: any[] | null = null; let error: any = null;
       // Attempt with years_experience
-      let resp: any = await supabase
-        .from('candidate_jobs')
+      let resp: any = await scopedNoOwner(req, 'candidate_jobs')
         .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,years_experience,created_at)')
         .in('job_id', reqIds);
       data = resp.data || null; error = resp.error || null;
       if (error && String(error.code || '') === '42703') {
         // Fallback without years_experience
-        resp = await supabase
-          .from('candidate_jobs')
+        resp = await scopedNoOwner(req, 'candidate_jobs')
           .select('candidate_id, candidates(id,first_name,last_name,email,linkedin_url,resume_url,title,created_at)')
           .in('job_id', reqIds);
         data = resp.data || null; error = resp.error || null;
@@ -371,7 +380,11 @@ router.patch('/:id/notes', requireAuth, async (req: Request, res: Response) => {
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { id } = req.params;
     const { notes } = req.body || {};
-    const { data, error } = await supabase.from('opportunities').update({ notes: notes ?? null }).eq('id', id).select('id,notes').maybeSingle();
+    const { data, error } = await scoped(req, 'opportunities', 'owner_id')
+      .update({ notes: notes ?? null })
+      .eq('id', id)
+      .select('id,notes')
+      .maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
     // Emit zap event
     try {
@@ -397,8 +410,7 @@ router.post('/:id/backfill-submissions', requireAuth, async (req: Request, res: 
     const sinceIso = new Date(Date.now() - days*24*60*60*1000).toISOString();
 
     // Fetch recent messages; filter in Node for our template
-    const { data: msgs, error: msgErr } = await supabase
-      .from('messages')
+    const { data: msgs, error: msgErr } = await scoped(req, 'messages')
       .select('id,subject,content,recipient,to_email,sent_at')
       .eq('user_id', userId)
       .gte('sent_at', sinceIso)
@@ -472,7 +484,10 @@ router.post('/:id/backfill-submissions', requireAuth, async (req: Request, res: 
 router.get('/:id/activity', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase.from('opportunity_activity').select('*').eq('opportunity_id', id).order('created_at', { ascending: false });
+    const { data, error } = await scoped(req, 'opportunity_activity')
+      .select('*')
+      .eq('opportunity_id', id)
+      .order('created_at', { ascending: false });
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data || []);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
@@ -484,7 +499,10 @@ router.post('/:id/activity', requireAuth, async (req: Request, res: Response) =>
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
     const { id } = req.params;
     const { message } = req.body || {};
-    const { data, error } = await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message, created_at: new Date().toISOString() }).select('*').single();
+    const { data, error } = await scoped(req, 'opportunity_activity')
+      .insert({ opportunity_id: id, user_id: userId, message, created_at: new Date().toISOString() })
+      .select('*')
+      .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
@@ -587,7 +605,14 @@ router.post('/:id/submit-to-client', requireAuth, async (req: Request, res: Resp
       console.warn('persist submission failed', (e as any)?.message || e);
     }
     // log activity
-    try { await supabase.from('opportunity_activity').insert({ opportunity_id: id, user_id: userId, message: 'Submitted candidate to client', created_at: new Date().toISOString() }); } catch {}
+    try {
+      await scoped(req, 'opportunity_activity').insert({
+        opportunity_id: id,
+        user_id: userId,
+        message: 'Submitted candidate to client',
+        created_at: new Date().toISOString()
+      });
+    } catch {}
     // Emit zap event (opportunity_submitted)
     try {
       await createZapEvent({
@@ -612,8 +637,7 @@ router.post('/:id/notes', requireAuth, async (req: Request, res: Response) => {
     if (!text) { res.status(400).json({ error: 'missing_text' }); return; }
 
     // Basic access check: owner, team_admin of same team, collaborator, or guest by email
-    const { data: job } = await supabase
-      .from('job_requisitions')
+    const { data: job } = await scoped(req, 'job_requisitions')
       .select('id,user_id,team_id')
       .eq('id', id)
       .maybeSingle();
@@ -665,7 +689,9 @@ router.post('/:id/notes', requireAuth, async (req: Request, res: Response) => {
 router.get('/:id/collaborators', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase.from('opportunity_collaborators').select('*').eq('opportunity_id', id);
+    const { data, error } = await scopedNoOwner(req, 'opportunity_collaborators')
+      .select('*')
+      .eq('opportunity_id', id);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json(data || []);
   } catch (e:any) { res.status(500).json({ error: e.message || 'Internal server error' }); }
@@ -675,7 +701,10 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
   try {
     const { id } = req.params;
     const { email, role } = req.body || {};
-    const { data, error } = await supabase.from('opportunity_collaborators').insert({ opportunity_id: id, email, role: role || 'collaborator', created_at: new Date().toISOString() }).select('*').single();
+    const { data, error } = await scopedNoOwner(req, 'opportunity_collaborators')
+      .insert({ opportunity_id: id, email, role: role || 'collaborator', created_at: new Date().toISOString() })
+      .select('*')
+      .single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     // Emit zap event
     try {
@@ -740,8 +769,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
         // Notify existing user by email (no acceptance needed)
         try {
           const appUrl = process.env.APP_URL || 'https://thehirepilot.com';
-          const { data: jobRow } = await supabase
-            .from('job_requisitions')
+          const { data: jobRow } = await scoped(req, 'job_requisitions')
             .select('title')
             .eq('id', id)
             .maybeSingle();
@@ -812,7 +840,7 @@ router.get('/:id/available-reqs', requireAuth, async (req: Request, res: Respons
     const isSuper = ['super_admin','superadmin'].includes(role.toLowerCase());
     const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const isTeamAdmin = role.toLowerCase() === 'team_admin';
-  let base = supabase.from('job_requisitions').select('id,title,user_id');
+    let base = scoped(req, 'job_requisitions').select('id,title,user_id');
   if (!(isSuper && forceAll)) {
       if (isTeamAdmin && team_id) {
         const { data: teamUsers } = await supabase.from('users').select('id').eq('team_id', team_id);
@@ -836,8 +864,7 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     const { id } = req.params;
 
     // Basic access: owner, team_admin of owner team, or existing collaborator/guest
-    const { data: job } = await supabase
-      .from('job_requisitions')
+    const { data: job } = await scoped(req, 'job_requisitions')
       .select('id,user_id,team_id')
       .eq('id', id)
       .maybeSingle();
@@ -967,7 +994,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     }
     const nowIso = new Date().toISOString();
     const insert = { title, client_id, stage, value, billing_type, tag: tag ?? null, forecast_date, start_date, term_months, margin, margin_type, status: 'open', owner_id: userId, created_at: nowIso, updated_at: nowIso as any };
-    const { data, error } = await supabase.from('opportunities').insert(insert).select('*').single();
+    const { data, error } = await scoped(req, 'opportunities', 'owner_id').insert(insert).select('*').single();
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.status(201).json(data);
   } catch (e: any) {
@@ -985,7 +1012,10 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
     const { id } = req.params;
     // Fetch current to compare for workflow events
-    const { data: beforeRow, error: beforeErr } = await supabase.from('opportunities').select('id,stage,status,tag,owner_id').eq('id', id).maybeSingle();
+    const { data: beforeRow, error: beforeErr } = await scoped(req, 'opportunities', 'owner_id')
+      .select('id,stage,status,tag,owner_id')
+      .eq('id', id)
+      .maybeSingle();
     if (beforeErr) { res.status(500).json({ error: beforeErr.message }); return; }
     if (!beforeRow) { res.status(404).json({ error: 'not_found' }); return; }
 
@@ -1065,15 +1095,19 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
       }
     }
     up.updated_at = new Date().toISOString() as any;
-    const { data, error } = await supabase.from('opportunities').update(up).eq('id', id).select('*').maybeSingle();
+    const { data, error } = await scoped(req, 'opportunities', 'owner_id')
+      .update(up)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
     if (error) { res.status(500).json({ error: error.message }); return; }
 
     // Update REQ links if provided
     if (Array.isArray(req.body?.req_ids)) {
       // delete existing and re-insert
-      await supabase.from('opportunity_job_reqs').delete().eq('opportunity_id', id);
+      await scopedNoOwner(req, 'opportunity_job_reqs').delete().eq('opportunity_id', id);
       const rows = (req.body.req_ids as string[]).map((reqId) => ({ opportunity_id: id, req_id: reqId }));
-      if (rows.length) await supabase.from('opportunity_job_reqs').insert(rows);
+      if (rows.length) await scopedNoOwner(req, 'opportunity_job_reqs').insert(rows);
     }
 
     // Emit workflow event if moved to Close Won with tag Job Seeker
@@ -1112,7 +1146,10 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!id) { res.status(400).json({ error: 'id_required' }); return; }
 
     // Writes: owner can delete; team_admin can delete within their team.
-    const { data: existing } = await supabase.from('opportunities').select('id,owner_id').eq('id', id).maybeSingle();
+    const { data: existing } = await scoped(req, 'opportunities', 'owner_id')
+      .select('id,owner_id')
+      .eq('id', id)
+      .maybeSingle();
     if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
     const ctx = await getDealsSharingContext(userId);
     const roleLc = String(ctx.role || '').toLowerCase();
@@ -1127,8 +1164,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Best-effort: delete req links first to avoid FK constraints; do NOT delete job reqs themselves
-    await supabase.from('opportunity_job_reqs').delete().eq('opportunity_id', id);
-    const { error } = await supabase.from('opportunities').delete().eq('id', id);
+    await scopedNoOwner(req, 'opportunity_job_reqs').delete().eq('opportunity_id', id);
+    const { error } = await scoped(req, 'opportunities', 'owner_id').delete().eq('id', id);
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true });
   } catch (e: any) {

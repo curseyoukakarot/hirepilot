@@ -1,27 +1,41 @@
 import { supabase } from '../lib/supabase';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
-export async function updateLeadOutreachStage(leadId: string, stage: string) {
-  const { error } = await supabase
-    .from('sourcing_leads')
+const scopedCampaigns = (workspaceId?: string | null, userId?: string | null) => {
+  if (!workspaceId) return supabase.from('sourcing_campaigns');
+  return applyWorkspaceScope(supabase.from('sourcing_campaigns'), {
+    workspaceId,
+    userId: userId || undefined,
+    ownerColumn: 'created_by'
+  });
+};
+
+const scopedLeads = (workspaceId?: string | null) => {
+  const base = supabase.from('sourcing_leads');
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
+
+export async function updateLeadOutreachStage(leadId: string, stage: string, workspaceId?: string | null) {
+  const { error } = await scopedLeads(workspaceId)
     .update({ outreach_stage: stage })
     .eq('id', leadId);
   
   if (error) throw error;
 }
 
-export async function updateCampaignStatus(campaignId: string, status: string) {
-  const { error } = await supabase
-    .from('sourcing_campaigns')
+export async function updateCampaignStatus(campaignId: string, status: string, workspaceId?: string | null, userId?: string | null) {
+  const { error } = await scopedCampaigns(workspaceId, userId)
     .update({ status })
     .eq('id', campaignId);
   
   if (error) throw error;
 }
 
-export async function getCampaignStats(campaignId: string) {
+export async function getCampaignStats(campaignId: string, workspaceId?: string | null) {
   // Compute metrics purely from sourcing_leads signals for sourcing campaigns
-  const { data: leads, error } = await supabase
-    .from('sourcing_leads')
+  const { data: leads, error } = await scopedLeads(workspaceId)
     .select('outreach_stage, reply_status')
     .eq('campaign_id', campaignId);
   if (error) throw error;
@@ -62,9 +76,8 @@ export async function getCampaignStats(campaignId: string) {
   };
 }
 
-export async function getCampaignWithDetails(campaignId: string) {
-  const { data: campaign, error: campaignError } = await supabase
-    .from('sourcing_campaigns')
+export async function getCampaignWithDetails(campaignId: string, workspaceId?: string | null, userId?: string | null) {
+  const { data: campaign, error: campaignError } = await scopedCampaigns(workspaceId, userId)
     .select(`
       *,
       sourcing_sequences (
@@ -84,7 +97,7 @@ export async function getCampaignWithDetails(campaignId: string) {
   
   if (campaignError) throw campaignError;
   
-  const stats = await getCampaignStats(campaignId);
+  const stats = await getCampaignStats(campaignId, workspaceId);
   
   return {
     ...campaign,
@@ -92,9 +105,13 @@ export async function getCampaignWithDetails(campaignId: string) {
   };
 }
 
-export async function getLeadsForCampaign(campaignId: string, limit = 100, offset = 0) {
-  const { data: leads, error } = await supabase
-    .from('sourcing_leads')
+export async function getLeadsForCampaign(
+  campaignId: string,
+  limit = 100,
+  offset = 0,
+  workspaceId?: string | null
+) {
+  const { data: leads, error } = await scopedLeads(workspaceId)
     .select('*')
     .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false })
@@ -104,15 +121,17 @@ export async function getLeadsForCampaign(campaignId: string, limit = 100, offse
   return leads;
 }
 
-export async function searchCampaigns(filters: {
+export async function searchCampaigns(
+  filters: {
   status?: string;
   created_by?: string;
   search?: string;
   limit?: number;
   offset?: number;
-}) {
-  let query = supabase
-    .from('sourcing_campaigns')
+  },
+  workspaceId?: string | null
+) {
+  let query = scopedCampaigns(workspaceId, filters.created_by || null)
     .select(`
       *,
       email_senders (

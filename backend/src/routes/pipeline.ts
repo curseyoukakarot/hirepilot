@@ -1,13 +1,31 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import {
   emitZapEvent,
   ZAP_EVENT_TYPES,
   generatePipelineStageEvent,
 } from '../../lib/zapEventEmitter';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
+const scopedNoOwner = (req: Request, table: string) => {
+  const base = supabase.from(table);
+  const workspaceId = (req as any).workspaceId;
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
 
 // GET /api/pipelines?jobId=...
 router.get('/', requireAuth as any, async (req: Request, res: Response) => {
@@ -16,8 +34,7 @@ router.get('/', requireAuth as any, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!jobId || !userId) return res.status(400).json({ error: 'Missing jobId' });
 
-    const { data, error } = await supabase
-      .from('job_requisitions')
+    const { data, error } = await scoped(req, 'job_requisitions')
       .select('pipeline_id, pipeline:pipelines (id, name, department)')
       .eq('id', jobId)
       .eq('user_id', userId)
@@ -39,8 +56,7 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
     const userId = (req as any).user?.id;
     if (!pipelineId || !jobId || !userId) return res.status(400).json({ error: 'Missing ids' });
 
-    const { data: job, error: jobErr } = await supabase
-      .from('job_requisitions')
+    const { data: job, error: jobErr } = await scoped(req, 'job_requisitions')
       .select('pipeline_id')
       .eq('id', jobId)
       .eq('user_id', userId)
@@ -49,15 +65,13 @@ router.get('/:id/stages', requireAuth as any, async (req: Request, res: Response
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    const { data: stages, error: stageErr } = await supabase
-      .from('pipeline_stages')
+    const { data: stages, error: stageErr } = await scopedNoOwner(req, 'pipeline_stages')
       .select('*')
       .eq('pipeline_id', pipelineId)
       .order('position', { ascending: true });
     if (stageErr) throw stageErr;
 
-    const { data: candData, error: candErr } = await supabase
-      .from('candidate_jobs')
+    const { data: candData, error: candErr } = await scopedNoOwner(req, 'candidate_jobs')
       .select('id, candidate_id, stage_id, candidates (id, first_name, last_name, email, avatar_url)')
       .eq('job_id', jobId);
     if (candErr) throw candErr;
@@ -92,8 +106,7 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const { data: pipeline, error: pipelineErr } = await supabase
-      .from('pipelines')
+    const { data: pipeline, error: pipelineErr } = await scoped(req, 'pipelines')
       .insert({ user_id: userId, name, department })
       .select()
       .single();
@@ -105,14 +118,12 @@ router.post('/', requireAuth as any, async (req: Request, res: Response) => {
       color: s.color,
       position: idx,
     }));
-    const { data: insertedStages, error: stageErr } = await supabase
-      .from('pipeline_stages')
+    const { data: insertedStages, error: stageErr } = await scopedNoOwner(req, 'pipeline_stages')
       .insert(stageRows)
       .select();
     if (stageErr) throw stageErr;
 
-    await supabase
-      .from('job_requisitions')
+    await scoped(req, 'job_requisitions')
       .update({ pipeline_id: pipeline.id })
       .eq('id', job_id);
 
@@ -134,24 +145,21 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
       return res.status(400).json({ error: 'Missing fields' });
     }
 
-    const { data: cjRow, error: cjErr } = await supabase
-      .from('candidate_jobs')
+    const { data: cjRow, error: cjErr } = await scopedNoOwner(req, 'candidate_jobs')
       .select('id, candidate_id, job_id')
       .eq('candidate_id', candidateId)
       .eq('job_id', jobId)
       .maybeSingle();
     if (cjErr || !cjRow) return res.status(404).json({ error: 'Candidate job not found' });
 
-    const { data: cand, error: candErr } = await supabase
-      .from('candidates')
+    const { data: cand, error: candErr } = await scoped(req, 'candidates')
       .select('user_id, first_name, last_name, email')
       .eq('id', cjRow.candidate_id)
       .single();
     if (candErr || !cand || cand.user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
 
     const now = new Date().toISOString();
-    const { error: updError } = await supabase
-      .from('candidate_jobs')
+    const { error: updError } = await scopedNoOwner(req, 'candidate_jobs')
       .update({ stage_id: stageId, updated_at: now })
       .eq('id', cjRow.id);
     let finalErr = updError;
@@ -166,8 +174,7 @@ router.post('/:id/candidates/:candidateId/move', requireAuth as any, async (req:
         if (t.includes('interview')) return 'interviewed';
         return 'interviewed';
       };
-      const { error } = await supabase
-        .from('candidate_jobs')
+      const { error } = await scopedNoOwner(req, 'candidate_jobs')
         .update({ status: canonical(stageTitle), updated_at: now })
         .eq('id', cjRow.id);
       finalErr = error;
@@ -204,8 +211,7 @@ router.post('/:id/stages', requireAuth as any, async (req: Request, res: Respons
     const userId = (req as any).user?.id;
     if (!pipelineId || !title || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    const { data: stage, error } = await supabase
-      .from('pipeline_stages')
+    const { data: stage, error } = await scopedNoOwner(req, 'pipeline_stages')
       .insert({ pipeline_id: pipelineId, title, color, position })
       .select()
       .single();
@@ -232,8 +238,7 @@ router.patch('/:id/stages/:stageId', requireAuth as any, async (req: Request, re
     const { title, color } = req.body || {};
     if (!id || !stageId || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    const { data: stage, error } = await supabase
-      .from('pipeline_stages')
+    const { data: stage, error } = await scopedNoOwner(req, 'pipeline_stages')
       .update({ title, color })
       .eq('id', stageId)
       .select()
@@ -260,8 +265,7 @@ router.delete('/:id/stages/:stageId', requireAuth as any, async (req: Request, r
     const userId = (req as any).user?.id;
     if (!id || !stageId || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    const { error } = await supabase
-      .from('pipeline_stages')
+    const { error } = await scopedNoOwner(req, 'pipeline_stages')
       .delete()
       .eq('id', stageId);
     if (error) throw error;
@@ -287,8 +291,7 @@ router.patch('/:id/stages/reorder', requireAuth as any, async (req: Request, res
     const { stages } = req.body || {};
     if (!id || !Array.isArray(stages) || !userId) return res.status(400).json({ error: 'Missing fields' });
 
-    const { error } = await supabase
-      .from('pipeline_stages')
+    const { error } = await scopedNoOwner(req, 'pipeline_stages')
       .upsert(stages.map((s: any) => ({ id: s.id, position: s.position })));
     if (error) throw error;
 

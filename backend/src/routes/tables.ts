@@ -1,9 +1,12 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
 
 type UserLite = {
   id: string;
@@ -19,6 +22,21 @@ type UserLite = {
 const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
 const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url';
 const USER_SELECT_TINY = 'id,email,role';
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
+const scopedNoOwner = (req: Request, table: string) => {
+  const base: any = supabase.from(table);
+  const workspaceId = (req as any).workspaceId;
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
 
 function normRole(role: any): string {
   return String(role || '').toLowerCase().replace(/\s|-/g, '_');
@@ -151,9 +169,15 @@ function parseCollaborators(raw: any): Array<{ user_id: string; role: 'view' | '
   return out;
 }
 
-async function getTableById(id: string): Promise<{ id: string; name: string | null; user_id: string; collaborators: any } | null> {
-  const { data } = await supabase
-    .from('custom_tables')
+async function getTableById(
+  id: string,
+  workspaceId?: string | null,
+  userId?: string | null
+): Promise<{ id: string; name: string | null; user_id: string; collaborators: any } | null> {
+  const base = workspaceId
+    ? applyWorkspaceScope(supabase.from('custom_tables'), { workspaceId, userId, ownerColumn: 'user_id' })
+    : supabase.from('custom_tables');
+  const { data } = await base
     .select('id,name,user_id,collaborators')
     .eq('id', id)
     .maybeSingle();
@@ -166,8 +190,13 @@ async function getTableById(id: string): Promise<{ id: string; name: string | nu
   };
 }
 
-async function upsertTableCollaborator(tableId: string, userId: string, role: 'view' | 'edit'): Promise<void> {
-  const table = await getTableById(tableId);
+async function upsertTableCollaborator(
+  tableId: string,
+  userId: string,
+  role: 'view' | 'edit',
+  workspaceId?: string | null
+): Promise<void> {
+  const table = await getTableById(tableId, workspaceId, userId);
   if (!table) throw new Error('not_found');
   const existing = Array.isArray(table.collaborators) ? table.collaborators : [];
   const mergedMap = new Map<string, { user_id: string; role: 'view' | 'edit' }>();
@@ -178,8 +207,10 @@ async function upsertTableCollaborator(tableId: string, userId: string, role: 'v
   }
   mergedMap.set(String(userId), { user_id: String(userId), role });
   const merged = Array.from(mergedMap.values());
-  await supabase
-    .from('custom_tables')
+  const base = workspaceId
+    ? applyWorkspaceScope(supabase.from('custom_tables'), { workspaceId, userId, ownerColumn: 'user_id' })
+    : supabase.from('custom_tables');
+  await base
     .update({ collaborators: merged, updated_at: new Date().toISOString() })
     .eq('id', tableId);
 }
@@ -364,7 +395,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const isTeamAdmin = normRole(me.role) === 'team_admin';
     if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
 
-    const table = await getTableById(id);
+    const table = await getTableById(id, (req as any).workspaceId, inviterId || null);
     if (!table) return res.status(404).json({ error: 'not_found' });
 
     // team_admin can only manage tables owned by their team
@@ -393,10 +424,10 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     }
 
     if (existingUser?.id) {
-      await upsertTableCollaborator(id, String(existingUser.id), role);
+      await upsertTableCollaborator(id, String(existingUser.id), role, (req as any).workspaceId);
       // Clean up any pending guest invite rows for this table/email
       try {
-        await supabase.from('table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
+        await scopedNoOwner(req, 'table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
       } catch {}
 
       // Notify existing user (best-effort)
@@ -428,16 +459,14 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     }
 
     // Guest path: create/update pending invite row (no account yet)
-    const { data: existingInvite } = await supabase
-      .from('table_guest_collaborators')
+    const { data: existingInvite } = await scopedNoOwner(req, 'table_guest_collaborators')
       .select('id')
       .eq('table_id', id)
       .eq('email', email)
       .maybeSingle();
 
     if (existingInvite?.id) {
-      const { data: upd, error } = await supabase
-        .from('table_guest_collaborators')
+      const { data: upd, error } = await scopedNoOwner(req, 'table_guest_collaborators')
         .update({ invited_by: inviterId, role, status: 'pending', updated_at: new Date().toISOString() })
         .eq('id', existingInvite.id)
         .select('*')
@@ -461,8 +490,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
       return res.json({ kind: 'guest', email, role, status: (upd as any)?.status || 'pending' });
     }
 
-    const { data: ins, error: insErr } = await supabase
-      .from('table_guest_collaborators')
+    const { data: ins, error: insErr } = await scopedNoOwner(req, 'table_guest_collaborators')
       .insert({ table_id: id, email, role, invited_by: inviterId, status: 'pending', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .select('*')
       .maybeSingle();
@@ -508,7 +536,7 @@ router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Respon
     const email = String((req.query as any)?.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const table = await getTableById(id);
+    const table = await getTableById(id, (req as any).workspaceId, inviterId || null);
     if (!table) return res.status(404).json({ error: 'not_found' });
 
     if (!isSuper) {
@@ -517,7 +545,7 @@ router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Respon
       if (!me.team_id || !ownerTeam || me.team_id !== ownerTeam) return res.status(403).json({ error: 'access_denied' });
     }
 
-    await supabase.from('table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
+    await scopedNoOwner(req, 'table_guest_collaborators').delete().eq('table_id', id).eq('email', email);
     return res.json({ success: true });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'delete_failed' });
@@ -534,7 +562,7 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
 
     const { id } = req.params;
-    const table = await getTableById(id);
+    const table = await getTableById(id, (req as any).workspaceId, userId || null);
     if (!table) return res.status(404).json({ error: 'not_found' });
 
     const ownerId = String(table.user_id);
@@ -576,8 +604,7 @@ router.get('/:id/collaborators-unified', requireAuth, async (req: Request, res: 
     // Include pending guest invites
     let guests: any[] = [];
     try {
-      const { data: guestRows } = await supabase
-        .from('table_guest_collaborators')
+      const { data: guestRows } = await scopedNoOwner(req, 'table_guest_collaborators')
         .select('email,role,status')
         .eq('table_id', id);
       guests = (guestRows || []).map((g: any) => ({
@@ -616,8 +643,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
     const { id } = req.params;
     const incoming = Array.isArray((req.body as any)?.collaborators) ? (req.body as any).collaborators : [];
 
-    const { data: table, error: tableErr } = await supabase
-      .from('custom_tables')
+    const { data: table, error: tableErr } = await scoped(req, 'custom_tables')
       .select('id,name,user_id,collaborators')
       .eq('id', id)
       .maybeSingle();
@@ -658,8 +684,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
     // Replace collaborators list (canonical), owner is implicit
     const merged = cleaned;
 
-    const { data: updated, error: upErr } = await supabase
-      .from('custom_tables')
+    const { data: updated, error: upErr } = await scoped(req, 'custom_tables')
       .update({ collaborators: merged, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select('id,name,user_id,collaborators')
@@ -705,8 +730,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
     if (!ids.length) return res.status(400).json({ error: 'missing_ids' });
     if (ids.length > 1000) return res.status(400).json({ error: 'too_many_ids', limit: 1000 });
 
-    const { data: table, error: tableErr } = await supabase
-      .from('custom_tables')
+    const { data: table, error: tableErr } = await scoped(req, 'custom_tables')
       .select('id,name,user_id,collaborators,schema_json,data_json,import_sources')
       .eq('id', tableId)
       .maybeSingle();
@@ -803,7 +827,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const fetchVisibleLeads = async (): Promise<any[]> => {
       const fields = 'id,name,email,company,title,status,linkedin_url,phone,location,city,state,country,source,tags,created_at,updated_at,user_id,shared';
-      let q: any = supabase.from('leads').select(fields).in('id', ids);
+      let q: any = scoped(req, 'leads').select(fields).in('id', ids);
       if (viewerTeamId && teamUserIds.length > 0) {
         const otherTeamMembers = teamUserIds.filter((tid) => tid !== userId);
         if (isAdmin) {
@@ -828,7 +852,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const fetchVisibleCandidates = async (): Promise<any[]> => {
       const fields = 'id,first_name,last_name,name,email,title,linkedin_url,status,phone,location,source,created_at,updated_at,user_id,shared,job_assigned';
-      let q: any = supabase.from('candidates').select(fields).in('id', ids);
+      let q: any = scoped(req, 'candidates').select(fields).in('id', ids);
       if (viewerTeamId && teamUserIds.length > 0) {
         const otherTeamMembers = teamUserIds.filter((tid) => tid !== userId);
         if (isAdmin) {
@@ -853,7 +877,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const fetchOpportunities = async (): Promise<any[]> => {
       const fields = 'id,title,value,billing_type,stage,status,owner_id,client_id,created_at,forecast_date';
-      let q: any = supabase.from('opportunities').select(fields).in('id', ids);
+      let q: any = scoped(req, 'opportunities', 'owner_id').select(fields).in('id', ids);
       q = q.in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
@@ -862,14 +886,20 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const fetchClients = async (): Promise<any[]> => {
       const fields = 'id,name,domain,industry,revenue,location,stage,notes,created_at,owner_id';
-      const { data, error } = await supabase.from('clients').select(fields).in('id', ids).in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
+      const { data, error } = await scoped(req, 'clients', 'owner_id')
+        .select(fields)
+        .in('id', ids)
+        .in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       if (error) throw new Error(error.message);
       return data || [];
     };
 
     const fetchContacts = async (): Promise<any[]> => {
       const fields = 'id,client_id,name,title,email,phone,owner_id,created_at';
-      const { data, error } = await supabase.from('contacts').select(fields).in('id', ids).in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
+      const { data, error } = await scoped(req, 'contacts', 'owner_id')
+        .select(fields)
+        .in('id', ids)
+        .in('owner_id', visibleDealOwners.length ? visibleDealOwners : [userId]);
       if (error) throw new Error(error.message);
       return data || [];
     };
@@ -1040,7 +1070,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       const contacts = await fetchContacts();
       const clientIds = Array.from(new Set(contacts.map((c: any) => c.client_id).filter(Boolean).map(String)));
       const { data: clientRows } = clientIds.length
-        ? await supabase.from('clients').select('id,name,domain').in('id', clientIds)
+        ? await scoped(req, 'clients', 'owner_id').select('id,name,domain').in('id', clientIds)
         : ({ data: [] as any[] } as any);
       const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
       newRows = contacts.map((dm: any) => toContactRow(dm, byClientId.get(String(dm.client_id)) || ''));
@@ -1049,7 +1079,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       const clientIds = Array.from(new Set(opps.map((o: any) => o.client_id).filter(Boolean).map(String)));
       const ownerIds = Array.from(new Set(opps.map((o: any) => o.owner_id).filter(Boolean).map(String)));
       const [{ data: clientRows }, { data: ownerRows }] = await Promise.all([
-        clientIds.length ? supabase.from('clients').select('id,name,domain').in('id', clientIds) : Promise.resolve({ data: [] as any[] }),
+        clientIds.length ? scoped(req, 'clients', 'owner_id').select('id,name,domain').in('id', clientIds) : Promise.resolve({ data: [] as any[] }),
         ownerIds.length ? supabase.from('users').select('id,first_name,last_name,email').in('id', ownerIds) : Promise.resolve({ data: [] as any[] }),
       ] as any);
       const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
@@ -1090,8 +1120,7 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
     const nextSources = existingSources.includes(entity) ? existingSources : [...existingSources, entity];
     if (!nextSources.length) nextSources.push(entity);
 
-    const { data: updated, error: updErr } = await supabase
-      .from('custom_tables')
+    const { data: updated, error: updErr } = await scoped(req, 'custom_tables')
       .update({
         schema_json: nextSchema,
         data_json: nextRows,

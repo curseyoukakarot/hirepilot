@@ -6,14 +6,32 @@ import { createCampaign, addLeads, generateSequenceForCampaign, scheduleCampaign
 import { getCampaignWithDetails, getLeadsForCampaign, searchCampaigns, getCampaignStats } from '../services/sourcingUtils';
 import { supabase } from '../lib/supabase';
 import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
 import { ApiRequest } from '../../types/api';
 import { sendTieredTemplateToCampaign, generateAndSendNewSequenceToCampaign, sendSingleMessageToCampaign } from '../services/messagingCampaign';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
+import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
 const router = express.Router();
+router.use(requireAuth as any, activeWorkspace as any);
 
 // Debug logging for route registration
 console.log('Registering sourcing routes...');
+
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    workspaceId: (req as any).workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
+const scopedNoOwner = (req: Request, table: string) => {
+  const base: any = supabase.from(table);
+  const workspaceId = (req as any).workspaceId;
+  if (!workspaceId) return base;
+  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
+  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+};
 
 // Create new campaign
 router.post('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => {
@@ -33,7 +51,7 @@ router.post('/campaigns', requireAuth, async (req: ApiRequest, res: Response) =>
       created_by: body.created_by || req.user?.id
     };
     
-    const campaign = await createCampaign(campaignData);
+    const campaign = await createCampaign(campaignData, (req as any).workspaceId);
     return res.status(201).json(campaign);
   } catch (error: any) {
     console.error('Error creating campaign:', error);
@@ -92,7 +110,11 @@ router.post('/campaigns/:id/leads', requireAuth, async (req: ApiRequest, res: Re
       source: z.enum(['apollo','linkedin']).optional()
     }).parse(req.body);
     
-    const result = await addLeads(id, body.leads, { source: body.source, userId: req.user?.id });
+    const result = await addLeads(id, body.leads, {
+      source: body.source,
+      userId: req.user?.id,
+      workspaceId: (req as any).workspaceId
+    });
     return res.json(result);
   } catch (error: any) {
     console.error('Error adding leads:', error);
@@ -125,8 +147,8 @@ router.post('/campaigns/:id/schedule', requireAuth, async (req: ApiRequest, res:
 router.get('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const full = await getCampaignWithDetails(id);
-    const leads = await getLeadsForCampaign(id, 200, 0);
+    const full = await getCampaignWithDetails(id, (req as any).workspaceId, req.user?.id || null);
+    const leads = await getLeadsForCampaign(id, 200, 0, (req as any).workspaceId);
 
     const campaign = {
       id: full.id,
@@ -153,7 +175,7 @@ router.get('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response)
 router.get('/campaigns/:id/stats', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const stats = await getCampaignStats(id);
+    const stats = await getCampaignStats(id, (req as any).workspaceId);
     // Map to the structure the frontend expects on CampaignsPage
     const mapped = {
       total_leads: stats.total,
@@ -187,7 +209,7 @@ router.get('/campaigns/:id/leads', requireAuth, async (req: ApiRequest, res: Res
     const limit = parseInt(req.query.limit as string) || 100;
     const offset = parseInt(req.query.offset as string) || 0;
     
-    const leads = await getLeadsForCampaign(id, limit, offset);
+    const leads = await getLeadsForCampaign(id, limit, offset, (req as any).workspaceId);
     return res.json({ leads, limit, offset });
   } catch (error: any) {
     console.error('Error fetching leads:', error);
@@ -204,8 +226,7 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
     const limit = Math.min(parseInt(String((req.query as any)?.limit || '500'), 10) || 500, 2000);
     const days = Math.min(parseInt(String((req.query as any)?.days || '30'), 10) || 30, 180);
 
-    const { data: campaign } = await supabase
-      .from('sourcing_campaigns')
+    const { data: campaign } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .select('id, created_by, created_at')
       .eq('id', campaignId)
       .maybeSingle();
@@ -269,8 +290,7 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
       if (!sourcingLeadId) {
         const fromEmail = normalizeEmail((r as any).from_email);
         if (!fromEmail) { skipped += 1; continue; }
-        const { data: sl } = await supabase
-          .from('sourcing_leads')
+        const { data: sl } = await scoped(req, 'sourcing_leads')
           .select('id')
           .eq('campaign_id', campaignId as any)
           .ilike('email', fromEmail)
@@ -284,8 +304,7 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
       const receivedAt = (r as any).reply_ts || new Date().toISOString();
 
       // Dedupe: skip if we already have a sourcing reply at the same timestamp for this lead
-      const { data: existing } = await supabase
-        .from('sourcing_replies')
+      const { data: existing } = await scoped(req, 'sourcing_replies')
         .select('id')
         .eq('campaign_id', campaignId)
         .eq('lead_id', sourcingLeadId as any)
@@ -294,8 +313,7 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
       if (existing && existing.length > 0) { skipped += 1; continue; }
 
       const body = String((r as any).text_body || (r as any).html_body || '');
-      const { error: insErr } = await supabase
-        .from('sourcing_replies')
+      const { error: insErr } = await scoped(req, 'sourcing_replies')
         .insert({
           campaign_id: campaignId,
           lead_id: sourcingLeadId,
@@ -313,8 +331,7 @@ router.post('/campaigns/:id/backfill-replies', requireAuth, async (req: ApiReque
       inserted += 1;
 
       // Update sourcing lead state for stats
-      await supabase
-        .from('sourcing_leads')
+      await scoped(req, 'sourcing_leads')
         .update({ outreach_stage: 'replied', reply_status: 'replied' })
         .eq('id', sourcingLeadId as any);
     }
@@ -332,8 +349,7 @@ router.get('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => 
     // If no query parameters, return simple list for frontend
     if (Object.keys(req.query).length === 0) {
       const userId = req.user?.id as string;
-      const { data, error } = await supabase
-        .from('sourcing_campaigns')
+      const { data, error } = await scoped(req, 'sourcing_campaigns', 'created_by')
         .select('id, title, audience_tag, status, created_at, created_by, default_sender_id')
         .eq('created_by', userId)
         .order('created_at', { ascending: false })
@@ -355,7 +371,7 @@ router.get('/campaigns', requireAuth, async (req: ApiRequest, res: Response) => 
       offset: parseInt(req.query.offset as string) || 0
     };
     
-    const campaigns = await searchCampaigns(filters);
+    const campaigns = await searchCampaigns(filters, (req as any).workspaceId);
     return res.json({ campaigns, ...filters });
   } catch (error: any) {
     console.error('Error fetching campaigns:', error);
@@ -416,8 +432,7 @@ router.get('/campaign-config/:id', requireAuth, async (req: ApiRequest, res: Res
     const userId = req.user?.id as string;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
-    const { data: campaign } = await supabase
-      .from('sourcing_campaigns')
+    const { data: campaign } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .select('id, created_by')
       .eq('id', id)
       .maybeSingle();
@@ -457,8 +472,7 @@ router.post('/campaign-config/:id/auto-outreach', requireAuth, async (req: ApiRe
     const userId = req.user?.id as string;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
-    const { data: campaign } = await supabase
-      .from('sourcing_campaigns')
+    const { data: campaign } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .select('id, created_by')
       .eq('id', id)
       .maybeSingle();
@@ -537,8 +551,7 @@ router.get('/campaigns/:id/replies', requireAuth, async (req: ApiRequest, res: R
   try {
     const { id } = req.params;
     
-    const { data: replies, error } = await supabase
-      .from('sourcing_replies')
+    const { data: replies, error } = await scoped(req, 'sourcing_replies')
       .select(`
         *,
         sourcing_leads (
@@ -567,8 +580,7 @@ router.post('/replies/:replyId/book-demo', requireAuth, async (req: ApiRequest, 
     const { lead_id } = req.body;
     
     // Update reply with action taken
-    const { error: replyError } = await supabase
-      .from('sourcing_replies')
+    const { error: replyError } = await scoped(req, 'sourcing_replies')
       .update({ 
         next_action: 'book',
         classified_as: 'positive' 
@@ -578,8 +590,7 @@ router.post('/replies/:replyId/book-demo', requireAuth, async (req: ApiRequest, 
     if (replyError) throw replyError;
     
     // Update lead status
-    const { error: leadError } = await supabase
-      .from('sourcing_leads')
+    const { error: leadError } = await scoped(req, 'sourcing_leads')
       .update({ 
         reply_status: 'positive',
         outreach_stage: 'replied'
@@ -601,8 +612,7 @@ router.post('/replies/:replyId/disqualify', requireAuth, async (req: ApiRequest,
     const { lead_id } = req.body;
     
     // Update reply with action taken
-    const { error: replyError } = await supabase
-      .from('sourcing_replies')
+    const { error: replyError } = await scoped(req, 'sourcing_replies')
       .update({ 
         next_action: 'disqualify',
         classified_as: 'negative' 
@@ -612,8 +622,7 @@ router.post('/replies/:replyId/disqualify', requireAuth, async (req: ApiRequest,
     if (replyError) throw replyError;
     
     // Update lead status
-    const { error: leadError } = await supabase
-      .from('sourcing_leads')
+    const { error: leadError } = await scoped(req, 'sourcing_leads')
       .update({ 
         reply_status: 'negative',
         outreach_stage: 'unsubscribed'
@@ -634,8 +643,7 @@ router.post('/campaigns/:id/pause', requireAuth, async (req: ApiRequest, res: Re
   try {
     const { id } = req.params;
     
-    const { error } = await supabase
-      .from('sourcing_campaigns')
+    const { error } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .update({ status: 'paused' })
       .eq('id', id);
     
@@ -652,8 +660,7 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
   try {
     const { id } = req.params;
     
-    const { error } = await supabase
-      .from('sourcing_campaigns')
+    const { error } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .update({ status: 'running' })
       .eq('id', id);
     
@@ -670,8 +677,7 @@ router.post('/campaigns/:id/resume', requireAuth, async (req: ApiRequest, res: R
 router.post('/campaigns/:id/relaunch', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
-      .from('sourcing_campaigns')
+    const { error } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .update({ status: 'draft' })
       .eq('id', id);
     if (error) throw error;
@@ -687,8 +693,7 @@ router.post('/campaigns/:id/relaunch', requireAuth, async (req: ApiRequest, res:
 router.delete('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
-      .from('sourcing_campaigns')
+    const { error } = await scoped(req, 'sourcing_campaigns', 'created_by')
       .delete()
       .eq('id', id);
     if (error) throw error;

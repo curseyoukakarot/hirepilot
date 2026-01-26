@@ -26,6 +26,15 @@ function resolveApiBase() {
   return base.replace(/\/$/, '');
 }
 const API_BASE_URL = resolveApiBase();
+const WORKSPACE_STORAGE_KEY = 'hp_active_workspace_id';
+
+function isRecruiterHost(): boolean {
+  try {
+    return !window.location.hostname.startsWith('jobs.');
+  } catch {
+    return true;
+  }
+}
 
 interface ApiOptions extends RequestInit {
   requireAuth?: boolean;
@@ -54,6 +63,12 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
   }
   if (userId) headers.set('x-user-id', userId);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  if (isRecruiterHost()) {
+    try {
+      const workspaceId = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+      if (workspaceId) headers.set('x-workspace-id', workspaceId);
+    } catch {}
+  }
 
   // Make the request
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

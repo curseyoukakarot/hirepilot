@@ -153,6 +153,7 @@ import { workersHealth } from './src/routes/health.workers';
 import { sniperOpenerWorker } from './src/workers/sniper.opener.worker';
 import rexConversationsRouter from './src/routes/rexConversations';
 import { rexTools as rexToolsRouter } from './src/routes/rex/tools';
+import workspacesRouter from './src/routes/workspaces';
 import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
@@ -286,6 +287,7 @@ const corsOptions: any = {
   allowedHeaders: [
     'Authorization',
     'x-api-key',
+    'x-workspace-id',
     'Content-Type',
     'Cache-Control',
     'Accept',
@@ -517,6 +519,7 @@ app.get('/api/health/overview', appHealth);
 app.get('/api/health/auth', authHealth);
 app.get('/api/health/workers', requireAuthFlag, workersHealth);
 app.use('/api/user', userRouter);
+app.use('/api/workspaces', workspacesRouter);
 app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);

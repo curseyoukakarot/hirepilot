@@ -53,6 +53,7 @@ import TermsPage from './screens/TermsPage';
 import RexSupport from './screens/RexSupport';
 import ApiDocs from './screens/ApiDocs';
 import useVersionNotifier from './hooks/useVersionNotifier.jsx';
+import { useWorkspaceBootstrap } from './hooks/useWorkspaceBootstrap';
 import IntegrationsAndWorkflows from './pages/IntegrationsAndWorkflows';
 import WorkflowsPage from './pages/WorkflowsPage';
 import SandboxPage from './pages/SandboxPage';
@@ -353,6 +354,7 @@ function InnerApp() {
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const [role, setRole] = useState(null);
+  useWorkspaceBootstrap(role);
 
   // Supabase may redirect magic links back to Site URL (often `https://thehirepilot.com/#...`).
   // If auth parameters exist but we are not on `/auth/callback`, force-load the callback route
