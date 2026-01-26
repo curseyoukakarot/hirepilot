@@ -74,21 +74,37 @@ router.get('/mine', async (req: Request, res: Response) => {
     let teamSeatCount: number | null = null;
     if (isTeamAdmin && teamId) {
       try {
-        const { data: teamUsers } = await supabase
-          .from('users')
-          .select('id, role')
+        // Prefer team_members if available; fallback to users.team_id
+        let memberIds: string[] = [];
+        const { data: teamMembers, error: tmErr } = await supabase
+          .from('team_members')
+          .select('user_id')
           .eq('team_id', teamId);
-        const members = (teamUsers || []).filter(
-          (u: any) => !String(u?.role || '').toLowerCase().startsWith('job_seeker')
-        );
-        teamSeatCount = Math.max(5, members.length || 0);
+        if (!tmErr && Array.isArray(teamMembers)) {
+          memberIds = teamMembers.map((m: any) => String(m.user_id));
+        }
+        if (tmErr && (tmErr as any)?.code !== '42P01') {
+          // unexpected error; ignore and fallback
+        }
+        if (!memberIds.length) {
+          const { data: teamUsers } = await supabase
+            .from('users')
+            .select('id, role')
+            .eq('team_id', teamId);
+          const members = (teamUsers || []).filter(
+            (u: any) => !String(u?.role || '').toLowerCase().startsWith('job_seeker')
+          );
+          memberIds = members.map((m: any) => String(m.id));
+        }
+
+        teamSeatCount = Math.max(5, memberIds.length || 0);
 
         if (teamWorkspaceId) {
-          const rows = members
-            .filter((u: any) => String(u.id) !== String(userId))
-            .map((u: any) => ({
+          const rows = memberIds
+            .filter((id) => String(id) !== String(userId))
+            .map((id) => ({
               workspace_id: teamWorkspaceId,
-              user_id: u.id,
+              user_id: id,
               role: 'member',
               status: 'active',
               invited_by: userId
@@ -110,7 +126,11 @@ router.get('/mine', async (req: Request, res: Response) => {
       const baseSeat = (m.workspaces as any)?.seat_count ?? null;
       const memberRole = m.role ?? null;
       const isTeamWorkspace = !!teamWorkspaceId && workspaceId === teamWorkspaceId && isTeamAdmin;
-      const displayRole = isTeamWorkspace ? 'team_admin' : memberRole;
+      const displayRole = isTeamWorkspace
+        ? 'team_admin'
+        : (normalizedAuthRole === 'super_admin' || normalizedAuthRole === 'admin')
+          ? normalizedAuthRole
+          : memberRole || normalizedAuthRole || null;
       const displayPlan = isTeamWorkspace ? 'team' : basePlan;
       const displaySeat = isTeamWorkspace && teamSeatCount ? teamSeatCount : baseSeat;
       return {
