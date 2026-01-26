@@ -2055,8 +2055,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const allowTeamEditing = shareLeadsEnabled && !!teamSharing.allow_team_editing;
 
     // Build query based on user role
-    let query = scoped(req, 'leads')
-      .select('*');
+    let query = applyWorkspaceScope(
+      supabase.from('leads').select('*'),
+      { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
+    );
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userRow.role);
     const adminViewPool = isAdmin && teamSharing.team_admin_view_pool;
