@@ -11,19 +11,35 @@ import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspace
 const router = express.Router();
 router.use(requireAuth as any, activeWorkspace as any);
 
-const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
-  applyWorkspaceScope(supabase.from(table), {
+const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') => {
+  const base: any = supabase.from(table);
+  const scopeArgs = {
     workspaceId: (req as any).workspaceId,
     userId: (req as any)?.user?.id,
     ownerColumn
-  });
+  };
+  return {
+    select: (columns: string) => applyWorkspaceScope(base.select(columns), scopeArgs),
+    insert: (values: any) => base.insert(values),
+    update: (values: any) => applyWorkspaceScope(base.update(values), scopeArgs),
+    delete: () => applyWorkspaceScope(base.delete(), scopeArgs)
+  };
+};
 
 const scopedNoOwner = (req: Request, table: string) => {
-  const base = supabase.from(table);
+  const base: any = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
-  if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  const applyNoOwnerScope = (query: any) => {
+    if (!workspaceId) return query;
+    if (WORKSPACES_ENFORCE_STRICT) return query.eq('workspace_id', workspaceId);
+    return query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  };
+  return {
+    select: (columns: string) => applyNoOwnerScope(base.select(columns)),
+    insert: (values: any) => base.insert(values),
+    update: (values: any) => applyNoOwnerScope(base.update(values)),
+    delete: () => applyNoOwnerScope(base.delete())
+  };
 };
 
 async function getRoleTeam(userId: string): Promise<{ role: string; team_id: string | null }> {
@@ -1021,8 +1037,8 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
 
     // Writes: owner can edit; team_admin can edit within their team.
     const ctx = await getDealsSharingContext(userId);
-    const roleLc = String(ctx.role || '').toLowerCase();
-    const isTeamAdmin = roleLc === 'team_admin';
+    const roleLc = String(ctx.roleInTeam || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'admin';
     const isOwner = String((beforeRow as any).owner_id || '') === userId;
     if (!isOwner) {
       if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
@@ -1152,8 +1168,8 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
       .maybeSingle();
     if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
     const ctx = await getDealsSharingContext(userId);
-    const roleLc = String(ctx.role || '').toLowerCase();
-    const isTeamAdmin = roleLc === 'team_admin';
+    const roleLc = String(ctx.roleInTeam || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'admin';
     const isOwner = String((existing as any).owner_id || '') === userId;
     if (!isOwner) {
       if (!isTeamAdmin || !ctx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
