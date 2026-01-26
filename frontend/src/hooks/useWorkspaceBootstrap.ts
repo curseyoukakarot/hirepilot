@@ -12,6 +12,7 @@ type WorkspaceRow = {
   seat_count?: number | null;
   role?: string | null;
   status?: string | null;
+  auth_role?: string | null;
   display_role?: string | null;
   display_plan?: string | null;
   display_seat_count?: number | null;

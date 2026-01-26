@@ -5,7 +5,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { workspacePlanLabel } from '../lib/workspacePlanLabel';
 
 function WorkspaceRow({ workspace, isActive, onSwitch, onManage }) {
-  const displayRole = workspace.display_role || workspace.role;
+  const displayRole = workspace.display_role || workspace.auth_role || workspace.role;
   const displayPlan = workspace.display_plan || workspace.plan;
   const displaySeats = workspace.display_seat_count ?? workspace.seat_count;
   return (
@@ -173,7 +173,10 @@ export default function WorkspacesPage() {
                     {selected.name || 'Workspace'}
                   </div>
                   <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {workspacePlanLabel(selected.display_plan || selected.plan, selected.display_role || selected.role)} • Seats: {selected.display_seat_count ?? selected.seat_count ?? '—'}
+                    {workspacePlanLabel(
+                      selected.display_plan || selected.plan,
+                      selected.display_role || selected.auth_role || selected.role
+                    )} • Seats: {selected.display_seat_count ?? selected.seat_count ?? '—'}
                   </div>
                 </div>
                 <button

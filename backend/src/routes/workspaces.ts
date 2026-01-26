@@ -39,6 +39,7 @@ router.get('/mine', async (req: Request, res: Response) => {
       teamId = ctx.teamId ? String(ctx.teamId) : null;
       teamRole = ctx.role ? String(ctx.role) : null;
     } catch {}
+    const normalizedAuthRole = String(role || '').toLowerCase();
     const normalizedTeamRole = String(teamRole || role || '').toLowerCase();
     const isTeamAdmin = normalizedTeamRole === 'team_admin' || normalizedTeamRole === 'teamadmin';
 
@@ -96,6 +97,7 @@ router.get('/mine', async (req: Request, res: Response) => {
         seat_count: baseSeat,
         role: memberRole,
         status: m.status ?? null,
+        auth_role: normalizedAuthRole || null,
         display_role: displayRole,
         display_plan: displayPlan,
         display_seat_count: displaySeat
