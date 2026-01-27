@@ -43,8 +43,23 @@ const scopedNoOwner = (req: Request, table: string) => {
   const base: any = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
   if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  const applyScope = (builder: any) => {
+    if (!builder || typeof builder.eq !== 'function') return builder;
+    if (WORKSPACES_ENFORCE_STRICT) return builder.eq('workspace_id', workspaceId);
+    return builder.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  };
+  if (typeof base.eq === 'function') return applyScope(base);
+  const methodsToWrap = new Set(['select', 'update', 'delete', 'upsert']);
+  const handler: ProxyHandler<any> = {
+    get(target, prop) {
+      const value = target?.[prop];
+      if (typeof value !== 'function') return value;
+      const name = String(prop);
+      if (!methodsToWrap.has(name)) return value.bind(target);
+      return (...args: any[]) => applyScope(value.apply(target, args));
+    }
+  };
+  return new Proxy(base, handler) as any;
 };
 
 function summarizeSupabaseError(error: any): string {
