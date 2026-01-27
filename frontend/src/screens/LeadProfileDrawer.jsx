@@ -843,7 +843,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
   };
   const getFoundedYear = (org) => org?.founded_year || null;
   const getIndustry = (org) => org?.industry || null;
-  const getKeywords = (org) => Array.isArray(org?.keywords) ? org.keywords.slice(0, 10) : [];
+  const getKeywords = (org) => Array.isArray(org?.keywords) ? org.keywords.slice(0, 14) : [];
   const getTechnologies = (lead) => {
     const org = lead?.enrichment_data?.apollo?.organization || {};
     const techA = Array.isArray(org.technology_names)
@@ -852,7 +852,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     const techB = Array.isArray(org.current_technologies)
       ? org.current_technologies.map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean)
       : [];
-    return Array.from(new Set([...techA, ...techB])).slice(0, 8);
+    return Array.from(new Set([...techA, ...techB])).slice(0, 12);
   };
 
   const getEnhancedCompany = (lead) => {
@@ -874,6 +874,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         employee_range: org?.employee_count_range || org?.estimated_num_employees || null,
         industry: org?.industry || null,
         headquarters: org?.location || org?.headquarters || null,
+        founded_year: org?.founded_year || null,
         funding_total: funding?.total || null,
         last_funding_round: funding?.stage || org?.last_funding_type || null,
         last_funding_amount: org?.last_funding_amount || null,
@@ -893,6 +894,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
         employee_range: skrapp?.company_employee_range || skrapp?.company_size || null,
         industry: skrapp?.company_industry || skrapp?.industry || null,
         headquarters: skrapp?.company_headquarters || skrapp?.headquarters || null,
+        founded_year: skrapp?.company_founded_year || skrapp?.founded_year || null,
         funding_total: skrapp?.company_funding || null,
         last_funding_round: skrapp?.last_funding_round || null,
         last_funding_amount: skrapp?.last_funding_amount || null,
@@ -904,24 +906,87 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return null;
   };
 
-  // Determine if we actually have any enhanced org data to show
-  const hasEnhancedOrgData = (lead) => {
-    const company = getEnhancedCompany(lead);
-    if (!company) return false;
-    if (company.revenue_range) return true;
-    if (company.employee_range || company.employee_count) return true;
-    if (company.industry) return true;
-    if (company.headquarters) return true;
-    if (company.funding_total || company.last_funding_round || company.last_funding_amount) return true;
-    if (Array.isArray(company.technologies) && company.technologies.length > 0) return true;
-    if (Array.isArray(company.keywords) && company.keywords.length > 0) return true;
-    return false;
+  const formatDisplayDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString();
+  };
+
+  const normalizeInvestorArticle = (article) => {
+    if (!article) return null;
+    if (typeof article === 'string') return { title: article, url: null, date: null, source: null };
+    const title = article.title || article.headline || article.name || article.article_title || article.summary;
+    const url = article.url || article.link || article.source_url || article.news_url || article.press_url;
+    const date = article.date || article.published_at || article.published_date || article.published_on;
+    const source = article.source || article.publisher || article.outlet;
+    if (!title && !url) return null;
+    return { title: title || url, url, date, source };
+  };
+
+  const getInvestorArticles = (lead) => {
+    const org = lead?.enrichment_data?.apollo?.organization || {};
+    const sources = [
+      org?.news,
+      org?.news_articles,
+      org?.press_releases,
+      org?.press,
+      org?.articles,
+      org?.investor_news,
+      org?.investor_articles,
+      lead?.enhanced_insights?.company?.news,
+      lead?.enhanced_insights?.company?.articles
+    ].filter(Boolean);
+    const flattened = sources.flatMap((source) => (Array.isArray(source) ? source : [source]));
+    const normalized = flattened.map(normalizeInvestorArticle).filter(Boolean);
+    const seen = new Set();
+    const unique = [];
+    normalized.forEach((item) => {
+      const key = item.url || item.title;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      unique.push(item);
+    });
+    return unique.slice(0, 6);
   };
 
   // Funding events helper
   const getFundingEvents = (lead) => {
     const events = lead?.enrichment_data?.apollo?.organization?.funding_events;
     return Array.isArray(events) ? events : [];
+  };
+
+  const getFundingEventLabel = (event) => {
+    if (!event) return null;
+    const round = event?.funding_round || event?.round || event?.series || event?.stage || event?.type || event?.name;
+    const amount = event?.funding_round_amount || event?.amount || event?.raised_amount || event?.money_raised || event?.total_raised;
+    return [round, amount].filter(Boolean).join(' · ') || null;
+  };
+
+  const getFundingEventInvestors = (event) => {
+    const investors = event?.investors || event?.investor_names || event?.investors_list || event?.investor_name || event?.investors_formatted;
+    if (Array.isArray(investors)) return investors.filter(Boolean).join(', ');
+    if (typeof investors === 'string') return investors;
+    return null;
+  };
+
+  const getFundingEventUrl = (event) =>
+    event?.news_url || event?.source_url || event?.url || event?.press_url || event?.news?.url;
+
+  // Determine if we actually have any enhanced org data to show
+  const hasEnhancedOrgData = (lead) => {
+    const company = getEnhancedCompany(lead);
+    if (company?.revenue_range) return true;
+    if (company?.employee_range || company?.employee_count) return true;
+    if (company?.industry) return true;
+    if (company?.headquarters) return true;
+    if (company?.founded_year) return true;
+    if (company?.funding_total || company?.last_funding_round || company?.last_funding_amount) return true;
+    if (Array.isArray(company?.technologies) && company.technologies.length > 0) return true;
+    if (Array.isArray(company?.keywords) && company.keywords.length > 0) return true;
+    if (getFundingEvents(lead).length > 0) return true;
+    if (getInvestorArticles(lead).length > 0) return true;
+    return false;
   };
 
   // Quick jump into REX with filter intent
@@ -1061,6 +1126,10 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     (localLead?.enrichment_data?.apollo ? 'apollo' : localLead?.enrichment_data?.skrapp ? 'skrapp' : null);
   const enhancedCompany = getEnhancedCompany(localLead);
   const enhancedDataAvailable = hasEnhancedOrgData(localLead);
+  const fundingEvents = getFundingEvents(localLead);
+  const investorArticles = getInvestorArticles(localLead);
+  const keywordItems = Array.isArray(enhancedCompany?.keywords) ? enhancedCompany.keywords : [];
+  const technologyItems = Array.isArray(enhancedCompany?.technologies) ? enhancedCompany.technologies : [];
 
   // Debug logging removed for performance
 
@@ -2613,96 +2682,161 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                       </div>
                     </div>
                     {/* Enhanced Company Insights (data view) */}
-                    {enhancedUnlocked && enhancedDataAvailable && enhancedCompany && (
-                      <div className="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3">
-                        <div className="flex items-center justify-between">
+                    {enhancedUnlocked && enhancedDataAvailable && (
+                      <div className="mt-6">
+                        <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-xs font-semibold text-amber-300 uppercase tracking-wide">
-                              Enhanced Company Insights
-                            </p>
-                            <p className="mt-0.5 text-xs text-gray-300">
+                            <p className="text-sm font-semibold text-gray-900">Enhanced Company Insights</p>
+                            <p className="mt-1 text-xs text-gray-500">
                               Revenue, funding, technologies, and more – powered by{' '}
-                              <span className="font-medium">
+                              <span className="font-medium text-gray-700">
                                 {enhancedProvider === 'skrapp' ? 'Skrapp' : enhancedProvider === 'apollo' ? 'Apollo' : 'our enrichment'}
                               </span>
                             </p>
                           </div>
-                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                             Unlocked
                           </span>
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-200">
-                          {enhancedCompany?.revenue_range && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">Revenue</p>
-                              <p>{enhancedCompany.revenue_range}</p>
-                            </div>
-                          )}
-                          {(enhancedCompany?.employee_range || enhancedCompany?.employee_count) && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">Employees</p>
-                              <p>{enhancedCompany.employee_range || enhancedCompany.employee_count}</p>
-                            </div>
-                          )}
-                          {enhancedCompany?.industry && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">Industry</p>
-                              <p>{enhancedCompany.industry}</p>
-                            </div>
-                          )}
-                          {enhancedCompany?.headquarters && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">HQ</p>
-                              <p>{enhancedCompany.headquarters}</p>
-                            </div>
-                          )}
-                          {enhancedCompany?.funding_total && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">Funding</p>
-                              <p>{enhancedCompany.funding_total}</p>
-                            </div>
-                          )}
-                          {enhancedCompany?.last_funding_round && (
-                            <div>
-                              <p className="text-[10px] uppercase text-gray-400">Latest Round</p>
-                              <p>{enhancedCompany.last_funding_round}</p>
-                            </div>
-                          )}
-                        </div>
-                        {(enhancedCompany?.technologies?.length || enhancedCompany?.keywords?.length) && (
-                          <div className="mt-3">
-                            {Array.isArray(enhancedCompany?.technologies) && enhancedCompany.technologies.length > 0 && (
-                              <>
-                                <p className="text-[10px] uppercase text-gray-400 mb-1">Tech stack</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {enhancedCompany.technologies.map((tech) => (
-                                    <button
-                                      key={tech}
-                                      onClick={() => openRexWithFilter('tech', tech)}
-                                      className="rounded-full bg-gray-900/70 px-2 py-[2px] text-[10px] text-gray-200 hover:bg-gray-800"
-                                    >
-                                      {tech}
-                                    </button>
-                                  ))}
-                                </div>
-                              </>
+                        {(enhancedCompany?.revenue_range ||
+                          enhancedCompany?.last_funding_round ||
+                          enhancedCompany?.funding_total ||
+                          enhancedCompany?.last_funding_amount ||
+                          enhancedCompany?.founded_year ||
+                          enhancedCompany?.industry) && (
+                          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {enhancedCompany?.revenue_range && (
+                              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                <p className="text-xs text-gray-500">Revenue</p>
+                                <p className="text-lg font-semibold text-gray-900">{enhancedCompany.revenue_range}</p>
+                              </div>
                             )}
-                            {Array.isArray(enhancedCompany?.keywords) && enhancedCompany.keywords.length > 0 && (
-                              <>
-                                <p className="mt-2 text-[10px] uppercase text-gray-400 mb-1">Keywords</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {enhancedCompany.keywords.map((kw) => (
-                                    <button
-                                      key={kw}
-                                      onClick={() => openRexWithFilter('keyword', kw)}
-                                      className="rounded-full bg-gray-900/70 px-2 py-[2px] text-[10px] text-gray-200 hover:bg-gray-800"
-                                    >
-                                      {kw}
-                                    </button>
-                                  ))}
-                                </div>
-                              </>
+                            {(enhancedCompany?.last_funding_round ||
+                              enhancedCompany?.funding_total ||
+                              enhancedCompany?.last_funding_amount) && (
+                              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                <p className="text-xs text-gray-500">Funding</p>
+                                <p className="text-lg font-semibold text-gray-900">
+                                  {[enhancedCompany?.last_funding_round, enhancedCompany?.funding_total || enhancedCompany?.last_funding_amount]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </p>
+                              </div>
                             )}
+                            {enhancedCompany?.founded_year && (
+                              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                <p className="text-xs text-gray-500">Founded</p>
+                                <p className="text-lg font-semibold text-gray-900">{enhancedCompany.founded_year}</p>
+                              </div>
+                            )}
+                            {enhancedCompany?.industry && (
+                              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                <p className="text-xs text-gray-500">Industry</p>
+                                <p className="text-lg font-semibold text-gray-900">{enhancedCompany.industry}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {keywordItems.length > 0 && (
+                          <div className="mt-5">
+                            <p className="text-sm font-semibold text-gray-900">Keywords</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {keywordItems.map((kw) => (
+                                <button
+                                  key={kw}
+                                  onClick={() => openRexWithFilter('keyword', kw)}
+                                  className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700 hover:bg-gray-200"
+                                >
+                                  {kw}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {technologyItems.length > 0 && (
+                          <div className="mt-5">
+                            <p className="text-sm font-semibold text-gray-900">Technologies</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {technologyItems.map((tech) => (
+                                <button
+                                  key={tech}
+                                  onClick={() => openRexWithFilter('tech', tech)}
+                                  className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700 hover:bg-gray-200"
+                                >
+                                  {tech}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {fundingEvents.length > 0 && (
+                          <div className="mt-5">
+                            <p className="text-sm font-semibold text-gray-900">Funding Events</p>
+                            <div className="mt-2 space-y-3">
+                              {fundingEvents.slice(0, 4).map((event, idx) => {
+                                const title = getFundingEventLabel(event) || 'Funding Event';
+                                const date = formatDisplayDate(
+                                  event?.funding_round_date || event?.date || event?.announced_on || event?.published_at
+                                );
+                                const investors = getFundingEventInvestors(event);
+                                const newsUrl = getFundingEventUrl(event);
+                                return (
+                                  <div
+                                    key={event?.id || event?.uuid || `${title}-${idx}`}
+                                    className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                                  >
+                                    <p className="text-sm font-semibold text-gray-900">{title}</p>
+                                    {date && <p className="text-xs text-gray-500">{date}</p>}
+                                    {investors && (
+                                      <p className="mt-1 text-xs text-gray-500">
+                                        Investors: {investors}
+                                      </p>
+                                    )}
+                                    {newsUrl && (
+                                      <a
+                                        href={newsUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:underline"
+                                      >
+                                        News
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {investorArticles.length > 0 && (
+                          <div className="mt-5">
+                            <p className="text-sm font-semibold text-gray-900">Investor PR Articles</p>
+                            <div className="mt-2 space-y-3">
+                              {investorArticles.slice(0, 4).map((article, idx) => (
+                                <div
+                                  key={article.url || `${article.title}-${idx}`}
+                                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                                >
+                                  <p className="text-sm font-semibold text-gray-900">{article.title}</p>
+                                  {(article.source || article.date) && (
+                                    <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-gray-500">
+                                      {article.source && <span>{article.source}</span>}
+                                      {article.date && <span>{formatDisplayDate(article.date)}</span>}
+                                    </div>
+                                  )}
+                                  {article.url && (
+                                    <a
+                                      href={article.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:underline"
+                                    >
+                                      Read article
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
