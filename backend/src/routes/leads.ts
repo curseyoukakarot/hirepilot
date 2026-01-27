@@ -2952,8 +2952,10 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     const { id } = req.params;
     
     // Get the original lead data for comparison
-    const { data: originalLead, error: fetchError } = await scoped(req, 'leads')
-      .select('*')
+    const { data: originalLead, error: fetchError } = await applyWorkspaceScope(
+      supabase.from('leads').select('*'),
+      { workspaceId: (req as any).workspaceId, userId: req.user.id, ownerColumn: 'user_id' }
+    )
       .eq('id', id)
       .single();
 
@@ -2994,8 +2996,10 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
     updatePayload.updated_at = new Date().toISOString();
 
     // Update the lead, handling unique email conflicts gracefully
-    let { data, error } = await scoped(req, 'leads')
-      .update(updatePayload)
+    let { data, error } = await applyWorkspaceScope(
+      supabase.from('leads').update(updatePayload),
+      { workspaceId: (req as any).workspaceId, userId: req.user.id, ownerColumn: 'user_id' }
+    )
       .eq('id', id)
       .select()
       .maybeSingle();
@@ -3046,8 +3050,10 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
 
     // Sync changes to the corresponding candidate record if it exists
     try {
-      const { data: candidate } = await scoped(req, 'candidates')
-        .select('id')
+      const { data: candidate } = await applyWorkspaceScope(
+        supabase.from('candidates').select('id'),
+        { workspaceId: (req as any).workspaceId, userId: req.user.id, ownerColumn: 'user_id' }
+      )
         .eq('lead_id', id)
         .eq('user_id', originalLead.user_id)
         .maybeSingle();
@@ -3061,8 +3067,10 @@ export const updateLead = async (req: ApiRequest, res: Response) => {
         
         // Only update candidate if there are fields to sync
         if (Object.keys(candidateUpdate).length > 0) {
-          await scoped(req, 'candidates')
-            .update(candidateUpdate)
+          await applyWorkspaceScope(
+            supabase.from('candidates').update(candidateUpdate),
+            { workspaceId: (req as any).workspaceId, userId: req.user.id, ownerColumn: 'user_id' }
+          )
             .eq('id', candidate.id)
             .eq('user_id', req.user.id);
         }
