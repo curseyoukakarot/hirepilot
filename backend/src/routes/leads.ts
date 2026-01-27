@@ -2043,23 +2043,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const campaignId = req.query.campaignId as string;
     const runId = (req.query.run_id || req.query.scheduler_run_id) as string | undefined;
 
-    // Get user's team_id and role for team sharing
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('team_id, role')
-      .eq('id', userId)
-      .single();
-
-    if (userError) {
-      console.error('Error fetching user team:', userError);
-      res.status(500).json({ error: 'Failed to fetch user data' });
-      return;
-    }
-
-    const userRow = userData || { team_id: null, role: (req as ApiRequest).user?.role || null };
-    if (!userData) {
-      console.warn('[GET /api/leads] Missing public.users row, falling back to auth role');
-    }
+    // Get user's team_id and role for team sharing (supports legacy + new membership).
+    const teamContext = await getUserTeamContextDb(userId);
+    const userRow = {
+      team_id: teamContext.teamId,
+      role: teamContext.role || (req as ApiRequest).user?.role || null
+    };
 
     let teamSharing = DEFAULT_TEAM_SETTINGS;
     if (userRow.team_id) {
