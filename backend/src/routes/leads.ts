@@ -2053,11 +2053,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const shareLeadsEnabled = !!teamSharing.share_leads;
     const allowTeamEditing = shareLeadsEnabled && !!teamSharing.allow_team_editing;
 
-    // Build query based on user role
-    let query = applyWorkspaceScope(
-      supabase.from('leads').select('*'),
-      { workspaceId: (req as any).workspaceId, userId, ownerColumn: 'user_id' }
-    );
+    // Build query based on user role.
+    // Use workspace scope without owner filtering so team sharing can include
+    // shared leads that still have workspace_id NULL.
+    let query = scopedNoOwner(req, 'leads').select('*');
 
     const isAdmin = ['admin', 'team_admin', 'super_admin'].includes(userRow.role);
     const adminViewPool = isAdmin && teamSharing.team_admin_view_pool;
