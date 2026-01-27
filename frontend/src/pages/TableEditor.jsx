@@ -3,6 +3,21 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { evaluate as mathEvaluate } from 'mathjs';
 import Papa from 'papaparse';
+import { toast } from 'react-hot-toast';
+import HtmlPreviewModal from '../components/HtmlPreviewModal';
+import { replaceTokens } from '../utils/tokenReplace';
+
+const looksLikeHtml = (s) => {
+  if (!s) return false;
+  const str = String(s);
+  return /<!doctype\s+html/i.test(str) || /<\/?[a-z][\s\S]*>/i.test(str);
+};
+
+const toEmailHtml = (body) => {
+  if (!body) return '';
+  const str = String(body);
+  return looksLikeHtml(str) ? str : str.replace(/\n/g, '<br/>');
+};
 
 export default function TableEditor() {
   const navigate = useNavigate();
@@ -10,6 +25,7 @@ export default function TableEditor() {
   // IMPORTANT: in production the backend lives at api.thehirepilot.com (not the Vercel app domain).
   // If VITE_BACKEND_URL isn't set, default to the canonical API host.
   const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
+  const API_BASE_URL = `${backendBase}/api`;
   const [tableName, setTableName] = useState('Untitled Table');
   const [lastSavedName, setLastSavedName] = useState('Untitled Table');
   const [saving, setSaving] = useState(false);
@@ -67,6 +83,22 @@ export default function TableEditor() {
   const [commandQuery, setCommandQuery] = useState('');
   const [editingCell, setEditingCell] = useState(null); // { rowIdx, colIdx } | null
   const [editDraftValue, setEditDraftValue] = useState('');
+  const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
+  const [bulkTemplates, setBulkTemplates] = useState([]);
+  const [bulkSelectedTemplate, setBulkSelectedTemplate] = useState(null);
+  const [bulkMessages, setBulkMessages] = useState({});
+  const [bulkIsSending, setBulkIsSending] = useState(false);
+  const [bulkIsSavingTemplate, setBulkIsSavingTemplate] = useState(false);
+  const [bulkPreviewModes, setBulkPreviewModes] = useState({});
+  const [bulkPreviewModalRowIdx, setBulkPreviewModalRowIdx] = useState(null);
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [providerStatus, setProviderStatus] = useState({
+    google: false,
+    outlook: false,
+    sendgrid: false,
+    apollo: false
+  });
+  const [bulkBcc, setBulkBcc] = useState('');
 
   const apiFetch = async (url, init = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -204,6 +236,286 @@ export default function TableEditor() {
   };
   const colLabel = (c) => String(c?.label || c?.name || '');
   const colKey = (c) => String(c?.key || toKey(colLabel(c)));
+  const normalizeLabel = (value) => String(value || '').trim().toLowerCase();
+  const getRowValueByLabels = (row, labels) => {
+    if (!row || !Array.isArray(labels)) return '';
+    for (const label of labels) {
+      const labelNorm = normalizeLabel(label);
+      const col = (schema || []).find((c) => normalizeLabel(colLabel(c)) === labelNorm);
+      if (col) {
+        const key = colKey(col);
+        const value = row?.[key];
+        if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+      }
+      const direct = row?.[label] ?? row?.[labelNorm];
+      if (direct !== undefined && direct !== null && String(direct).trim() !== '') return direct;
+    }
+    return '';
+  };
+  const getRowEmail = (row) => String(getRowValueByLabels(row, ['email', 'email address', 'contact email']) || '').trim();
+  const getRowName = (row) => {
+    const direct = getRowValueByLabels(row, ['name', 'full name', 'contact', 'lead', 'candidate']);
+    if (direct) return String(direct).trim();
+    const first = getRowValueByLabels(row, ['first name', 'firstname']);
+    const last = getRowValueByLabels(row, ['last name', 'lastname']);
+    return [first, last].filter(Boolean).join(' ').trim();
+  };
+  const getRowTitle = (row) => String(getRowValueByLabels(row, ['title', 'job', 'role']) || '').trim();
+  const getRowCompany = (row) => String(getRowValueByLabels(row, ['company', 'client', 'account']) || '').trim();
+  const getRowLinkedIn = (row) => String(getRowValueByLabels(row, ['linkedin', 'linkedin url', 'linkedin_url', 'linkedin profile']) || '').trim();
+  const getRowRecordType = (row) => normalizeLabel(getRowValueByLabels(row, ['record type', 'record_type', 'type']));
+  const getRowRecordId = (row) => String(getRowValueByLabels(row, ['record id', 'record_id', 'hp_record_id', 'id']) || '').trim();
+  const buildTemplateData = (row) => {
+    const name = getRowName(row);
+    const firstFromName = name ? String(name).split(' ')[0] : '';
+    const lastFromName = name ? String(name).split(' ').slice(1).join(' ') : '';
+    const firstName = getRowValueByLabels(row, ['first name', 'firstname']) || firstFromName;
+    const lastName = getRowValueByLabels(row, ['last name', 'lastname']) || lastFromName;
+    const email = getRowEmail(row);
+    const title = getRowTitle(row);
+    const company = getRowCompany(row);
+    const linkedin = getRowLinkedIn(row);
+    return {
+      Candidate: {
+        FirstName: firstName || '',
+        LastName: lastName || '',
+        Company: company || '',
+        Job: title || '',
+        Email: email || '',
+        LinkedIn: linkedin || ''
+      },
+      first_name: firstName || '',
+      last_name: lastName || '',
+      full_name: name || '',
+      company: company || '',
+      title: title || '',
+      email: email || '',
+      linkedin_url: linkedin || ''
+    };
+  };
+  const personalizeTemplate = (content, row) => replaceTokens(content, buildTemplateData(row));
+  const parseBccInput = (value = '') => {
+    if (!value) return [];
+    return value
+      .split(/[,;\n]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  };
+  const selectedRowEntries = useMemo(() => {
+    const indices = Array.from(selectedRowIdxSet || []).sort((a, b) => a - b);
+    return indices.map((idx) => ({ idx, row: rows?.[idx] })).filter((entry) => entry.row);
+  }, [selectedRowIdxSet, rows]);
+  const selectedRowEmailCount = useMemo(() => {
+    return selectedRowEntries.filter((entry) => getRowEmail(entry.row)).length;
+  }, [selectedRowEntries]);
+  const selectedLeadRowCount = useMemo(() => {
+    return selectedRowEntries.filter(({ row }) => {
+      const recordType = getRowRecordType(row);
+      const recordId = getRowRecordId(row);
+      return recordType.includes('lead') && recordId;
+    }).length;
+  }, [selectedRowEntries]);
+
+  const fetchBulkTemplates = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('user_id', user.id);
+    if (!error && data) setBulkTemplates(data);
+  };
+
+  const fetchProviderStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: googleData } = await supabase
+        .from('google_accounts')
+        .select('status')
+        .eq('user_id', user.id)
+        .single();
+      const { data: otherData } = await supabase
+        .from('integrations')
+        .select('provider, status')
+        .eq('user_id', user.id);
+      const status = {
+        google: googleData?.status === 'connected',
+        outlook: false,
+        sendgrid: false,
+        apollo: false
+      };
+      (otherData || []).forEach((row) => {
+        if (row.status === 'connected') status[row.provider] = true;
+      });
+      setProviderStatus(status);
+      if (!selectedProvider) {
+        const first = Object.keys(status).find((p) => status[p]);
+        if (first) setSelectedProvider(first);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (showBulkMessageModal) fetchProviderStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBulkMessageModal]);
+
+  const openBulkMessageModal = async () => {
+    if (!selectedRowIdxSet.size) return;
+    await fetchBulkTemplates();
+    setBulkSelectedTemplate(null);
+    setBulkMessages({});
+    setBulkPreviewModes({});
+    setShowBulkMessageModal(true);
+  };
+
+  const handleBulkTemplateSelect = (template) => {
+    setBulkSelectedTemplate(template);
+    const newMessages = {};
+    selectedRowEntries.forEach(({ idx, row }) => {
+      newMessages[idx] = personalizeTemplate(template.content, row);
+    });
+    setBulkMessages(newMessages);
+  };
+
+  const handleBulkMessageEdit = (rowIdx, value) => {
+    setBulkMessages((prev) => ({ ...prev, [rowIdx]: value }));
+  };
+
+  const handleTogglePreview = (rowIdx) => {
+    setBulkPreviewModes((prev) => ({ ...prev, [rowIdx]: !prev[rowIdx] }));
+  };
+
+  const handleBulkSaveTemplate = async () => {
+    setBulkIsSavingTemplate(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const firstMessage = Object.values(bulkMessages)[0] || '';
+      const { error } = await supabase
+        .from('email_templates')
+        .insert({
+          user_id: user.id,
+          name: bulkSelectedTemplate?.name ? `${bulkSelectedTemplate.name} (Edited)` : 'Bulk Template',
+          subject: bulkSelectedTemplate?.subject || '',
+          content: firstMessage,
+          created_at: new Date().toISOString()
+        });
+      if (error) throw error;
+      toast.success('Template saved!');
+      await fetchBulkTemplates();
+    } catch (err) {
+      toast.error(err.message || 'Failed to save template');
+    } finally {
+      setBulkIsSavingTemplate(false);
+    }
+  };
+
+  const handleBulkSend = async () => {
+    try {
+      if (!selectedProvider) throw new Error('Select a provider first');
+      if (!bulkSelectedTemplate) throw new Error('Select a template first');
+      const selected = selectedRowEntries;
+      if (!selected.length) throw new Error('Select at least one row');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const bulkBccList = parseBccInput(bulkBcc);
+      const normalizedBulkBcc = bulkBccList.join(',');
+
+      const leadMessages = [];
+      const directMessages = [];
+      let skippedNoEmail = 0;
+
+      selected.forEach(({ idx, row }) => {
+        const recordType = getRowRecordType(row);
+        const recordId = getRowRecordId(row);
+        const isLead = recordType.includes('lead') && recordId;
+        const content = bulkMessages[idx] || '';
+        if (isLead) {
+          const payload = {
+            lead_id: recordId,
+            user_id: user.id,
+            content,
+            template_id: bulkSelectedTemplate?.id || null,
+            channel: selectedProvider
+          };
+          payload.bcc = normalizedBulkBcc;
+          leadMessages.push(payload);
+        } else {
+          const email = getRowEmail(row);
+          if (!email) {
+            skippedNoEmail += 1;
+            return;
+          }
+          directMessages.push({ idx, row, content, email });
+        }
+      });
+
+      if (!leadMessages.length && !directMessages.length) {
+        throw new Error('No selected rows are eligible to send');
+      }
+
+      setBulkIsSending(true);
+
+      if (leadMessages.length) {
+        const response = await fetch(`${API_BASE_URL}/sendMassMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ messages: leadMessages })
+        });
+        if (!response.ok) throw new Error('Failed to send lead messages');
+      }
+
+      if (directMessages.length) {
+        const subjectTemplate = bulkSelectedTemplate?.subject || 'Hello';
+        const directResults = await Promise.allSettled(directMessages.map(async ({ row, content, email }) => {
+          const subject = replaceTokens(subjectTemplate, buildTemplateData(row));
+          const payload = {
+            to: email,
+            subject,
+            html: content || '',
+            provider: selectedProvider,
+            template_data: buildTemplateData(row)
+          };
+          const resp = await fetch(`${API_BASE_URL}/messages/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          if (!resp.ok) throw new Error('Failed to send message');
+        }));
+        const failed = directResults.filter((r) => r.status === 'rejected').length;
+        if (failed) toast.error(`Failed to send ${failed} message(s)`);
+      }
+
+      if (skippedNoEmail) {
+        toast.error(`Skipped ${skippedNoEmail} row(s) without email`);
+      }
+      if (bulkBcc && directMessages.length) {
+        toast('BCC only applies to lead-based sends.', { icon: 'ℹ️' });
+      }
+      toast.success('Messages sent!');
+      setShowBulkMessageModal(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to send messages');
+    } finally {
+      setBulkIsSending(false);
+    }
+  };
   const normalizeSchema = (schemaIn) => {
     const next = (Array.isArray(schemaIn) ? schemaIn : []).map((c) => {
       const label = String(c?.label || c?.name || 'Column');
@@ -1577,8 +1889,26 @@ export default function TableEditor() {
     };
   }, [resizing, schema]);
 
+  const bulkPreviewRow = bulkPreviewModalRowIdx !== null ? rows?.[bulkPreviewModalRowIdx] : null;
+  const bulkPreviewTitle = bulkPreviewRow
+    ? (getRowName(bulkPreviewRow) || getRowEmail(bulkPreviewRow) || 'Row preview')
+    : '';
+  const bulkPreviewSubject = bulkPreviewRow
+    ? replaceTokens(bulkSelectedTemplate?.subject || 'Hello', buildTemplateData(bulkPreviewRow))
+    : '';
+  const bulkPreviewHtml = bulkPreviewRow
+    ? toEmailHtml(bulkMessages[bulkPreviewModalRowIdx] || '')
+    : '';
+
   return (
     <div className="bg-gray-50 font-sans min-h-screen flex flex-col">
+      <HtmlPreviewModal
+        isOpen={bulkPreviewModalRowIdx !== null}
+        title={bulkPreviewTitle}
+        subject={bulkPreviewSubject}
+        html={bulkPreviewHtml}
+        onClose={() => setBulkPreviewModalRowIdx(null)}
+      />
       {/* EXACT SOURCE START (layout/content preserved as-is) */}
       <div id="table-editor" className="min-h-screen flex flex-col">
         <header id="header" className="bg-white border-b border-gray-200 px-6 py-4">
@@ -1677,6 +2007,9 @@ export default function TableEditor() {
             </button>
             <button onClick={bulkDeleteSelected} disabled={!selectedRowIdxSet.size || isReadOnly} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${(!selectedRowIdxSet.size || isReadOnly) ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-red-700 border-red-300 hover:bg-red-50'}`}>
               <i className="fas fa-trash"></i>Delete Selected
+            </button>
+            <button onClick={openBulkMessageModal} disabled={!selectedRowIdxSet.size || isReadOnly} className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${(!selectedRowIdxSet.size || isReadOnly) ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-blue-700 border-blue-300 hover:bg-blue-50'}`}>
+              <i className="fas fa-envelope"></i>Bulk Message
             </button>
             <button disabled={isReadOnly} onClick={()=>{ setImportSource('/leads'); setShowImportModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 dark:text-gray-100">
               <i className="fas fa-upload text-sm"></i>Import Data
@@ -2113,6 +2446,149 @@ export default function TableEditor() {
                 }
               }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Save</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Message Modal */}
+      {showBulkMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full shadow-lg">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">Bulk Message to {selectedRowEntries.length} Rows</h3>
+              <button className="text-gray-400 hover:text-gray-600" onClick={() => setShowBulkMessageModal(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="mb-4 text-sm text-gray-600">
+              Eligible to send: {selectedLeadRowCount + selectedRowEmailCount} of {selectedRowEntries.length} selected rows.
+            </div>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="font-medium text-gray-700">Send with:</span>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'google' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('google')}
+                disabled={!providerStatus.google}
+              >
+                <i className="fab fa-google text-red-600"></i> Google
+                <i className={`fas fa-circle text-xs ml-1 ${providerStatus.google ? 'text-green-500' : 'text-gray-300'}`}></i>
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'outlook' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('outlook')}
+                disabled={!providerStatus.outlook}
+              >
+                <i className="fab fa-microsoft text-blue-600"></i> Outlook
+                <i className={`fas fa-circle text-xs ml-1 ${providerStatus.outlook ? 'text-green-500' : 'text-gray-300'}`}></i>
+              </button>
+              <button
+                type="button"
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg border ${selectedProvider === 'sendgrid' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} text-sm`}
+                onClick={() => setSelectedProvider('sendgrid')}
+                disabled={!providerStatus.sendgrid}
+              >
+                <i className="fas fa-envelope text-green-600"></i> SendGrid
+                <i className={`fas fa-circle text-xs ml-1 ${providerStatus.sendgrid ? 'text-green-500' : 'text-gray-300'}`}></i>
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
+              <select
+                className="border rounded px-3 py-2 w-full"
+                value={bulkSelectedTemplate?.id || ''}
+                onChange={(e) => {
+                  const t = bulkTemplates.find((tpl) => tpl.id === e.target.value);
+                  if (t) handleBulkTemplateSelect(t);
+                }}
+              >
+                <option value="">-- Select a template --</option>
+                {bulkTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">BCC (optional)</label>
+              <input
+                type="text"
+                className="border rounded px-3 py-2 w-full"
+                placeholder="Enter comma-separated emails"
+                value={bulkBcc}
+                onChange={(e) => setBulkBcc(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                BCC applies only to rows imported from /leads.
+              </p>
+            </div>
+            {bulkSelectedTemplate && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2">Preview & Edit Messages</h4>
+                <div className="max-h-64 overflow-y-auto divide-y">
+                  {selectedRowEntries.map(({ idx, row }) => {
+                    const name = getRowName(row) || 'Row';
+                    const email = getRowEmail(row);
+                    return (
+                      <div key={idx} className="py-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{name}</span>
+                          <span className={`text-xs ${email ? 'text-gray-500' : 'text-red-500'}`}>
+                            {email || 'Missing email'}
+                          </span>
+                          <button
+                            className="ml-2 px-2 py-1 text-xs rounded border border-gray-300 bg-gray-50 hover:bg-gray-100"
+                            onClick={() => handleTogglePreview(idx)}
+                          >
+                            {bulkPreviewModes[idx] ? 'Edit' : 'Preview'}
+                          </button>
+                          <button
+                            className="px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-gray-50"
+                            type="button"
+                            onClick={() => setBulkPreviewModalRowIdx(idx)}
+                            title="Open full HTML preview"
+                          >
+                            Open Preview
+                          </button>
+                        </div>
+                        {bulkPreviewModes[idx] ? (
+                          <div
+                            className="w-full border rounded px-3 py-2 mt-1 text-sm bg-gray-50 whitespace-pre-wrap"
+                            style={{ minHeight: '72px' }}
+                            dangerouslySetInnerHTML={{
+                              __html: toEmailHtml(bulkMessages[idx] || ''),
+                            }}
+                          />
+                        ) : (
+                          <textarea
+                            className="w-full border rounded px-3 py-2 mt-1 text-sm"
+                            rows={3}
+                            value={bulkMessages[idx] || ''}
+                            onChange={(e) => handleBulkMessageEdit(idx, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    onClick={handleBulkSend}
+                    disabled={bulkIsSending || (selectedLeadRowCount + selectedRowEmailCount) === 0}
+                  >
+                    {bulkIsSending ? 'Sending...' : 'Send to All'}
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+                    onClick={handleBulkSaveTemplate}
+                    disabled={bulkIsSavingTemplate}
+                  >
+                    {bulkIsSavingTemplate ? 'Saving...' : 'Save as Template'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

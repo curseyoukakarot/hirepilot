@@ -698,7 +698,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
 });
 
 // POST /api/tables/:id/bulk-add
-// Body: { entity: 'leads'|'candidates'|'opportunities'|'clients'|'contacts', ids: string[] }
+// Body: { entity: 'leads'|'candidates'|'opportunities'|'clients'|'contacts'|'users', ids: string[] }
 // Recruiter-side only. Appends rows into custom_tables.data_json and expands schema_json as needed.
 router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -707,11 +707,12 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
 
     const me = await getMe(userId);
     if (isJobSeekerRole(me.role)) return res.status(403).json({ error: 'jobseeker_forbidden' });
+    const isSuper = String(me.role || '').toLowerCase() === 'super_admin';
 
     const { id: tableId } = req.params as any;
     const body = (req.body && typeof req.body === 'string') ? JSON.parse(req.body) : (req.body || {});
 
-    const normalizeEntity = (raw: any): 'leads'|'candidates'|'opportunities'|'clients'|'contacts'|null => {
+    const normalizeEntity = (raw: any): 'leads'|'candidates'|'opportunities'|'clients'|'contacts'|'users'|null => {
       const v = String(raw || '').trim().toLowerCase();
       if (!v) return null;
       if (v === 'lead' || v === 'leads' || v === '/leads') return 'leads';
@@ -719,11 +720,13 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       if (v === 'deal' || v === 'deals' || v === '/deals' || v === 'opportunity' || v === 'opportunities' || v === '/opportunities') return 'opportunities';
       if (v === 'client' || v === 'clients' || v === '/clients') return 'clients';
       if (v === 'contact' || v === 'contacts' || v === 'decision_maker' || v === 'decisionmakers') return 'contacts';
+      if (v === 'user' || v === 'users' || v === '/users') return 'users';
       return null;
     };
 
     const entity = normalizeEntity(body.entity || body.source || body.type);
     if (!entity) return res.status(400).json({ error: 'invalid_entity' });
+    if (entity === 'users' && !isSuper) return res.status(403).json({ error: 'forbidden' });
 
     const idsIn = Array.isArray(body.ids) ? body.ids : [];
     const ids = Array.from(new Set(idsIn.map((x: any) => String(x || '').trim()).filter(Boolean)));
@@ -969,6 +972,21 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       Created: dm?.created_at || null,
     });
 
+    const toUserRow = (u: any) => {
+      const first = u?.first_name || u?.firstName || '';
+      const last = u?.last_name || u?.lastName || '';
+      const name = [first, last].filter(Boolean).join(' ').trim() || u?.email || '';
+      return {
+        [recordTypeCol]: 'User',
+        [recordIdCol]: String(u.id),
+        Name: name,
+        Email: u?.email || '',
+        Role: u?.role || '',
+        Company: u?.company || '',
+        Created: u?.created_at || null,
+      };
+    };
+
     const toOppRow = (o: any, clientName: string, ownerName: string) => ({
       [recordTypeCol]: 'Opportunity',
       [recordIdCol]: String(o.id),
@@ -1041,6 +1059,15 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
           { name: 'Created', type: 'date' },
         ];
       }
+      if (ent === 'users') {
+        return [...base,
+          { name: 'Name', type: 'text' },
+          { name: 'Email', type: 'text' },
+          { name: 'Role', type: 'text' },
+          { name: 'Company', type: 'text' },
+          { name: 'Created', type: 'date' },
+        ];
+      }
       // opportunities
       return [...base,
         { name: 'Deal Title', type: 'text' },
@@ -1074,6 +1101,13 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
         : ({ data: [] as any[] } as any);
       const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
       newRows = contacts.map((dm: any) => toContactRow(dm, byClientId.get(String(dm.client_id)) || ''));
+    } else if (entity === 'users') {
+      const { data: userRows, error: usersErr } = await supabase
+        .from('users')
+        .select('id,email,first_name,last_name,firstName,lastName,role,company,created_at')
+        .in('id', ids);
+      if (usersErr) return res.status(500).json({ error: usersErr.message });
+      newRows = (userRows || []).map(toUserRow);
     } else {
       const opps = await fetchOpportunities();
       const clientIds = Array.from(new Set(opps.map((o: any) => o.client_id).filter(Boolean).map(String)));

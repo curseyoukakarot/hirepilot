@@ -28,6 +28,7 @@ export default function BulkAddToTableModal({ open, onClose, entity, ids, onSucc
   const normalizedEntity = useMemo(() => {
     const v = String(entity || '').toLowerCase();
     if (v === 'deals' || v === 'deal' || v === 'opportunity') return 'opportunities';
+    if (v === 'user') return 'users';
     return v;
   }, [entity]);
 

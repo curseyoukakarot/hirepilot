@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane, FaListAlt, FaGamepad } from 'react-icons/fa';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FaUserPlus, FaEdit, FaTrash, FaCoins, FaKey, FaCog, FaEye, FaUserSecret, FaEnvelope, FaPaperPlane, FaListAlt, FaGamepad, FaTable } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserDetailDrawer from '../components/UserDetailDrawer';
+import BulkAddToTableModal from '../components/tables/BulkAddToTableModal';
 
 export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
@@ -33,6 +34,10 @@ export default function AdminUserManagement() {
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [viewUserId, setViewUserId] = useState(null);
   const [impersonating, setImpersonating] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sendToTableOpen, setSendToTableOpen] = useState(false);
+  const pageSize = 50;
 
   // Email Status modal state
   const [emailStatusOpen, setEmailStatusOpen] = useState(false);
@@ -47,6 +52,45 @@ export default function AdminUserManagement() {
    * Config
    * --------------------------------------------*/
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const selectAllRef = useRef(null);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil((users?.length || 0) / pageSize)), [users, pageSize]);
+  const pagedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return (users || []).slice(start, end);
+  }, [users, currentPage, pageSize]);
+  const pageStart = users.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = users.length === 0 ? 0 : Math.min(currentPage * pageSize, users.length);
+  const selectedUsers = useMemo(
+    () => (users || []).filter((u) => selectedUserIds.has(u.id)),
+    [users, selectedUserIds]
+  );
+  const allSelectedOnPage = pagedUsers.length > 0 && pagedUsers.every((u) => selectedUserIds.has(u.id));
+  const someSelectedOnPage = pagedUsers.some((u) => selectedUserIds.has(u.id)) && !allSelectedOnPage;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = someSelectedOnPage;
+  }, [someSelectedOnPage]);
+
+  useEffect(() => {
+    if (!users || users.length === 0) {
+      setSelectedUserIds(new Set());
+      return;
+    }
+    const validIds = new Set(users.map((u) => u.id));
+    const next = new Set(Array.from(selectedUserIds).filter((id) => validIds.has(id)));
+    if (next.size !== selectedUserIds.size) {
+      setSelectedUserIds(next);
+    }
+  }, [users, selectedUserIds]);
 
   // Fetch all users
   useEffect(() => {
@@ -87,6 +131,30 @@ export default function AdminUserManagement() {
       setError('Failed to load email status');
     }
     setEmailStatusLoading(false);
+  };
+
+  const toggleUserSelection = (userId) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (allSelectedOnPage) {
+        pagedUsers.forEach((u) => next.delete(u.id));
+      } else {
+        pagedUsers.forEach((u) => next.add(u.id));
+      }
+      return next;
+    });
   };
 
   // Invite user
@@ -490,9 +558,16 @@ export default function AdminUserManagement() {
           </button>
           <button
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
-            onClick={() => { setDripModalOpen(true); setDripUserIds(new Set()); }}
+            onClick={() => { setDripModalOpen(true); setDripUserIds(new Set(selectedUserIds.size ? Array.from(selectedUserIds) : [])); }}
           >
             <FaPaperPlane /> Backfill Drips
+          </button>
+          <button
+            className={`flex items-center gap-2 px-4 py-2 rounded ${selectedUserIds.size ? 'bg-slate-700 text-white hover:bg-slate-800' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+            onClick={() => selectedUserIds.size && setSendToTableOpen(true)}
+            disabled={!selectedUserIds.size}
+          >
+            <FaTable /> Send to Table
           </button>
           <button
             className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded hover:bg-rose-700"
@@ -708,6 +783,16 @@ export default function AdminUserManagement() {
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
             <tr>
+              <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700 w-10">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={allSelectedOnPage}
+                  onChange={toggleSelectAllOnPage}
+                  aria-label="Select all users on this page"
+                />
+              </th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Name</th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Email</th>
               <th className="px-4 py-2 text-left bg-gray-100 border-b border-gray-200 text-gray-700">Role</th>
@@ -717,11 +802,20 @@ export default function AdminUserManagement() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="text-center py-8 text-gray-500">Loading...</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-gray-500">Loading...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={4} className="text-center py-8 text-gray-500">No users found.</td></tr>
-            ) : users.map(user => (
+              <tr><td colSpan={6} className="text-center py-8 text-gray-500">No users found.</td></tr>
+            ) : pagedUsers.map(user => (
               <tr key={user.id} className="border-b border-gray-200">
+                <td className="px-4 py-2 text-gray-800">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={selectedUserIds.has(user.id)}
+                    onChange={() => toggleUserSelection(user.id)}
+                    aria-label={`Select ${user.email}`}
+                  />
+                </td>
                 <td className="px-4 py-2 text-gray-800">{user.firstName} {user.lastName}</td>
                 <td className="px-4 py-2 text-gray-800">{user.email}</td>
                 <td className="px-4 py-2">
@@ -787,6 +881,36 @@ export default function AdminUserManagement() {
           </tbody>
         </table>
       </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 text-sm text-gray-600">
+        <div>
+          Showing {pageStart}-{pageEnd} of {users.length} • Selected {selectedUserIds.size}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Prev
+          </button>
+          <span className="text-gray-600">Page {currentPage} of {totalPages}</span>
+          <button
+            className="px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      <BulkAddToTableModal
+        open={sendToTableOpen}
+        onClose={() => setSendToTableOpen(false)}
+        entity="users"
+        ids={Array.from(selectedUserIds)}
+        onSuccess={() => setSelectedUserIds(new Set())}
+      />
 
       {/* Invite User Modal */}
       {showInvite && (
