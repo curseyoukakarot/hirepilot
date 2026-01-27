@@ -19,8 +19,8 @@ type UserLite = {
   role?: string | null;
 };
 
-const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
-const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url';
+const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role,company,created_at';
+const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url,created_at';
 const USER_SELECT_TINY = 'id,email,role';
 
 const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
@@ -1102,10 +1102,9 @@ router.post('/:id/bulk-add', requireAuth, async (req: Request, res: Response) =>
       const byClientId = new Map<string, string>((clientRows || []).map((c: any) => [String(c.id), String(c.name || c.domain || '')]));
       newRows = contacts.map((dm: any) => toContactRow(dm, byClientId.get(String(dm.client_id)) || ''));
     } else if (entity === 'users') {
-      const { data: userRows, error: usersErr } = await supabase
-        .from('users')
-        .select('id,email,first_name,last_name,firstName,lastName,role,company,created_at')
-        .in('id', ids);
+      const { data: userRows, error: usersErr } = await runUsersQueryWithFallback<any[]>(
+        async (cols) => supabase.from('users').select(cols).in('id', ids)
+      );
       if (usersErr) return res.status(500).json({ error: usersErr.message });
       newRows = (userRows || []).map(toUserRow);
     } else {
