@@ -913,6 +913,30 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return date.toLocaleDateString();
   };
 
+  const formatCurrencyValue = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      maximumFractionDigits: 1
+    });
+    if (typeof value === 'number') {
+      if (Number.isNaN(value)) return null;
+      return formatter.format(value);
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const numeric = trimmed.replace(/[$,]/g, '');
+      if (/^-?\d+(\.\d+)?$/.test(numeric)) {
+        return formatter.format(Number(numeric));
+      }
+      return trimmed;
+    }
+    return String(value);
+  };
+
   const normalizeInvestorArticle = (article) => {
     if (!article) return null;
     if (typeof article === 'string') return { title: article, url: null, date: null, source: null };
@@ -960,7 +984,8 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     if (!event) return null;
     const round = event?.funding_round || event?.round || event?.series || event?.stage || event?.type || event?.name;
     const amount = event?.funding_round_amount || event?.amount || event?.raised_amount || event?.money_raised || event?.total_raised;
-    return [round, amount].filter(Boolean).join(' · ') || null;
+    const formattedAmount = amount ? formatCurrencyValue(amount) : null;
+    return [round, formattedAmount || amount].filter(Boolean).join(' · ') || null;
   };
 
   const getFundingEventInvestors = (event) => {
@@ -2708,7 +2733,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                             {enhancedCompany?.revenue_range && (
                               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                                 <p className="text-xs text-gray-500">Revenue</p>
-                                <p className="text-lg font-semibold text-gray-900">{enhancedCompany.revenue_range}</p>
+                                <p className="text-lg font-semibold text-gray-900">
+                                  {formatCurrencyValue(enhancedCompany.revenue_range)}
+                                </p>
                               </div>
                             )}
                             {(enhancedCompany?.last_funding_round ||
@@ -2717,7 +2744,9 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
                               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                                 <p className="text-xs text-gray-500">Funding</p>
                                 <p className="text-lg font-semibold text-gray-900">
-                                  {[enhancedCompany?.last_funding_round, enhancedCompany?.funding_total || enhancedCompany?.last_funding_amount]
+                                  {[enhancedCompany?.last_funding_round,
+                                    formatCurrencyValue(enhancedCompany?.funding_total || enhancedCompany?.last_funding_amount)
+                                  ]
                                     .filter(Boolean)
                                     .join(' · ')}
                                 </p>
