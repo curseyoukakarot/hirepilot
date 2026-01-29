@@ -37,6 +37,14 @@ function isEliteFromRolePlan(role?: any, plan?: any, accountType?: any) {
   return r === 'job_seeker_elite' || p === 'job_seeker_elite' || a === 'job_seeker_elite';
 }
 
+function resolvePreviewUrl(raw: string | null | undefined, backendBase: string) {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return `${backendBase}${value}`;
+  return `${backendBase}/${value}`;
+}
+
 const MOCK_TEMPLATES: ResumeTemplate[] = [
   {
     id: 'a2a5a4f9-5d15-4b9b-b0d0-9bb8d2b0c002',
@@ -443,6 +451,7 @@ export default function ResumeTemplatesPage() {
               const tagsLc = (t.tags || []).map((x) => String(x).toLowerCase());
               const isDesign = tagsLc.includes('design');
               const isSelected = t.id === selectedTemplateId;
+              const previewUrl = resolvePreviewUrl(t.preview_image_url, backend);
               return (
                 <article
                   key={t.id}
@@ -450,8 +459,16 @@ export default function ResumeTemplatesPage() {
                   data-name={t.name}
                 >
                   <div className="relative h-44 bg-slate-900/40">
-                    {/* Live mini preview (no image assets required) */}
-                    <MiniResumePreview template={t} />
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt={`${t.name} preview`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <MiniResumePreview template={t} />
+                    )}
                     <div className="absolute top-3 left-3 flex gap-2">
                       {t.is_ats_safe ? (
                         <span className="pill rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">ATS-Safe</span>
@@ -539,7 +556,15 @@ export default function ResumeTemplatesPage() {
                 <div className="soft-border rounded-xl bg-slate-900/30 h-[420px] overflow-hidden">
                   {modalTemplate && (
                     <div className="h-full w-full">
-                      <MiniResumePreview template={modalTemplate} />
+                      {resolvePreviewUrl(modalTemplate.preview_image_url, backend) ? (
+                        <img
+                          src={resolvePreviewUrl(modalTemplate.preview_image_url, backend) as string}
+                          alt={`${modalTemplate.name} preview`}
+                          className="h-full w-full object-contain bg-white"
+                        />
+                      ) : (
+                        <MiniResumePreview template={modalTemplate} />
+                      )}
                     </div>
                   )}
                 </div>

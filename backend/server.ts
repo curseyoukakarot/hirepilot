@@ -13,6 +13,7 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 }
 
 import express from 'express';
+import path from 'path';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
@@ -507,6 +508,7 @@ app.use('/api/jobs/resume-drafts', resumeDraftsRouter);
 app.use('/api/rex/uploads', rexUploadsRouter);
 app.use('/api/jobs/resume', resumePdfRouter);
 app.use('/api/resumes', resumesRouter);
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 // Job seeker Elite template/theme selectors (auth required; Elite enforced on select endpoints)
 app.use('/api/resume-templates', resumeTemplatesRouter);
 app.use('/api/landing-themes', landingThemesRouter);
