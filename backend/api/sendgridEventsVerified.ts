@@ -102,7 +102,7 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           const ors: string[] = [];
           if (customMessageId) ors.push(`message_id.eq.${customMessageId}`);
           if (resolvedMessageId) ors.push(`message_id_header.eq.${resolvedMessageId}`);
-          if (strippedSgId) ors.push(`sg_message_id.eq.${strippedSgId}`);
+          if (strippedSgId) ors.push(`message_id.eq.${strippedSgId}`);
           if (ors.length) {
             const { data: msg } = await supabase
               .from('messages')
@@ -211,8 +211,8 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           const { error: updErr } = await supabase.from('messages').update({ status }).eq('message_id_header', resolvedMessageId);
           if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id_header):', updErr);
         } else if (strippedSgId) {
-          const { error: updErr } = await supabase.from('messages').update({ status }).eq('sg_message_id', strippedSgId);
-          if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id_header):', updErr);
+          const { error: updErr } = await supabase.from('messages').update({ status }).eq('message_id', strippedSgId);
+          if (updErr) console.error('[sendgridEventsHandler] update messages status failed (message_id):', updErr);
         }
       }
 
@@ -225,8 +225,8 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
           if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id_header):', updErr);
         } else if (strippedSgId) {
-          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', strippedSgId);
-          if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id_header):', updErr);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('message_id', strippedSgId);
+          if (updErr) console.error('[sendgridEventsHandler] set opened failed (message_id):', updErr);
         }
       }
 
@@ -239,8 +239,8 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           const { error: updErr } = await supabase.from('messages').update(update).eq('message_id_header', resolvedMessageId);
           if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
         } else if (strippedSgId) {
-          const { error: updErr } = await supabase.from('messages').update(update).eq('sg_message_id', strippedSgId);
-          if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id_header):', updErr);
+          const { error: updErr } = await supabase.from('messages').update(update).eq('message_id', strippedSgId);
+          if (updErr) console.error('[sendgridEventsHandler] set clicked failed (message_id):', updErr);
         }
       }
 

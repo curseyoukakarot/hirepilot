@@ -54,7 +54,6 @@ export async function sendViaProvider(
         from_address: data.default_sender,
         subject: msg.subject,
         content: bodyHtml,
-        sg_message_id: sgMsgId,
         provider: 'sendgrid',
         status: 'sent',
         sent_at: now.toISOString(),

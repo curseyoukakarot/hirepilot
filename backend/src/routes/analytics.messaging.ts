@@ -18,7 +18,7 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
              count(*) filter (where e.event_type='bounce') as bounces
       from email_events e
       left join messages m
-        on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
+        on (e.message_id = m.message_id or e.message_id = m.message_id_header or e.message_id = m.id::text)
       where e.user_id = '${userId}' and m.template_id is not null
       group by m.template_id`;
     let rows: any[] = [];
@@ -30,7 +30,7 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
       // Fallback without exec_sql: join in Node
       const { data: msgs } = await client
         .from('messages')
-        .select('id, message_id, sg_message_id, template_id')
+        .select('id, message_id, message_id_header, template_id')
         .eq('user_id', userId)
         .not('template_id', 'is', null)
         .limit(100000);
@@ -39,7 +39,7 @@ analyticsRouter.get('/api/analytics/templates', requireAuth as any, async (req: 
         const tid = m.template_id; if (!tid) return;
         if (m.id) idByMsg[String(m.id)] = tid;
         if (m.message_id) idByMsg[String(m.message_id)] = tid;
-        if (m.sg_message_id) idByMsg[String(m.sg_message_id)] = tid;
+        if (m.message_id_header) idByMsg[String(m.message_id_header)] = tid;
       });
       const start = new Date(Date.now() - 365*24*60*60*1000).toISOString();
       const { data: events } = await client
@@ -94,7 +94,7 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
              count(*) filter (where e.event_type='bounce') as bounces
       from email_events e
       left join messages m
-        on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
+        on (e.message_id = m.message_id or e.message_id = m.message_id_header or e.message_id = m.id::text)
       where e.user_id = '${userId}' and m.sequence_id is not null
       group by m.sequence_id`;
     let rows: any[] = [];
@@ -105,7 +105,7 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
     } catch (_err) {
       const { data: msgs } = await client
         .from('messages')
-        .select('id, message_id, sg_message_id, sequence_id')
+        .select('id, message_id, message_id_header, sequence_id')
         .eq('user_id', userId)
         .not('sequence_id', 'is', null)
         .limit(100000);
@@ -114,7 +114,7 @@ analyticsRouter.get('/api/analytics/sequences', requireAuth as any, async (req: 
         const sid = m.sequence_id; if (!sid) return;
         if (m.id) idByMsg[String(m.id)] = sid;
         if (m.message_id) idByMsg[String(m.message_id)] = sid;
-        if (m.sg_message_id) idByMsg[String(m.sg_message_id)] = sid;
+        if (m.message_id_header) idByMsg[String(m.message_id_header)] = sid;
       });
       const start = new Date(Date.now() - 365*24*60*60*1000).toISOString();
       const { data: events } = await client
@@ -219,7 +219,7 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
              count(*) filter (where e.event_type='open') as opens,
              count(*) filter (where e.event_type='reply') as replies
       from email_events e
-      left join messages m on (e.message_id = m.message_id or e.sg_message_id = m.sg_message_id or e.message_id = m.id::text)
+      left join messages m on (e.message_id = m.message_id or e.message_id = m.message_id_header or e.message_id = m.id::text)
       where m.${col} in (${inList}) and e.occurred_at >= now() - interval '${days} days'
       group by 1
       order by 1 asc`;
@@ -233,7 +233,7 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
       const startDate = new Date(Date.now() - days*24*60*60*1000);
       const { data: msgs } = await client
         .from('messages')
-        .select('id, message_id, sg_message_id')
+        .select('id, message_id, message_id_header')
         .eq('user_id', userId)
         .in(col, idList)
         .limit(100000);
@@ -241,7 +241,7 @@ analyticsRouter.get('/api/analytics/time-series', requireAuth as any, async (req
       (msgs||[]).forEach((m:any)=>{
         if (m.id) msgIdSet.add(String(m.id));
         if (m.message_id) msgIdSet.add(String(m.message_id));
-        if (m.sg_message_id) msgIdSet.add(String(m.sg_message_id));
+        if (m.message_id_header) msgIdSet.add(String(m.message_id_header));
       });
       const { data: events } = await client
         .from('email_events')

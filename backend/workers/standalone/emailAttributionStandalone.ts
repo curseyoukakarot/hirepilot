@@ -85,35 +85,54 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
 
     // Step 2B: Fallback - message identifiers
     if ((!user_id || !campaign_id || !lead_id) && (ev.sg_message_id || ev.message_id)) {
+      const strippedMsgHeader = ev.message_id ? String(ev.message_id).split('.')[0] : null;
+      const strippedProviderId = ev.sg_message_id ? String(ev.sg_message_id).split('.')[0] : null;
+      const attemptedKeys: string[] = [];
       try {
-        const { data: byHeader } = await supabase
-          .from('messages')
-          .select('user_id,campaign_id,lead_id')
-          .eq('message_id_header', ev.message_id || '')
-          .order('sent_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (byHeader) {
-          user_id = user_id || (byHeader as any).user_id || null;
-          campaign_id = campaign_id || (byHeader as any).campaign_id || null;
-          lead_id = lead_id || (byHeader as any).lead_id || null;
-        }
-      } catch {}
-      if (!user_id || !campaign_id || !lead_id) {
-        try {
-          const { data: bySg } = await supabase
-            .from('messages' as any)
+        if (strippedMsgHeader) {
+          attemptedKeys.push('message_id_header');
+          const { data: byHeader } = await supabase
+            .from('messages')
             .select('user_id,campaign_id,lead_id')
-            .eq('sg_message_id' as any, ev.sg_message_id || '')
+            .eq('message_id_header', strippedMsgHeader)
             .order('sent_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (bySg) {
-            user_id = user_id || (bySg as any).user_id || null;
-            campaign_id = campaign_id || (bySg as any).campaign_id || null;
-            lead_id = lead_id || (bySg as any).lead_id || null;
+          if (byHeader) {
+            user_id = user_id || (byHeader as any).user_id || null;
+            campaign_id = campaign_id || (byHeader as any).campaign_id || null;
+            lead_id = lead_id || (byHeader as any).lead_id || null;
           }
-        } catch {}
+        }
+      } catch {}
+      if (!user_id || !campaign_id || !lead_id) {
+        const candidateIds = [strippedMsgHeader, strippedProviderId].filter(Boolean) as string[];
+        for (const candidateId of candidateIds) {
+          if (user_id && campaign_id && lead_id) break;
+          try {
+            attemptedKeys.push('message_id');
+            const { data: byProviderId } = await supabase
+              .from('messages')
+              .select('user_id,campaign_id,lead_id')
+              .eq('message_id', candidateId)
+              .order('sent_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (byProviderId) {
+              user_id = user_id || (byProviderId as any).user_id || null;
+              campaign_id = campaign_id || (byProviderId as any).campaign_id || null;
+              lead_id = lead_id || (byProviderId as any).lead_id || null;
+            }
+          } catch {}
+        }
+      }
+      if ((!user_id || !campaign_id || !lead_id) && attemptedKeys.length) {
+        log.warn('No messages match during attribution', {
+          sg_event_id: ev.sg_event_id,
+          attempted_keys: attemptedKeys,
+          message_id_header: strippedMsgHeader || null,
+          message_id: strippedProviderId || null
+        });
       }
     }
 

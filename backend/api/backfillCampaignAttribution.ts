@@ -193,7 +193,7 @@ export default async function backfillCampaignAttribution(req: Request, res: Res
                   const { data: msgByHeader } = await supabaseDb
                     .from('messages')
                     .select('campaign_id')
-                    .or(`message_id.eq.${ev.message_id},message_id_header.eq.${ev.message_id},sg_message_id.eq.${ev.message_id}`)
+                    .or(`message_id.eq.${ev.message_id},message_id_header.eq.${ev.message_id}`)
                     .limit(1)
                     .maybeSingle();
                   if (msgByHeader?.campaign_id) campaignIdToSet = msgByHeader.campaign_id;

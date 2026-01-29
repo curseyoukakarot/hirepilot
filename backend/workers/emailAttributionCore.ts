@@ -123,37 +123,52 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
 
     // Step 2B: Fallback - match by provider message identifiers when available
     if ((!user_id || !campaign_id || !lead_id) && (strippedSgId || strippedMsgHeader)) {
-      // Some DBs may not have sg_message_id column. Try message_id_header first (safe), then best-effort message_id.
+      const attemptedKeys: string[] = [];
       try {
-        const { data: msgByHeader } = await supabaseAdmin
-          .from('messages')
-          .select('user_id,campaign_id,lead_id')
-          .eq('message_id_header', strippedMsgHeader || '')
-          .order('sent_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (msgByHeader) {
-          user_id = user_id || (msgByHeader as any).user_id || null;
-          campaign_id = campaign_id || (msgByHeader as any).campaign_id || null;
-          lead_id = lead_id || (msgByHeader as any).lead_id || null;
-        }
-      } catch {}
-      if (!user_id || !campaign_id || !lead_id) {
-        try {
-          // Only attempt sg_message_id where the column exists; if not, the error is caught and ignored
-          const { data: msgBySg } = await (supabaseAdmin as any)
+        if (strippedMsgHeader) {
+          attemptedKeys.push('message_id_header');
+          const { data: msgByHeader } = await supabaseAdmin
             .from('messages')
             .select('user_id,campaign_id,lead_id')
-            .eq('sg_message_id', strippedSgId || '')
+            .eq('message_id_header', strippedMsgHeader)
             .order('sent_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (msgBySg) {
-            user_id = user_id || (msgBySg as any).user_id || null;
-            campaign_id = campaign_id || (msgBySg as any).campaign_id || null;
-            lead_id = lead_id || (msgBySg as any).lead_id || null;
+          if (msgByHeader) {
+            user_id = user_id || (msgByHeader as any).user_id || null;
+            campaign_id = campaign_id || (msgByHeader as any).campaign_id || null;
+            lead_id = lead_id || (msgByHeader as any).lead_id || null;
           }
-        } catch {}
+        }
+      } catch {}
+      if (!user_id || !campaign_id || !lead_id) {
+        const candidateIds = [strippedMsgHeader, strippedSgId].filter(Boolean) as string[];
+        for (const candidateId of candidateIds) {
+          if (user_id && campaign_id && lead_id) break;
+          try {
+            attemptedKeys.push('message_id');
+            const { data: msgByProviderId } = await supabaseAdmin
+              .from('messages')
+              .select('user_id,campaign_id,lead_id')
+              .eq('message_id', candidateId)
+              .order('sent_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (msgByProviderId) {
+              user_id = user_id || (msgByProviderId as any).user_id || null;
+              campaign_id = campaign_id || (msgByProviderId as any).campaign_id || null;
+              lead_id = lead_id || (msgByProviderId as any).lead_id || null;
+            }
+          } catch {}
+        }
+      }
+      if ((!user_id || !campaign_id || !lead_id) && attemptedKeys.length) {
+        log.warn('No messages match during attribution', {
+          sg_event_id: ev.sg_event_id,
+          attempted_keys: attemptedKeys,
+          message_id_header: strippedMsgHeader || null,
+          message_id: strippedSgId || null
+        });
       }
     }
 

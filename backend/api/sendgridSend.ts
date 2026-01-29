@@ -128,7 +128,6 @@ router.post('/sendgrid/send', async (req, res) => {
       const { error: updErr } = await supabase
         .from('messages')
         .update({
-          sg_message_id: response.headers['x-message-id'],
           status: 'sent',
           message_id_header: messageIdHeader,
           message_id: trackingMessageId,
@@ -147,7 +146,6 @@ router.post('/sendgrid/send', async (req, res) => {
           to_email: to,
           subject,
           content: html,
-          sg_message_id: response.headers['x-message-id'],
           status: 'sent',
           sent_at: new Date().toISOString(),
           message_id_header: messageIdHeader,

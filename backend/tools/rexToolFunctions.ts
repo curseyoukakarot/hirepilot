@@ -1347,15 +1347,15 @@ export async function getEmailStatus({ emailId }: { emailId: string }) {
   // 1. Locate message row
   const { data: msgRow, error } = await supabaseDb
     .from('messages')
-    .select('id, sg_message_id, user_id, status, opened, clicked, sent_at')
-    .or(`id.eq.${emailId},sg_message_id.eq.${emailId}`)
+    .select('id, message_id, message_id_header, user_id, status, opened, clicked, sent_at')
+    .or(`id.eq.${emailId},message_id.eq.${emailId},message_id_header.eq.${emailId}`)
     .maybeSingle();
 
   if (error || !msgRow) {
     throw new Error('Message not found');
   }
 
-  const msgId = msgRow.sg_message_id || emailId;
+  const msgId = msgRow.message_id || msgRow.message_id_header || emailId;
 
   // 2. Fetch SendGrid key
   const { data: keyRow, error: keyErr } = await supabaseDb

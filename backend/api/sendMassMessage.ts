@@ -151,7 +151,6 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       from_address: data.default_sender,
       subject,
       content: body,
-      sg_message_id: response.headers['x-message-id'],
       message_id: trackingMessageId,
       provider: 'sendgrid',
       status: 'sent',
