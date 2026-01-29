@@ -1,0 +1,3299 @@
+{
+  "page": 1,
+  "items": [
+    {
+      "text": "A",
+      "x": 82.0,
+      "y": 617.01,
+      "w": 6.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "results-oriented",
+      "x": 90.46,
+      "y": 617.01,
+      "w": 65.35,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Operations",
+      "x": 158.14,
+      "y": 617.01,
+      "w": 45.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Manager",
+      "x": 206.24,
+      "y": 617.01,
+      "w": 37.07,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "with",
+      "x": 245.64,
+      "y": 617.01,
+      "w": 17.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "experience",
+      "x": 265.57,
+      "y": 617.01,
+      "w": 45.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 313.33,
+      "y": 617.01,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "media",
+      "x": 323.13,
+      "y": 617.01,
+      "w": 25.93,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "management",
+      "x": 351.38,
+      "y": 617.01,
+      "w": 55.4,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 409.12,
+      "y": 617.01,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leadership",
+      "x": 427.05,
+      "y": 617.01,
+      "w": 43.43,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "roles.",
+      "x": 472.81,
+      "y": 617.01,
+      "w": 23.13,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Led",
+      "x": 498.27,
+      "y": 617.01,
+      "w": 15.35,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 82.0,
+      "y": 604.31,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "managed",
+      "x": 99.94,
+      "y": 604.31,
+      "w": 39.22,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "media",
+      "x": 141.49,
+      "y": 604.31,
+      "w": 25.93,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "operations",
+      "x": 169.74,
+      "y": 604.31,
+      "w": 44.67,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 216.74,
+      "y": 604.31,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "North",
+      "x": 226.54,
+      "y": 604.31,
+      "w": 23.5,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "America",
+      "x": 252.36,
+      "y": 604.31,
+      "w": 34.86,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 289.55,
+      "y": 604.31,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "across",
+      "x": 307.49,
+      "y": 604.31,
+      "w": 28.28,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "APAC.",
+      "x": 338.1,
+      "y": 604.31,
+      "w": 26.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Expertise",
+      "x": 367.22,
+      "y": 604.31,
+      "w": 38.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 408.18,
+      "y": 604.31,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leading",
+      "x": 417.98,
+      "y": 604.31,
+      "w": 30.43,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "teams",
+      "x": 450.73,
+      "y": 604.31,
+      "w": 26.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "to",
+      "x": 479.32,
+      "y": 604.31,
+      "w": 8.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "improve",
+      "x": 490.08,
+      "y": 604.31,
+      "w": 33.88,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "performance,",
+      "x": 82.0,
+      "y": 591.61,
+      "w": 55.55,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "customer",
+      "x": 139.87,
+      "y": 591.61,
+      "w": 39.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "loyalty,",
+      "x": 182.0,
+      "y": 591.61,
+      "w": 28.86,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 213.18,
+      "y": 591.61,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "forging",
+      "x": 231.12,
+      "y": 591.61,
+      "w": 29.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "partnerships",
+      "x": 263.28,
+      "y": 591.61,
+      "w": 52.43,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "with",
+      "x": 318.04,
+      "y": 591.61,
+      "w": 17.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "internal",
+      "x": 337.97,
+      "y": 591.61,
+      "w": 31.29,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 371.59,
+      "y": 591.61,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "external",
+      "x": 389.52,
+      "y": 591.61,
+      "w": 33.46,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "partners.",
+      "x": 425.31,
+      "y": 591.61,
+      "w": 37.32,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Specializes",
+      "x": 464.96,
+      "y": 591.61,
+      "w": 47.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 514.5,
+      "y": 591.61,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "helping",
+      "x": 82.0,
+      "y": 578.91,
+      "w": 30.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "companies",
+      "x": 114.79,
+      "y": 578.91,
+      "w": 46.22,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "launch",
+      "x": 163.34,
+      "y": 578.91,
+      "w": 27.87,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "new",
+      "x": 193.54,
+      "y": 578.91,
+      "w": 17.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "media",
+      "x": 213.11,
+      "y": 578.91,
+      "w": 25.93,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "services",
+      "x": 241.36,
+      "y": 578.91,
+      "w": 34.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 278.29,
+      "y": 578.91,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "products,",
+      "x": 296.22,
+      "y": 578.91,
+      "w": 39.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "from",
+      "x": 337.55,
+      "y": 578.91,
+      "w": 20.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "concept",
+      "x": 359.93,
+      "y": 578.91,
+      "w": 33.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "to",
+      "x": 395.98,
+      "y": 578.91,
+      "w": 8.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "roll-out.",
+      "x": 406.75,
+      "y": 578.91,
+      "w": 31.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Extensive",
+      "x": 440.87,
+      "y": 578.91,
+      "w": 39.92,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "experience",
+      "x": 483.11,
+      "y": 578.91,
+      "w": 45.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 82.0,
+      "y": 566.21,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "the",
+      "x": 91.8,
+      "y": 566.21,
+      "w": 13.23,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "development",
+      "x": 107.36,
+      "y": 566.21,
+      "w": 54.23,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 163.92,
+      "y": 566.21,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "implementation",
+      "x": 181.85,
+      "y": 566.21,
+      "w": 65.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "of",
+      "x": 249.75,
+      "y": 566.21,
+      "w": 8.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "subscription",
+      "x": 260.7,
+      "y": 566.21,
+      "w": 51.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "video-on-demand",
+      "x": 314.76,
+      "y": 566.21,
+      "w": 72.36,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "over-the-top",
+      "x": 389.44,
+      "y": 566.21,
+      "w": 50.22,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "streaming",
+      "x": 441.99,
+      "y": 566.21,
+      "w": 42.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "products.",
+      "x": 486.5,
+      "y": 566.21,
+      "w": 39.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "P&L",
+      "x": 113.75,
+      "y": 500.93,
+      "w": 16.84,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Management",
+      "x": 132.92,
+      "y": 500.93,
+      "w": 55.37,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Strategic",
+      "x": 114.39,
+      "y": 488.23,
+      "w": 37.48,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "planning",
+      "x": 154.2,
+      "y": 488.23,
+      "w": 35.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Client",
+      "x": 112.12,
+      "y": 475.53,
+      "w": 23.93,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "relationships",
+      "x": 138.37,
+      "y": 475.53,
+      "w": 53.9,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Financial",
+      "x": 267.14,
+      "y": 500.93,
+      "w": 37.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "reporting",
+      "x": 307.04,
+      "y": 500.93,
+      "w": 37.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Negotiations",
+      "x": 279.21,
+      "y": 488.23,
+      "w": 53.55,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Business",
+      "x": 258.7,
+      "y": 475.53,
+      "w": 38.04,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "development",
+      "x": 299.06,
+      "y": 475.53,
+      "w": 54.23,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Team",
+      "x": 424.93,
+      "y": 500.93,
+      "w": 23.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leadership",
+      "x": 451.21,
+      "y": 500.93,
+      "w": 43.43,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Communication",
+      "x": 426.51,
+      "y": 488.23,
+      "w": 66.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Operations",
+      "x": 408.04,
+      "y": 475.53,
+      "w": 45.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "management",
+      "x": 456.14,
+      "y": 475.53,
+      "w": 55.4,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Hanover",
+      "x": 82.0,
+      "y": 181.09,
+      "w": 35.54,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 119.88,
+      "y": 181.09,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Tyke",
+      "x": 137.83,
+      "y": 181.09,
+      "w": 20.64,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Business",
+      "x": 82.0,
+      "y": 168.16,
+      "w": 38.61,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Development",
+      "x": 122.95,
+      "y": 168.16,
+      "w": 55.8,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Manager",
+      "x": 181.1,
+      "y": 168.16,
+      "w": 37.47,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Lead",
+      "x": 82.0,
+      "y": 155.4,
+      "w": 20.46,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "operations,",
+      "x": 104.79,
+      "y": 155.4,
+      "w": 46.52,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "achieving",
+      "x": 153.63,
+      "y": 155.4,
+      "w": 39.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "growth",
+      "x": 195.74,
+      "y": 155.4,
+      "w": 29.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "of",
+      "x": 227.21,
+      "y": 155.4,
+      "w": 8.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "180%",
+      "x": 238.17,
+      "y": 155.4,
+      "w": 22.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 263.22,
+      "y": 155.4,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "two",
+      "x": 273.02,
+      "y": 155.4,
+      "w": 15.5,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "years.",
+      "x": 290.85,
+      "y": 155.4,
+      "w": 25.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Hired",
+      "x": 318.23,
+      "y": 155.4,
+      "w": 22.45,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "a",
+      "x": 343.01,
+      "y": 155.4,
+      "w": 5.12,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "new",
+      "x": 350.46,
+      "y": 155.4,
+      "w": 17.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "application",
+      "x": 370.02,
+      "y": 155.4,
+      "w": 46.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consultant",
+      "x": 418.52,
+      "y": 155.4,
+      "w": 44.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "to",
+      "x": 465.09,
+      "y": 155.4,
+      "w": 8.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "help",
+      "x": 475.85,
+      "y": 155.4,
+      "w": 17.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "improve",
+      "x": 495.9,
+      "y": 155.4,
+      "w": 33.88,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "team",
+      "x": 82.0,
+      "y": 142.7,
+      "w": 21.41,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "capabilities.",
+      "x": 105.74,
+      "y": 142.7,
+      "w": 50.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Accomplishments:",
+      "x": 82.0,
+      "y": 122.85,
+      "w": 78.06,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Arowwai",
+      "x": 82.0,
+      "y": 411.62,
+      "w": 36.43,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Industries",
+      "x": 120.77,
+      "y": 411.62,
+      "w": 42.42,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Operations",
+      "x": 82.0,
+      "y": 398.69,
+      "w": 46.43,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Manager",
+      "x": 130.77,
+      "y": 398.69,
+      "w": 37.47,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Lead",
+      "x": 82.0,
+      "y": 385.92,
+      "w": 20.46,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nation-wide",
+      "x": 104.79,
+      "y": 385.92,
+      "w": 48.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "operations,",
+      "x": 155.55,
+      "y": 385.92,
+      "w": 46.52,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "achieving",
+      "x": 204.4,
+      "y": 385.92,
+      "w": 39.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "growth",
+      "x": 246.51,
+      "y": 385.92,
+      "w": 29.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "of",
+      "x": 277.98,
+      "y": 385.92,
+      "w": 8.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "120%",
+      "x": 288.93,
+      "y": 385.92,
+      "w": 22.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 313.99,
+      "y": 385.92,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "two",
+      "x": 323.79,
+      "y": 385.92,
+      "w": 15.5,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "years.",
+      "x": 341.62,
+      "y": 385.92,
+      "w": 25.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Spearheaded",
+      "x": 369.0,
+      "y": 385.92,
+      "w": 55.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "the",
+      "x": 426.32,
+      "y": 385.92,
+      "w": 13.23,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "development",
+      "x": 441.89,
+      "y": 385.92,
+      "w": 54.23,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 498.44,
+      "y": 385.92,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "implementation",
+      "x": 82.0,
+      "y": 373.22,
+      "w": 65.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "of",
+      "x": 149.9,
+      "y": 373.22,
+      "w": 8.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "subscription",
+      "x": 160.85,
+      "y": 373.22,
+      "w": 51.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "video-on-demand",
+      "x": 214.91,
+      "y": 373.22,
+      "w": 72.36,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "over-the-top",
+      "x": 289.59,
+      "y": 373.22,
+      "w": 50.22,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "streaming",
+      "x": 342.14,
+      "y": 373.22,
+      "w": 42.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "products.",
+      "x": 386.65,
+      "y": 373.22,
+      "w": 39.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Improved",
+      "x": 428.61,
+      "y": 373.22,
+      "w": 39.46,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "employee",
+      "x": 470.4,
+      "y": 373.22,
+      "w": 40.56,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "retention",
+      "x": 82.0,
+      "y": 360.52,
+      "w": 37.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "by",
+      "x": 121.64,
+      "y": 360.52,
+      "w": 9.73,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adopting",
+      "x": 133.69,
+      "y": 360.52,
+      "w": 36.88,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "a",
+      "x": 172.9,
+      "y": 360.52,
+      "w": 5.12,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "new",
+      "x": 180.34,
+      "y": 360.52,
+      "w": 17.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "internal",
+      "x": 199.9,
+      "y": 360.52,
+      "w": 31.29,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "communications",
+      "x": 233.53,
+      "y": 360.52,
+      "w": 70.22,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "methodology",
+      "x": 306.07,
+      "y": 360.52,
+      "w": 54.88,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 363.27,
+      "y": 360.52,
+      "w": 15.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "restructured",
+      "x": 381.21,
+      "y": 360.52,
+      "w": 51.1,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "employee",
+      "x": 434.63,
+      "y": 360.52,
+      "w": 40.56,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "benefits.",
+      "x": 477.52,
+      "y": 360.52,
+      "w": 36.37,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Accomplishments:",
+      "x": 82.0,
+      "y": 340.94,
+      "w": 78.06,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lorem",
+      "x": 97.99,
+      "y": 328.09,
+      "w": 26.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 127.14,
+      "y": 328.09,
+      "w": 25.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 155.3,
+      "y": 328.09,
+      "w": 21.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 179.12,
+      "y": 328.09,
+      "w": 10.2,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 191.66,
+      "y": 328.09,
+      "w": 23.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 217.24,
+      "y": 328.09,
+      "w": 49.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 269.29,
+      "y": 328.09,
+      "w": 42.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit.",
+      "x": 314.39,
+      "y": 328.09,
+      "w": 15.09,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Proin",
+      "x": 331.82,
+      "y": 328.09,
+      "w": 21.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nec",
+      "x": 356.1,
+      "y": 328.09,
+      "w": 15.09,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "augue",
+      "x": 373.52,
+      "y": 328.09,
+      "w": 25.74,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "pharetra,",
+      "x": 401.59,
+      "y": 328.09,
+      "w": 36.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "imperdiet",
+      "x": 440.86,
+      "y": 328.09,
+      "w": 39.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ex",
+      "x": 482.8,
+      "y": 328.09,
+      "w": 9.64,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ut,",
+      "x": 494.77,
+      "y": 328.09,
+      "w": 10.1,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "loren",
+      "x": 507.2,
+      "y": 328.09,
+      "w": 21.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "feugiat",
+      "x": 97.99,
+      "y": 315.39,
+      "w": 29.18,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "urna.",
+      "x": 129.49,
+      "y": 315.39,
+      "w": 21.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Nunc",
+      "x": 152.96,
+      "y": 315.39,
+      "w": 22.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ac",
+      "x": 177.29,
+      "y": 315.39,
+      "w": 10.04,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "odio",
+      "x": 189.65,
+      "y": 315.39,
+      "w": 18.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "quis",
+      "x": 210.29,
+      "y": 315.39,
+      "w": 17.66,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "purus",
+      "x": 230.28,
+      "y": 315.39,
+      "w": 23.68,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "fermentum",
+      "x": 256.28,
+      "y": 315.39,
+      "w": 46.34,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "porttitor",
+      "x": 304.95,
+      "y": 315.39,
+      "w": 33.86,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ut",
+      "x": 341.14,
+      "y": 315.39,
+      "w": 8.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sed",
+      "x": 351.73,
+      "y": 315.39,
+      "w": 15.13,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "urna.",
+      "x": 369.19,
+      "y": 315.39,
+      "w": 21.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Nunc",
+      "x": 97.99,
+      "y": 302.69,
+      "w": 22.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vel",
+      "x": 122.31,
+      "y": 302.69,
+      "w": 11.82,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ex",
+      "x": 136.46,
+      "y": 302.69,
+      "w": 9.64,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 148.43,
+      "y": 302.69,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "velit",
+      "x": 158.23,
+      "y": 302.69,
+      "w": 17.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "volutpat",
+      "x": 177.73,
+      "y": 302.69,
+      "w": 33.92,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "commodo",
+      "x": 213.98,
+      "y": 302.69,
+      "w": 42.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 259.1,
+      "y": 302.69,
+      "w": 10.2,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet",
+      "x": 271.63,
+      "y": 302.69,
+      "w": 21.41,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vitae",
+      "x": 295.37,
+      "y": 302.69,
+      "w": 20.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "velit.",
+      "x": 317.71,
+      "y": 302.69,
+      "w": 19.65,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Nam",
+      "x": 339.68,
+      "y": 302.69,
+      "w": 20.06,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 362.07,
+      "y": 302.69,
+      "w": 8.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "augue",
+      "x": 372.45,
+      "y": 302.69,
+      "w": 25.74,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vitae",
+      "x": 400.52,
+      "y": 302.69,
+      "w": 20.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "est",
+      "x": 422.86,
+      "y": 302.69,
+      "w": 12.9,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sagittis",
+      "x": 438.09,
+      "y": 302.69,
+      "w": 30.8,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "volutpat",
+      "x": 471.21,
+      "y": 302.69,
+      "w": 33.92,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsu.",
+      "x": 507.46,
+      "y": 302.69,
+      "w": 20.07,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Aenean",
+      "x": 97.99,
+      "y": 289.99,
+      "w": 31.59,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tristique",
+      "x": 131.9,
+      "y": 289.99,
+      "w": 34.25,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "enim",
+      "x": 168.48,
+      "y": 289.99,
+      "w": 20.7,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vitae",
+      "x": 191.5,
+      "y": 289.99,
+      "w": 20.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "facilisis",
+      "x": 213.84,
+      "y": 289.99,
+      "w": 32.13,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "pharetra.",
+      "x": 248.29,
+      "y": 289.99,
+      "w": 37.58,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lorem",
+      "x": 288.2,
+      "y": 289.99,
+      "w": 26.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 317.36,
+      "y": 289.99,
+      "w": 25.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 345.52,
+      "y": 289.99,
+      "w": 21.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 369.34,
+      "y": 289.99,
+      "w": 10.2,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 381.87,
+      "y": 289.99,
+      "w": 23.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 407.45,
+      "y": 289.99,
+      "w": 49.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 459.5,
+      "y": 289.99,
+      "w": 42.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit.",
+      "x": 504.61,
+      "y": 289.99,
+      "w": 15.09,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Vivamus",
+      "x": 97.99,
+      "y": 277.29,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "aliquam",
+      "x": 136.52,
+      "y": 277.29,
+      "w": 33.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "justo",
+      "x": 172.42,
+      "y": 277.29,
+      "w": 20.71,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 195.46,
+      "y": 277.29,
+      "w": 8.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "libero",
+      "x": 205.84,
+      "y": 277.29,
+      "w": 23.37,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sodales",
+      "x": 231.53,
+      "y": 277.29,
+      "w": 32.74,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "auctor.",
+      "x": 266.61,
+      "y": 277.29,
+      "w": 29.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Vivamus",
+      "x": 97.99,
+      "y": 264.59,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "euismod",
+      "x": 136.52,
+      "y": 264.59,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leo",
+      "x": 175.06,
+      "y": 264.59,
+      "w": 12.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "molestie",
+      "x": 190.01,
+      "y": 264.59,
+      "w": 36.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "velit",
+      "x": 228.39,
+      "y": 264.59,
+      "w": 17.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "pharetra,",
+      "x": 247.89,
+      "y": 264.59,
+      "w": 36.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eget",
+      "x": 287.17,
+      "y": 264.59,
+      "w": 18.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tristique",
+      "x": 307.81,
+      "y": 264.59,
+      "w": 34.25,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "mauris",
+      "x": 344.39,
+      "y": 264.59,
+      "w": 28.85,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "egestas.",
+      "x": 375.57,
+      "y": 264.59,
+      "w": 35.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Fusce",
+      "x": 413.5,
+      "y": 264.59,
+      "w": 25.14,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "luctus",
+      "x": 440.96,
+      "y": 264.59,
+      "w": 25.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nulla",
+      "x": 468.78,
+      "y": 264.59,
+      "w": 20.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ege",
+      "x": 491.16,
+      "y": 264.59,
+      "w": 15.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "loren",
+      "x": 508.73,
+      "y": 264.59,
+      "w": 21.0,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "imperdiet",
+      "x": 97.99,
+      "y": 251.89,
+      "w": 39.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "pretium.",
+      "x": 139.92,
+      "y": 251.89,
+      "w": 34.7,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lorem",
+      "x": 176.94,
+      "y": 251.89,
+      "w": 26.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 206.1,
+      "y": 251.89,
+      "w": 25.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 234.26,
+      "y": 251.89,
+      "w": 21.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 258.08,
+      "y": 251.89,
+      "w": 10.2,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 270.61,
+      "y": 251.89,
+      "w": 23.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 296.19,
+      "y": 251.89,
+      "w": 49.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 348.24,
+      "y": 251.89,
+      "w": 42.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit.",
+      "x": 393.34,
+      "y": 251.89,
+      "w": 15.09,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Donec",
+      "x": 97.99,
+      "y": 239.19,
+      "w": 26.62,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eu",
+      "x": 126.94,
+      "y": 239.19,
+      "w": 10.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "lectus",
+      "x": 139.43,
+      "y": 239.19,
+      "w": 25.29,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ac",
+      "x": 167.05,
+      "y": 239.19,
+      "w": 10.04,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "justo",
+      "x": 179.41,
+      "y": 239.19,
+      "w": 20.71,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "imperdiet",
+      "x": 202.45,
+      "y": 239.19,
+      "w": 39.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "suscipit.",
+      "x": 244.39,
+      "y": 239.19,
+      "w": 35.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Integer",
+      "x": 281.9,
+      "y": 239.19,
+      "w": 29.24,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vitae",
+      "x": 313.47,
+      "y": 239.19,
+      "w": 20.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "odio",
+      "x": 335.81,
+      "y": 239.19,
+      "w": 18.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ac",
+      "x": 356.45,
+      "y": 239.19,
+      "w": 10.04,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sem",
+      "x": 368.81,
+      "y": 239.19,
+      "w": 18.07,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "fringilla",
+      "x": 389.21,
+      "y": 239.19,
+      "w": 31.16,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "iaculis.",
+      "x": 422.69,
+      "y": 239.19,
+      "w": 29.39,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Mauris",
+      "x": 454.41,
+      "y": 239.19,
+      "w": 28.82,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dapi",
+      "x": 485.56,
+      "y": 239.19,
+      "w": 17.98,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "bussi",
+      "x": 505.87,
+      "y": 239.19,
+      "w": 22.44,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nunc",
+      "x": 97.99,
+      "y": 226.49,
+      "w": 20.48,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 120.8,
+      "y": 226.49,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tempus",
+      "x": 130.6,
+      "y": 226.49,
+      "w": 31.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sollicitudin.",
+      "x": 164.53,
+      "y": 226.49,
+      "w": 47.77,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Proin",
+      "x": 97.99,
+      "y": 213.79,
+      "w": 21.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 122.26,
+      "y": 213.79,
+      "w": 8.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nibh",
+      "x": 132.64,
+      "y": 213.79,
+      "w": 17.93,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eleifend,",
+      "x": 152.9,
+      "y": 213.79,
+      "w": 35.11,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "posuere",
+      "x": 190.34,
+      "y": 213.79,
+      "w": 33.82,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "lectus",
+      "x": 226.48,
+      "y": 213.79,
+      "w": 25.29,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et,",
+      "x": 254.1,
+      "y": 213.79,
+      "w": 9.9,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "rhoncus",
+      "x": 266.33,
+      "y": 213.79,
+      "w": 33.87,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leo.",
+      "x": 302.53,
+      "y": 213.79,
+      "w": 15.1,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Praesent",
+      "x": 319.96,
+      "y": 213.79,
+      "w": 37.3,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vitae",
+      "x": 359.59,
+      "y": 213.79,
+      "w": 20.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "massa",
+      "x": 381.92,
+      "y": 213.79,
+      "w": 28.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "id",
+      "x": 412.42,
+      "y": 213.79,
+      "w": 7.59,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "odio",
+      "x": 422.33,
+      "y": 213.79,
+      "w": 18.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vulputate",
+      "x": 442.97,
+      "y": 213.79,
+      "w": 38.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "posuere",
+      "x": 484.02,
+      "y": 213.79,
+      "w": 33.82,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "is.",
+      "x": 520.17,
+      "y": 213.79,
+      "w": 9.61,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lorem",
+      "x": 97.99,
+      "y": 109.99,
+      "w": 26.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 127.14,
+      "y": 109.99,
+      "w": 25.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 155.3,
+      "y": 109.99,
+      "w": 21.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 179.12,
+      "y": 109.99,
+      "w": 10.2,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 191.66,
+      "y": 109.99,
+      "w": 23.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 217.24,
+      "y": 109.99,
+      "w": 49.72,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 269.29,
+      "y": 109.99,
+      "w": 42.78,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit.",
+      "x": 314.39,
+      "y": 109.99,
+      "w": 15.09,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Vivamus",
+      "x": 331.81,
+      "y": 109.99,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "aliquam",
+      "x": 370.35,
+      "y": 109.99,
+      "w": 33.57,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "justo",
+      "x": 406.24,
+      "y": 109.99,
+      "w": 20.71,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 429.28,
+      "y": 109.99,
+      "w": 8.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "libero",
+      "x": 439.67,
+      "y": 109.99,
+      "w": 23.37,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sodales",
+      "x": 465.36,
+      "y": 109.99,
+      "w": 32.74,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "auctor.",
+      "x": 500.43,
+      "y": 109.99,
+      "w": 29.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Vivamus",
+      "x": 97.99,
+      "y": 97.29,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "euismod",
+      "x": 136.52,
+      "y": 97.29,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "leo",
+      "x": 175.06,
+      "y": 97.29,
+      "w": 12.63,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "molestie",
+      "x": 190.01,
+      "y": 97.29,
+      "w": 36.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "velit",
+      "x": 228.39,
+      "y": 97.29,
+      "w": 17.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "pharetra,",
+      "x": 247.89,
+      "y": 97.29,
+      "w": 36.95,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eget",
+      "x": 287.17,
+      "y": 97.29,
+      "w": 18.31,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tristique",
+      "x": 307.81,
+      "y": 97.29,
+      "w": 34.25,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "mauris",
+      "x": 344.39,
+      "y": 97.29,
+      "w": 28.85,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "egestas.",
+      "x": 375.57,
+      "y": 97.29,
+      "w": 35.6,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Ut",
+      "x": 97.99,
+      "y": 84.59,
+      "w": 9.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "euismod",
+      "x": 109.48,
+      "y": 84.59,
+      "w": 36.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "neque",
+      "x": 148.02,
+      "y": 84.59,
+      "w": 25.68,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 176.03,
+      "y": 84.59,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tellus",
+      "x": 185.82,
+      "y": 84.59,
+      "w": 22.65,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "bibendum,",
+      "x": 210.8,
+      "y": 84.59,
+      "w": 43.58,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 256.71,
+      "y": 84.59,
+      "w": 8.05,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tristique",
+      "x": 267.09,
+      "y": 84.59,
+      "w": 34.25,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "quam",
+      "x": 303.67,
+      "y": 84.59,
+      "w": 23.89,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "bibendum.",
+      "x": 329.88,
+      "y": 84.59,
+      "w": 44.21,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Sed",
+      "x": 376.42,
+      "y": 84.59,
+      "w": 15.86,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eu",
+      "x": 394.61,
+      "y": 84.59,
+      "w": 10.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "orci",
+      "x": 407.11,
+      "y": 84.59,
+      "w": 15.75,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "at",
+      "x": 425.18,
+      "y": 84.59,
+      "w": 8.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "malesuada",
+      "x": 435.7,
+      "y": 84.59,
+      "w": 46.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "congue",
+      "x": 484.21,
+      "y": 84.59,
+      "w": 30.92,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "at.",
+      "x": 517.46,
+      "y": 84.59,
+      "w": 10.66,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Suspendisse",
+      "x": 97.99,
+      "y": 71.89,
+      "w": 53.32,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ornare",
+      "x": 153.64,
+      "y": 71.89,
+      "w": 27.01,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "purus",
+      "x": 182.98,
+      "y": 71.89,
+      "w": 23.68,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ut",
+      "x": 208.98,
+      "y": 71.89,
+      "w": 8.26,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "viverra",
+      "x": 219.56,
+      "y": 71.89,
+      "w": 27.85,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "semper.",
+      "x": 249.74,
+      "y": 71.89,
+      "w": 33.99,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Vestibulum",
+      "x": 286.06,
+      "y": 71.89,
+      "w": 47.34,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ante",
+      "x": 335.72,
+      "y": 71.89,
+      "w": 18.36,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 356.41,
+      "y": 71.89,
+      "w": 25.83,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "primis",
+      "x": 384.57,
+      "y": 71.89,
+      "w": 26.11,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "in",
+      "x": 413.01,
+      "y": 71.89,
+      "w": 7.47,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "faucibus",
+      "x": 422.81,
+      "y": 71.89,
+      "w": 36.08,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "orci",
+      "x": 461.21,
+      "y": 71.89,
+      "w": 15.75,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "luctus",
+      "x": 479.29,
+      "y": 71.89,
+      "w": 25.49,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et.",
+      "x": 507.11,
+      "y": 71.89,
+      "w": 10.53,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Oct",
+      "x": 450.22,
+      "y": 411.39,
+      "w": 14.57,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "2020",
+      "x": 467.14,
+      "y": 411.39,
+      "w": 21.58,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 491.06,
+      "y": 411.39,
+      "w": 3.65,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Present",
+      "x": 497.05,
+      "y": 411.39,
+      "w": 32.94,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Nov",
+      "x": 437.76,
+      "y": 181.09,
+      "w": 16.71,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "2018",
+      "x": 456.81,
+      "y": 181.09,
+      "w": 21.58,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 480.74,
+      "y": 181.09,
+      "w": 3.65,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Sept",
+      "x": 486.72,
+      "y": 181.09,
+      "w": 19.34,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "2020",
+      "x": 508.4,
+      "y": 181.09,
+      "w": 21.58,
+      "h": 9.41,
+      "font": "BAAAAA+Roboto-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "OPERATIONS",
+      "x": 230.59,
+      "y": 632.24,
+      "w": 82.46,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    },
+    {
+      "text": "MANAGER",
+      "x": 315.86,
+      "y": 632.24,
+      "w": 65.53,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    },
+    {
+      "text": "+123-456-7890",
+      "x": 168.63,
+      "y": 693.51,
+      "w": 63.32,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "\u00b7",
+      "x": 234.28,
+      "y": 693.51,
+      "w": 2.45,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "hello@reallygreatsite.com",
+      "x": 239.06,
+      "y": 693.51,
+      "w": 108.64,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "\u00b7",
+      "x": 350.03,
+      "y": 693.51,
+      "w": 2.45,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "@reallygreatsite.com",
+      "x": 354.81,
+      "y": 693.51,
+      "w": 88.55,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "123",
+      "x": 228.45,
+      "y": 680.81,
+      "w": 15.84,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Anywhere",
+      "x": 246.62,
+      "y": 680.81,
+      "w": 41.17,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "St.,",
+      "x": 290.11,
+      "y": 680.81,
+      "w": 12.97,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Any",
+      "x": 305.41,
+      "y": 680.81,
+      "w": 15.77,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "City,",
+      "x": 323.51,
+      "y": 680.81,
+      "w": 17.77,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ST",
+      "x": 343.61,
+      "y": 680.81,
+      "w": 11.19,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "12345",
+      "x": 357.12,
+      "y": 680.81,
+      "w": 26.4,
+      "h": 9.41,
+      "font": "AAAAAA+Roboto-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Henrietta",
+      "x": 198.95,
+      "y": 707.9,
+      "w": 111.23,
+      "h": 29.16,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 29.16
+    },
+    {
+      "text": "Mitchell",
+      "x": 315.64,
+      "y": 707.9,
+      "w": 97.39,
+      "h": 29.16,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 29.16
+    },
+    {
+      "text": "PROFESSIONAL",
+      "x": 216.22,
+      "y": 429.4,
+      "w": 96.26,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    },
+    {
+      "text": "EXPERIENCE",
+      "x": 315.3,
+      "y": 429.4,
+      "w": 80.46,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    },
+    {
+      "text": "KEY",
+      "x": 241.16,
+      "y": 517.65,
+      "w": 24.76,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    },
+    {
+      "text": "COMPETENCIES",
+      "x": 268.74,
+      "y": 517.65,
+      "w": 102.08,
+      "h": 15.05,
+      "font": "CAAAAA+CrimsonPro-Regular",
+      "size": 15.05
+    }
+  ]
+}

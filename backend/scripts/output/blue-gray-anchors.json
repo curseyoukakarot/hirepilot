@@ -1,0 +1,2327 @@
+{
+  "page": 1,
+  "items": [
+    {
+      "text": "REFERENCE",
+      "x": 44.85,
+      "y": 107.08,
+      "w": 89.77,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "CONTACT",
+      "x": 45.2,
+      "y": 557.11,
+      "w": 76.24,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "SKILLS",
+      "x": 45.2,
+      "y": 413.19,
+      "w": 50.29,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "LANGUAGES",
+      "x": 45.2,
+      "y": 214.92,
+      "w": 96.72,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "+123-456-7890",
+      "x": 62.71,
+      "y": 534.25,
+      "w": 66.98,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "hello@reallygreatsite.com",
+      "x": 62.71,
+      "y": 508.95,
+      "w": 105.96,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "123",
+      "x": 63.12,
+      "y": 483.46,
+      "w": 16.36,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Anywhere",
+      "x": 81.89,
+      "y": 483.46,
+      "w": 42.45,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "St.,",
+      "x": 126.75,
+      "y": 483.46,
+      "w": 12.83,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Any",
+      "x": 141.98,
+      "y": 483.46,
+      "w": 16.46,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "City",
+      "x": 160.85,
+      "y": 483.46,
+      "w": 16.76,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "www.reallygreatsite.com",
+      "x": 63.09,
+      "y": 458.03,
+      "w": 102.49,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "123-456-7890",
+      "x": 77.6,
+      "y": 46.91,
+      "w": 55.12,
+      "h": 8.47,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 8.47
+    },
+    {
+      "text": "hello@reallygreatsite.com",
+      "x": 77.08,
+      "y": 33.0,
+      "w": 94.79,
+      "h": 8.47,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 8.47
+    },
+    {
+      "text": "Estelle",
+      "x": 45.51,
+      "y": 79.88,
+      "w": 30.4,
+      "h": 10.34,
+      "font": "CAAAAA+Lato-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Darcy",
+      "x": 78.38,
+      "y": 79.88,
+      "w": 27.33,
+      "h": 10.34,
+      "font": "CAAAAA+Lato-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Phone:",
+      "x": 45.51,
+      "y": 47.07,
+      "w": 29.18,
+      "h": 9.41,
+      "font": "CAAAAA+Lato-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Email",
+      "x": 45.51,
+      "y": 33.17,
+      "w": 22.71,
+      "h": 9.41,
+      "font": "CAAAAA+Lato-Bold",
+      "size": 9.41
+    },
+    {
+      "text": ":",
+      "x": 70.47,
+      "y": 33.17,
+      "w": 2.42,
+      "h": 9.41,
+      "font": "CAAAAA+Lato-Bold",
+      "size": 9.41
+    },
+    {
+      "text": "Wardiere",
+      "x": 45.51,
+      "y": 63.81,
+      "w": 38.51,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Inc.",
+      "x": 86.38,
+      "y": 63.81,
+      "w": 14.51,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "/",
+      "x": 103.23,
+      "y": 63.81,
+      "w": 4.25,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "CTO",
+      "x": 109.83,
+      "y": 63.81,
+      "w": 19.31,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Project",
+      "x": 55.59,
+      "y": 389.0,
+      "w": 29.49,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Management",
+      "x": 87.49,
+      "y": 389.0,
+      "w": 54.5,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Public",
+      "x": 55.59,
+      "y": 370.65,
+      "w": 25.12,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Relations",
+      "x": 83.12,
+      "y": 370.65,
+      "w": 38.03,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Teamwork",
+      "x": 55.59,
+      "y": 352.31,
+      "w": 43.85,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Time",
+      "x": 55.59,
+      "y": 333.96,
+      "w": 20.51,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Management",
+      "x": 78.51,
+      "y": 333.96,
+      "w": 54.5,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Leadership",
+      "x": 55.59,
+      "y": 315.62,
+      "w": 44.97,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Effective",
+      "x": 55.59,
+      "y": 297.28,
+      "w": 36.92,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Communication",
+      "x": 94.92,
+      "y": 297.28,
+      "w": 65.2,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Critical",
+      "x": 55.59,
+      "y": 278.93,
+      "w": 28.97,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Thinking",
+      "x": 86.97,
+      "y": 278.93,
+      "w": 35.48,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Digital",
+      "x": 55.59,
+      "y": 260.59,
+      "w": 26.82,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Marketing",
+      "x": 84.82,
+      "y": 260.59,
+      "w": 42.34,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "English",
+      "x": 55.59,
+      "y": 190.73,
+      "w": 29.36,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "(Fluent)",
+      "x": 87.36,
+      "y": 190.73,
+      "w": 31.39,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "French",
+      "x": 55.59,
+      "y": 178.03,
+      "w": 28.69,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "(Fluent)",
+      "x": 86.69,
+      "y": 178.03,
+      "w": 31.39,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "German",
+      "x": 55.59,
+      "y": 165.33,
+      "w": 32.91,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "(Basic)",
+      "x": 90.91,
+      "y": 165.33,
+      "w": 26.59,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Spanish",
+      "x": 55.59,
+      "y": 152.63,
+      "w": 31.87,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "(Intermediate)",
+      "x": 89.87,
+      "y": 152.63,
+      "w": 57.89,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "RICHARD",
+      "x": 247.23,
+      "y": 718.29,
+      "w": 120.84,
+      "h": 25.42,
+      "font": "DAAAAA+Now-Black",
+      "size": 25.42
+    },
+    {
+      "text": "SANCHEZ",
+      "x": 375.68,
+      "y": 718.29,
+      "w": 126.97,
+      "h": 25.42,
+      "font": "DAAAAA+Now-Black",
+      "size": 25.42
+    },
+    {
+      "text": "MARKETING",
+      "x": 247.23,
+      "y": 697.31,
+      "w": 79.75,
+      "h": 13.53,
+      "font": "EAAAAA+Now-Regular",
+      "size": 13.53
+    },
+    {
+      "text": "MANAGER",
+      "x": 331.05,
+      "y": 697.31,
+      "w": 68.92,
+      "h": 13.53,
+      "font": "EAAAAA+Now-Regular",
+      "size": 13.53
+    },
+    {
+      "text": "WORK",
+      "x": 248.55,
+      "y": 499.15,
+      "w": 48.09,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "EXPERIENCE",
+      "x": 303.73,
+      "y": 499.15,
+      "w": 96.57,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "EDUCATION",
+      "x": 246.9,
+      "y": 144.79,
+      "w": 93.56,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "PROFILE",
+      "x": 248.55,
+      "y": 609.1,
+      "w": 63.29,
+      "h": 13.17,
+      "font": "AAAAAA+Now-Bold",
+      "size": 13.17
+    },
+    {
+      "text": "Lorem",
+      "x": 248.55,
+      "y": 587.22,
+      "w": 26.28,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 278.84,
+      "y": 587.22,
+      "w": 24.58,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 307.43,
+      "y": 587.22,
+      "w": 21.57,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 333.01,
+      "y": 587.22,
+      "w": 9.7,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 346.71,
+      "y": 587.22,
+      "w": 22.88,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 373.6,
+      "y": 587.22,
+      "w": 48.97,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 426.58,
+      "y": 587.22,
+      "w": 40.68,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit,",
+      "x": 471.26,
+      "y": 587.22,
+      "w": 14.95,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sed",
+      "x": 490.22,
+      "y": 587.22,
+      "w": 14.3,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "do",
+      "x": 508.53,
+      "y": 587.22,
+      "w": 10.6,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eiusmod",
+      "x": 523.13,
+      "y": 587.22,
+      "w": 34.87,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tempor",
+      "x": 248.55,
+      "y": 574.52,
+      "w": 30.1,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "incididunt",
+      "x": 283.16,
+      "y": 574.52,
+      "w": 40.9,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ut",
+      "x": 328.58,
+      "y": 574.52,
+      "w": 8.61,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "labore",
+      "x": 341.71,
+      "y": 574.52,
+      "w": 25.88,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 372.1,
+      "y": 574.52,
+      "w": 8.34,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolore",
+      "x": 384.95,
+      "y": 574.52,
+      "w": 26.54,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "magna",
+      "x": 416.0,
+      "y": 574.52,
+      "w": 27.22,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "aliqua.",
+      "x": 447.73,
+      "y": 574.52,
+      "w": 26.55,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Ut",
+      "x": 478.8,
+      "y": 574.52,
+      "w": 10.29,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "enim",
+      "x": 493.6,
+      "y": 574.52,
+      "w": 20.2,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ad",
+      "x": 518.32,
+      "y": 574.52,
+      "w": 9.94,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "minim",
+      "x": 532.77,
+      "y": 574.52,
+      "w": 25.23,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "veniam",
+      "x": 248.55,
+      "y": 561.82,
+      "w": 29.73,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "quis",
+      "x": 281.14,
+      "y": 561.82,
+      "w": 16.84,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nostrud",
+      "x": 300.83,
+      "y": 561.82,
+      "w": 31.95,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "exercitation.",
+      "x": 335.63,
+      "y": 561.82,
+      "w": 51.26,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lorem",
+      "x": 389.75,
+      "y": 561.82,
+      "w": 26.28,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ipsum",
+      "x": 418.89,
+      "y": 561.82,
+      "w": 24.58,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolor",
+      "x": 446.32,
+      "y": 561.82,
+      "w": 21.57,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sit",
+      "x": 470.74,
+      "y": 561.82,
+      "w": 9.7,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "amet,",
+      "x": 483.3,
+      "y": 561.82,
+      "w": 22.88,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consectetur",
+      "x": 509.03,
+      "y": 561.82,
+      "w": 48.97,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "adipiscing",
+      "x": 248.55,
+      "y": 549.12,
+      "w": 40.68,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "elit,",
+      "x": 291.64,
+      "y": 549.12,
+      "w": 14.95,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "sed",
+      "x": 309.0,
+      "y": 549.12,
+      "w": 14.3,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "do",
+      "x": 325.71,
+      "y": 549.12,
+      "w": 10.6,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "eiusmod",
+      "x": 338.71,
+      "y": 549.12,
+      "w": 34.87,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "tempor",
+      "x": 375.99,
+      "y": 549.12,
+      "w": 30.1,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "incididunt",
+      "x": 408.49,
+      "y": 549.12,
+      "w": 40.9,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ut",
+      "x": 451.8,
+      "y": 549.12,
+      "w": 8.61,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "labore",
+      "x": 462.82,
+      "y": 549.12,
+      "w": 25.88,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "et",
+      "x": 491.11,
+      "y": 549.12,
+      "w": 8.34,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "dolore",
+      "x": 501.85,
+      "y": 549.12,
+      "w": 26.54,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "magna",
+      "x": 530.8,
+      "y": 549.12,
+      "w": 27.22,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "aliqua.",
+      "x": 248.55,
+      "y": 536.42,
+      "w": 26.55,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Ut",
+      "x": 277.51,
+      "y": 536.42,
+      "w": 10.29,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "enim",
+      "x": 290.21,
+      "y": 536.42,
+      "w": 20.2,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ad",
+      "x": 312.82,
+      "y": 536.42,
+      "w": 9.94,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "minim",
+      "x": 325.17,
+      "y": 536.42,
+      "w": 25.23,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "veniam",
+      "x": 352.8,
+      "y": 536.42,
+      "w": 29.73,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "quis",
+      "x": 384.94,
+      "y": 536.42,
+      "w": 16.84,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "nostrud",
+      "x": 404.18,
+      "y": 536.42,
+      "w": 31.95,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "exercitation.",
+      "x": 438.55,
+      "y": 536.42,
+      "w": 51.26,
+      "h": 9.41,
+      "font": "BAAAAA+Lato-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2030",
+      "x": 488.38,
+      "y": 473.66,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 512.22,
+      "y": 473.66,
+      "w": 2.58,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "PRESENT",
+      "x": 516.83,
+      "y": 473.66,
+      "w": 40.49,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Borcelle",
+      "x": 248.55,
+      "y": 475.38,
+      "w": 40.52,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Studio",
+      "x": 291.07,
+      "y": 475.38,
+      "w": 32.1,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Marketing",
+      "x": 248.55,
+      "y": 461.07,
+      "w": 47.12,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Manager",
+      "x": 297.91,
+      "y": 461.07,
+      "w": 41.52,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "&",
+      "x": 341.66,
+      "y": 461.07,
+      "w": 6.76,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Specialist",
+      "x": 350.66,
+      "y": 461.07,
+      "w": 44.47,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "2025",
+      "x": 505.02,
+      "y": 362.13,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 528.87,
+      "y": 362.13,
+      "w": 2.58,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2029",
+      "x": 535.52,
+      "y": 362.13,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Fauget",
+      "x": 248.55,
+      "y": 361.3,
+      "w": 34.72,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Studio",
+      "x": 285.27,
+      "y": 361.3,
+      "w": 32.1,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Marketing",
+      "x": 248.55,
+      "y": 346.99,
+      "w": 47.12,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Manager",
+      "x": 297.91,
+      "y": 346.99,
+      "w": 41.52,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "&",
+      "x": 341.66,
+      "y": 346.99,
+      "w": 6.76,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Specialist",
+      "x": 350.66,
+      "y": 346.99,
+      "w": 44.47,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "2024",
+      "x": 507.05,
+      "y": 260.75,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 530.9,
+      "y": 260.75,
+      "w": 2.58,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2025",
+      "x": 535.51,
+      "y": 260.75,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Studio",
+      "x": 248.55,
+      "y": 259.92,
+      "w": 32.1,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Shodwe",
+      "x": 282.66,
+      "y": 259.92,
+      "w": 40.22,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Marketing",
+      "x": 248.55,
+      "y": 245.61,
+      "w": 47.12,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Manager",
+      "x": 297.91,
+      "y": 245.61,
+      "w": 41.52,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "&",
+      "x": 341.66,
+      "y": 245.61,
+      "w": 6.76,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Specialist",
+      "x": 350.66,
+      "y": 245.61,
+      "w": 44.47,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Develop",
+      "x": 264.54,
+      "y": 440.68,
+      "w": 35.41,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 306.95,
+      "y": 440.68,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "execute",
+      "x": 330.32,
+      "y": 440.68,
+      "w": 33.51,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "comprehensive",
+      "x": 370.83,
+      "y": 440.68,
+      "w": 65.4,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 443.25,
+      "y": 440.68,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "strategies",
+      "x": 493.01,
+      "y": 440.68,
+      "w": 40.96,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 540.98,
+      "y": 440.68,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "campaigns",
+      "x": 264.54,
+      "y": 427.98,
+      "w": 46.66,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "that",
+      "x": 313.23,
+      "y": 427.98,
+      "w": 16.46,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "align",
+      "x": 331.72,
+      "y": 427.98,
+      "w": 20.91,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "with",
+      "x": 354.66,
+      "y": 427.98,
+      "w": 18.14,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "the",
+      "x": 374.83,
+      "y": 427.98,
+      "w": 13.68,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "company's",
+      "x": 390.55,
+      "y": 427.98,
+      "w": 45.64,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "goals",
+      "x": 438.22,
+      "y": 427.98,
+      "w": 22.93,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 463.17,
+      "y": 427.98,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "objectives.",
+      "x": 481.56,
+      "y": 427.98,
+      "w": 45.15,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Lead,",
+      "x": 264.54,
+      "y": 415.28,
+      "w": 23.42,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "mentor,",
+      "x": 294.58,
+      "y": 415.28,
+      "w": 32.41,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 333.61,
+      "y": 415.28,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "manage",
+      "x": 356.59,
+      "y": 415.28,
+      "w": 34.55,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "a",
+      "x": 397.76,
+      "y": 415.28,
+      "w": 4.99,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "high-performing",
+      "x": 409.38,
+      "y": 415.28,
+      "w": 68.74,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 484.75,
+      "y": 415.28,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "team,",
+      "x": 534.12,
+      "y": 415.28,
+      "w": 23.21,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "fostering",
+      "x": 264.54,
+      "y": 402.58,
+      "w": 37.36,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "a",
+      "x": 303.93,
+      "y": 402.58,
+      "w": 4.99,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "collaborative",
+      "x": 310.96,
+      "y": 402.58,
+      "w": 54.66,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 367.64,
+      "y": 402.58,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "results-driven",
+      "x": 386.02,
+      "y": 402.58,
+      "w": 57.01,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "work",
+      "x": 445.06,
+      "y": 402.58,
+      "w": 20.91,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "environment.",
+      "x": 468.0,
+      "y": 402.58,
+      "w": 55.79,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Monitor",
+      "x": 264.54,
+      "y": 389.88,
+      "w": 33.03,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "brand",
+      "x": 299.6,
+      "y": 389.88,
+      "w": 25.2,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consistency",
+      "x": 326.83,
+      "y": 389.88,
+      "w": 50.41,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "across",
+      "x": 379.27,
+      "y": 389.88,
+      "w": 27.21,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 408.52,
+      "y": 389.88,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "channels",
+      "x": 453.3,
+      "y": 389.88,
+      "w": 38.5,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 493.83,
+      "y": 389.88,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "materials.",
+      "x": 512.21,
+      "y": 389.88,
+      "w": 40.18,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Create",
+      "x": 264.54,
+      "y": 326.6,
+      "w": 27.94,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 300.1,
+      "y": 326.6,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "manage",
+      "x": 324.08,
+      "y": 326.6,
+      "w": 34.55,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "the",
+      "x": 366.26,
+      "y": 326.6,
+      "w": 13.68,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 387.57,
+      "y": 326.6,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "budget,",
+      "x": 437.94,
+      "y": 326.6,
+      "w": 33.05,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ensuring",
+      "x": 478.63,
+      "y": 326.6,
+      "w": 37.32,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "efficient",
+      "x": 523.58,
+      "y": 326.6,
+      "w": 33.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "allocation",
+      "x": 264.54,
+      "y": 313.9,
+      "w": 41.39,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "of",
+      "x": 307.96,
+      "y": 313.9,
+      "w": 8.24,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "resources",
+      "x": 318.22,
+      "y": 313.9,
+      "w": 41.22,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 361.47,
+      "y": 313.9,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "optimizing",
+      "x": 379.86,
+      "y": 313.9,
+      "w": 44.66,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "ROI.",
+      "x": 426.55,
+      "y": 313.9,
+      "w": 17.3,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Oversee",
+      "x": 264.54,
+      "y": 301.2,
+      "w": 34.67,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "market",
+      "x": 305.38,
+      "y": 301.2,
+      "w": 29.15,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "research",
+      "x": 340.7,
+      "y": 301.2,
+      "w": 36.39,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "to",
+      "x": 383.27,
+      "y": 301.2,
+      "w": 8.45,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "identify",
+      "x": 397.89,
+      "y": 301.2,
+      "w": 31.49,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "emerging",
+      "x": 435.56,
+      "y": 301.2,
+      "w": 40.85,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "trends,",
+      "x": 482.58,
+      "y": 301.2,
+      "w": 28.95,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "customer",
+      "x": 517.71,
+      "y": 301.2,
+      "w": 39.62,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "needs,",
+      "x": 264.54,
+      "y": 288.5,
+      "w": 28.07,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 294.64,
+      "y": 288.5,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "competitor",
+      "x": 313.02,
+      "y": 288.5,
+      "w": 46.17,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "strategies.",
+      "x": 361.23,
+      "y": 288.5,
+      "w": 43.03,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Develop",
+      "x": 264.54,
+      "y": 223.34,
+      "w": 35.41,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 303.9,
+      "y": 223.34,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "maintain",
+      "x": 324.22,
+      "y": 223.34,
+      "w": 36.6,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "strong",
+      "x": 364.78,
+      "y": 223.34,
+      "w": 27.23,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "relationships",
+      "x": 395.97,
+      "y": 223.34,
+      "w": 54.04,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "with",
+      "x": 453.97,
+      "y": 223.34,
+      "w": 18.14,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "partners,",
+      "x": 476.07,
+      "y": 223.34,
+      "w": 37.01,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "agencies,",
+      "x": 517.05,
+      "y": 223.34,
+      "w": 40.28,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 264.54,
+      "y": 210.64,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "vendors",
+      "x": 282.92,
+      "y": 210.64,
+      "w": 34.29,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "to",
+      "x": 319.24,
+      "y": 210.64,
+      "w": 8.45,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "support",
+      "x": 329.72,
+      "y": 210.64,
+      "w": 32.93,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 364.69,
+      "y": 210.64,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "initiatives.",
+      "x": 409.47,
+      "y": 210.64,
+      "w": 41.79,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Monitor",
+      "x": 264.54,
+      "y": 197.94,
+      "w": 33.03,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 304.93,
+      "y": 197.94,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "maintain",
+      "x": 328.66,
+      "y": 197.94,
+      "w": 36.6,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "brand",
+      "x": 372.63,
+      "y": 197.94,
+      "w": 25.2,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "consistency",
+      "x": 405.2,
+      "y": 197.94,
+      "w": 50.41,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "across",
+      "x": 462.98,
+      "y": 197.94,
+      "w": 27.21,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "all",
+      "x": 497.57,
+      "y": 197.94,
+      "w": 9.64,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "marketing",
+      "x": 514.58,
+      "y": 197.94,
+      "w": 42.75,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "channels",
+      "x": 264.54,
+      "y": 185.24,
+      "w": 38.5,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "and",
+      "x": 305.07,
+      "y": 185.24,
+      "w": 16.35,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "materials.",
+      "x": 323.45,
+      "y": 185.24,
+      "w": 40.18,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2029",
+      "x": 507.05,
+      "y": 115.5,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 530.9,
+      "y": 115.5,
+      "w": 2.58,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2031",
+      "x": 535.51,
+      "y": 115.5,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Master",
+      "x": 248.55,
+      "y": 114.67,
+      "w": 33.87,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "of",
+      "x": 284.43,
+      "y": 114.67,
+      "w": 9.76,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Business",
+      "x": 296.19,
+      "y": 114.67,
+      "w": 43.75,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Management",
+      "x": 341.95,
+      "y": 114.67,
+      "w": 65.57,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "School",
+      "x": 248.55,
+      "y": 100.35,
+      "w": 32.33,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "of",
+      "x": 283.11,
+      "y": 100.35,
+      "w": 9.06,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "business",
+      "x": 294.4,
+      "y": 100.35,
+      "w": 40.95,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "|",
+      "x": 337.59,
+      "y": 100.35,
+      "w": 2.59,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Wardiere",
+      "x": 342.41,
+      "y": 100.35,
+      "w": 42.34,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "University",
+      "x": 386.98,
+      "y": 100.35,
+      "w": 45.8,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "2025",
+      "x": 505.4,
+      "y": 60.87,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "-",
+      "x": 529.25,
+      "y": 60.87,
+      "w": 2.58,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "2029",
+      "x": 533.86,
+      "y": 60.87,
+      "w": 21.82,
+      "h": 9.41,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 9.41
+    },
+    {
+      "text": "Bachelor",
+      "x": 246.9,
+      "y": 60.04,
+      "w": 43.89,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "of",
+      "x": 292.79,
+      "y": 60.04,
+      "w": 9.76,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Business",
+      "x": 304.56,
+      "y": 60.04,
+      "w": 43.75,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "Management",
+      "x": 350.32,
+      "y": 60.04,
+      "w": 65.57,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "School",
+      "x": 246.9,
+      "y": 45.73,
+      "w": 32.33,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "of",
+      "x": 281.46,
+      "y": 45.73,
+      "w": 9.06,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "business",
+      "x": 292.75,
+      "y": 45.73,
+      "w": 40.95,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "|",
+      "x": 335.94,
+      "y": 45.73,
+      "w": 2.59,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "Wardiere",
+      "x": 340.75,
+      "y": 45.73,
+      "w": 42.34,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "University",
+      "x": 385.32,
+      "y": 45.73,
+      "w": 45.8,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "GPA:",
+      "x": 246.9,
+      "y": 31.57,
+      "w": 23.59,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "3.8",
+      "x": 272.5,
+      "y": 31.57,
+      "w": 14.27,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "/",
+      "x": 289.0,
+      "y": 31.57,
+      "w": 3.13,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "4.0",
+      "x": 294.37,
+      "y": 31.57,
+      "w": 14.27,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "GPA:",
+      "x": 248.55,
+      "y": 86.9,
+      "w": 23.59,
+      "h": 10.34,
+      "font": "GAAAAA+Aileron-Bold",
+      "size": 10.34
+    },
+    {
+      "text": "3.8",
+      "x": 274.38,
+      "y": 86.9,
+      "w": 14.27,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "/",
+      "x": 290.88,
+      "y": 86.9,
+      "w": 3.13,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    },
+    {
+      "text": "4.0",
+      "x": 296.25,
+      "y": 86.9,
+      "w": 14.27,
+      "h": 10.34,
+      "font": "FAAAAA+Aileron-Regular",
+      "size": 10.34
+    }
+  ]
+}
