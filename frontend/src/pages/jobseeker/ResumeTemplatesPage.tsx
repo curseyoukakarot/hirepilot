@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePlan } from '../../context/PlanContext';
 import toast from 'react-hot-toast';
+import previewGreyGold from '../../../backend/assets/resume-templates/canva/grey-gold.png';
+import previewBlueGrey from '../../../backend/assets/resume-templates/canva/blue-grey.png';
+import previewBlackWhite from '../../../backend/assets/resume-templates/canva/black-and-white.png';
 
 type ResumeTemplate = {
   id: string;
@@ -44,6 +47,12 @@ function resolvePreviewUrl(raw: string | null | undefined, backendBase: string) 
   if (value.startsWith('/')) return `${backendBase}${value}`;
   return `${backendBase}/${value}`;
 }
+
+const LOCAL_PREVIEW_BY_SLUG: Record<string, string> = {
+  'gray-gold-clean': previewGreyGold,
+  'blue-gray-simple-professional': previewBlueGrey,
+  'black-white-corporate': previewBlackWhite,
+};
 
 const MOCK_TEMPLATES: ResumeTemplate[] = [
   {
@@ -451,7 +460,7 @@ export default function ResumeTemplatesPage() {
               const tagsLc = (t.tags || []).map((x) => String(x).toLowerCase());
               const isDesign = tagsLc.includes('design');
               const isSelected = t.id === selectedTemplateId;
-              const previewUrl = resolvePreviewUrl(t.preview_image_url, backend);
+              const previewUrl = LOCAL_PREVIEW_BY_SLUG[t.slug] || resolvePreviewUrl(t.preview_image_url, backend);
               return (
                 <article
                   key={t.id}
@@ -556,9 +565,9 @@ export default function ResumeTemplatesPage() {
                 <div className="soft-border rounded-xl bg-slate-900/30 h-[420px] overflow-hidden">
                   {modalTemplate && (
                     <div className="h-full w-full">
-                      {resolvePreviewUrl(modalTemplate.preview_image_url, backend) ? (
+                      {(LOCAL_PREVIEW_BY_SLUG[modalTemplate.slug] || resolvePreviewUrl(modalTemplate.preview_image_url, backend)) ? (
                         <img
-                          src={resolvePreviewUrl(modalTemplate.preview_image_url, backend) as string}
+                          src={(LOCAL_PREVIEW_BY_SLUG[modalTemplate.slug] || resolvePreviewUrl(modalTemplate.preview_image_url, backend)) as string}
                           alt={`${modalTemplate.name} preview`}
                           className="h-full w-full object-contain bg-white"
                         />
