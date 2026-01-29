@@ -88,6 +88,7 @@ import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
 import featureEventsRouter from './src/routes/events.feature';
 import resumeDraftsRouter from './src/routes/resumeDrafts';
+import resumesRouter from './src/routes/resumes';
 import rexUploadsRouter from './src/routes/rexUploads';
 // NOTE: Keep as require() to avoid occasional TS module-resolution flake in some environments
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -505,6 +506,7 @@ app.use('/api/jobs', requireAuthFlag, async (req, res, next) => {
 app.use('/api/jobs/resume-drafts', resumeDraftsRouter);
 app.use('/api/rex/uploads', rexUploadsRouter);
 app.use('/api/jobs/resume', resumePdfRouter);
+app.use('/api/resumes', resumesRouter);
 // Job seeker Elite template/theme selectors (auth required; Elite enforced on select endpoints)
 app.use('/api/resume-templates', resumeTemplatesRouter);
 app.use('/api/landing-themes', landingThemesRouter);

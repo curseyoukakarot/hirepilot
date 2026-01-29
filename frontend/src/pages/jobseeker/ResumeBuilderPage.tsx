@@ -426,7 +426,10 @@ export default function ResumeBuilderPage() {
         const res = await fetch(`${backend}/api/jobs/resume-drafts/${draftId}`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({ generated_resume_json: nextDraft }),
+          body: JSON.stringify({
+            generated_resume_json: nextDraft,
+            template_slug: selectedTemplateSlug,
+          }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -436,7 +439,7 @@ export default function ResumeBuilderPage() {
         console.warn('persist resume draft failed', e);
       }
     },
-    [backend, draftId]
+    [backend, draftId, selectedTemplateSlug]
   );
 
   const parseJsonFromReply = (raw: any): GeneratedResumeJson | null => {

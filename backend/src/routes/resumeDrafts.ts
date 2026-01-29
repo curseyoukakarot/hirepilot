@@ -302,9 +302,14 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
     if (!payload) return res.status(400).json({ error: 'missing_generated_resume_json' });
 
     const parsed = generatedSchema.parse(payload);
+    const templateSlug = String(body?.template_slug || '').trim();
+    const templateId = String(body?.template_id || '').trim();
+    const updatePayload: any = { generated_resume_json: parsed };
+    if (templateSlug) updatePayload.template_slug = templateSlug;
+    if (templateId) updatePayload.template_id = templateId;
     const { data, error } = await supabase
       .from('job_resume_drafts')
-      .update({ generated_resume_json: parsed })
+      .update(updatePayload)
       .eq('id', id)
       .eq('user_id', userId)
       .select('*')
