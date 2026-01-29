@@ -41,6 +41,16 @@ export async function fetchUnattributedEventsPage(afterTs?: string | null): Prom
 /** Perform attribution for a single event row. */
 export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
   try {
+    let warnedOnce = false;
+    const warnOnce = (attemptedKey: string, err: any) => {
+      if (warnedOnce) return;
+      warnedOnce = true;
+      log.warn('Attribution lookup failed', {
+        sg_event_id: ev.sg_event_id,
+        attempted_key: attemptedKey,
+        error: err?.message || String(err)
+      });
+    };
     let { sg_message_id, message_id, metadata } = ev;
     // Normalize SendGrid identifiers by stripping suffixes like ".filterdrecv", ".recv", etc.
     const strippedSgId = sg_message_id ? String(sg_message_id).split('.')[0] : null;
@@ -140,9 +150,11 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
             lead_id = lead_id || (msgByHeader as any).lead_id || null;
           }
         }
-      } catch {}
+      } catch (err: any) {
+        warnOnce('message_id_header', err);
+      }
       if (!user_id || !campaign_id || !lead_id) {
-        const candidateIds = [strippedMsgHeader, strippedSgId].filter(Boolean) as string[];
+        const candidateIds = Array.from(new Set([strippedSgId].filter(Boolean) as string[]));
         for (const candidateId of candidateIds) {
           if (user_id && campaign_id && lead_id) break;
           try {
@@ -159,7 +171,9 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
               campaign_id = campaign_id || (msgByProviderId as any).campaign_id || null;
               lead_id = lead_id || (msgByProviderId as any).lead_id || null;
             }
-          } catch {}
+          } catch (err: any) {
+            warnOnce('message_id', err);
+          }
         }
       }
       if ((!user_id || !campaign_id || !lead_id) && attemptedKeys.length) {
@@ -187,7 +201,9 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
           lead_id = lead_id || (leadRow as any).id || null;
           campaign_id = campaign_id || (leadRow as any).campaign_id || null;
         }
-      } catch {}
+      } catch (err: any) {
+        warnOnce('lead_email', err);
+      }
     }
 
     // Step 3: Update if we found anything
@@ -216,7 +232,10 @@ export async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
             .eq('id', lead_id)
             .maybeSingle();
           if (!leadExists) finalLeadId = null;
-        } catch { finalLeadId = null; }
+        } catch (err: any) {
+          warnOnce('lead_exists', err);
+          finalLeadId = null;
+        }
       }
       const { error: updErr } = await supabaseAdmin
         .from('email_events')

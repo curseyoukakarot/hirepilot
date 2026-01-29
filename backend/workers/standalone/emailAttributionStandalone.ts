@@ -51,6 +51,16 @@ async function fetchUnattributedEvents(): Promise<EmailEventRow[]> {
 
 async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
   try {
+    let warnedOnce = false;
+    const warnOnce = (attemptedKey: string, err: any) => {
+      if (warnedOnce) return;
+      warnedOnce = true;
+      log.warn('Attribution lookup failed', {
+        sg_event_id: ev.sg_event_id,
+        attempted_key: attemptedKey,
+        error: err?.message || String(err)
+      });
+    };
     let { metadata } = ev;
     let email: string | undefined = metadata?.email;
     let user_id: string | null = ev.user_id;
@@ -80,7 +90,9 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
           campaign_id = campaign_id || (msg as any).campaign_id || null;
           lead_id = lead_id || (msg as any).lead_id || null;
         }
-      } catch {}
+      } catch (err: any) {
+        warnOnce('to_email', err);
+      }
     }
 
     // Step 2B: Fallback - message identifiers
@@ -104,9 +116,11 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
             lead_id = lead_id || (byHeader as any).lead_id || null;
           }
         }
-      } catch {}
+      } catch (err: any) {
+        warnOnce('message_id_header', err);
+      }
       if (!user_id || !campaign_id || !lead_id) {
-        const candidateIds = [strippedMsgHeader, strippedProviderId].filter(Boolean) as string[];
+        const candidateIds = Array.from(new Set([strippedProviderId].filter(Boolean) as string[]));
         for (const candidateId of candidateIds) {
           if (user_id && campaign_id && lead_id) break;
           try {
@@ -123,7 +137,9 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
               campaign_id = campaign_id || (byProviderId as any).campaign_id || null;
               lead_id = lead_id || (byProviderId as any).lead_id || null;
             }
-          } catch {}
+          } catch (err: any) {
+            warnOnce('message_id', err);
+          }
         }
       }
       if ((!user_id || !campaign_id || !lead_id) && attemptedKeys.length) {
@@ -151,7 +167,9 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
           lead_id = lead_id || (leadRow as any).id || null;
           campaign_id = campaign_id || (leadRow as any).campaign_id || null;
         }
-      } catch {}
+      } catch (err: any) {
+        warnOnce('lead_email', err);
+      }
     }
 
     // Step 3: Update if we found anything
@@ -164,7 +182,10 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
             .eq('id', campaign_id)
             .maybeSingle();
           if (!campaignExists) campaign_id = null;
-        } catch { campaign_id = null; }
+        } catch (err: any) {
+          warnOnce('campaign_exists', err);
+          campaign_id = null;
+        }
       }
       // Avoid FK violation for lead
       let finalLeadId: string | null = lead_id;
@@ -176,7 +197,10 @@ async function attributeEvent(ev: EmailEventRow): Promise<boolean> {
             .eq('id', lead_id)
             .maybeSingle();
           if (!leadExists) finalLeadId = null;
-        } catch { finalLeadId = null; }
+        } catch (err: any) {
+          warnOnce('lead_exists', err);
+          finalLeadId = null;
+        }
       }
       const client: any = supabase as any;
       const fromAny: any = client.from.bind(client);
