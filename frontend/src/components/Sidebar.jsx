@@ -126,7 +126,7 @@ export default function Sidebar() {
               ...((isGuest ? baseLinks.filter(l => !['/messages','/billing'].includes(l.to)) : baseLinks)),
               ...((isFree || isGuest) ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }]),
               { to: '/tables', label: 'Tables', icon: <FaTable /> },
-              { to: '/kanban', label: 'Kanban', icon: <FaTable /> },
+              { to: '/kanban', label: 'Kanban', icon: <FaChartBar className="rotate-180" /> },
               { to: '/forms', label: 'Forms', icon: <FaWpforms /> },
               ...((isFree || isGuest) ? [] : [{ to: '/prep/landing-page', label: 'Landing Pages', icon: <FaGlobe /> }]),
             ].map(link => (
