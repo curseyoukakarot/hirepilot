@@ -16,9 +16,20 @@ async function resolveAffiliateByCode(code?: string | null) {
 
 r.post('/session', async (req, res) => {
   try {
-    const { price_id, success_url, cancel_url, plan_type, planId, interval } = req.body || {};
+    const {
+      price_id,
+      priceId,
+      success_url,
+      cancel_url,
+      plan_type,
+      planTier,
+      userId,
+      planId,
+      interval,
+    } = req.body || {};
 
-    if (!price_id || !success_url || !cancel_url) {
+    const resolvedPriceId = String(price_id || priceId || '').trim();
+    if (!resolvedPriceId || !success_url || !cancel_url) {
       res.status(400).json({ error: 'Missing required fields: price_id, success_url, cancel_url' });
       return;
     }
@@ -26,30 +37,43 @@ r.post('/session', async (req, res) => {
     const refCode = (req as any).cookies?.hp_ref as string | undefined;
     const affiliate = await resolveAffiliateByCode(refCode);
 
+    const normalizedPlanTier = String(planTier || '').toLowerCase();
+    const normalizedPlanType = String(plan_type || '').toLowerCase();
+    const normalizedPlanId = String(planId || '').toLowerCase();
+
     const metadata: Record<string, any> = {
-      plan_type: plan_type || 'job_seeker',
-      price_id,
+      price_id: resolvedPriceId,
       plan_id: planId || undefined,
       interval: interval || undefined,
     };
+    if (normalizedPlanType) metadata.plan_type = normalizedPlanType;
+    if (normalizedPlanTier) metadata.plan_tier = normalizedPlanTier;
+    if (userId) metadata.user_id = userId;
     if (affiliate) {
       metadata.affiliate_id = affiliate.id;
       metadata.referral_code = affiliate.code;
     }
 
-    const normalizedPlanId = String(planId || '').toLowerCase();
-    const shouldApplyTrial =
-      (plan_type === 'job_seeker' || !plan_type) &&
-      ['job_seeker_pro', 'job_seeker_elite'].includes(normalizedPlanId);
+    const isJobSeeker = normalizedPlanType === 'job_seeker' || (!normalizedPlanType && !normalizedPlanTier);
+    let trialDays = 0;
+    if (isJobSeeker && ['job_seeker_pro', 'job_seeker_elite'].includes(normalizedPlanId)) {
+      trialDays = 7;
+    }
+    if (!isJobSeeker && (normalizedPlanTier === 'starter' || normalizedPlanTier === 'team')) {
+      trialDays = 14;
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: price_id, quantity: 1 }],
+      line_items: [{ price: resolvedPriceId, quantity: 1 }],
       success_url,
       cancel_url,
       allow_promotion_codes: true,
       metadata,
-      ...(shouldApplyTrial ? { subscription_data: { trial_period_days: 7 } } : {}),
+      subscription_data: {
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+        metadata,
+      },
     });
 
     res.json({ id: session.id, url: session.url });

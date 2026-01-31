@@ -34,12 +34,16 @@ export default function Pricing() {
     try {
       const priceId = priceMap[annual ? 'annual' : 'monthly'][planTier];
       const { data: { user } } = await supabase.auth.getUser();
-      const res = await apiPost('/api/stripe/create-checkout-session', {
+      const origin = window.location.origin;
+      const res = await apiPost('/api/public-checkout/session', {
         priceId,
         planTier,
-        userId: user?.id || null
+        userId: user?.id || null,
+        success_url: `${origin}/signup?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/pricing`,
+        plan_type: 'recruiter'
       }, { requireAuth: false });
-      window.location = res.url || `https://checkout.stripe.com/pay/${res.sessionId}`;
+      window.location = res.url || `https://checkout.stripe.com/pay/${res.id || res.sessionId}`;
     } catch (err) {
       console.error('checkout error', err);
       alert('Unable to start checkout');
