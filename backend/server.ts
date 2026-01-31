@@ -721,8 +721,16 @@ app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
 app.use('/api/payouts', requireAuthFlag, payoutsRouter);
   app.use('/api/tracking', trackingRouter);
 
-  // Now that public OAuth routes are mounted, attach advanced router which requires auth
-  app.use('/', requireAuthFlag, agentAdvancedRouter);
+  // Now that public OAuth routes are mounted, attach advanced router which requires auth.
+  // Guard public checkout so anonymous pricing can still create sessions.
+  app.use(
+    '/',
+    (req, res, next) => {
+      if (req.path.startsWith('/api/public-checkout')) return next();
+      return (requireAuthFlag as any)(req, res, next);
+    },
+    agentAdvancedRouter
+  );
 
   // Feature-flagged: session cookie auth endpoints (safe additive)
   if (String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true') {
