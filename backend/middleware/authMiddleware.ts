@@ -22,7 +22,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     // Allow public checkout sessions without auth
     const path = String(req.path || '');
+    if (process.env.LOG_REQUESTS === 'true') {
+      console.log('[auth.legacy] enter', { path, hasAuth: Boolean(req.headers.authorization), hasSessionCookie: Boolean((req as any)?.cookies?.hp_session) });
+    }
     if (path.startsWith('/api/public-checkout')) {
+      if (process.env.LOG_REQUESTS === 'true') {
+        console.log('[auth.legacy] allowlist', { path });
+      }
       return next();
     }
 

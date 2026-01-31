@@ -350,6 +350,8 @@ app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 // Parse JSON bodies for all other routes (increase limit for bulk operations)
 // IMPORTANT: JSON parser must not swallow raw bodies needed by some transports; safe for our routes
 app.use(express.json({ limit: '25mb' }));
+// Public checkout must be reachable without auth; mount early before auth/teams.
+app.use('/api/public-checkout', publicCheckoutRouter);
 // Attempt unified authentication early (API key first, then session); safe no-op if unauthenticated
 app.use(async (req, _res, next) => {
   try {
@@ -707,7 +709,6 @@ app.post('/webhooks/user-created', userCreatedWebhook);
   void sniperJobsWorker;
   }
   // Affiliates + payouts APIs (require auth)
-  app.use('/api/public-checkout', publicCheckoutRouter);
   app.use('/api/affiliates', requireAuthFlag, affiliatesRouter);
   app.use('/api/admin/affiliates', requireAuthFlag, affiliatesAdminRouter);
   app.use('/api/payouts', requireAuthFlag, payoutsRouter);

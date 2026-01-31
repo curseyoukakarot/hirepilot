@@ -16,6 +16,14 @@ async function resolveAffiliateByCode(code?: string | null) {
 
 r.post('/session', async (req, res) => {
   try {
+    if (process.env.LOG_REQUESTS === 'true') {
+      console.log('[public-checkout] hit', {
+        path: req.path,
+        origin: req.headers.origin,
+        hasAuth: Boolean(req.headers.authorization),
+        hasSessionCookie: Boolean((req as any)?.cookies?.hp_session),
+      });
+    }
     const {
       price_id,
       priceId,
