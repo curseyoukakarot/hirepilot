@@ -1,4 +1,5 @@
 import React from 'react';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanCard } from '../../shared/kanbanTypes';
@@ -14,6 +15,10 @@ export default function KanbanBoardPage() {
   const [newColumnName, setNewColumnName] = React.useState('');
   const [newColumnColor, setNewColumnColor] = React.useState('#6366f1');
   const [newColumnCards, setNewColumnCards] = React.useState('');
+  const [showAddCardModal, setShowAddCardModal] = React.useState(false);
+  const [addCardListId, setAddCardListId] = React.useState<string | null>(null);
+  const [newCardTitle, setNewCardTitle] = React.useState('');
+  const [newCardDescription, setNewCardDescription] = React.useState('');
 
   const openDrawer = (cardOrEvent?: KanbanCard | React.MouseEvent, event?: React.MouseEvent) => {
     const actualEvent = (cardOrEvent as React.MouseEvent)?.preventDefault ? (cardOrEvent as React.MouseEvent) : event;
@@ -75,6 +80,11 @@ export default function KanbanBoardPage() {
 
   const openAddColumnModal = () => setShowAddColumnModal(true);
   const closeAddColumnModal = () => setShowAddColumnModal(false);
+  const openAddCardModal = (listId: string) => {
+    setAddCardListId(listId);
+    setShowAddCardModal(true);
+  };
+  const closeAddCardModal = () => setShowAddCardModal(false);
 
   const handleCreateColumn = async () => {
     if (!boardId) return;
@@ -112,6 +122,57 @@ export default function KanbanBoardPage() {
       await loadBoard();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleCreateCard = async () => {
+    if (!addCardListId) return;
+    const title = newCardTitle.trim();
+    if (!title) return;
+    try {
+      await apiPost(`/api/lists/${addCardListId}/cards`, {
+        title,
+        description: newCardDescription.trim() || null,
+      });
+      setNewCardTitle('');
+      setNewCardDescription('');
+      closeAddCardModal();
+      await loadBoard();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const onDragEnd = async (result: any) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+    if (!board) return;
+
+    const sourceListId = source.droppableId;
+    const destListId = destination.droppableId;
+    if (sourceListId === destListId && source.index === destination.index) return;
+
+    const nextLists = board.lists.map((list) => ({ ...list, cards: [...list.cards] }));
+    const sourceList = nextLists.find((list) => list.id === sourceListId);
+    const destList = nextLists.find((list) => list.id === destListId);
+    if (!sourceList || !destList) return;
+
+    const [moved] = sourceList.cards.splice(source.index, 1);
+    if (!moved) return;
+    const movedCard = { ...moved, listId: destListId };
+    destList.cards.splice(destination.index, 0, movedCard);
+
+    setBoard({ ...board, lists: nextLists });
+
+    try {
+      await apiPost(`/api/cards/${movedCard.id}/move`, {
+        fromListId: sourceListId,
+        toListId: destListId,
+        toIndex: destination.index,
+      });
+    } catch (err) {
+      console.error(err);
+      await loadBoard();
     }
   };
 
@@ -219,96 +280,115 @@ export default function KanbanBoardPage() {
       </header>
 
       <main id="kanban-canvas" className="px-6 py-8 overflow-x-auto">
-        <div className="flex gap-5 min-w-max pb-8">
-          {filteredLists.map((list) => (
-            <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
-              <div className="bg-dark-800/40 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden">
-                <div className="p-4 border-b border-white/5 flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1 h-6 bg-blue-500 rounded-full" style={{ backgroundColor: list.color || undefined }}></div>
-                    <input
-                      type="text"
-                      defaultValue={list.name}
-                      className="bg-transparent text-base font-semibold text-white border-none outline-none focus:bg-dark-700/50 px-2 py-1 rounded"
-                    />
-                    <span className="text-sm text-gray-500 font-medium">{list.cards.length}</span>
-                  </div>
-                  <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white">
-                    <i className="fa-solid fa-ellipsis text-sm"></i>
-                  </button>
-                </div>
-
-                <div className="p-3 space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto">
-                  {list.cards.map((card) => (
-                    <div
-                      key={card.id}
-                      className="bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5 group relative"
-                      onClick={(event) => openDrawer(card, event)}
-                    >
-                      <div
-                        className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl"
-                        style={{ background: card.coverColor || undefined }}
-                      ></div>
-
-                      <h4 className="text-white font-semibold text-sm mb-2 leading-snug">{card.title}</h4>
-                      <p className="text-gray-400 text-xs mb-3">
-                        {[(card as any).companyName, (card as any).location].filter(Boolean).join(' · ')}
-                      </p>
-
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                        {(card.labels || []).map((label) => (
-                          <span
-                            key={label.id}
-                            className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 flex items-center gap-1"
-                            style={{
-                              color: label.color || undefined,
-                              borderColor: label.color ? `${label.color}33` : undefined,
-                              backgroundColor: label.color ? `${label.color}1a` : undefined,
-                            }}
-                          >
-                            <i className="fa-solid fa-tag text-[10px]"></i>
-                            {label.name}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-                            className="w-6 h-6 rounded-full border border-white/10"
-                          />
-                          <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                            <i className="fa-solid fa-comment text-[10px]"></i>
-                            {card.comments?.length || 0}
-                          </span>
-                        </div>
-
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                          <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                            <i className="fa-solid fa-link text-xs"></i>
-                          </button>
-                          <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                            <i className="fa-solid fa-tag text-xs"></i>
-                          </button>
-                          <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                            <i className="fa-solid fa-user text-xs"></i>
-                          </button>
-                        </div>
-                      </div>
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-5 min-w-max pb-8">
+            {filteredLists.map((list) => (
+              <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
+                <div className="bg-dark-800/40 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden">
+                  <div className="p-4 border-b border-white/5 flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1 h-6 bg-blue-500 rounded-full" style={{ backgroundColor: list.color || undefined }}></div>
+                      <input
+                        type="text"
+                        defaultValue={list.name}
+                        className="bg-transparent text-base font-semibold text-white border-none outline-none focus:bg-dark-700/50 px-2 py-1 rounded"
+                      />
+                      <span className="text-sm text-gray-500 font-medium">{list.cards.length}</span>
                     </div>
-                  ))}
-                </div>
+                    <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white">
+                      <i className="fa-solid fa-ellipsis text-sm"></i>
+                    </button>
+                  </div>
 
-                <div className="p-3 border-t border-white/5">
-                  <button className="w-full py-2.5 text-gray-400 hover:text-white hover:bg-dark-700/50 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
-                    <i className="fa-solid fa-plus text-xs"></i>
-                    Add card
-                  </button>
+                  <Droppable droppableId={list.id} type="card">
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`p-3 space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
+                      >
+                        {list.cards.map((card, index) => (
+                          <Draggable key={card.id} draggableId={card.id} index={index}>
+                            {(dragProvided, dragSnapshot) => (
+                              <div
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                                className={`bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 group relative ${dragSnapshot.isDragging ? 'shadow-2xl scale-[1.01]' : ''}`}
+                                onClick={(event) => openDrawer(card, event)}
+                              >
+                                <div
+                                  className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl"
+                                  style={{ background: card.coverColor || undefined }}
+                                ></div>
+
+                                <h4 className="text-white font-semibold text-sm mb-2 leading-snug">{card.title}</h4>
+                                <p className="text-gray-400 text-xs mb-3">
+                                  {[(card as any).companyName, (card as any).location].filter(Boolean).join(' · ')}
+                                </p>
+
+                                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                  {(card.labels || []).map((label) => (
+                                    <span
+                                      key={label.id}
+                                      className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 flex items-center gap-1"
+                                      style={{
+                                        color: label.color || undefined,
+                                        borderColor: label.color ? `${label.color}33` : undefined,
+                                        backgroundColor: label.color ? `${label.color}1a` : undefined,
+                                      }}
+                                    >
+                                      <i className="fa-solid fa-tag text-[10px]"></i>
+                                      {label.name}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <img
+                                      src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
+                                      className="w-6 h-6 rounded-full border border-white/10"
+                                    />
+                                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                                      <i className="fa-solid fa-comment text-[10px]"></i>
+                                      {card.comments?.length || 0}
+                                    </span>
+                                  </div>
+
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <i className="fa-solid fa-link text-xs"></i>
+                                    </button>
+                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <i className="fa-solid fa-tag text-xs"></i>
+                                    </button>
+                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <i className="fa-solid fa-user text-xs"></i>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+
+                  <div className="p-3 border-t border-white/5">
+                    <button
+                      onClick={() => openAddCardModal(list.id)}
+                      className="w-full py-2.5 text-gray-400 hover:text-white hover:bg-dark-700/50 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                    >
+                      <i className="fa-solid fa-plus text-xs"></i>
+                      Add card
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           {false && (
           <>
           <div id="column-new-leads" className="flex-shrink-0 w-80">
@@ -859,7 +939,8 @@ export default function KanbanBoardPage() {
               Add column
             </button>
           </div>
-        </div>
+          </div>
+        </DragDropContext>
       </main>
 
       <div id="card-drawer" className={`fixed top-0 right-0 w-[55%] h-full bg-dark-900/95 backdrop-blur-xl border-l border-white/5 transform transition-transform duration-300 overflow-y-auto z-50 shadow-2xl ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -1068,6 +1149,50 @@ export default function KanbanBoardPage() {
               </button>
               <button onClick={handleCreateColumn} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all">
                 Create Column
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="add-card-modal" className={`fixed inset-0 z-50 ${showAddCardModal ? '' : 'hidden'}`}>
+        <div className="absolute inset-0 bg-black/60" onClick={closeAddCardModal}></div>
+        <div className="relative z-10 max-w-xl mx-auto mt-20">
+          <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-semibold text-white">Add Card</h2>
+              <button onClick={closeAddCardModal} className="text-gray-400 hover:text-white transition-all">
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Card title</label>
+                <input
+                  type="text"
+                  value={newCardTitle}
+                  onChange={(event) => setNewCardTitle(event.target.value)}
+                  placeholder="e.g. Review outreach plan"
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <textarea
+                  value={newCardDescription}
+                  onChange={(event) => setNewCardDescription(event.target.value)}
+                  rows={4}
+                  placeholder="Optional details for this card"
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 resize-none"
+                ></textarea>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+              <button onClick={closeAddCardModal} className="px-5 py-2.5 bg-dark-800/60 hover:bg-dark-800 text-white rounded-xl text-sm font-medium transition-all">
+                Cancel
+              </button>
+              <button onClick={handleCreateCard} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all">
+                Create Card
               </button>
             </div>
           </div>
