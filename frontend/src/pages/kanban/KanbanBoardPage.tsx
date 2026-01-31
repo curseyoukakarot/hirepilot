@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiGet } from '../../lib/api';
+import { apiGet, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanCard } from '../../shared/kanbanTypes';
 
 export default function KanbanBoardPage() {
@@ -10,6 +10,10 @@ export default function KanbanBoardPage() {
   const [selectedCard, setSelectedCard] = React.useState<KanbanCard | null>(null);
   const [board, setBoard] = React.useState<KanbanBoard | null>(null);
   const [search, setSearch] = React.useState('');
+  const [showAddColumnModal, setShowAddColumnModal] = React.useState(false);
+  const [newColumnName, setNewColumnName] = React.useState('');
+  const [newColumnColor, setNewColumnColor] = React.useState('#6366f1');
+  const [newColumnCards, setNewColumnCards] = React.useState('');
 
   const openDrawer = (cardOrEvent?: KanbanCard | React.MouseEvent, event?: React.MouseEvent) => {
     const actualEvent = (cardOrEvent as React.MouseEvent)?.preventDefault ? (cardOrEvent as React.MouseEvent) : event;
@@ -21,14 +25,18 @@ export default function KanbanBoardPage() {
 
   const closeDrawer = () => setDrawerOpen(false);
 
+  const loadBoard = React.useCallback(async () => {
+    if (!boardId) return;
+    const response = await apiGet(`/api/boards/${boardId}`);
+    const nextBoard = (response as any)?.board as KanbanBoard | undefined;
+    setBoard(nextBoard || null);
+  }, [boardId]);
+
   React.useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        if (!boardId) return;
-        const response = await apiGet(`/api/boards/${boardId}`);
-        const nextBoard = (response as any)?.board as KanbanBoard | undefined;
-        if (mounted) setBoard(nextBoard || null);
+        await loadBoard();
       } catch (err) {
         console.error(err);
         if (mounted) setBoard(null);
@@ -39,7 +47,7 @@ export default function KanbanBoardPage() {
     return () => {
       mounted = false;
     };
-  }, [boardId]);
+  }, [loadBoard]);
 
   const lists = React.useMemo(() => {
     const data = board?.lists ? [...board.lists] : [];
@@ -64,6 +72,48 @@ export default function KanbanBoardPage() {
   const boardMembers = board?.members || [];
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
+
+  const openAddColumnModal = () => setShowAddColumnModal(true);
+  const closeAddColumnModal = () => setShowAddColumnModal(false);
+
+  const handleCreateColumn = async () => {
+    if (!boardId) return;
+    const name = newColumnName.trim();
+    if (!name) return;
+    try {
+      const response = await apiPost(`/api/boards/${boardId}/lists`, {
+        name,
+        color: newColumnColor?.trim() || null,
+      });
+      const lists = (response as any)?.lists || [];
+      const createdList =
+        lists
+          .filter((list: any) => list.name === name)
+          .sort((a: any, b: any) => new Date(a.updatedAt || a.createdAt).getTime() - new Date(b.updatedAt || b.createdAt).getTime())
+          .pop() || lists[lists.length - 1];
+
+      const cardTitles = newColumnCards
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      if (createdList?.id && cardTitles.length) {
+        for (const [index, title] of cardTitles.entries()) {
+          await apiPost(`/api/lists/${createdList.id}/cards`, {
+            title,
+            position: index,
+          });
+        }
+      }
+
+      setNewColumnName('');
+      setNewColumnCards('');
+      setNewColumnColor('#6366f1');
+      closeAddColumnModal();
+      await loadBoard();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 text-gray-100 font-sans">
@@ -801,7 +851,10 @@ export default function KanbanBoardPage() {
           )}
 
           <div className="flex-shrink-0 w-80">
-            <button className="w-full h-14 bg-dark-800/20 hover:bg-dark-800/40 border-2 border-dashed border-white/5 hover:border-white/10 rounded-2xl text-gray-500 hover:text-gray-300 text-sm font-medium transition-all flex items-center justify-center gap-2">
+            <button
+              onClick={openAddColumnModal}
+              className="w-full h-14 bg-dark-800/20 hover:bg-dark-800/40 border-2 border-dashed border-white/5 hover:border-white/10 rounded-2xl text-gray-500 hover:text-gray-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
+            >
               <i className="fa-solid fa-plus text-xs"></i>
               Add column
             </button>
@@ -954,6 +1007,68 @@ export default function KanbanBoardPage() {
               <div className="p-4 bg-dark-800/60 border border-white/5 rounded-lg text-sm text-gray-400">
                 Activity will appear here as teammates comment or move cards.
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="add-column-modal" className={`fixed inset-0 z-50 ${showAddColumnModal ? '' : 'hidden'}`}>
+        <div className="absolute inset-0 bg-black/60" onClick={closeAddColumnModal}></div>
+        <div className="relative z-10 max-w-xl mx-auto mt-20">
+          <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-semibold text-white">Add Column</h2>
+              <button onClick={closeAddColumnModal} className="text-gray-400 hover:text-white transition-all">
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Column name</label>
+                <input
+                  type="text"
+                  value={newColumnName}
+                  onChange={(event) => setNewColumnName(event.target.value)}
+                  placeholder="e.g. Review"
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Column color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={newColumnColor}
+                    onChange={(event) => setNewColumnColor(event.target.value)}
+                    className="h-10 w-14 rounded-lg bg-transparent border border-white/10"
+                  />
+                  <input
+                    type="text"
+                    value={newColumnColor}
+                    onChange={(event) => setNewColumnColor(event.target.value)}
+                    placeholder="#6366f1"
+                    className="flex-1 bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Cards (one per line)</label>
+                <textarea
+                  value={newColumnCards}
+                  onChange={(event) => setNewColumnCards(event.target.value)}
+                  rows={6}
+                  placeholder="Card title 1&#10;Card title 2&#10;Card title 3"
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 resize-none"
+                ></textarea>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+              <button onClick={closeAddColumnModal} className="px-5 py-2.5 bg-dark-800/60 hover:bg-dark-800 text-white rounded-xl text-sm font-medium transition-all">
+                Cancel
+              </button>
+              <button onClick={handleCreateColumn} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all">
+                Create Column
+              </button>
             </div>
           </div>
         </div>
