@@ -20,6 +20,12 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return requireAuthUnified(req, res, next);
     }
 
+    // Allow public checkout sessions without auth
+    const path = String(req.path || '');
+    if (path.startsWith('/api/public-checkout')) {
+      return next();
+    }
+
     console.log('Auth headers:', req.headers); // Debug headers
     
     const auth = req.headers.authorization;

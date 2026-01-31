@@ -24,7 +24,9 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
       path.startsWith('/linkedin/session') ||
       path.startsWith('/stream') ||
       // Allow public OAuth callbacks (Outlook etc.) to proceed without auth
-      path.startsWith('/api/auth/outlook/callback')
+      path.startsWith('/api/auth/outlook/callback') ||
+      // Allow public checkout sessions (pricing / jobs signup)
+      path.startsWith('/api/public-checkout')
     ) {
       return next();
     }
