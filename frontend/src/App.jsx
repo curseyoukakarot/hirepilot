@@ -21,6 +21,8 @@ import PhantomAnalytics from '../pages/phantom/analytics';
 import SuperAdminDashboard from './screens/SuperAdminDashboard';
 import ActionInbox from './screens/ActionInbox';
 import AgentModeCenter from './pages/agent/AgentModeCenter';
+import KanbanBoardsPage from './pages/kanban/KanbanBoardsPage';
+import KanbanBoardPage from './pages/kanban/KanbanBoardPage';
 import CampaignDetailDrawer from './pages/agent/CampaignDetailDrawer';
 import RepliesDrawer from './pages/agent/RepliesDrawer';
 import ActionInboxDrawer from './pages/agent/ActionInboxDrawer';
@@ -858,6 +860,8 @@ function InnerApp() {
                 <Route path="advanced/personas" element={<div className="p-0" />} />
                 <Route path="advanced/schedules" element={<div className="p-0" />} />
               </Route>
+              <Route path="/kanban" element={<KanbanBoardsPage />} />
+              <Route path="/kanban/:boardId" element={<KanbanBoardPage />} />
               <Route path="/leads" element={<LeadManagement />} />
               <Route path="/leads/profile" element={<LeadProfileDrawer />} />
               <Route path="/pricing" element={<Pricing />} />

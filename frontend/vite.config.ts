@@ -2,6 +2,7 @@
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // Build identifier used to detect when a new deployment is live
 const buildId =
@@ -28,6 +29,11 @@ export default defineConfig({
   plugins: [react(), buildMetaPlugin()],
   define: {
     __APP_BUILD_ID__: JSON.stringify(buildId),
+  },
+  server: {
+    fs: {
+      allow: [path.resolve(__dirname, '..')],
+    },
   },
   // No proxy needed for production
 })
