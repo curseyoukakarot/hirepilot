@@ -1,6 +1,41 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { apiGet, apiPost } from '../../lib/api';
+import type { KanbanBoard, KanbanBoardSummary, KanbanTemplate } from '../../shared/kanbanTypes';
+
+const DEFAULT_AVATAR =
+  'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg';
+
+function formatUpdatedAt(value?: string | null) {
+  if (!value) return 'Updated just now';
+  const updated = new Date(value).getTime();
+  const diff = Math.max(0, Date.now() - updated);
+  const minutes = Math.round(diff / 60000);
+  if (minutes < 60) return `Updated ${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Updated ${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `Updated ${days}d ago`;
+}
+
+function resolveTemplateAccent(template: KanbanTemplate | null) {
+  if (!template) return { wrapper: 'bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30', icon: 'bg-indigo-600', button: 'bg-indigo-600 hover:bg-indigo-700', iconName: 'fa-users' };
+  if (template.id === 'client_acquisition') {
+    return { wrapper: 'bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30', icon: 'bg-purple-600', button: 'bg-purple-600 hover:bg-purple-700', iconName: 'fa-handshake' };
+  }
+  if (template.id === 'delivery_execution') {
+    return { wrapper: 'bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30', icon: 'bg-green-600', button: 'bg-green-600 hover:bg-green-700', iconName: 'fa-rocket' };
+  }
+  return { wrapper: 'bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30', icon: 'bg-indigo-600', button: 'bg-indigo-600 hover:bg-indigo-700', iconName: 'fa-users' };
+}
 
 export default function KanbanBoardsPage() {
+  const navigate = useNavigate();
+  const [boards, setBoards] = React.useState<KanbanBoardSummary[]>([]);
+  const [templates, setTemplates] = React.useState<KanbanTemplate[]>([]);
+  const [search, setSearch] = React.useState('');
+  const [boardName, setBoardName] = React.useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<string | null>(null);
   const [showCreateBoardModal, setShowCreateBoardModal] = React.useState(false);
   const [showBoardCanvas, setShowBoardCanvas] = React.useState(false);
   const [showCardDrawer, setShowCardDrawer] = React.useState(false);
@@ -9,14 +44,46 @@ export default function KanbanBoardsPage() {
 
   const openCreateBoardModal = () => setShowCreateBoardModal(true);
   const closeCreateBoardModal = () => setShowCreateBoardModal(false);
-  const createBoard = () => {
-    closeCreateBoardModal();
-    alert('Board created successfully!');
+  const createBoard = async () => {
+    try {
+      if (selectedTemplateId) {
+        await createFromTemplate(selectedTemplateId);
+        setSelectedTemplateId(null);
+        closeCreateBoardModal();
+        return;
+      }
+      const name = boardName.trim() || 'Untitled Board';
+      const payload: { name: string; boardType?: string | null } = { name };
+      const created = await apiPost('/api/boards', payload);
+      const board = (created as any)?.board as KanbanBoard | undefined;
+      if (board?.id) {
+        setBoardName('');
+        closeCreateBoardModal();
+        await refreshBoards();
+        navigate(`/kanban/${board.id}`);
+        return;
+      }
+      closeCreateBoardModal();
+    } catch (err) {
+      console.error(err);
+    }
   };
-  const createFromTemplate = (type: string) => {
-    alert(`Creating board from ${type} template...`);
+  const createFromTemplate = async (templateId: string) => {
+    try {
+      const created = await apiPost('/api/boards/from-template', {
+        templateId,
+        boardName: boardName.trim() || undefined,
+      });
+      const board = (created as any)?.board as KanbanBoard | undefined;
+      if (board?.id) {
+        await refreshBoards();
+        navigate(`/kanban/${board.id}`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
-  const openBoard = () => setShowBoardCanvas(true);
+  const openBoard = (boardId: string) => navigate(`/kanban/${boardId}`);
   const closeBoard = () => setShowBoardCanvas(false);
   const openCardDrawer = () => setShowCardDrawer(true);
   const closeCardDrawer = () => setShowCardDrawer(false);
@@ -25,6 +92,41 @@ export default function KanbanBoardsPage() {
   const openInviteModal = () => setShowInviteModal(true);
   const closeInviteModal = () => setShowInviteModal(false);
   const openFilterPopover = () => alert('Filter popover opening...');
+
+  const refreshBoards = React.useCallback(async () => {
+    const [boardsResp, templatesResp] = await Promise.all([
+      apiGet('/api/boards'),
+      apiGet('/api/boards/templates'),
+    ]);
+    setBoards((boardsResp as any)?.boards || []);
+    setTemplates((templatesResp as any)?.templates || []);
+  }, []);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await refreshBoards();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!mounted) return;
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [refreshBoards]);
+
+  const filteredBoards = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return boards;
+    return boards.filter((b) => b.name.toLowerCase().includes(query));
+  }, [boards, search]);
+
+  const recentBoards = filteredBoards.slice(0, 3);
+  const allBoards = filteredBoards;
+  const primaryTemplates = templates.slice(0, 3);
 
   return (
     <div className="bg-[#0a0a0b]">
@@ -246,7 +348,13 @@ export default function KanbanBoardsPage() {
 
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <input type="text" placeholder="Search boards..." className="w-64 bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-2.5 pl-10 text-sm text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search boards..."
+                    className="w-64 bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-2.5 pl-10 text-sm text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all"
+                  />
                   <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[#a1a1aa] text-sm"></i>
                 </div>
                 <button onClick={openCreateBoardModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all">
@@ -268,102 +376,63 @@ export default function KanbanBoardsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-6">
-                <div id="board-card-1" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer" onClick={openBoard}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Recruiting Pipeline 2024</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold">Recruiting</span>
-                        <span className="text-xs text-[#a1a1aa]">Updated 2h ago</span>
+                {recentBoards.map((board) => {
+                  const members = board.memberPreview || [];
+                  const visibleMembers = members.slice(0, 3);
+                  const extraMembers = members.length - visibleMembers.length;
+                  return (
+                    <div
+                      key={board.id}
+                      id={`board-card-${board.id}`}
+                      className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer"
+                      onClick={() => openBoard(board.id)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-white mb-2">{board.name}</h3>
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold">
+                              {board.boardType || 'Board'}
+                            </span>
+                            <span className="text-xs text-[#a1a1aa]">{formatUpdatedAt(board.updatedAt)}</span>
+                          </div>
+                        </div>
+                        <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
+                          <i className="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center space-x-2 mb-4">
+                        {(board.columnColors || []).map((color, idx) => (
+                          <div
+                            key={`${board.id}-color-${idx}`}
+                            className="h-1.5 w-12 bg-blue-500 rounded-full"
+                            style={{ backgroundColor: color || undefined }}
+                          ></div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          {visibleMembers.map((member) => (
+                            <img
+                              key={member.id}
+                              src={member.user?.avatarUrl || DEFAULT_AVATAR}
+                              className="presence-avatar w-8 h-8 rounded-full"
+                              alt="Member"
+                            />
+                          ))}
+                          {extraMembers > 0 ? (
+                            <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
+                              +{extraMembers}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-[#a1a1aa]">{board.cardCount} cards</div>
                       </div>
                     </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-12 bg-blue-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-indigo-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-green-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-emerald-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-amber-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">+4</div>
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">127 cards</div>
-                  </div>
-                </div>
-
-                <div id="board-card-2" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer" onClick={openBoard}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Client Acquisition Q1</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-semibold">Sales</span>
-                        <span className="text-xs text-[#a1a1aa]">Updated 5h ago</span>
-                      </div>
-                    </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-12 bg-cyan-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-blue-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-purple-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-pink-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-rose-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">+2</div>
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">43 cards</div>
-                  </div>
-                </div>
-
-                <div id="board-card-3" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer" onClick={openBoard}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Delivery Execution</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold">Delivery</span>
-                        <span className="text-xs text-[#a1a1aa]">Updated 1d ago</span>
-                      </div>
-                    </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-12 bg-slate-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-orange-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-yellow-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-lime-500 rounded-full"></div>
-                    <div className="h-1.5 w-12 bg-teal-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">89 cards</div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -381,117 +450,63 @@ export default function KanbanBoardsPage() {
               </div>
 
               <div className="grid grid-cols-4 gap-6">
-                <div id="board-card-4" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Tech Hiring Sprint</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold">Recruiting</span>
+                {allBoards.map((board) => {
+                  const members = board.memberPreview || [];
+                  const visibleMembers = members.slice(0, 3);
+                  const extraMembers = members.length - visibleMembers.length;
+                  const colors = board.columnColors || [];
+                  return (
+                    <div
+                      key={`all-${board.id}`}
+                      id={`board-card-${board.id}`}
+                      className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer"
+                      onClick={() => openBoard(board.id)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-white mb-2">{board.name}</h3>
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold">
+                              {board.boardType || 'Board'}
+                            </span>
+                          </div>
+                        </div>
+                        <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
+                          <i className="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center space-x-2 mb-4">
+                        {colors.map((color, idx) => (
+                          <div
+                            key={`${board.id}-preview-${idx}`}
+                            className="h-1.5 w-10 bg-blue-500 rounded-full"
+                            style={{ backgroundColor: color || undefined }}
+                          ></div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          {visibleMembers.map((member) => (
+                            <img
+                              key={`all-${member.id}`}
+                              src={member.user?.avatarUrl || DEFAULT_AVATAR}
+                              className="presence-avatar w-8 h-8 rounded-full"
+                              alt="Member"
+                            />
+                          ))}
+                          {extraMembers > 0 ? (
+                            <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
+                              +{extraMembers}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-[#a1a1aa]">{board.cardCount} cards</div>
                       </div>
                     </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-10 bg-blue-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-green-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-amber-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-9.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">34 cards</div>
-                  </div>
-                </div>
-
-                <div id="board-card-5" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Enterprise Deals</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-semibold">Sales</span>
-                      </div>
-                    </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-10 bg-purple-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-pink-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-rose-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">18 cards</div>
-                  </div>
-                </div>
-
-                <div id="board-card-6" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Executive Search</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-semibold">Custom</span>
-                      </div>
-                    </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-10 bg-slate-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-cyan-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-teal-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">56 cards</div>
-                  </div>
-                </div>
-
-                <div id="board-card-7" className="board-card bg-[#141416] border border-[#2a2a2e] rounded-2xl p-6 cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">Onboarding Pipeline</h3>
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold">Delivery</span>
-                      </div>
-                    </div>
-                    <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                      <i className="fa-solid fa-ellipsis-vertical"></i>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="h-1.5 w-10 bg-green-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-lime-500 rounded-full"></div>
-                    <div className="h-1.5 w-10 bg-emerald-500 rounded-full"></div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                      <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" className="presence-avatar w-8 h-8 rounded-full" alt="Member" />
-                    </div>
-                    <div className="text-xs text-[#a1a1aa]">22 cards</div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -504,38 +519,30 @@ export default function KanbanBoardsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-6">
-                <div id="template-card-1" className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-2xl p-6 cursor-pointer hover:border-indigo-500 transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-4">
-                      <i className="fa-solid fa-users text-white text-xl"></i>
+                {primaryTemplates.map((template) => {
+                  const accent = resolveTemplateAccent(template);
+                  return (
+                    <div
+                      key={template.id}
+                      id={`template-card-${template.id}`}
+                      className={`${accent.wrapper} rounded-2xl p-6 cursor-pointer hover:border-indigo-500 transition-all`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`w-12 h-12 ${accent.icon} rounded-xl flex items-center justify-center mb-4`}>
+                          <i className={`fa-solid ${accent.iconName} text-white text-xl`}></i>
+                        </div>
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2">{template.name}</h3>
+                      <p className="text-sm text-[#a1a1aa] mb-4">Start with a proven workflow and customize as you go.</p>
+                      <button
+                        onClick={() => createFromTemplate(template.id)}
+                        className={`w-full ${accent.button} text-white py-2.5 rounded-xl font-semibold transition-all`}
+                      >
+                        Use Template
+                      </button>
                     </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Recruiting Pipeline</h3>
-                  <p className="text-sm text-[#a1a1aa] mb-4">Track candidates from initial contact to hire with 7 customizable stages.</p>
-                  <button onClick={() => createFromTemplate('recruiting')} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-semibold transition-all">Use Template</button>
-                </div>
-
-                <div id="template-card-2" className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-6 cursor-pointer hover:border-purple-500 transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mb-4">
-                      <i className="fa-solid fa-handshake text-white text-xl"></i>
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Client Acquisition</h3>
-                  <p className="text-sm text-[#a1a1aa] mb-4">Manage your sales funnel from prospect to closed deal with proven stages.</p>
-                  <button onClick={() => createFromTemplate('sales')} className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl font-semibold transition-all">Use Template</button>
-                </div>
-
-                <div id="template-card-3" className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-2xl p-6 cursor-pointer hover:border-green-500 transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-4">
-                      <i className="fa-solid fa-rocket text-white text-xl"></i>
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Delivery Execution</h3>
-                  <p className="text-sm text-[#a1a1aa] mb-4">Execute placements from intake to successful placement with clarity.</p>
-                  <button onClick={() => createFromTemplate('delivery')} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-semibold transition-all">Use Template</button>
-                </div>
+                  );
+                })}
               </div>
             </section>
           </div>
@@ -556,13 +563,22 @@ export default function KanbanBoardsPage() {
             <div className="p-6">
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-white mb-2">Board Name</label>
-                <input type="text" placeholder="e.g., Q1 Sales Pipeline" className="w-full bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-3 text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all" />
+                <input
+                  type="text"
+                  value={boardName}
+                  onChange={(event) => setBoardName(event.target.value)}
+                  placeholder="e.g., Q1 Sales Pipeline"
+                  className="w-full bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-3 text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all"
+                />
               </div>
 
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-white mb-3">Choose a Template</label>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-indigo-500 transition-all">
+                  <div
+                    className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-indigo-500 transition-all"
+                    onClick={() => setSelectedTemplateId('recruiting_pipeline')}
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
                         <i className="fa-solid fa-users text-white"></i>
@@ -574,7 +590,10 @@ export default function KanbanBoardsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-purple-500 transition-all">
+                  <div
+                    className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-purple-500 transition-all"
+                    onClick={() => setSelectedTemplateId('client_acquisition')}
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
                         <i className="fa-solid fa-handshake text-white"></i>
@@ -586,7 +605,10 @@ export default function KanbanBoardsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-green-500 transition-all">
+                  <div
+                    className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-green-500 transition-all"
+                    onClick={() => setSelectedTemplateId('delivery_execution')}
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                         <i className="fa-solid fa-rocket text-white"></i>
@@ -598,7 +620,10 @@ export default function KanbanBoardsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#1c1c1f] border-2 border-indigo-500 rounded-xl p-4 cursor-pointer transition-all">
+                  <div
+                    className="bg-[#1c1c1f] border-2 border-indigo-500 rounded-xl p-4 cursor-pointer transition-all"
+                    onClick={() => setSelectedTemplateId(null)}
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-10 h-10 bg-[#2a2a2e] rounded-lg flex items-center justify-center">
                         <i className="fa-solid fa-table-columns text-white"></i>

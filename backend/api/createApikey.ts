@@ -12,14 +12,17 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
       return;
     }
 
-    const apiKey = uuidv4();
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    const prefix = environment === 'production' ? 'hp_live' : 'hp_test';
+    const apiKey = `${prefix}_${uuidv4().replace(/-/g, '')}`;
+    const scopes = ['kanban:read', 'kanban:write', 'webhooks:manage'];
     const { error } = await supabaseDb
       .from('api_keys')
       .insert({
         user_id: req.user.id,
         key: apiKey,
         environment,
+        scopes,
         created_at: new Date().toISOString()
       });
 

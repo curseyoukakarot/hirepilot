@@ -70,11 +70,11 @@ export const addMemberSchema = z.object({
   memberType: z.enum(['user', 'guest']).default('user'),
   memberId: z.string().uuid().optional(),
   email: z.string().email().optional(),
-  role: z.enum(['owner', 'editor', 'commenter', 'viewer']).default('viewer'),
+  role: z.enum(['owner', 'admin', 'editor', 'commenter', 'viewer']).default('viewer'),
 });
 
 export const updateMemberSchema = z.object({
-  role: z.enum(['owner', 'editor', 'commenter', 'viewer']),
+  role: z.enum(['owner', 'admin', 'editor', 'commenter', 'viewer']),
   memberType: z.enum(['user', 'guest']).default('user'),
 });
 

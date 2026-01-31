@@ -1,4 +1,4 @@
-export type KanbanMemberRole = 'owner' | 'editor' | 'commenter' | 'viewer';
+export type KanbanMemberRole = 'owner' | 'admin' | 'editor' | 'commenter' | 'viewer';
 export type KanbanMemberType = 'user' | 'guest';
 export type KanbanAssigneeType = 'user' | 'guest';
 export type KanbanEntityType = 'lead' | 'candidate' | 'opportunity' | 'table_row';

@@ -62,7 +62,7 @@ type MemberRow = {
   board_id: string;
   member_type: 'user' | 'guest';
   member_id: string;
-  role: 'owner' | 'editor' | 'commenter' | 'viewer';
+  role: 'owner' | 'admin' | 'editor' | 'commenter' | 'viewer';
   created_at: string;
 };
 
@@ -425,7 +425,7 @@ export async function updateBoard(
   userId: string,
   input: { name?: string; description?: string | null; boardType?: string | null; archived?: boolean }
 ): Promise<KanbanBoard> {
-  await assertBoardRole(boardId, userId, ['owner', 'editor']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin', 'editor']);
   const patch: any = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.description !== undefined) patch.description = input.description;
@@ -439,7 +439,7 @@ export async function updateBoard(
 }
 
 export async function archiveBoard(boardId: string, userId: string): Promise<void> {
-  await assertBoardRole(boardId, userId, ['owner', 'editor']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin', 'editor']);
   const { error } = await supabase
     .from('kanban_boards')
     .update({ archived_at: new Date().toISOString() })
@@ -489,7 +489,7 @@ export async function createList(
   userId: string,
   input: { name: string; position?: number; color?: string | null }
 ): Promise<KanbanList[]> {
-  await assertBoardRole(boardId, userId, ['owner', 'editor']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin', 'editor']);
 
   const { data: listRow, error } = await supabase
     .from('kanban_lists')
@@ -529,7 +529,7 @@ export async function updateList(
     .eq('id', listId)
     .maybeSingle();
   if (!list?.board_id) throw new Error('list_not_found');
-  await assertBoardRole(String(list.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(list.board_id), userId, ['owner', 'admin', 'editor']);
 
   const patch: any = {};
   if (input.name !== undefined) patch.name = input.name;
@@ -554,7 +554,7 @@ export async function reorderList(
 ): Promise<KanbanList[]> {
   const { data: list } = await supabase.from('kanban_lists').select('board_id').eq('id', listId).maybeSingle();
   if (!list?.board_id) throw new Error('list_not_found');
-  await assertBoardRole(String(list.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(list.board_id), userId, ['owner', 'admin', 'editor']);
 
   const listIds = await fetchListIdsByBoard(String(list.board_id));
   const ordered = moveId(listIds, listId, toIndex);
@@ -572,7 +572,7 @@ export async function reorderList(
 export async function archiveList(listId: string, userId: string): Promise<void> {
   const { data: list } = await supabase.from('kanban_lists').select('board_id').eq('id', listId).maybeSingle();
   if (!list?.board_id) throw new Error('list_not_found');
-  await assertBoardRole(String(list.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(list.board_id), userId, ['owner', 'admin', 'editor']);
   const { error } = await supabase
     .from('kanban_lists')
     .update({ archived_at: new Date().toISOString() })
@@ -594,7 +594,7 @@ export async function createCard(
 ): Promise<KanbanCard[]> {
   const { data: list } = await supabase.from('kanban_lists').select('board_id').eq('id', listId).maybeSingle();
   if (!list?.board_id) throw new Error('list_not_found');
-  await assertBoardRole(String(list.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(list.board_id), userId, ['owner', 'admin', 'editor']);
 
   const { data: cardRow, error } = await supabase
     .from('kanban_cards')
@@ -634,7 +634,7 @@ export async function updateCard(
 ): Promise<KanbanCard> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
 
   const patch: any = {};
   if (input.title !== undefined) patch.title = input.title;
@@ -665,7 +665,7 @@ export async function moveCard(
     .eq('id', cardId)
     .maybeSingle();
   if (!card?.id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
   if (String(card.list_id) !== input.fromListId) throw new Error('card_list_mismatch');
 
   const fromIds = await fetchCardIdsByList(input.fromListId);
@@ -711,7 +711,7 @@ export async function reorderCards(
 ): Promise<{ listId: string; cards: KanbanCard[] }> {
   const { data: list } = await supabase.from('kanban_lists').select('board_id').eq('id', listId).maybeSingle();
   if (!list?.board_id) throw new Error('list_not_found');
-  await assertBoardRole(String(list.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(list.board_id), userId, ['owner', 'admin', 'editor']);
 
   const existing = await fetchCardIdsByList(listId);
   const next = reorderByOrderedIds(existing, orderedCardIds);
@@ -729,7 +729,7 @@ export async function reorderCards(
 export async function archiveCard(cardId: string, userId: string): Promise<void> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
   const { error } = await supabase
     .from('kanban_cards')
     .update({ archived_at: new Date().toISOString() })
@@ -748,7 +748,7 @@ export async function addBoardMember(
   userId: string,
   input: { memberType: 'user' | 'guest'; memberId?: string; email?: string; role: MemberRow['role'] }
 ): Promise<KanbanMember> {
-  await assertBoardRole(boardId, userId, ['owner']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin']);
 
   let memberType = input.memberType;
   let memberId = input.memberId || '';
@@ -791,7 +791,7 @@ export async function updateBoardMemberRole(
   memberType: 'user' | 'guest',
   role: MemberRow['role']
 ): Promise<KanbanMember> {
-  await assertBoardRole(boardId, userId, ['owner']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin']);
   const { data, error } = await supabase
     .from('kanban_board_members')
     .update({ role })
@@ -811,7 +811,7 @@ export async function removeBoardMember(
   memberId: string,
   memberType: 'user' | 'guest'
 ): Promise<void> {
-  await assertBoardRole(boardId, userId, ['owner']);
+  await assertBoardRole(boardId, userId, ['owner', 'admin']);
   const { error } = await supabase
     .from('kanban_board_members')
     .delete()
@@ -828,7 +828,7 @@ export async function addCardLink(
 ): Promise<KanbanCardLink> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
 
   const { data, error } = await supabase
     .from('kanban_card_links')
@@ -853,7 +853,7 @@ export async function addCardLink(
 export async function removeCardLink(cardId: string, userId: string, linkId: string): Promise<void> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
 
   const { error } = await supabase.from('kanban_card_links').delete().eq('id', linkId).eq('card_id', cardId);
   if (error) throw new Error(error.message || 'link_remove_failed');
@@ -888,7 +888,7 @@ export async function listCardComments(cardId: string, userId: string): Promise<
 export async function addCardComment(cardId: string, userId: string, body: string): Promise<KanbanComment> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
-  await assertBoardRole(String(card.board_id), userId, ['owner', 'editor', 'commenter']);
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor', 'commenter']);
 
   const { data, error } = await supabase
     .from('kanban_comments')

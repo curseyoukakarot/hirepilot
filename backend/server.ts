@@ -88,6 +88,8 @@ import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
 import kanbanRouter from './src/routes/kanban';
+import publicKanbanV1Router from './src/routes/publicKanbanV1';
+import publicWebhooksV1Router from './src/routes/publicWebhooksV1';
 import featureEventsRouter from './src/routes/events.feature';
 import resumeDraftsRouter from './src/routes/resumeDrafts';
 import resumesRouter from './src/routes/resumes';
@@ -532,6 +534,9 @@ app.use('/api/repo-agent', repoAgentRouter);
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);
 app.use('/api/public/apply', require('./api/public/apply').default);
 app.use('/api/public/tables', publicTablesRouter);
+// Public V1 API (API key required)
+app.use('/v1/kanban', publicKanbanV1Router);
+app.use('/v1/webhooks', publicWebhooksV1Router);
 // Offr Group public chatbot + lead capture
 app.use('/api', offrWebsiteRouter);
 app.use('/api/phantombuster', runPhantomRouter);

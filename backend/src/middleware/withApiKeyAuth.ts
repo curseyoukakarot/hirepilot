@@ -5,6 +5,7 @@ export type ApiKeyAuthContext = {
   userId: string;
   user: any | null;
   keyId: string;
+  scopes: string[];
   source: 'api_key';
 };
 
@@ -14,11 +15,14 @@ export type ApiKeyAuthContext = {
  */
 export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | null> {
   try {
-    // Try multiple sources for resilience: header (preferred), query, then body (for tools)
+    // Try multiple sources for resilience: Authorization, header (preferred), query, then body (for tools)
+    const authHeader = String(req.headers.authorization || '');
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const bearerKey = bearerToken.startsWith('hp_') ? bearerToken : '';
     const headerVal = req.headers['x-api-key'] as string | undefined;
     const queryVal = (req as any)?.query?.['x-api-key'] || (req as any)?.query?.api_key as string | undefined;
     const bodyVal = (req as any)?.body?.['x-api-key'] || (req as any)?.body?.api_key as string | undefined;
-    const keyValue = (headerVal || queryVal || bodyVal || '').toString().trim();
+    const keyValue = (bearerKey || headerVal || queryVal || bodyVal || '').toString().trim();
     if (!keyValue) return null;
 
     // Validate key in api_keys table; prefer active keys.
@@ -69,10 +73,19 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
       user = userRow || null;
     } catch {}
 
+    const scopesRaw = (keyRow as any).scopes || (keyRow as any).scope || (keyRow as any).permissions || [];
+    const scopes = Array.isArray(scopesRaw)
+      ? scopesRaw.map((s) => String(s))
+      : String(scopesRaw || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
     return {
       userId: (keyRow as any).user_id,
       user,
       keyId: (keyRow as any).id,
+      scopes,
       source: 'api_key'
     };
   } catch {
@@ -101,6 +114,7 @@ export async function attachApiKeyAuth(req: Request, _res: Response, next: NextF
         _auth_source: ctx.source,
         _api_key_id: ctx.keyId
       };
+      (req as any).apiKeyScopes = ctx.scopes;
       console.log('[Auth] Authenticated via API key for user_id', ctx.userId);
     }
   } catch {
