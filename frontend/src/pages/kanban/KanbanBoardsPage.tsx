@@ -283,59 +283,6 @@ export default function KanbanBoardsPage() {
       `}</style>
 
       <div id="app-container" className="flex h-screen">
-        <aside id="sidebar" className="w-64 bg-[#141416] border-r border-[#2a2a2e] flex flex-col">
-          <div className="p-6 border-b border-[#2a2a2e]">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <i className="fa-solid fa-rocket text-white text-lg"></i>
-              </div>
-              <span className="text-xl font-bold text-white">HirePilot</span>
-            </div>
-          </div>
-
-          <nav className="flex-1 p-4 space-y-1">
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-house w-5"></i>
-              <span className="font-medium">Dashboard</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-[#1c1c1f] text-white transition-all">
-              <i className="fa-solid fa-table-columns w-5"></i>
-              <span className="font-medium">Boards</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-users w-5"></i>
-              <span className="font-medium">Candidates</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-user-tie w-5"></i>
-              <span className="font-medium">Leads</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-briefcase w-5"></i>
-              <span className="font-medium">Opportunities</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-table w-5"></i>
-              <span className="font-medium">Tables</span>
-            </a>
-            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-[#a1a1aa] hover:bg-[#1c1c1f] hover:text-white transition-all">
-              <i className="fa-solid fa-bolt w-5"></i>
-              <span className="font-medium">Automations</span>
-            </a>
-          </nav>
-
-          <div className="p-4 border-t border-[#2a2a2e]">
-            <div className="flex items-center space-x-3 px-4 py-3">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" className="w-10 h-10 rounded-full" alt="User" />
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-white">Alex Rivera</div>
-                <div className="text-xs text-[#a1a1aa]">alex@hirepilot.io</div>
-              </div>
-              <i className="fa-solid fa-ellipsis-vertical text-[#a1a1aa]"></i>
-            </div>
-          </div>
-        </aside>
-
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           <header id="boards-header" className="bg-[#141416] border-b border-[#2a2a2e] px-8 py-5">
             <div className="flex items-center justify-between">
