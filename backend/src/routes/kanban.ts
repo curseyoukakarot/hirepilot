@@ -6,6 +6,7 @@ import {
   addBoardMember,
   addCardComment,
   addCardLink,
+  addChecklistItem,
   archiveBoard,
   archiveCard,
   archiveList,
@@ -14,18 +15,22 @@ import {
   createCard,
   createList,
   getBoardById,
+  listCardLinks,
   listBoardMembers,
   listBoards,
   listCardComments,
+  listChecklistItems,
   listTemplates,
   moveCard,
   removeBoardMember,
+  removeChecklistItem,
   removeCardLink,
   reorderCards,
   reorderList,
   updateBoard,
   updateBoardMemberRole,
   updateCard,
+  updateChecklistItem,
   updateList,
 } from '../services/kanban/kanbanService';
 import {
@@ -366,6 +371,18 @@ router.post('/cards/:cardId/links', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/cards/:cardId/links', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const links = await listCardLinks(req.params.cardId, userId);
+    return res.json({ links });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'links_fetch_failed' });
+  }
+});
+
 router.delete('/cards/:cardId/links/:linkId', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
@@ -375,6 +392,61 @@ router.delete('/cards/:cardId/links/:linkId', async (req: Request, res: Response
   } catch (e: any) {
     const code = e?.message === 'forbidden' ? 403 : 500;
     return res.status(code).json({ error: e?.message || 'link_remove_failed' });
+  }
+});
+
+// Checklist
+router.get('/cards/:cardId/checklist', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const items = await listChecklistItems(req.params.cardId, userId);
+    return res.json({ items });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'checklist_fetch_failed' });
+  }
+});
+
+router.post('/cards/:cardId/checklist', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const body = String(req.body?.body || '').trim();
+    if (!body) return res.status(400).json({ error: 'invalid_payload' });
+    const item = await addChecklistItem(req.params.cardId, userId, body);
+    return res.status(201).json({ item });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'checklist_add_failed' });
+  }
+});
+
+router.patch('/cards/:cardId/checklist/:itemId', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const item = await updateChecklistItem(req.params.cardId, userId, req.params.itemId, {
+      body: req.body?.body,
+      isCompleted: req.body?.isCompleted,
+      position: req.body?.position,
+    });
+    return res.json({ item });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'checklist_update_failed' });
+  }
+});
+
+router.delete('/cards/:cardId/checklist/:itemId', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    await removeChecklistItem(req.params.cardId, userId, req.params.itemId);
+    return res.json({ ok: true });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'checklist_delete_failed' });
   }
 });
 

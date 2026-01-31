@@ -91,6 +91,16 @@ type CommentRow = {
   created_at: string;
 };
 
+type ChecklistRow = {
+  id: string;
+  card_id: string;
+  body: string;
+  is_completed: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 function toUserLite(row: any): KanbanUserLite {
   const full = String(row?.full_name || '').trim();
   const composed = [row?.first_name, row?.last_name].filter(Boolean).join(' ').trim();
@@ -859,6 +869,26 @@ export async function removeCardLink(cardId: string, userId: string, linkId: str
   if (error) throw new Error(error.message || 'link_remove_failed');
 }
 
+export async function listCardLinks(cardId: string, userId: string): Promise<KanbanCardLink[]> {
+  const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
+  if (!card?.board_id) throw new Error('card_not_found');
+  const role = await getBoardRole(String(card.board_id), userId);
+  if (!role) throw new Error('forbidden');
+
+  const { data } = await supabase
+    .from('kanban_card_links')
+    .select('id,card_id,entity_type,entity_id,created_at')
+    .eq('card_id', cardId)
+    .order('created_at', { ascending: true });
+  return (data || []).map((row: any) => ({
+    id: String(row.id),
+    cardId: String(row.card_id),
+    entityType: row.entity_type,
+    entityId: String(row.entity_id),
+    createdAt: row.created_at,
+  }));
+}
+
 export async function listCardComments(cardId: string, userId: string): Promise<KanbanComment[]> {
   const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
   if (!card?.board_id) throw new Error('card_not_found');
@@ -912,6 +942,107 @@ export async function addCardComment(cardId: string, userId: string, body: strin
     createdAt: (data as any).created_at,
     author: usersById.get(userId) || null,
   };
+}
+
+export async function listChecklistItems(cardId: string, userId: string) {
+  const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
+  if (!card?.board_id) throw new Error('card_not_found');
+  const role = await getBoardRole(String(card.board_id), userId);
+  if (!role) throw new Error('forbidden');
+
+  const { data } = await supabase
+    .from('kanban_checklist_items')
+    .select('id,card_id,body,is_completed,position,created_at,updated_at')
+    .eq('card_id', cardId)
+    .order('position', { ascending: true });
+  return (data || []).map((row: ChecklistRow) => ({
+    id: row.id,
+    cardId: row.card_id,
+    body: row.body,
+    isCompleted: row.is_completed,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function addChecklistItem(cardId: string, userId: string, body: string) {
+  const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
+  if (!card?.board_id) throw new Error('card_not_found');
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
+
+  const { data: existing } = await supabase
+    .from('kanban_checklist_items')
+    .select('id')
+    .eq('card_id', cardId);
+  const position = (existing || []).length;
+
+  const { data, error } = await supabase
+    .from('kanban_checklist_items')
+    .insert({
+      card_id: cardId,
+      body,
+      position,
+    })
+    .select('id,card_id,body,is_completed,position,created_at,updated_at')
+    .single();
+  if (error || !data) throw new Error(error?.message || 'checklist_add_failed');
+  return {
+    id: String((data as any).id),
+    cardId: String((data as any).card_id),
+    body: (data as any).body,
+    isCompleted: (data as any).is_completed,
+    position: (data as any).position,
+    createdAt: (data as any).created_at,
+    updatedAt: (data as any).updated_at,
+  };
+}
+
+export async function updateChecklistItem(
+  cardId: string,
+  userId: string,
+  itemId: string,
+  input: { body?: string; isCompleted?: boolean; position?: number }
+) {
+  const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
+  if (!card?.board_id) throw new Error('card_not_found');
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
+
+  const patch: any = {};
+  if (input.body !== undefined) patch.body = input.body;
+  if (input.isCompleted !== undefined) patch.is_completed = input.isCompleted;
+  if (input.position !== undefined) patch.position = input.position;
+
+  const { data, error } = await supabase
+    .from('kanban_checklist_items')
+    .update(patch)
+    .eq('id', itemId)
+    .eq('card_id', cardId)
+    .select('id,card_id,body,is_completed,position,created_at,updated_at')
+    .single();
+  if (error || !data) throw new Error(error?.message || 'checklist_update_failed');
+  return {
+    id: String((data as any).id),
+    cardId: String((data as any).card_id),
+    body: (data as any).body,
+    isCompleted: (data as any).is_completed,
+    position: (data as any).position,
+    createdAt: (data as any).created_at,
+    updatedAt: (data as any).updated_at,
+  };
+}
+
+export async function removeChecklistItem(cardId: string, userId: string, itemId: string) {
+  const { data: card } = await supabase.from('kanban_cards').select('board_id').eq('id', cardId).maybeSingle();
+  if (!card?.board_id) throw new Error('card_not_found');
+  await assertBoardRole(String(card.board_id), userId, ['owner', 'admin', 'editor']);
+
+  const { error } = await supabase
+    .from('kanban_checklist_items')
+    .delete()
+    .eq('id', itemId)
+    .eq('card_id', cardId);
+  if (error) throw new Error(error.message || 'checklist_delete_failed');
 }
 
 export function listTemplates(): KanbanTemplate[] {

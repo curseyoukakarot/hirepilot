@@ -1,8 +1,35 @@
 import React from 'react';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanCard } from '../../shared/kanbanTypes';
+
+type CardLink = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
+};
+
+type ChecklistItem = {
+  id: string;
+  body: string;
+  isCompleted: boolean;
+  createdAt: string;
+};
+
+type CardComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author?: { fullName?: string | null; avatarUrl?: string | null };
+};
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return date.toLocaleString();
+}
 
 export default function KanbanBoardPage() {
   const navigate = useNavigate();
@@ -19,6 +46,15 @@ export default function KanbanBoardPage() {
   const [addCardListId, setAddCardListId] = React.useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = React.useState('');
   const [newCardDescription, setNewCardDescription] = React.useState('');
+  const [cardTitleDraft, setCardTitleDraft] = React.useState('');
+  const [cardDescriptionDraft, setCardDescriptionDraft] = React.useState('');
+  const [cardLinks, setCardLinks] = React.useState<CardLink[]>([]);
+  const [linkEntityType, setLinkEntityType] = React.useState('lead');
+  const [linkEntityId, setLinkEntityId] = React.useState('');
+  const [checklistItems, setChecklistItems] = React.useState<ChecklistItem[]>([]);
+  const [newChecklistItem, setNewChecklistItem] = React.useState('');
+  const [commentBody, setCommentBody] = React.useState('');
+  const [comments, setComments] = React.useState<CardComment[]>([]);
 
   const openDrawer = (cardOrEvent?: KanbanCard | React.MouseEvent, event?: React.MouseEvent) => {
     const actualEvent = (cardOrEvent as React.MouseEvent)?.preventDefault ? (cardOrEvent as React.MouseEvent) : event;
@@ -77,6 +113,35 @@ export default function KanbanBoardPage() {
   const boardMembers = board?.members || [];
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
+
+  React.useEffect(() => {
+    if (!selectedCard) return;
+    setCardTitleDraft(selectedCard.title || '');
+    setCardDescriptionDraft(selectedCard.description || '');
+  }, [selectedCard]);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!selectedCard?.id) return;
+      try {
+        const [linksRes, checklistRes, commentsRes] = await Promise.all([
+          apiGet(`/api/cards/${selectedCard.id}/links`),
+          apiGet(`/api/cards/${selectedCard.id}/checklist`),
+          apiGet(`/api/cards/${selectedCard.id}/comments`),
+        ]);
+        if (!mounted) return;
+        setCardLinks((linksRes as any)?.links || []);
+        setChecklistItems((checklistRes as any)?.items || []);
+        setComments((commentsRes as any)?.comments || []);
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedCard?.id]);
 
   const openAddColumnModal = () => setShowAddColumnModal(true);
   const closeAddColumnModal = () => setShowAddColumnModal(false);
@@ -138,6 +203,120 @@ export default function KanbanBoardPage() {
       setNewCardDescription('');
       closeAddCardModal();
       await loadBoard();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveCardTitle = async () => {
+    if (!selectedCard?.id) return;
+    const next = cardTitleDraft.trim();
+    if (!next || next === selectedCard.title) return;
+    try {
+      await apiPatch(`/api/cards/${selectedCard.id}`, { title: next });
+      setSelectedCard({ ...selectedCard, title: next });
+      setBoard((prev) =>
+        prev
+          ? {
+              ...prev,
+              lists: prev.lists.map((list) => ({
+                ...list,
+                cards: list.cards.map((card) => (card.id === selectedCard.id ? { ...card, title: next } : card)),
+              })),
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveCardDescription = async () => {
+    if (!selectedCard?.id) return;
+    const next = cardDescriptionDraft.trim();
+    if (next === (selectedCard.description || '')) return;
+    try {
+      await apiPatch(`/api/cards/${selectedCard.id}`, { description: next || null });
+      setSelectedCard({ ...selectedCard, description: next || null });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddLink = async () => {
+    if (!selectedCard?.id) return;
+    const entityId = linkEntityId.trim();
+    if (!entityId) return;
+    try {
+      const response = await apiPost(`/api/cards/${selectedCard.id}/links`, {
+        entityType: linkEntityType,
+        entityId,
+      });
+      setCardLinks((prev) => [...prev, (response as any)?.link].filter(Boolean));
+      setLinkEntityId('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveLink = async (linkId: string) => {
+    if (!selectedCard?.id) return;
+    try {
+      await apiDelete(`/api/cards/${selectedCard.id}/links/${linkId}`);
+      setCardLinks((prev) => prev.filter((link) => link.id !== linkId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddChecklistItem = async () => {
+    if (!selectedCard?.id) return;
+    const body = newChecklistItem.trim();
+    if (!body) return;
+    try {
+      const response = await apiPost(`/api/cards/${selectedCard.id}/checklist`, { body });
+      const item = (response as any)?.item;
+      if (item) setChecklistItems((prev) => [...prev, item]);
+      setNewChecklistItem('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleChecklistItem = async (item: ChecklistItem) => {
+    if (!selectedCard?.id) return;
+    try {
+      const response = await apiPatch(`/api/cards/${selectedCard.id}/checklist/${item.id}`, {
+        isCompleted: !item.isCompleted,
+      });
+      const updated = (response as any)?.item;
+      if (updated) {
+        setChecklistItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveChecklistItem = async (itemId: string) => {
+    if (!selectedCard?.id) return;
+    try {
+      await apiDelete(`/api/cards/${selectedCard.id}/checklist/${itemId}`);
+      setChecklistItems((prev) => prev.filter((item) => item.id !== itemId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!selectedCard?.id) return;
+    const body = commentBody.trim();
+    if (!body) return;
+    try {
+      const response = await apiPost(`/api/cards/${selectedCard.id}/comments`, { body });
+      const comment = (response as any)?.comment;
+      if (comment) setComments((prev) => [...prev, comment]);
+      setCommentBody('');
     } catch (err) {
       console.error(err);
     }
@@ -949,7 +1128,10 @@ export default function KanbanBoardPage() {
             <div className="flex-1">
               <input
                 type="text"
-                defaultValue={selectedCard?.title || 'Untitled Card'}
+                value={cardTitleDraft || ''}
+                onChange={(event) => setCardTitleDraft(event.target.value)}
+                onBlur={handleSaveCardTitle}
+                placeholder="Card name"
                 className="w-full bg-transparent text-2xl font-bold text-white border-none outline-none focus:bg-dark-800/50 px-3 py-2 rounded-lg mb-4"
               />
 
@@ -996,38 +1178,64 @@ export default function KanbanBoardPage() {
             </h3>
 
             <div className="space-y-3 mb-4">
-              <div className="bg-dark-800/60 border border-white/5 rounded-xl p-4 hover:bg-dark-800 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 flex-shrink-0">
-                      <i className="fa-solid fa-link"></i>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Linked Item</div>
-                      <div className="text-sm font-semibold text-white mb-1">
-                        {(selectedCard as any)?.sourceType ? `${(selectedCard as any).sourceType} link` : 'No linked items'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {(selectedCard as any)?.sourceRef?.objectId || 'Connect a lead, candidate, or table row'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 bg-dark-700 hover:bg-dark-600 rounded-md text-xs font-medium text-gray-300 transition-all">
-                      Open
-                    </button>
-                    <button className="w-8 h-8 bg-dark-700 hover:bg-dark-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                      <i className="fa-solid fa-link-slash text-xs"></i>
-                    </button>
-                  </div>
+              {cardLinks.length === 0 ? (
+                <div className="bg-dark-800/60 border border-white/5 rounded-xl p-4 text-sm text-gray-400">
+                  No linked items yet.
                 </div>
-              </div>
+              ) : (
+                cardLinks.map((link) => (
+                  <div key={link.id} className="bg-dark-800/60 border border-white/5 rounded-xl p-4 hover:bg-dark-800 transition-all">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 flex-shrink-0">
+                          <i className="fa-solid fa-link"></i>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">{link.entityType}</div>
+                          <div className="text-sm font-semibold text-white mb-1">{link.entityId}</div>
+                          <div className="text-xs text-gray-400">{formatTimestamp(link.createdAt)}</div>
+                        </div>
+                      </div>
+                      <button
+                        className="w-8 h-8 bg-dark-700 hover:bg-dark-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                        onClick={() => handleRemoveLink(link.id)}
+                      >
+                        <i className="fa-solid fa-link-slash text-xs"></i>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
-            <button className="w-full py-3 bg-dark-800/60 hover:bg-dark-800 border border-white/5 rounded-xl text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center justify-center gap-2">
-              <i className="fa-solid fa-plus text-xs"></i>
-              Link item
-            </button>
+            <div className="bg-dark-800/60 border border-white/5 rounded-xl p-4">
+              <div className="grid grid-cols-3 gap-3">
+                <select
+                  value={linkEntityType}
+                  onChange={(event) => setLinkEntityType(event.target.value)}
+                  className="bg-dark-700/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/50"
+                >
+                  <option value="lead">Lead</option>
+                  <option value="candidate">Candidate</option>
+                  <option value="opportunity">Opportunity</option>
+                  <option value="table_row">Table row</option>
+                </select>
+                <input
+                  type="text"
+                  value={linkEntityId}
+                  onChange={(event) => setLinkEntityId(event.target.value)}
+                  placeholder="Entity ID"
+                  className="col-span-2 bg-dark-700/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <button
+                onClick={handleAddLink}
+                className="mt-3 w-full py-2.5 bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-200 hover:text-white transition-all flex items-center justify-center gap-2"
+              >
+                <i className="fa-solid fa-plus text-xs"></i>
+                Link item
+              </button>
+            </div>
           </div>
 
           <div id="description-section" className="mb-8">
@@ -1039,7 +1247,9 @@ export default function KanbanBoardPage() {
               className="w-full bg-dark-800/60 border border-white/5 rounded-xl p-4 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-800 transition-all resize-none"
               rows={6}
               placeholder="Add a more detailed description..."
-              defaultValue={(selectedCard as any)?.description || ''}
+              value={cardDescriptionDraft || ''}
+              onChange={(event) => setCardDescriptionDraft(event.target.value)}
+              onBlur={handleSaveCardDescription}
             ></textarea>
           </div>
 
@@ -1049,19 +1259,53 @@ export default function KanbanBoardPage() {
                 <i className="fa-solid fa-list-check text-xs"></i>
                 Checklist
               </h3>
-              <span className="text-xs text-gray-500">3/5 completed</span>
+              <span className="text-xs text-gray-500">
+                {checklistItems.filter((item) => item.isCompleted).length}/{checklistItems.length} completed
+              </span>
             </div>
 
             <div className="space-y-2 mb-4">
-              <div className="p-3 bg-dark-800/60 border border-white/5 rounded-lg text-sm text-gray-400">
-                No checklist items yet.
-              </div>
+              {checklistItems.length === 0 ? (
+                <div className="p-3 bg-dark-800/60 border border-white/5 rounded-lg text-sm text-gray-400">
+                  No checklist items yet.
+                </div>
+              ) : (
+                checklistItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-dark-800/60 border border-white/5 rounded-lg">
+                    <input
+                      type="checkbox"
+                      checked={item.isCompleted}
+                      onChange={() => handleToggleChecklistItem(item)}
+                      className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                    />
+                    <span className={`text-sm ${item.isCompleted ? 'line-through text-gray-500' : 'text-gray-200'}`}>{item.body}</span>
+                    <button
+                      onClick={() => handleRemoveChecklistItem(item.id)}
+                      className="ml-auto text-gray-500 hover:text-white transition-all"
+                    >
+                      <i className="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
 
-            <button className="w-full py-2.5 bg-dark-800/60 hover:bg-dark-800 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center justify-center gap-2">
-              <i className="fa-solid fa-plus text-xs"></i>
-              Add item
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newChecklistItem}
+                onChange={(event) => setNewChecklistItem(event.target.value)}
+                placeholder="Add checklist item"
+                className="flex-1 bg-dark-800/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+              />
+              <button
+                onClick={handleAddChecklistItem}
+                className="px-4 py-2 bg-dark-800/60 hover:bg-dark-800 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
+              >
+                <i className="fa-solid fa-plus text-xs"></i>
+                Add
+              </button>
+            </div>
           </div>
 
           <div id="activity-section" className="mb-8">
@@ -1074,9 +1318,15 @@ export default function KanbanBoardPage() {
               <div className="flex items-start gap-3">
                 <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-9 h-9 rounded-full border border-white/10 flex-shrink-0" />
                 <div className="flex-1">
-                  <textarea className="w-full bg-dark-800/60 border border-white/5 rounded-lg p-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-800 transition-all resize-none" rows={3} placeholder="Write a comment..."></textarea>
+                  <textarea
+                    className="w-full bg-dark-800/60 border border-white/5 rounded-lg p-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-800 transition-all resize-none"
+                    rows={3}
+                    placeholder="Write a comment..."
+                    value={commentBody}
+                    onChange={(event) => setCommentBody(event.target.value)}
+                  ></textarea>
                   <div className="flex items-center justify-end gap-2 mt-2">
-                    <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all">
+                    <button onClick={handleAddComment} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all">
                       Comment
                     </button>
                   </div>
@@ -1085,9 +1335,29 @@ export default function KanbanBoardPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 bg-dark-800/60 border border-white/5 rounded-lg text-sm text-gray-400">
-                Activity will appear here as teammates comment or move cards.
-              </div>
+              {comments.length === 0 ? (
+                <div className="p-4 bg-dark-800/60 border border-white/5 rounded-lg text-sm text-gray-400">
+                  Activity will appear here as teammates comment or move cards.
+                </div>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="flex items-start gap-3">
+                    <img
+                      src={comment.author?.avatarUrl || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg'}
+                      className="w-9 h-9 rounded-full border border-white/10 flex-shrink-0"
+                    />
+                    <div className="flex-1">
+                      <div className="bg-dark-800/60 border border-white/5 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-semibold text-white">{comment.author?.fullName || 'Teammate'}</span>
+                          <span className="text-xs text-gray-500">{formatTimestamp(comment.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed">{comment.body}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
