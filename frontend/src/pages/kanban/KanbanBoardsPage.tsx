@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanBoardSummary, KanbanTemplate } from '../../shared/kanbanTypes';
 
 const DEFAULT_AVATAR =
@@ -29,6 +29,14 @@ function resolveTemplateAccent(template: KanbanTemplate | null) {
   return { wrapper: 'bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30', icon: 'bg-indigo-600', button: 'bg-indigo-600 hover:bg-indigo-700', iconName: 'fa-users' };
 }
 
+function resolveBoardAvatar(board: KanbanBoardSummary): string {
+  const members = board.memberPreview || [];
+  const owner = members.find((member) => member.role === 'owner' && member.user?.avatarUrl);
+  if (owner?.user?.avatarUrl) return owner.user.avatarUrl;
+  const collaborator = members.find((member) => member.user?.avatarUrl);
+  return collaborator?.user?.avatarUrl || DEFAULT_AVATAR;
+}
+
 export default function KanbanBoardsPage() {
   const navigate = useNavigate();
   const [boards, setBoards] = React.useState<KanbanBoardSummary[]>([]);
@@ -36,6 +44,7 @@ export default function KanbanBoardsPage() {
   const [search, setSearch] = React.useState('');
   const [boardName, setBoardName] = React.useState('');
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<string | null>(null);
+  const [actionMenuBoardId, setActionMenuBoardId] = React.useState<string | null>(null);
   const [showCreateBoardModal, setShowCreateBoardModal] = React.useState(false);
   const [showBoardCanvas, setShowBoardCanvas] = React.useState(false);
   const [showCardDrawer, setShowCardDrawer] = React.useState(false);
@@ -93,6 +102,15 @@ export default function KanbanBoardsPage() {
   const closeInviteModal = () => setShowInviteModal(false);
   const openFilterPopover = () => alert('Filter popover opening...');
 
+  const closeActionMenu = () => setActionMenuBoardId(null);
+
+  React.useEffect(() => {
+    if (!actionMenuBoardId) return;
+    const handleClick = () => setActionMenuBoardId(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [actionMenuBoardId]);
+
   const refreshBoards = React.useCallback(async () => {
     const [boardsResp, templatesResp] = await Promise.all([
       apiGet('/api/boards'),
@@ -127,6 +145,48 @@ export default function KanbanBoardsPage() {
   const recentBoards = filteredBoards.slice(0, 3);
   const allBoards = filteredBoards;
   const primaryTemplates = templates.slice(0, 3);
+
+  const handleDeleteBoard = async (boardId: string) => {
+    if (!window.confirm('Delete this board?')) return;
+    try {
+      await apiDelete(`/api/boards/${boardId}`);
+      await refreshBoards();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      closeActionMenu();
+    }
+  };
+
+  const handleDuplicateBoard = async (board: KanbanBoardSummary) => {
+    try {
+      await apiPost('/api/boards', {
+        name: `${board.name} Copy`,
+        boardType: board.boardType ?? null,
+      });
+      await refreshBoards();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      closeActionMenu();
+    }
+  };
+
+  const handleEditBoard = async (board: KanbanBoardSummary) => {
+    const nextName = window.prompt('Rename board', board.name);
+    if (!nextName || nextName.trim() === board.name) {
+      closeActionMenu();
+      return;
+    }
+    try {
+      await apiPatch(`/api/boards/${board.id}`, { name: nextName.trim() });
+      await refreshBoards();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      closeActionMenu();
+    }
+  };
 
   return (
     <div className="bg-[#0a0a0b]">
@@ -344,9 +404,42 @@ export default function KanbanBoardsPage() {
                             <span className="text-xs text-[#a1a1aa]">{formatUpdatedAt(board.updatedAt)}</span>
                           </div>
                         </div>
-                        <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                          <i className="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
+                        <div className="relative">
+                          <button
+                            className="text-[#a1a1aa] hover:text-white transition-all"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActionMenuBoardId(actionMenuBoardId === board.id ? null : board.id);
+                            }}
+                          >
+                            <i className="fa-solid fa-ellipsis-vertical"></i>
+                          </button>
+                          {actionMenuBoardId === board.id ? (
+                            <div
+                              className="absolute right-0 mt-2 w-40 bg-[#141416] border border-[#2a2a2e] rounded-xl shadow-xl z-50"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#1c1c1f] rounded-t-xl"
+                                onClick={() => handleEditBoard(board)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#1c1c1f]"
+                                onClick={() => handleDuplicateBoard(board)}
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#1c1c1f] rounded-b-xl"
+                                onClick={() => handleDeleteBoard(board.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="flex items-center space-x-2 mb-4">
@@ -361,14 +454,11 @@ export default function KanbanBoardsPage() {
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          {visibleMembers.map((member) => (
-                            <img
-                              key={member.id}
-                              src={member.user?.avatarUrl || DEFAULT_AVATAR}
-                              className="presence-avatar w-8 h-8 rounded-full"
-                              alt="Member"
-                            />
-                          ))}
+                          <img
+                            src={resolveBoardAvatar(board)}
+                            className="presence-avatar w-8 h-8 rounded-full"
+                            alt="Member"
+                          />
                           {extraMembers > 0 ? (
                             <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
                               +{extraMembers}
@@ -418,9 +508,42 @@ export default function KanbanBoardsPage() {
                             </span>
                           </div>
                         </div>
-                        <button className="text-[#a1a1aa] hover:text-white transition-all" onClick={(event) => event.stopPropagation()}>
-                          <i className="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
+                        <div className="relative">
+                          <button
+                            className="text-[#a1a1aa] hover:text-white transition-all"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActionMenuBoardId(actionMenuBoardId === board.id ? null : board.id);
+                            }}
+                          >
+                            <i className="fa-solid fa-ellipsis-vertical"></i>
+                          </button>
+                          {actionMenuBoardId === board.id ? (
+                            <div
+                              className="absolute right-0 mt-2 w-40 bg-[#141416] border border-[#2a2a2e] rounded-xl shadow-xl z-50"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#1c1c1f] rounded-t-xl"
+                                onClick={() => handleEditBoard(board)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#1c1c1f]"
+                                onClick={() => handleDuplicateBoard(board)}
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#1c1c1f] rounded-b-xl"
+                                onClick={() => handleDeleteBoard(board.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="flex items-center space-x-2 mb-4">
@@ -435,14 +558,11 @@ export default function KanbanBoardsPage() {
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          {visibleMembers.map((member) => (
-                            <img
-                              key={`all-${member.id}`}
-                              src={member.user?.avatarUrl || DEFAULT_AVATAR}
-                              className="presence-avatar w-8 h-8 rounded-full"
-                              alt="Member"
-                            />
-                          ))}
+                          <img
+                            src={resolveBoardAvatar(board)}
+                            className="presence-avatar w-8 h-8 rounded-full"
+                            alt="Member"
+                          />
                           {extraMembers > 0 ? (
                             <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
                               +{extraMembers}
