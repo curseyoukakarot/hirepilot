@@ -38,6 +38,7 @@ export default function KanbanBoardPage() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [selectedCard, setSelectedCard] = React.useState<KanbanCard | null>(null);
   const [board, setBoard] = React.useState<KanbanBoard | null>(null);
+  const [boardName, setBoardName] = React.useState('Untitled Board');
   const [search, setSearch] = React.useState('');
   const [showAddColumnModal, setShowAddColumnModal] = React.useState(false);
   const [newColumnName, setNewColumnName] = React.useState('');
@@ -181,6 +182,11 @@ export default function KanbanBoardPage() {
     setCardTitleDraft(selectedCard.title || '');
     setCardDescriptionDraft(selectedCard.description || '');
   }, [selectedCard]);
+
+  React.useEffect(() => {
+    const name = String(board?.name || '').trim();
+    setBoardName(name || 'Untitled Board');
+  }, [board?.name]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -445,6 +451,21 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const handleSaveBoardName = async () => {
+    if (!boardId) return;
+    const nextName = boardName.trim() || 'Untitled Board';
+    if ((board?.name || '').trim() === nextName) return;
+    try {
+      await apiPatch(`/api/boards/${boardId}`, { name: nextName });
+      setBoard((prev) => (prev ? { ...prev, name: nextName } : prev));
+      setBoardName(nextName);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to update board name.');
+      setBoardName(String(board?.name || '').trim() || 'Untitled Board');
+    }
+  };
+
   const handleDeleteSelectedCards = async () => {
     if (!selectedCount) return;
     const confirmed = window.confirm(`Delete ${selectedCount} selected card${selectedCount === 1 ? '' : 's'}?`);
@@ -504,7 +525,9 @@ export default function KanbanBoardPage() {
               <div className="flex items-center gap-3">
                 <input
                   type="text"
-                  defaultValue={board?.name || 'Untitled Board'}
+                  value={boardName}
+                  onChange={(event) => setBoardName(event.target.value)}
+                  onBlur={handleSaveBoardName}
                   className="bg-transparent text-xl font-semibold text-white border-none outline-none focus:bg-dark-700/50 px-3 py-1 rounded-lg transition-all"
                 />
                 <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-medium rounded-full border border-indigo-500/20">
