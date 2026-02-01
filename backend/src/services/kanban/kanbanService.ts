@@ -298,7 +298,8 @@ export async function listBoards(
   const boardIds = await fetchBoardIdsForUser(userId);
   if (!boardIds.length) return [];
 
-  const { data: boards, error } = await scopedBoards(workspaceId, userId)
+  const { data: boards, error } = await supabase
+    .from('kanban_boards')
     .select('id,workspace_id,name,description,board_type,created_by,updated_at,archived_at,created_at')
     .in('id', boardIds)
     .is('archived_at', null)
@@ -357,7 +358,8 @@ export async function getBoardById(
   const role = await getBoardRole(boardId, userId);
   if (!role) throw new Error('forbidden');
 
-  const { data: board, error } = await scopedBoards(workspaceId, userId)
+  const { data: board, error } = await supabase
+    .from('kanban_boards')
     .select('id,workspace_id,name,description,board_type,created_by,created_at,updated_at,archived_at')
     .eq('id', boardId)
     .maybeSingle();
