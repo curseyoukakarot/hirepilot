@@ -57,6 +57,13 @@ export default function KanbanBoardPage() {
   const [newChecklistItem, setNewChecklistItem] = React.useState('');
   const [commentBody, setCommentBody] = React.useState('');
   const [comments, setComments] = React.useState<CardComment[]>([]);
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [showFilterMenu, setShowFilterMenu] = React.useState(false);
+  const [showViewMenu, setShowViewMenu] = React.useState(false);
+  const [showBoardMenu, setShowBoardMenu] = React.useState(false);
+  const [showOnlyMine, setShowOnlyMine] = React.useState(false);
+  const [showOnlyLabeled, setShowOnlyLabeled] = React.useState(false);
+  const [compactView, setCompactView] = React.useState(false);
   const [selectedCardIds, setSelectedCardIds] = React.useState<Set<string>>(() => new Set());
   const [showInviteModal, setShowInviteModal] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
@@ -122,6 +129,24 @@ export default function KanbanBoardPage() {
   }, [boardId, clearSelectedCards]);
 
   React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const me = await apiGet('/api/user/me');
+        if (!active) return;
+        const id = String((me as any)?.id || '').trim();
+        setCurrentUserId(id || null);
+      } catch {
+        if (!active) return;
+        setCurrentUserId(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
     let mounted = true;
     (async () => {
       try {
@@ -145,13 +170,23 @@ export default function KanbanBoardPage() {
   }, [board]);
 
   const filteredLists = React.useMemo(() => {
-    if (!search.trim()) return lists;
     const query = search.trim().toLowerCase();
-    return lists.map((list) => ({
-      ...list,
-      cards: list.cards.filter((card) => card.title.toLowerCase().includes(query)),
-    }));
-  }, [lists, search]);
+    return lists.map((list) => {
+      let cards = list.cards;
+      if (query) {
+        cards = cards.filter((card) => card.title.toLowerCase().includes(query));
+      }
+      if (showOnlyMine && currentUserId) {
+        cards = cards.filter((card) =>
+          (card.assignees || []).some((assignee) => assignee.memberId === currentUserId)
+        );
+      }
+      if (showOnlyLabeled) {
+        cards = cards.filter((card) => (card.labels || []).length > 0);
+      }
+      return { ...list, cards };
+    });
+  }, [lists, search, showOnlyMine, showOnlyLabeled, currentUserId]);
 
   const selectedList = React.useMemo(() => {
     if (!selectedCard) return null;
@@ -161,6 +196,11 @@ export default function KanbanBoardPage() {
   const boardMembers = board?.members || [];
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
+
+  const resolveMemberInitials = (fullName?: string | null) => {
+    const parts = String(fullName || '').split(' ').filter(Boolean);
+    return parts.map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  };
 
   const resolveBoardAvatar = () => {
     const owner = boardMembers.find((member) => member.role === 'owner' && member.user?.avatarUrl);
@@ -478,6 +518,41 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const handleDuplicateBoard = async () => {
+    if (!boardId) return;
+    try {
+      const created = await apiPost('/api/boards', {
+        name: `${boardName || 'Untitled Board'} Copy`,
+        boardType: board?.boardType ?? null,
+      });
+      const newBoardId = String((created as any)?.board?.id || '');
+      if (newBoardId) {
+        navigate(`/kanban/${newBoardId}`);
+      } else {
+        toast.success('Board duplicated.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to duplicate board.');
+    } finally {
+      setShowBoardMenu(false);
+    }
+  };
+
+  const handleDeleteBoard = async () => {
+    if (!boardId) return;
+    if (!window.confirm('Delete this board?')) return;
+    try {
+      await apiDelete(`/api/boards/${boardId}`);
+      navigate('/kanban');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to delete board.');
+    } finally {
+      setShowBoardMenu(false);
+    }
+  };
+
   const handleSaveBoardName = async () => {
     if (!boardId) return;
     const nextName = boardName.trim() || 'Untitled Board';
@@ -563,13 +638,24 @@ export default function KanbanBoardPage() {
               </div>
 
               <div className="flex items-center -space-x-2 ml-2">
-                {visibleMembers.map((member) => (
-                  <img
-                    key={member.id}
-                    src={member.user?.avatarUrl || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg'}
-                    className="w-8 h-8 rounded-full border-2 border-dark-800 hover:scale-110 transition-transform cursor-pointer"
-                  />
-                ))}
+                {visibleMembers.map((member) => {
+                  const avatarUrl = member.user?.avatarUrl || '';
+                  const initials = resolveMemberInitials(member.user?.fullName || member.user?.email || '');
+                  return avatarUrl ? (
+                    <img
+                      key={member.id}
+                      src={avatarUrl}
+                      className="w-8 h-8 rounded-full border-2 border-dark-800 hover:scale-110 transition-transform cursor-pointer"
+                    />
+                  ) : initials ? (
+                    <div
+                      key={member.id}
+                      className="w-8 h-8 rounded-full border-2 border-dark-800 bg-dark-700 flex items-center justify-center text-xs font-semibold text-gray-200 hover:scale-110 transition-transform cursor-pointer"
+                    >
+                      {initials}
+                    </div>
+                  ) : null;
+                })}
                 {overflowMembers > 0 ? (
                   <div className="w-8 h-8 rounded-full border-2 border-dark-800 bg-dark-700 flex items-center justify-center text-xs font-medium text-gray-400 hover:scale-110 transition-transform cursor-pointer">
                     +{overflowMembers}
@@ -590,10 +676,47 @@ export default function KanbanBoardPage() {
                 <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
               </div>
 
-              <button className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2">
-                <i className="fa-solid fa-filter text-xs"></i>
-                Filter
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterMenu((prev) => !prev)}
+                  className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-filter text-xs"></i>
+                  Filter
+                </button>
+                {showFilterMenu ? (
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-800 border border-white/10 rounded-xl shadow-xl p-3 z-20">
+                    <label className="flex items-center gap-2 text-sm text-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={showOnlyMine}
+                        onChange={(event) => setShowOnlyMine(event.target.checked)}
+                        className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                      />
+                      Only my cards
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-200 mt-3">
+                      <input
+                        type="checkbox"
+                        checked={showOnlyLabeled}
+                        onChange={(event) => setShowOnlyLabeled(event.target.checked)}
+                        className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                      />
+                      Only labeled cards
+                    </label>
+                    <button
+                      onClick={() => {
+                        setShowOnlyMine(false);
+                        setShowOnlyLabeled(false);
+                        setShowFilterMenu(false);
+                      }}
+                      className="mt-3 w-full px-3 py-2 bg-dark-700/60 hover:bg-dark-700 rounded-lg text-xs font-medium text-gray-200"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                ) : null}
+              </div>
 
               {selectedCount > 0 ? (
                 <button
@@ -613,10 +736,28 @@ export default function KanbanBoardPage() {
                 Automations
               </button>
 
-              <button className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2">
-                <i className="fa-solid fa-table text-xs"></i>
-                View
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowViewMenu((prev) => !prev)}
+                  className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-table text-xs"></i>
+                  View
+                </button>
+                {showViewMenu ? (
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-800 border border-white/10 rounded-xl shadow-xl p-3 z-20">
+                    <label className="flex items-center gap-2 text-sm text-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={compactView}
+                        onChange={(event) => setCompactView(event.target.checked)}
+                        className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                      />
+                      Compact cards
+                    </label>
+                  </div>
+                ) : null}
+              </div>
 
               <button
                 onClick={openInviteModal}
@@ -626,9 +767,30 @@ export default function KanbanBoardPage() {
                 Invite
               </button>
 
-              <button className="px-3 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-all">
-                <i className="fa-solid fa-ellipsis text-sm"></i>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowBoardMenu((prev) => !prev)}
+                  className="px-3 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-all"
+                >
+                  <i className="fa-solid fa-ellipsis text-sm"></i>
+                </button>
+                {showBoardMenu ? (
+                  <div className="absolute right-0 mt-2 w-48 bg-dark-800 border border-white/10 rounded-xl shadow-xl overflow-hidden z-20">
+                    <button
+                      onClick={handleDuplicateBoard}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-dark-700/70"
+                    >
+                      Duplicate board
+                    </button>
+                    <button
+                      onClick={handleDeleteBoard}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-300 hover:bg-red-500/10"
+                    >
+                      Delete board
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
@@ -686,7 +848,7 @@ export default function KanbanBoardPage() {
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
                                   {...dragProvided.dragHandleProps}
-                                  className={`bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 group relative ${
+                                  className={`bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl ${compactView ? 'p-3' : 'p-4'} cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 group relative ${
                                     dragSnapshot.isDragging ? 'shadow-2xl scale-[1.01]' : ''
                                   } ${cardSelected ? 'ring-2 ring-indigo-500/60' : ''}`}
                                   onClick={(event) => openDrawer(card, event)}

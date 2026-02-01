@@ -156,3 +156,65 @@ export const sendWorkspaceInviteEmail = async (data: {
     throw error;
   }
 };
+
+const KANBAN_EXISTING_USER_TEMPLATE_ID = 'd-4965e76d434d4134b5384dfe3ad39109';
+const KANBAN_GUEST_TEMPLATE_ID = 'd-7cbd9c659dfd487d8ad111d8cf0d1ed4';
+
+type KanbanInviteEmailPayload = {
+  to: string;
+  boardName: string;
+  boardUrl: string;
+  invitedBy: {
+    name: string;
+    email: string;
+  };
+  role: string;
+};
+
+async function sendKanbanTemplateEmail(templateId: string, payload: KanbanInviteEmailPayload) {
+  const fromEmail = process.env.SENDGRID_INVITE_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || 'noreply@hirepilot.com';
+  const fromName = process.env.SENDGRID_INVITE_FROM_NAME || process.env.SENDGRID_FROM_NAME || 'HirePilot';
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.SENDGRID_SUPPORT_EMAIL || 'support@thehirepilot.com';
+  const preferencesUrl = process.env.SENDGRID_INVITE_PREFERENCES_URL || process.env.SENDGRID_DEFAULT_PREFERENCES_URL || 'https://app.thehirepilot.com/settings/notifications';
+
+  const dynamicTemplateData = {
+    board_name: payload.boardName,
+    board_url: payload.boardUrl,
+    invited_by_name: payload.invitedBy.name,
+    invited_by_email: payload.invitedBy.email,
+    role: payload.role,
+    support_email: supportEmail,
+    preferences_url: preferencesUrl,
+  };
+
+  const msg: MailDataRequired = {
+    to: payload.to,
+    from: { email: fromEmail, name: fromName },
+    replyTo: payload.invitedBy.email,
+    subject: `You've been added to "${payload.boardName}"`,
+    text: `You've been added to the Kanban board "${payload.boardName}". Open: ${payload.boardUrl}`,
+    templateId,
+    dynamicTemplateData,
+  };
+
+  await sgMail.send(msg);
+  return { success: true };
+}
+
+export const sendKanbanExistingUserEmail = async (payload: KanbanInviteEmailPayload) => {
+  try {
+    return await sendKanbanTemplateEmail(KANBAN_EXISTING_USER_TEMPLATE_ID, payload);
+  } catch (error) {
+    console.error('Error sending kanban existing-user email:', error);
+    throw error;
+  }
+};
+
+export const sendKanbanGuestInviteEmail = async (payload: KanbanInviteEmailPayload) => {
+  try {
+    return await sendKanbanTemplateEmail(KANBAN_GUEST_TEMPLATE_ID, payload);
+  } catch (error) {
+    console.error('Error sending kanban guest invite email:', error);
+    throw error;
+  }
+};

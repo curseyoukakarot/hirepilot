@@ -33,6 +33,7 @@ import {
   updateChecklistItem,
   updateList,
 } from '../services/kanban/kanbanService';
+import { sendKanbanExistingUserEmail, sendKanbanGuestInviteEmail } from '../../services/emailService';
 import {
   addCommentSchema,
   addLinkSchema,
@@ -316,13 +317,36 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
     const allowedRoles = ['viewer', 'commenter', 'editor', 'admin', 'owner'];
     if (!allowedRoles.includes(role)) return res.status(400).json({ error: 'invalid_role' });
 
-    const { data: existingUser } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
+    const appUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
+    const boardUrl = `${appUrl}/kanban/${req.params.boardId}`;
+    const { data: boardRow } = await supabase.from('kanban_boards').select('name').eq('id', req.params.boardId).maybeSingle();
+    const boardName = String((boardRow as any)?.name || 'Untitled Board');
+    const { data: inviter } = await supabase
+      .from('users')
+      .select('first_name,last_name,email')
+      .eq('id', userId)
+      .maybeSingle();
+    const inviterName = `${(inviter as any)?.first_name || ''} ${(inviter as any)?.last_name || ''}`.trim() || String((inviter as any)?.email || '').trim() || 'HirePilot';
+    const inviterEmail = String((inviter as any)?.email || '').trim() || 'noreply@hirepilot.com';
+
+    const { data: existingUser } = await supabase.from('users').select('id,email').ilike('email', email).maybeSingle();
     if (existingUser?.id) {
       const member = await addBoardMember(req.params.boardId, userId, {
         memberType: 'user',
         memberId: String(existingUser.id),
         role: role as any,
       });
+      try {
+        await sendKanbanExistingUserEmail({
+          to: String((existingUser as any)?.email || email),
+          boardName,
+          boardUrl,
+          invitedBy: { name: inviterName, email: inviterEmail },
+          role,
+        });
+      } catch (emailErr) {
+        console.warn('[kanban] failed to send existing-user email', emailErr);
+      }
       return res.status(201).json({ member, status: 'member_added' });
     }
 
@@ -350,6 +374,17 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
       .select('*')
       .single();
     if (error) throw error;
+    try {
+      await sendKanbanGuestInviteEmail({
+        to: email,
+        boardName,
+        boardUrl,
+        invitedBy: { name: inviterName, email: inviterEmail },
+        role,
+      });
+    } catch (emailErr) {
+      console.warn('[kanban] failed to send guest invite email', emailErr);
+    }
     return res.status(201).json({ invite, status: 'invited' });
   } catch (e: any) {
     const code = e?.message === 'forbidden' || e?.message === 'guest_invites_not_allowed' ? 403 : 500;

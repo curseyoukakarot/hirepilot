@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanBoardSummary, KanbanTemplate } from '../../shared/kanbanTypes';
 
-const DEFAULT_AVATAR =
-  'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg';
-
 function formatUpdatedAt(value?: string | null) {
   if (!value) return 'Updated just now';
   const updated = new Date(value).getTime();
@@ -34,7 +31,15 @@ function resolveBoardAvatar(board: KanbanBoardSummary): string {
   const owner = members.find((member) => member.role === 'owner' && member.user?.avatarUrl);
   if (owner?.user?.avatarUrl) return owner.user.avatarUrl;
   const collaborator = members.find((member) => member.user?.avatarUrl);
-  return collaborator?.user?.avatarUrl || DEFAULT_AVATAR;
+  return collaborator?.user?.avatarUrl || '';
+}
+
+function resolveBoardInitials(board: KanbanBoardSummary): string {
+  const members = board.memberPreview || [];
+  const owner = members.find((member) => member.role === 'owner' && member.user?.fullName);
+  const fullName = owner?.user?.fullName || members.find((member) => member.user?.fullName)?.user?.fullName || '';
+  const parts = fullName.split(' ').filter(Boolean);
+  return parts.map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 }
 
 export default function KanbanBoardsPage() {
@@ -454,11 +459,17 @@ export default function KanbanBoardsPage() {
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <img
-                            src={resolveBoardAvatar(board)}
-                            className="presence-avatar w-8 h-8 rounded-full"
-                            alt="Member"
-                          />
+                          {resolveBoardAvatar(board) ? (
+                            <img
+                              src={resolveBoardAvatar(board)}
+                              className="presence-avatar w-8 h-8 rounded-full"
+                              alt="Member"
+                            />
+                          ) : resolveBoardInitials(board) ? (
+                            <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
+                              {resolveBoardInitials(board)}
+                            </div>
+                          ) : null}
                           {extraMembers > 0 ? (
                             <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
                               +{extraMembers}
@@ -558,11 +569,17 @@ export default function KanbanBoardsPage() {
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <img
-                            src={resolveBoardAvatar(board)}
-                            className="presence-avatar w-8 h-8 rounded-full"
-                            alt="Member"
-                          />
+                          {resolveBoardAvatar(board) ? (
+                            <img
+                              src={resolveBoardAvatar(board)}
+                              className="presence-avatar w-8 h-8 rounded-full"
+                              alt="Member"
+                            />
+                          ) : resolveBoardInitials(board) ? (
+                            <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
+                              {resolveBoardInitials(board)}
+                            </div>
+                          ) : null}
                           {extraMembers > 0 ? (
                             <div className="presence-avatar w-8 h-8 rounded-full bg-[#2a2a2e] flex items-center justify-center text-xs font-semibold text-[#a1a1aa]">
                               +{extraMembers}
