@@ -162,6 +162,20 @@ export default function KanbanBoardPage() {
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
 
+  const resolveBoardAvatar = () => {
+    const owner = boardMembers.find((member) => member.role === 'owner' && member.user?.avatarUrl);
+    if (owner?.user?.avatarUrl) return owner.user.avatarUrl;
+    const fallback = boardMembers.find((member) => member.user?.avatarUrl);
+    return fallback?.user?.avatarUrl || '';
+  };
+
+  const resolveBoardInitials = () => {
+    const owner = boardMembers.find((member) => member.role === 'owner' && member.user?.fullName);
+    const fullName = owner?.user?.fullName || boardMembers.find((member) => member.user?.fullName)?.user?.fullName || '';
+    const parts = fullName.split(' ').filter(Boolean);
+    return parts.map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  };
+
   const resolveCardAssignee = (card: KanbanCard) => {
     const assignees = card.assignees || [];
     return assignees.find((assignee) => assignee.user?.avatarUrl || assignee.user?.fullName) || null;
@@ -175,6 +189,19 @@ export default function KanbanBoardPage() {
     const fullName = resolveCardAssignee(card)?.user?.fullName || '';
     const parts = fullName.split(' ').filter(Boolean);
     return parts.map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  };
+
+  const openDrawerAtSection = (card: KanbanCard, sectionId: string, focusId?: string) => {
+    setSelectedCard(card);
+    setDrawerOpen(true);
+    window.setTimeout(() => {
+      const section = document.getElementById(sectionId);
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (focusId) {
+        const target = document.getElementById(focusId) as HTMLInputElement | HTMLSelectElement | null;
+        if (target) target.focus();
+      }
+    }, 80);
   };
 
   React.useEffect(() => {
@@ -721,13 +748,31 @@ export default function KanbanBoardPage() {
                                     </div>
 
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <button
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          openDrawerAtSection(card, 'connected-section', 'card-link-entity-id');
+                                        }}
+                                        className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                                      >
                                         <i className="fa-solid fa-link text-xs"></i>
                                       </button>
-                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <button
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          openDrawerAtSection(card, 'labels-section');
+                                        }}
+                                        className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                                      >
                                         <i className="fa-solid fa-tag text-xs"></i>
                                       </button>
-                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                      <button
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          openDrawerAtSection(card, 'assignees-section');
+                                        }}
+                                        className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                                      >
                                         <i className="fa-solid fa-user text-xs"></i>
                                       </button>
                                     </div>
@@ -1322,7 +1367,7 @@ export default function KanbanBoardPage() {
                 className="w-full bg-transparent text-2xl font-bold text-white border-none outline-none focus:bg-dark-800/50 px-3 py-2 rounded-lg mb-4"
               />
 
-              <div className="flex items-center gap-3 flex-wrap mb-4">
+              <div id="labels-section" className="flex items-center gap-3 flex-wrap mb-4">
                 {(selectedCard?.labels || []).map((label) => (
                   <span
                     key={label.id}
@@ -1346,9 +1391,15 @@ export default function KanbanBoardPage() {
                     {selectedList?.name || 'Unassigned'}
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div id="assignees-section" className="flex items-center gap-2">
                   <span className="text-gray-500">assigned to</span>
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-6 h-6 rounded-full border border-white/10" />
+                  {selectedCard && resolveCardAvatar(selectedCard) ? (
+                    <img src={resolveCardAvatar(selectedCard)} className="w-6 h-6 rounded-full border border-white/10" />
+                  ) : selectedCard && resolveCardInitials(selectedCard) ? (
+                    <div className="w-6 h-6 rounded-full border border-white/10 bg-dark-600 flex items-center justify-center text-[10px] font-semibold text-gray-200">
+                      {resolveCardInitials(selectedCard)}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1412,6 +1463,7 @@ export default function KanbanBoardPage() {
                   value={linkEntityId}
                   onChange={(event) => setLinkEntityId(event.target.value)}
                   placeholder="Entity ID"
+                  id="card-link-entity-id"
                   className="col-span-2 bg-dark-700/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
@@ -1503,7 +1555,13 @@ export default function KanbanBoardPage() {
 
             <div className="mb-6">
               <div className="flex items-start gap-3">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-9 h-9 rounded-full border border-white/10 flex-shrink-0" />
+                {resolveBoardAvatar() ? (
+                  <img src={resolveBoardAvatar()} className="w-9 h-9 rounded-full border border-white/10 flex-shrink-0" />
+                ) : resolveBoardInitials() ? (
+                  <div className="w-9 h-9 rounded-full border border-white/10 bg-dark-600 flex items-center justify-center text-xs font-semibold text-gray-200 flex-shrink-0">
+                    {resolveBoardInitials()}
+                  </div>
+                ) : null}
                 <div className="flex-1">
                   <textarea
                     className="w-full bg-dark-800/60 border border-white/5 rounded-lg p-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-800 transition-all resize-none"
