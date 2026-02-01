@@ -64,6 +64,7 @@ export default function KanbanBoardPage() {
   const [showOnlyMine, setShowOnlyMine] = React.useState(false);
   const [showOnlyLabeled, setShowOnlyLabeled] = React.useState(false);
   const [compactView, setCompactView] = React.useState(false);
+  const [listMenuId, setListMenuId] = React.useState<string | null>(null);
   const [selectedCardIds, setSelectedCardIds] = React.useState<Set<string>>(() => new Set());
   const [showInviteModal, setShowInviteModal] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
@@ -588,6 +589,71 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const closeListMenu = () => setListMenuId(null);
+
+  const handleEditList = async (list: KanbanBoard['lists'][number]) => {
+    const nextName = window.prompt('Rename column', list.name);
+    if (!nextName || nextName.trim() === list.name) {
+      closeListMenu();
+      return;
+    }
+    try {
+      await apiPatch(`/api/lists/${list.id}`, { name: nextName.trim() });
+      await loadBoard();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to rename column.');
+    } finally {
+      closeListMenu();
+    }
+  };
+
+  const handleDeleteList = async (list: KanbanBoard['lists'][number]) => {
+    const confirmed = window.confirm(`Delete column "${list.name}" and all its cards?`);
+    if (!confirmed) {
+      closeListMenu();
+      return;
+    }
+    try {
+      await apiDelete(`/api/lists/${list.id}`);
+      await loadBoard();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to delete column.');
+    } finally {
+      closeListMenu();
+    }
+  };
+
+  const handleDuplicateList = async (list: KanbanBoard['lists'][number]) => {
+    if (!boardId) return;
+    try {
+      const created = await apiPost(`/api/boards/${boardId}/lists`, {
+        name: `${list.name} Copy`,
+        color: list.color || null,
+      });
+      const createdListId = String((created as any)?.lists?.[0]?.id || (created as any)?.list?.id || '');
+      if (createdListId && list.cards.length) {
+        await Promise.all(
+          list.cards.map((card) =>
+            apiPost(`/api/lists/${createdListId}/cards`, {
+              title: card.title,
+              description: card.description || null,
+              coverColor: card.coverColor || null,
+            })
+          )
+        );
+      }
+      await loadBoard();
+      toast.success('Column duplicated.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to duplicate column.');
+    } finally {
+      closeListMenu();
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 text-gray-100 font-sans">
       <style>{`
@@ -805,7 +871,7 @@ export default function KanbanBoardPage() {
               return (
                 <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
                 <div className="bg-dark-800/40 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden">
-                  <div className="p-4 border-b border-white/5 flex items-center justify-between group">
+                  <div className="p-4 border-b border-white/5 flex items-center justify-between group relative">
                     <div className="flex items-center gap-3">
                       <div className="w-1 h-6 bg-blue-500 rounded-full" style={{ backgroundColor: list.color || undefined }}></div>
                       <input
@@ -823,10 +889,35 @@ export default function KanbanBoardPage() {
                         className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
                         title="Select all cards"
                       />
-                      <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white">
+                      <button
+                        onClick={() => setListMenuId((prev) => (prev === list.id ? null : list.id))}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white"
+                      >
                         <i className="fa-solid fa-ellipsis text-sm"></i>
                       </button>
                     </div>
+                    {listMenuId === list.id ? (
+                      <div className="absolute right-3 top-12 w-44 bg-dark-800 border border-white/10 rounded-xl shadow-xl overflow-hidden z-20">
+                        <button
+                          onClick={() => handleDuplicateList(list)}
+                          className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-dark-700/70"
+                        >
+                          Duplicate
+                        </button>
+                        <button
+                          onClick={() => handleEditList(list)}
+                          className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-dark-700/70"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteList(list)}
+                          className="w-full px-4 py-2.5 text-left text-sm text-red-300 hover:bg-red-500/10"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
 
                   <Droppable droppableId={list.id} type="card">
