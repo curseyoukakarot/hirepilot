@@ -319,8 +319,18 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
 
     const appUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.thehirepilot.com').replace(/\/$/, '');
     const boardUrl = `${appUrl}/kanban/${req.params.boardId}`;
-    const { data: boardRow } = await supabase.from('kanban_boards').select('name').eq('id', req.params.boardId).maybeSingle();
+    const { data: boardRow } = await supabase
+      .from('kanban_boards')
+      .select('name,workspace_id')
+      .eq('id', req.params.boardId)
+      .maybeSingle();
     const boardName = String((boardRow as any)?.name || 'Untitled Board');
+    const workspaceId = String((boardRow as any)?.workspace_id || resolveWorkspaceId(req) || '');
+    let workspaceName = 'Workspace';
+    if (workspaceId) {
+      const { data: workspaceRow } = await supabase.from('workspaces').select('name').eq('id', workspaceId).maybeSingle();
+      if ((workspaceRow as any)?.name) workspaceName = String((workspaceRow as any)?.name);
+    }
     const { data: inviter } = await supabase
       .from('users')
       .select('first_name,last_name,email')
@@ -328,6 +338,10 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
       .maybeSingle();
     const inviterName = `${(inviter as any)?.first_name || ''} ${(inviter as any)?.last_name || ''}`.trim() || String((inviter as any)?.email || '').trim() || 'HirePilot';
     const inviterEmail = String((inviter as any)?.email || '').trim() || 'noreply@hirepilot.com';
+    const nowIso = new Date().toISOString();
+    const inviteExpiresIn = String(process.env.KANBAN_INVITE_EXPIRES_IN || '7 days');
+    const brandAddress = String(process.env.BRAND_ADDRESS || process.env.SENDGRID_BRAND_ADDRESS || 'HirePilot');
+    const year = String(new Date().getFullYear());
 
     const { data: existingUser } = await supabase.from('users').select('id,email').ilike('email', email).maybeSingle();
     if (existingUser?.id) {
@@ -339,10 +353,18 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
       try {
         await sendKanbanExistingUserEmail({
           to: String((existingUser as any)?.email || email),
+          workspaceName,
           boardName,
           boardUrl,
+          inviteEmail: '',
+          acceptInviteUrl: boardUrl,
+          declineInviteUrl: '',
+          inviteExpiresIn,
+          addedAt: nowIso,
+          year,
+          brandAddress,
           invitedBy: { name: inviterName, email: inviterEmail },
-          role,
+          memberRole: role,
         });
       } catch (emailErr) {
         console.warn('[kanban] failed to send existing-user email', emailErr);
@@ -374,13 +396,24 @@ router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
       .select('*')
       .single();
     if (error) throw error;
+    const inviteId = String((invite as any)?.id || '');
+    const acceptInviteUrl = `${appUrl}/accept-guest?invite_id=${encodeURIComponent(inviteId)}&email=${encodeURIComponent(email)}&board_id=${encodeURIComponent(req.params.boardId)}`;
+    const declineInviteUrl = `${appUrl}/accept-guest?decline=1&invite_id=${encodeURIComponent(inviteId)}&email=${encodeURIComponent(email)}`;
     try {
       await sendKanbanGuestInviteEmail({
         to: email,
+        workspaceName,
         boardName,
         boardUrl,
+        inviteEmail: email,
+        acceptInviteUrl,
+        declineInviteUrl,
+        inviteExpiresIn,
+        addedAt: String((invite as any)?.created_at || nowIso),
+        year,
+        brandAddress,
         invitedBy: { name: inviterName, email: inviterEmail },
-        role,
+        memberRole: role,
       });
     } catch (emailErr) {
       console.warn('[kanban] failed to send guest invite email', emailErr);

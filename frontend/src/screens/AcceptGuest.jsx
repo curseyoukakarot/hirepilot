@@ -7,6 +7,7 @@ export default function AcceptGuest() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const jobId = params.get('job_id') || '';
+  const boardId = params.get('board_id') || '';
   const inviteEmail = params.get('email') || '';
 
   const [email, setEmail] = useState(inviteEmail);
@@ -17,12 +18,16 @@ export default function AcceptGuest() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (user && boardId) {
+        navigate(`/kanban/${boardId}`);
+        return;
+      }
       if (user && jobId) {
         sessionStorage.setItem('guest_mode', '1');
         navigate(`/job/${jobId}`);
       }
     })();
-  }, [jobId, navigate]);
+  }, [jobId, boardId, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,8 +65,12 @@ export default function AcceptGuest() {
         signErr = retry.error;
       }
       if (signErr) throw signErr;
-      sessionStorage.setItem('guest_mode', '1');
-      navigate(jobId ? `/job/${jobId}` : '/jobs');
+      if (boardId) {
+        navigate(`/kanban/${boardId}`);
+      } else {
+        sessionStorage.setItem('guest_mode', '1');
+        navigate(jobId ? `/job/${jobId}` : '/jobs');
+      }
     } catch (e) {
       setError(e?.message || 'Failed to complete invite');
     } finally {

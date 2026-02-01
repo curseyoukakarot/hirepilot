@@ -162,13 +162,21 @@ const KANBAN_GUEST_TEMPLATE_ID = 'd-7cbd9c659dfd487d8ad111d8cf0d1ed4';
 
 type KanbanInviteEmailPayload = {
   to: string;
+  workspaceName: string;
   boardName: string;
   boardUrl: string;
+  inviteEmail: string;
+  acceptInviteUrl: string;
+  declineInviteUrl: string;
+  inviteExpiresIn: string;
+  addedAt: string;
+  year: string;
+  brandAddress: string;
   invitedBy: {
     name: string;
     email: string;
   };
-  role: string;
+  memberRole: string;
 };
 
 async function sendKanbanTemplateEmail(templateId: string, payload: KanbanInviteEmailPayload) {
@@ -178,11 +186,18 @@ async function sendKanbanTemplateEmail(templateId: string, payload: KanbanInvite
   const preferencesUrl = process.env.SENDGRID_INVITE_PREFERENCES_URL || process.env.SENDGRID_DEFAULT_PREFERENCES_URL || 'https://app.thehirepilot.com/settings/notifications';
 
   const dynamicTemplateData = {
+    workspace_name: payload.workspaceName,
+    inviter_name: payload.invitedBy.name,
     board_name: payload.boardName,
+    member_role: payload.memberRole,
     board_url: payload.boardUrl,
-    invited_by_name: payload.invitedBy.name,
-    invited_by_email: payload.invitedBy.email,
-    role: payload.role,
+    invite_email: payload.inviteEmail,
+    accept_invite_url: payload.acceptInviteUrl,
+    decline_invite_url: payload.declineInviteUrl,
+    invite_expires_in: payload.inviteExpiresIn,
+    added_at: payload.addedAt,
+    year: payload.year,
+    brand_address: payload.brandAddress,
     support_email: supportEmail,
     preferences_url: preferencesUrl,
   };
@@ -192,7 +207,7 @@ async function sendKanbanTemplateEmail(templateId: string, payload: KanbanInvite
     from: { email: fromEmail, name: fromName },
     replyTo: payload.invitedBy.email,
     subject: `You've been added to "${payload.boardName}"`,
-    text: `You've been added to the Kanban board "${payload.boardName}". Open: ${payload.boardUrl}`,
+    text: `You've been added to the Kanban board "${payload.boardName}". Open: ${payload.boardUrl || payload.acceptInviteUrl}`,
     templateId,
     dynamicTemplateData,
   };
