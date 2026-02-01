@@ -1,4 +1,5 @@
 import React from 'react';
+import { toast } from 'react-hot-toast';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
@@ -55,6 +56,10 @@ export default function KanbanBoardPage() {
   const [newChecklistItem, setNewChecklistItem] = React.useState('');
   const [commentBody, setCommentBody] = React.useState('');
   const [comments, setComments] = React.useState<CardComment[]>([]);
+  const [showInviteModal, setShowInviteModal] = React.useState(false);
+  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteRole, setInviteRole] = React.useState('viewer');
+  const [inviteLoading, setInviteLoading] = React.useState(false);
 
   const openDrawer = (cardOrEvent?: KanbanCard | React.MouseEvent, event?: React.MouseEvent) => {
     const actualEvent = (cardOrEvent as React.MouseEvent)?.preventDefault ? (cardOrEvent as React.MouseEvent) : event;
@@ -65,6 +70,15 @@ export default function KanbanBoardPage() {
   };
 
   const closeDrawer = () => setDrawerOpen(false);
+
+  const openInviteModal = () => setShowInviteModal(true);
+
+  const closeInviteModal = () => {
+    setShowInviteModal(false);
+    setInviteEmail('');
+    setInviteRole('viewer');
+    setInviteLoading(false);
+  };
 
   const loadBoard = React.useCallback(async () => {
     if (!boardId) return;
@@ -355,6 +369,34 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const handleInviteCollaborator = async () => {
+    if (!boardId) return;
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      toast.error('Enter a collaborator email.');
+      return;
+    }
+    try {
+      setInviteLoading(true);
+      const response = await apiPost(`/api/boards/${boardId}/invites`, {
+        email,
+        role: inviteRole,
+      });
+      if ((response as any)?.member) {
+        toast.success('Collaborator added to this board.');
+      } else {
+        toast.success('Invite sent to collaborator.');
+      }
+      await loadBoard();
+      closeInviteModal();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to invite collaborator.');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 text-gray-100 font-sans">
       <style>{`
@@ -435,7 +477,10 @@ export default function KanbanBoardPage() {
                 Filter
               </button>
 
-              <button className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2">
+              <button
+                onClick={() => navigate('/settings/integrations')}
+                className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
+              >
                 <i className="fa-solid fa-bolt text-xs text-amber-400"></i>
                 Automations
               </button>
@@ -445,7 +490,10 @@ export default function KanbanBoardPage() {
                 View
               </button>
 
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all flex items-center gap-2">
+              <button
+                onClick={openInviteModal}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all flex items-center gap-2"
+              >
                 <i className="fa-solid fa-user-plus text-xs"></i>
                 Invite
               </button>
@@ -1358,6 +1406,58 @@ export default function KanbanBoardPage() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="invite-collaborator-modal" className={`fixed inset-0 z-50 ${showInviteModal ? '' : 'hidden'}`}>
+        <div className="absolute inset-0 bg-black/60" onClick={closeInviteModal}></div>
+        <div className="relative z-10 max-w-lg mx-auto mt-20">
+          <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-semibold text-white">Invite collaborator</h2>
+              <button onClick={closeInviteModal} className="text-gray-400 hover:text-white transition-all">
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="collaborator@example.com"
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(event) => setInviteRole(event.target.value)}
+                  className="w-full bg-dark-800/60 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500/50"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="commenter">Commenter</option>
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <p className="text-xs text-gray-500">Guests will gain access once they create an account with this email.</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+              <button onClick={closeInviteModal} className="px-5 py-2.5 bg-dark-800/60 hover:bg-dark-800 text-white rounded-xl text-sm font-medium transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={handleInviteCollaborator}
+                disabled={inviteLoading}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
+              >
+                {inviteLoading ? 'Sending…' : 'Send invite'}
+              </button>
             </div>
           </div>
         </div>

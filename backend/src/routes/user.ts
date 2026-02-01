@@ -332,6 +332,34 @@ router.post('/onboarding-complete', requireAuth, async (req: ApiRequest, res: Re
           .eq('email', userEmail)
           .eq('status', 'pending');
 
+        // Accept any pending kanban board invites for this email
+        try {
+          const { data: pendingKanbanInvites } = await supabase
+            .from('kanban_board_invites')
+            .select('id,board_id,role')
+            .eq('email', userEmail)
+            .eq('status', 'pending');
+          for (const inv of (pendingKanbanInvites || [])) {
+            const boardId = String((inv as any).board_id || '');
+            if (!boardId) continue;
+            const role = String((inv as any).role || 'viewer');
+            await supabase
+              .from('kanban_board_members')
+              .upsert(
+                { board_id: boardId, member_type: 'user', member_id: userId, role },
+                { onConflict: 'board_id,member_type,member_id' } as any
+              );
+            await supabase
+              .from('kanban_board_invites')
+              .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+              .eq('id', (inv as any).id);
+          }
+        } catch (kanbanInviteErr: any) {
+          if (String(kanbanInviteErr?.code || '') !== '42P01') {
+            console.warn('[ONBOARDING] Failed to accept kanban invites', kanbanInviteErr);
+          }
+        }
+
         // Accept any pending table guest invites for this email:
         // - mark invite accepted
         // - add user_id to custom_tables.collaborators so the table appears in /tables

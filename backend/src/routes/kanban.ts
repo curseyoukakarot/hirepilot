@@ -306,6 +306,57 @@ router.get('/boards/:boardId/members', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/boards/:boardId/invites', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const role = String(req.body?.role || 'viewer').toLowerCase();
+    if (!email) return res.status(400).json({ error: 'missing_email' });
+    const allowedRoles = ['viewer', 'commenter', 'editor', 'admin', 'owner'];
+    if (!allowedRoles.includes(role)) return res.status(400).json({ error: 'invalid_role' });
+
+    const { data: existingUser } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
+    if (existingUser?.id) {
+      const member = await addBoardMember(req.params.boardId, userId, {
+        memberType: 'user',
+        memberId: String(existingUser.id),
+        role: role as any,
+      });
+      return res.status(201).json({ member, status: 'member_added' });
+    }
+
+    const { data: roleRow } = await supabase
+      .from('kanban_board_members')
+      .select('role')
+      .eq('board_id', req.params.boardId)
+      .eq('member_type', 'user')
+      .eq('member_id', userId)
+      .maybeSingle();
+    const memberRole = String((roleRow as any)?.role || '');
+    if (!memberRole || !['owner', 'admin'].includes(memberRole)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    await assertGuestInviteAllowed(resolveWorkspaceId(req));
+    const { data: invite, error } = await supabase
+      .from('kanban_board_invites')
+      .insert({
+        board_id: req.params.boardId,
+        email,
+        role,
+        invited_by: userId,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return res.status(201).json({ invite, status: 'invited' });
+  } catch (e: any) {
+    const code = e?.message === 'forbidden' || e?.message === 'guest_invites_not_allowed' ? 403 : 500;
+    return res.status(code).json({ error: e?.message || 'invite_create_failed' });
+  }
+});
+
 router.post('/boards/:boardId/members', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
