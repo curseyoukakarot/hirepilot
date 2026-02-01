@@ -56,6 +56,7 @@ export default function KanbanBoardPage() {
   const [newChecklistItem, setNewChecklistItem] = React.useState('');
   const [commentBody, setCommentBody] = React.useState('');
   const [comments, setComments] = React.useState<CardComment[]>([]);
+  const [selectedCardIds, setSelectedCardIds] = React.useState<Set<string>>(() => new Set());
   const [showInviteModal, setShowInviteModal] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteRole, setInviteRole] = React.useState('viewer');
@@ -71,6 +72,37 @@ export default function KanbanBoardPage() {
 
   const closeDrawer = () => setDrawerOpen(false);
 
+  const selectedCount = selectedCardIds.size;
+
+  const clearSelectedCards = React.useCallback(() => {
+    setSelectedCardIds(new Set());
+  }, []);
+
+  const toggleCardSelection = (cardId: string) => {
+    setSelectedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cardId)) {
+        next.delete(cardId);
+      } else {
+        next.add(cardId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllInList = (cardIds: string[]) => {
+    setSelectedCardIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = cardIds.length > 0 && cardIds.every((id) => next.has(id));
+      if (allSelected) {
+        cardIds.forEach((id) => next.delete(id));
+      } else {
+        cardIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
   const openInviteModal = () => setShowInviteModal(true);
 
   const closeInviteModal = () => {
@@ -85,7 +117,8 @@ export default function KanbanBoardPage() {
     const response = await apiGet(`/api/boards/${boardId}`);
     const nextBoard = (response as any)?.board as KanbanBoard | undefined;
     setBoard(nextBoard || null);
-  }, [boardId]);
+    clearSelectedCards();
+  }, [boardId, clearSelectedCards]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -127,6 +160,21 @@ export default function KanbanBoardPage() {
   const boardMembers = board?.members || [];
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
+
+  const resolveCardAssignee = (card: KanbanCard) => {
+    const assignees = card.assignees || [];
+    return assignees.find((assignee) => assignee.user?.avatarUrl || assignee.user?.fullName) || null;
+  };
+
+  const resolveCardAvatar = (card: KanbanCard) => {
+    return resolveCardAssignee(card)?.user?.avatarUrl || '';
+  };
+
+  const resolveCardInitials = (card: KanbanCard) => {
+    const fullName = resolveCardAssignee(card)?.user?.fullName || '';
+    const parts = fullName.split(' ').filter(Boolean);
+    return parts.map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  };
 
   React.useEffect(() => {
     if (!selectedCard) return;
@@ -397,6 +445,26 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const handleDeleteSelectedCards = async () => {
+    if (!selectedCount) return;
+    const confirmed = window.confirm(`Delete ${selectedCount} selected card${selectedCount === 1 ? '' : 's'}?`);
+    if (!confirmed) return;
+    try {
+      const ids = Array.from(selectedCardIds);
+      await Promise.all(ids.map((id) => apiDelete(`/api/cards/${id}`)));
+      if (selectedCard && selectedCardIds.has(selectedCard.id)) {
+        setSelectedCard(null);
+        setDrawerOpen(false);
+      }
+      clearSelectedCards();
+      await loadBoard();
+      toast.success('Selected cards deleted.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to delete selected cards.');
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 text-gray-100 font-sans">
       <style>{`
@@ -477,6 +545,16 @@ export default function KanbanBoardPage() {
                 Filter
               </button>
 
+              {selectedCount > 0 ? (
+                <button
+                  onClick={handleDeleteSelectedCards}
+                  className="px-4 py-2 bg-red-600/90 hover:bg-red-600 rounded-lg text-sm font-medium text-white transition-all flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-trash text-xs"></i>
+                  Delete {selectedCount}
+                </button>
+              ) : null}
+
               <button
                 onClick={() => navigate('/settings/integrations')}
                 className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
@@ -509,8 +587,11 @@ export default function KanbanBoardPage() {
       <main id="kanban-canvas" className="px-6 py-8 overflow-x-auto">
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="flex gap-5 min-w-max pb-8">
-            {filteredLists.map((list) => (
-              <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
+            {filteredLists.map((list) => {
+              const listCardIds = list.cards.map((card) => card.id);
+              const allSelected = listCardIds.length > 0 && listCardIds.every((id) => selectedCardIds.has(id));
+              return (
+                <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
                 <div className="bg-dark-800/40 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden">
                   <div className="p-4 border-b border-white/5 flex items-center justify-between group">
                     <div className="flex items-center gap-3">
@@ -522,9 +603,18 @@ export default function KanbanBoardPage() {
                       />
                       <span className="text-sm text-gray-500 font-medium">{list.cards.length}</span>
                     </div>
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white">
-                      <i className="fa-solid fa-ellipsis text-sm"></i>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={() => toggleSelectAllInList(listCardIds)}
+                        className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                        title="Select all cards"
+                      />
+                      <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-white">
+                        <i className="fa-solid fa-ellipsis text-sm"></i>
+                      </button>
+                    </div>
                   </div>
 
                   <Droppable droppableId={list.id} type="card">
@@ -534,71 +624,96 @@ export default function KanbanBoardPage() {
                         {...provided.droppableProps}
                         className={`p-3 space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
                       >
-                        {list.cards.map((card, index) => (
-                          <Draggable key={card.id} draggableId={card.id} index={index}>
-                            {(dragProvided, dragSnapshot) => (
-                              <div
-                                ref={dragProvided.innerRef}
-                                {...dragProvided.draggableProps}
-                                {...dragProvided.dragHandleProps}
-                                className={`bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 group relative ${dragSnapshot.isDragging ? 'shadow-2xl scale-[1.01]' : ''}`}
-                                onClick={(event) => openDrawer(card, event)}
-                              >
+                        {list.cards.map((card, index) => {
+                          const cardSelected = selectedCardIds.has(card.id);
+                          const labelColor = card.coverColor || card.labels?.[0]?.color || list.color || '#6366f1';
+                          const avatarUrl = resolveCardAvatar(card);
+                          const initials = resolveCardInitials(card);
+                          return (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(dragProvided, dragSnapshot) => (
                                 <div
-                                  className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl"
-                                  style={{ background: card.coverColor || undefined }}
-                                ></div>
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  {...dragProvided.dragHandleProps}
+                                  className={`bg-dark-700/60 hover:bg-dark-700 border border-white/5 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 group relative ${
+                                    dragSnapshot.isDragging ? 'shadow-2xl scale-[1.01]' : ''
+                                  } ${cardSelected ? 'ring-2 ring-indigo-500/60' : ''}`}
+                                  onClick={(event) => openDrawer(card, event)}
+                                >
+                                  <div
+                                    className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl"
+                                    style={{ background: card.coverColor || undefined }}
+                                  ></div>
 
-                                <h4 className="text-white font-semibold text-sm mb-2 leading-snug">{card.title}</h4>
-                                <p className="text-gray-400 text-xs mb-3">
-                                  {[(card as any).companyName, (card as any).location].filter(Boolean).join(' · ')}
-                                </p>
-
-                                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                  {(card.labels || []).map((label) => (
-                                    <span
-                                      key={label.id}
-                                      className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 flex items-center gap-1"
-                                      style={{
-                                        color: label.color || undefined,
-                                        borderColor: label.color ? `${label.color}33` : undefined,
-                                        backgroundColor: label.color ? `${label.color}1a` : undefined,
-                                      }}
-                                    >
-                                      <i className="fa-solid fa-tag text-[10px]"></i>
-                                      {label.name}
-                                    </span>
-                                  ))}
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <img
-                                      src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-                                      className="w-6 h-6 rounded-full border border-white/10"
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: labelColor }}></span>
+                                      <h4 className="text-white font-semibold text-sm leading-snug truncate">{card.title}</h4>
+                                    </div>
+                                    <input
+                                      type="checkbox"
+                                      checked={cardSelected}
+                                      onChange={() => toggleCardSelection(card.id)}
+                                      onClick={(event) => event.stopPropagation()}
+                                      onMouseDown={(event) => event.stopPropagation()}
+                                      className="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 bg-dark-700"
+                                      title="Select card"
                                     />
-                                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                                      <i className="fa-solid fa-comment text-[10px]"></i>
-                                      {card.comments?.length || 0}
-                                    </span>
+                                  </div>
+                                  <p className="text-gray-400 text-xs mb-3">
+                                    {[(card as any).companyName, (card as any).location].filter(Boolean).join(' · ')}
+                                  </p>
+
+                                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                    {(card.labels || []).map((label) => (
+                                      <span
+                                        key={label.id}
+                                        className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 flex items-center gap-1"
+                                        style={{
+                                          color: label.color || undefined,
+                                          borderColor: label.color ? `${label.color}33` : undefined,
+                                          backgroundColor: label.color ? `${label.color}1a` : undefined,
+                                        }}
+                                      >
+                                        <i className="fa-solid fa-tag text-[10px]"></i>
+                                        {label.name}
+                                      </span>
+                                    ))}
                                   </div>
 
-                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                                      <i className="fa-solid fa-link text-xs"></i>
-                                    </button>
-                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                                      <i className="fa-solid fa-tag text-xs"></i>
-                                    </button>
-                                    <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                                      <i className="fa-solid fa-user text-xs"></i>
-                                    </button>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {avatarUrl ? (
+                                        <img src={avatarUrl} className="w-6 h-6 rounded-full border border-white/10" />
+                                      ) : initials ? (
+                                        <div className="w-6 h-6 rounded-full border border-white/10 bg-dark-600 flex items-center justify-center text-[10px] font-semibold text-gray-200">
+                                          {initials}
+                                        </div>
+                                      ) : null}
+                                      <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-comment text-[10px]"></i>
+                                        {card.comments?.length || 0}
+                                      </span>
+                                    </div>
+
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                        <i className="fa-solid fa-link text-xs"></i>
+                                      </button>
+                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                        <i className="fa-solid fa-tag text-xs"></i>
+                                      </button>
+                                      <button className="w-7 h-7 bg-dark-600 hover:bg-dark-500 rounded flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                        <i className="fa-solid fa-user text-xs"></i>
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
+                              )}
+                            </Draggable>
+                          );
+                        })}
                         {provided.placeholder}
                       </div>
                     )}
@@ -615,7 +730,8 @@ export default function KanbanBoardPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           {false && (
           <>
           <div id="column-new-leads" className="flex-shrink-0 w-80">
