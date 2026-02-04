@@ -1,4 +1,5 @@
 import { supabaseDb } from './supabase';
+import { getUserTeamContextDb } from './userTeamContext';
 
 export type DealsSharingContext = {
   isTeamAccount: boolean;
@@ -270,6 +271,71 @@ async function resolveTeamFromLegacy(userId: string): Promise<{ teamId: string |
   return { teamId: null, teamAdminId: null, roleInTeam: null, memberIds: [], source: 'none' };
 }
 
+async function resolveTeamForDeals(userId: string): Promise<{ teamId: string | null; teamAdminId: string | null; roleInTeam: 'admin' | 'member' | null; memberIds: string[]; source: DealsSharingContext['resolutionSource'] }> {
+  const adminRoles = new Set(['team_admin', 'team_admins', 'admin', 'super_admin', 'superadmin']);
+  const ctx = await getUserTeamContextDb(userId);
+  const roleLc = String(ctx.role || '').toLowerCase();
+  let teamId = ctx.teamId || null;
+  let roleInTeam: 'admin' | 'member' | null = roleLc ? (adminRoles.has(roleLc) ? 'admin' : 'member') : null;
+  let memberIds: string[] = [];
+  let teamAdminId: string | null = null;
+  let source: DealsSharingContext['resolutionSource'] = teamId ? 'users.team_id' : 'none';
+
+  if (teamId) {
+    memberIds = await fetchTeamMemberIds(teamId);
+    try {
+      const { data } = await supabaseDb
+        .from('users')
+        .select('id, role')
+        .eq('team_id', teamId)
+        .in('role', ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'] as any)
+        .limit(1)
+        .maybeSingle();
+      teamAdminId = (data as any)?.id ? String((data as any).id) : null;
+    } catch {}
+  }
+
+  if (!teamId || memberIds.length === 0) {
+    try {
+      const { data: creditRow, error: creditError } = await supabaseDb
+        .from('team_credit_sharing')
+        .select('team_admin_id')
+        .eq('team_member_id', userId)
+        .maybeSingle();
+      if (!creditError && (creditRow as any)?.team_admin_id) {
+        teamAdminId = String((creditRow as any).team_admin_id);
+        source = 'credit_sharing';
+        if (!teamId) {
+          try {
+            const { data: adminRow } = await supabaseDb
+              .from('users')
+              .select('team_id')
+              .eq('id', teamAdminId)
+              .maybeSingle();
+            teamId = (adminRow as any)?.team_id ? String((adminRow as any).team_id) : null;
+          } catch {}
+        }
+        const ids = new Set<string>();
+        try {
+          const { data: rows } = await supabaseDb
+            .from('team_credit_sharing')
+            .select('team_member_id')
+            .eq('team_admin_id', teamAdminId);
+          (rows || []).forEach((r: any) => {
+            const id = String(r?.team_member_id || '').trim();
+            if (id) ids.add(id);
+          });
+        } catch {}
+        ids.add(teamAdminId);
+        ids.add(String(userId));
+        memberIds = Array.from(ids);
+      }
+    } catch {}
+  }
+
+  return { teamId, teamAdminId, roleInTeam, memberIds, source };
+}
+
 /**
  * Deals visibility scope for team accounts.
  * - shareDeals defaults to ON
@@ -294,12 +360,12 @@ export async function getDealsSharingContext(userId: string): Promise<DealsShari
     };
   }
 
-  const legacy = await resolveTeamFromLegacy(userId);
-  const teamId = legacy.teamId;
-  const roleInTeam = legacy.roleInTeam;
-  const memberIds = legacy.memberIds || [];
-  const resolutionSource = legacy.source;
-  const legacyAdminId = legacy.teamAdminId || null;
+  const resolved = await resolveTeamForDeals(userId);
+  const teamId = resolved.teamId;
+  const roleInTeam = resolved.roleInTeam;
+  const memberIds = resolved.memberIds || [];
+  const resolutionSource = resolved.source;
+  const legacyAdminId = resolved.teamAdminId || null;
 
   if (!teamId) {
     if (legacyAdminId) {
