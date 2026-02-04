@@ -348,6 +348,23 @@ async function resolveTeamForDeals(userId: string): Promise<{ teamId: string | n
   combined.add(String(userId));
   memberIds = Array.from(combined);
 
+  if (!teamId && !teamAdminId && memberIds.length <= 1) {
+    const legacy = await resolveTeamFromLegacy(userId);
+    if (legacy.teamId || legacy.teamAdminId || legacy.memberIds.length) {
+      teamId = teamId || legacy.teamId || null;
+      teamAdminId = teamAdminId || legacy.teamAdminId || null;
+      if (!roleInTeam && legacy.roleInTeam) roleInTeam = legacy.roleInTeam;
+      if (legacy.memberIds.length) {
+        const merged = new Set(memberIds.map((id) => String(id)));
+        legacy.memberIds.forEach((id) => id && merged.add(String(id)));
+        if (teamAdminId) merged.add(String(teamAdminId));
+        merged.add(String(userId));
+        memberIds = Array.from(merged);
+      }
+      source = legacy.source;
+    }
+  }
+
   return { teamId, teamAdminId, roleInTeam, memberIds, source };
 }
 
