@@ -43,12 +43,15 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Fetch opportunities with same scoping as opportunities page (team pool aware)
     const roleTeam = await getRoleTeam(userId);
     const role = roleTeam.role;
-    const isSuper = ['super_admin','superadmin'].includes(String(role||'').toLowerCase());
+    const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
+    const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const dealsCtx = await getDealsSharingContext(userId);
     let base = supabase
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
-    if (!isSuper) {
+    if (isSuper) {
+      if (!forceAll) base = base.eq('owner_id', userId);
+    } else {
       const visible = dealsCtx.visibleOwnerIds || [userId];
       base = base.in('owner_id', visible.length ? visible : [userId]);
     }
