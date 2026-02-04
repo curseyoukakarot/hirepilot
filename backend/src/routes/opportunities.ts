@@ -65,11 +65,12 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const teamCtx = await getDealsSharingContext(userId);
 
-    let base = scopedNoOwner(req, 'opportunities')
-      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin,margin_type');
-
     const visible = teamCtx.visibleOwnerIds || [userId];
     const visibleOwnerIds = visible.length ? visible : [userId];
+    const pooled = visibleOwnerIds.length > 1;
+
+    let base = (pooled ? supabase.from('opportunities') : scopedNoOwner(req, 'opportunities'))
+      .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin,margin_type');
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
       if (!forceAll) base = base.in('owner_id', visibleOwnerIds);

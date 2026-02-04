@@ -49,14 +49,17 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const dealsCtx = await getDealsSharingContext(userId);
     const visible = dealsCtx.visibleOwnerIds || [userId];
     const ownerIds = visible.length ? visible : [userId];
+    const pooled = ownerIds.length > 1;
     let base = supabase
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
     const workspaceId = (req as any).workspaceId as string | undefined;
-    if (workspaceId && WORKSPACES_ENFORCE_STRICT) {
-      base = base.eq('workspace_id', workspaceId);
-    } else if (workspaceId) {
-      base = base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+    if (!pooled) {
+      if (workspaceId && WORKSPACES_ENFORCE_STRICT) {
+        base = base.eq('workspace_id', workspaceId);
+      } else if (workspaceId) {
+        base = base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+      }
     }
     if (isSuper) {
       if (!forceAll) base = base.in('owner_id', ownerIds);
