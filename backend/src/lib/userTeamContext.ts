@@ -11,6 +11,7 @@ export type UserTeamContext = {
  * Supports:
  * - legacy membership via `users.team_id`
  * - newer membership via `team_members`
+ * - team seats via `team_credit_sharing` (best-effort admin team_id)
  * - fallback inference via `team_invites` (best-effort)
  */
 export async function getUserTeamContextDb(userId: string): Promise<UserTeamContext> {
@@ -67,6 +68,37 @@ export async function getUserTeamContextDb(userId: string): Promise<UserTeamCont
     if (membershipCode === '42P01') {
       return { teamId: (userRow as any)?.team_id ?? null, role };
     }
+
+  // 2b) team_credit_sharing (team seats without team_id)
+  try {
+    const { data: creditRow, error: creditErr } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .maybeSingle();
+    if (!creditErr && (creditRow as any)?.team_admin_id) {
+      const adminId = String((creditRow as any).team_admin_id);
+      let inferredTeamId: string | null = null;
+      try {
+        const { data: adminRow } = await supabaseDb
+          .from('users')
+          .select('team_id')
+          .eq('id', adminId)
+          .maybeSingle();
+        inferredTeamId = (adminRow as any)?.team_id ? String((adminRow as any).team_id) : null;
+      } catch {}
+      if (inferredTeamId) {
+        try { await supabaseDb.from('users').update({ team_id: inferredTeamId }).eq('id', userId); } catch {}
+        try {
+          await supabaseDb.from('team_members').upsert(
+            [{ team_id: inferredTeamId, user_id: userId }],
+            { onConflict: 'team_id,user_id' } as any
+          );
+        } catch {}
+      }
+      return { teamId: inferredTeamId, role };
+    }
+  } catch {}
 
     // 3) infer from auth metadata team_id (common for team seats)
     if (authTeamId) {
