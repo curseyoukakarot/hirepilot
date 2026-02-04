@@ -24,17 +24,6 @@ const defaultWeights: Record<string, number> = {
   'Closed Lost': 0,
 };
 
-const applySharedWorkspaceScope = (query: any, workspaceId: string | null | undefined, ownerIds: string[], includeNullForAll = false) => {
-  if (!workspaceId || !query) return query;
-  if (WORKSPACES_ENFORCE_STRICT) return query.eq('workspace_id', workspaceId);
-  if (includeNullForAll) {
-    return query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
-  }
-  const ids = (ownerIds || []).map((id) => String(id)).filter(Boolean);
-  if (!ids.length) return query.eq('workspace_id', workspaceId);
-  return query.or(`workspace_id.eq.${workspaceId},and(workspace_id.is.null,owner_id.in.(${ids.join(',')}))`);
-};
-
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined;
@@ -64,7 +53,11 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
     const workspaceId = (req as any).workspaceId as string | undefined;
-    base = applySharedWorkspaceScope(base, workspaceId, ownerIds, isSuper && forceAll);
+    if (workspaceId && WORKSPACES_ENFORCE_STRICT) {
+      base = base.eq('workspace_id', workspaceId);
+    } else if (workspaceId) {
+      base = base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+    }
     if (isSuper) {
       if (!forceAll) base = base.in('owner_id', ownerIds);
     } else {

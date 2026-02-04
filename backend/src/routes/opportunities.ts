@@ -42,17 +42,6 @@ const scopedNoOwner = (req: Request, table: string) => {
   };
 };
 
-const applySharedWorkspaceScope = (query: any, workspaceId: string | null | undefined, ownerIds: string[], includeNullForAll = false) => {
-  if (!workspaceId || !query) return query;
-  if (WORKSPACES_ENFORCE_STRICT) return query.eq('workspace_id', workspaceId);
-  if (includeNullForAll) {
-    return query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
-  }
-  const ids = (ownerIds || []).map((id) => String(id)).filter(Boolean);
-  if (!ids.length) return query.eq('workspace_id', workspaceId);
-  return query.or(`workspace_id.eq.${workspaceId},and(workspace_id.is.null,owner_id.in.(${ids.join(',')}))`);
-};
-
 async function getRoleTeam(userId: string): Promise<{ role: string; team_id: string | null }> {
   const { data } = await supabase.from('users').select('role, team_id').eq('id', userId).maybeSingle();
   return { role: String((data as any)?.role || ''), team_id: (data as any)?.team_id || null };
@@ -76,14 +65,11 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const teamCtx = await getDealsSharingContext(userId);
 
-    let base = supabase
-      .from('opportunities')
+    let base = scopedNoOwner(req, 'opportunities')
       .select('id,title,value,billing_type,stage,status,owner_id,client_id,created_at,tag,forecast_date,start_date,term_months,margin,margin_type');
 
     const visible = teamCtx.visibleOwnerIds || [userId];
     const visibleOwnerIds = visible.length ? visible : [userId];
-    const workspaceId = (req as any).workspaceId as string | undefined;
-    base = applySharedWorkspaceScope(base, workspaceId, visibleOwnerIds, isSuper && forceAll);
     if (isSuper) {
       // SECURITY: super admins should not see other users' deals by default
       if (!forceAll) base = base.in('owner_id', visibleOwnerIds);
