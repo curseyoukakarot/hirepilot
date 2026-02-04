@@ -281,8 +281,13 @@ async function resolveTeamForDeals(userId: string): Promise<{ teamId: string | n
   let teamAdminId: string | null = null;
   let source: DealsSharingContext['resolutionSource'] = teamId ? 'users.team_id' : 'none';
 
+  if (roleInTeam === 'admin') {
+    teamAdminId = userId;
+  }
+
+  let teamMemberIdsFromTeam: string[] = [];
   if (teamId) {
-    memberIds = await fetchTeamMemberIds(teamId);
+    teamMemberIdsFromTeam = await fetchTeamMemberIds(teamId);
     try {
       const { data } = await supabaseDb
         .from('users')
@@ -291,47 +296,57 @@ async function resolveTeamForDeals(userId: string): Promise<{ teamId: string | n
         .in('role', ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'] as any)
         .limit(1)
         .maybeSingle();
-      teamAdminId = (data as any)?.id ? String((data as any).id) : null;
-    } catch {}
-  }
-
-  if (!teamId || memberIds.length === 0) {
-    try {
-      const { data: creditRow, error: creditError } = await supabaseDb
-        .from('team_credit_sharing')
-        .select('team_admin_id')
-        .eq('team_member_id', userId)
-        .maybeSingle();
-      if (!creditError && (creditRow as any)?.team_admin_id) {
-        teamAdminId = String((creditRow as any).team_admin_id);
-        source = 'credit_sharing';
-        if (!teamId) {
-          try {
-            const { data: adminRow } = await supabaseDb
-              .from('users')
-              .select('team_id')
-              .eq('id', teamAdminId)
-              .maybeSingle();
-            teamId = (adminRow as any)?.team_id ? String((adminRow as any).team_id) : null;
-          } catch {}
-        }
-        const ids = new Set<string>();
-        try {
-          const { data: rows } = await supabaseDb
-            .from('team_credit_sharing')
-            .select('team_member_id')
-            .eq('team_admin_id', teamAdminId);
-          (rows || []).forEach((r: any) => {
-            const id = String(r?.team_member_id || '').trim();
-            if (id) ids.add(id);
-          });
-        } catch {}
-        ids.add(teamAdminId);
-        ids.add(String(userId));
-        memberIds = Array.from(ids);
+      if (!teamAdminId) {
+        teamAdminId = (data as any)?.id ? String((data as any).id) : null;
       }
     } catch {}
   }
+
+  let creditSharingAdminId: string | null = null;
+  try {
+    const { data: creditRow, error: creditError } = await supabaseDb
+      .from('team_credit_sharing')
+      .select('team_admin_id')
+      .eq('team_member_id', userId)
+      .maybeSingle();
+    if (!creditError && (creditRow as any)?.team_admin_id) {
+      creditSharingAdminId = String((creditRow as any).team_admin_id);
+      if (!teamAdminId) teamAdminId = creditSharingAdminId;
+      source = 'credit_sharing';
+    }
+  } catch {}
+
+  if (!teamId && teamAdminId) {
+    try {
+      const { data: adminRow } = await supabaseDb
+        .from('users')
+        .select('team_id')
+        .eq('id', teamAdminId)
+        .maybeSingle();
+      teamId = (adminRow as any)?.team_id ? String((adminRow as any).team_id) : null;
+    } catch {}
+  }
+
+  const creditIds = new Set<string>();
+  if (teamAdminId) {
+    try {
+      const { data: rows } = await supabaseDb
+        .from('team_credit_sharing')
+        .select('team_member_id')
+        .eq('team_admin_id', teamAdminId);
+      (rows || []).forEach((r: any) => {
+        const id = String(r?.team_member_id || '').trim();
+        if (id) creditIds.add(id);
+      });
+    } catch {}
+  }
+
+  const combined = new Set<string>();
+  teamMemberIdsFromTeam.forEach((id) => id && combined.add(String(id)));
+  Array.from(creditIds).forEach((id) => id && combined.add(String(id)));
+  if (teamAdminId) combined.add(String(teamAdminId));
+  combined.add(String(userId));
+  memberIds = Array.from(combined);
 
   return { teamId, teamAdminId, roleInTeam, memberIds, source };
 }
