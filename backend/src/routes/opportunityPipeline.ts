@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
 import { isDealsEntitled } from '../lib/dealsEntitlement';
+import { WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
 
 const router = express.Router();
 
@@ -21,6 +22,17 @@ const defaultWeights: Record<string, number> = {
   'Commit': 90,
   'Close Won': 100,
   'Closed Lost': 0,
+};
+
+const applySharedWorkspaceScope = (query: any, workspaceId: string | null | undefined, ownerIds: string[], includeNullForAll = false) => {
+  if (!workspaceId || !query) return query;
+  if (WORKSPACES_ENFORCE_STRICT) return query.eq('workspace_id', workspaceId);
+  if (includeNullForAll) {
+    return query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  }
+  const ids = (ownerIds || []).map((id) => String(id)).filter(Boolean);
+  if (!ids.length) return query.eq('workspace_id', workspaceId);
+  return query.or(`workspace_id.eq.${workspaceId},and(workspace_id.is.null,owner_id.in.(${ids.join(',')}))`);
 };
 
 router.get('/', requireAuth, async (req: Request, res: Response) => {
@@ -46,14 +58,17 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const isSuper = ['super_admin','superadmin'].includes(String(role || '').toLowerCase());
     const forceAll = String((req.query as any)?.all || 'false').toLowerCase() === 'true';
     const dealsCtx = await getDealsSharingContext(userId);
+    const visible = dealsCtx.visibleOwnerIds || [userId];
+    const ownerIds = visible.length ? visible : [userId];
     let base = supabase
       .from('opportunities')
       .select('id,title,value,stage,client_id,owner_id,created_at,forecast_date');
+    const workspaceId = (req as any).workspaceId as string | undefined;
+    base = applySharedWorkspaceScope(base, workspaceId, ownerIds, isSuper && forceAll);
     if (isSuper) {
-      if (!forceAll) base = base.eq('owner_id', userId);
+      if (!forceAll) base = base.in('owner_id', ownerIds);
     } else {
-      const visible = dealsCtx.visibleOwnerIds || [userId];
-      base = base.in('owner_id', visible.length ? visible : [userId]);
+      base = base.in('owner_id', ownerIds);
     }
     const { data: opps } = await base;
 
@@ -99,8 +114,9 @@ router.patch('/reorder', requireAuth, async (req: Request, res: Response) => {
     const { data: opp } = await supabase.from('opportunities').select('id,owner_id').eq('id', opportunity_id).maybeSingle();
     if (!opp) { res.status(404).json({ error: 'not_found' }); return; }
     const dealsCtx = await getDealsSharingContext(userId);
-    const roleLc = String(dealsCtx.role || '').toLowerCase();
-    const isTeamAdmin = roleLc === 'team_admin';
+    const { role } = await getRoleTeam(userId);
+    const roleLc = String(role || '').toLowerCase();
+    const isTeamAdmin = roleLc === 'team_admin' || roleLc === 'team_admins' || roleLc === 'admin';
     const isOwner = String((opp as any).owner_id || '') === userId;
     if (!isOwner) {
       if (!isTeamAdmin || !dealsCtx.teamId) { res.status(403).json({ error: 'access_denied' }); return; }
