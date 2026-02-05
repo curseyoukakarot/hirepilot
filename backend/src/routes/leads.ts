@@ -2038,6 +2038,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+    console.log('=== /api/leads request ===');
+    console.log('Headers x-workspace-id:', req.headers['x-workspace-id']);
+    console.log('Authenticated userId:', userId);
+    console.log('Resolved workspaceId:', (req as any).workspaceId || 'none');
 
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
@@ -2133,6 +2137,21 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     }
 
     const { data: leads, error } = await query.order('created_at', { ascending: false });
+
+    const knownSniperIds = [
+      'fa01e76f-3339-45c5-83c8-0152f5e4f4e1',
+      'a66bd63a-a6a9-48c0-b826-1323421ffcb5',
+      'f179a0b8-ec05-48e3-9346-3b7de949add5',
+      '57b607d0-1edb-4e02-9834-9048b26c284b'
+    ];
+    const leadList = Array.isArray(leads) ? leads : [];
+    console.log('Leads returned:', {
+      totalCount: leadList.length,
+      sniperCount: leadList.filter((l: any) => l?.source === 'Sniper').length,
+      includesKnownSnipers: knownSniperIds.map((id) => leadList.some((l: any) => l?.id === id)),
+      sampleUserIds: Array.from(new Set(leadList.map((l: any) => l?.user_id))).filter(Boolean).slice(0, 10)
+    });
+    console.log('=== end /api/leads ===');
 
     if (error) {
       res.status(500).json({ error: error.message });
