@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost } from '../lib/api';
 import { toast } from 'react-hot-toast';
+import { useCampaignOptions } from '../hooks/useCampaignOptions';
 
 export default function SniperActivity() {
   const [jobs, setJobs] = useState([]);
@@ -12,6 +13,8 @@ export default function SniperActivity() {
   const [connectNote, setConnectNote] = useState('');
   const [messageText, setMessageText] = useState('');
   const [importingLeads, setImportingLeads] = useState(false);
+  const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
   async function loadJobs() {
     setLoadingJobs(true);
@@ -48,6 +51,13 @@ export default function SniperActivity() {
     if (!selectedJobId) return;
     loadItems(selectedJobId);
   }, [selectedJobId]);
+
+  useEffect(() => {
+    if (selectedCampaignId || campaignsLoading) return;
+    if (campaignOptions.length > 0) {
+      setSelectedCampaignId(campaignOptions[0].id);
+    }
+  }, [campaignOptions, campaignsLoading, selectedCampaignId]);
 
   const extractItems = useMemo(() => items.filter((i) => i.action_type === 'extract'), [items]);
   const connectItems = useMemo(() => items.filter((i) => i.action_type === 'connect'), [items]);
@@ -103,7 +113,8 @@ export default function SniperActivity() {
     setImportingLeads(true);
     try {
       const resp = await apiPost('/api/sniper/actions/import_to_leads', {
-        profile_urls: selectedList
+        profile_urls: selectedList,
+        campaign_id: selectedCampaignId || null
       });
       const inserted = Number(resp?.inserted || 0);
       const updated = Number(resp?.updated || 0);
@@ -241,12 +252,33 @@ export default function SniperActivity() {
                     <div className="space-y-2">
                       <div className="text-sm font-medium">Add to Leads (enrich later)</div>
                       <div className="text-xs text-gray-500 dark:text-slate-400">
-                        Saves selected profiles to your lead list for further enrichment.
+                        Saves selected profiles to your lead list and attaches a campaign.
                       </div>
+                      <select
+                        className="w-full border rounded p-2 text-sm bg-white dark:bg-slate-950/60 border-gray-200 dark:border-slate-800 text-slate-900 dark:text-slate-100"
+                        value={selectedCampaignId}
+                        onChange={(e) => setSelectedCampaignId(e.target.value)}
+                        disabled={campaignsLoading || campaignOptions.length === 0}
+                      >
+                        {campaignOptions.length === 0 ? (
+                          <option value="">
+                            {campaignsLoading ? 'Loading campaigns…' : 'No campaigns available'}
+                          </option>
+                        ) : (
+                          campaignOptions.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      {campaignsError && (
+                        <div className="text-xs text-red-500">{campaignsError}</div>
+                      )}
                       <button
                         className="px-3 py-2 rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={importToLeads}
-                        disabled={selectedList.length === 0 || importingLeads}
+                        disabled={selectedList.length === 0 || importingLeads || campaignOptions.length === 0}
                       >
                         {importingLeads ? 'Adding…' : 'Add to Leads'}
                       </button>

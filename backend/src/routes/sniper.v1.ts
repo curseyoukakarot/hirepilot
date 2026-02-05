@@ -479,7 +479,8 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
 
     // Allowed even when Cloud Engine is OFF (DB-only).
     const schema = z.object({
-      profile_urls: z.array(z.string().url()).min(1).max(2000)
+      profile_urls: z.array(z.string().url()).min(1).max(2000),
+      campaign_id: z.string().uuid().optional().nullable()
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
@@ -487,6 +488,7 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
     // Normalize + dedupe
     const urls = Array.from(new Set(parsed.data.profile_urls.map((u) => String(u).trim()).filter(Boolean)));
     if (!urls.length) return res.status(400).json({ error: 'no_profile_urls' });
+    const campaignId = parsed.data.campaign_id ? String(parsed.data.campaign_id) : null;
 
     // Pull best-effort name/headline from latest extract results in this workspace.
     const { data: extracts, error: exErr } = await sniperSupabaseDb
@@ -507,7 +509,7 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
     // Fetch existing leads in this workspace scope.
     const { data: existing, error: existErr } = await sniperSupabaseDb
       .from('leads')
-      .select('id, linkedin_url, name, title, user_id, workspace_id')
+      .select('id, linkedin_url, name, title, user_id, workspace_id, campaign_id')
       .eq('workspace_id', workspaceId)
       .in('linkedin_url', urls);
     if (existErr) throw existErr;
@@ -526,6 +528,7 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
         const patch: any = {};
         if (name) patch.name = name;
         if (headline) patch.title = headline;
+        if (campaignId && !found.campaign_id) patch.campaign_id = campaignId;
         if (Object.keys(patch).length) updates.push({ id: String(found.id), patch });
         continue;
       }
@@ -536,6 +539,7 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
         linkedin_url: url,
         name: name || url,
         title: headline || null,
+        campaign_id: campaignId,
         source: 'Sniper',
         enrichment_source: 'linkedin',
         enrichment_data: { source: 'sniper', name: name || null, headline: headline || null },
