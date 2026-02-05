@@ -476,7 +476,6 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
-    const teamId = (req as any).teamId ? String((req as any).teamId) : null;
 
     // Allowed even when Cloud Engine is OFF (DB-only).
     const schema = z.object({
@@ -505,10 +504,12 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
       extractByUrl.set(u, (row as any).result_json || null);
     }
 
-    // Fetch existing leads in this workspace scope (team workspace uses account_id, solo uses user_id).
-    let q = sniperSupabaseDb.from('leads').select('id, linkedin_url, name, title, user_id, account_id').in('linkedin_url', urls);
-    q = teamId ? q.eq('account_id', teamId) : q.eq('user_id', userId);
-    const { data: existing, error: existErr } = await q;
+    // Fetch existing leads in this workspace scope.
+    const { data: existing, error: existErr } = await sniperSupabaseDb
+      .from('leads')
+      .select('id, linkedin_url, name, title, user_id, workspace_id')
+      .eq('workspace_id', workspaceId)
+      .in('linkedin_url', urls);
     if (existErr) throw existErr;
     const existingByUrl = new Map<string, any>((existing || []).map((r: any) => [String(r.linkedin_url), r]));
 
@@ -531,7 +532,7 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
 
       inserts.push({
         user_id: userId,
-        account_id: teamId,
+        workspace_id: workspaceId,
         linkedin_url: url,
         name: name || url,
         title: headline || null,
