@@ -214,29 +214,26 @@ export default function Leads() {
       const userId = session.user?.id;
       if (!userId) return;
 
-      let workspaceId = userId;
-      try {
-        const { data: me } = await supabase
-          .from('users')
-          .select('team_id')
-          .eq('id', userId)
-          .maybeSingle();
-        if (me?.team_id) workspaceId = me.team_id;
-      } catch {}
+      const base = import.meta.env.VITE_BACKEND_URL || '';
+      const params = new URLSearchParams();
+      if (campaignId && campaignId !== 'all') params.set('campaignId', campaignId);
+      const url = `${base}/api/leads${params.toString() ? `?${params.toString()}` : ''}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => res.statusText);
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+      const leadsData = await res.json();
 
       const BATCH_SIZE = 1000; // Supabase default max per request
       const MAX_TOTAL = 10000; // Safety ceiling
-
-      const makeLeadsQuery = () => {
-        let q = supabase
-          .from('leads')
-          .select('*')
-          .or(`user_id.eq.${userId},and(workspace_id.eq.${workspaceId},user_id.eq.${workspaceId})`)
-          .order('created_at', { ascending: false });
-        if (campaignId && campaignId !== 'all') q = q.eq('campaign_id', campaignId);
-        return q;
-      };
-
       const fetchAll = async (makeQueryFn) => {
         const all = [];
         for (let from = 0; from < MAX_TOTAL; from += BATCH_SIZE) {
@@ -250,13 +247,11 @@ export default function Leads() {
         return all;
       };
 
-      const leadsData = await fetchAll(makeLeadsQuery);
-
       // Fetch LinkedIn outreach statuses for this user (batched as well)
       const makeLinkedInQuery = () => supabase
         .from('linkedin_outreach_queue')
         .select('linkedin_url, status, scheduled_at, sent_at, created_at')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       const linkedinData = await fetchAll(makeLinkedInQuery);
