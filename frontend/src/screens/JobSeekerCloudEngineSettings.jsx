@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 function resolveApiBase() {
-  const env = String((import.meta as any)?.env?.VITE_BACKEND_URL || '').trim();
+  const env = String(import.meta?.env?.VITE_BACKEND_URL || '').trim();
   if (env) return env.replace(/\/$/, '');
   if (typeof window !== 'undefined' && window.location.host.endsWith('thehirepilot.com')) return 'https://api.thehirepilot.com';
   return 'http://localhost:8080';
