@@ -2320,26 +2320,31 @@ export async function linkedin_connect({
       throw new Error(`Invalid LinkedIn URL format: ${invalidUrls.join(', ')}`);
     }
 
-    // Check user's daily limit
+    // Check user's daily limit only for requests scheduled today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const { count: dailyCount, error: countError } = await supabaseDb
-      .from('linkedin_outreach_queue')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('status', 'sent')
-      .gte('sent_at', today.toISOString());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const scheduledDate = scheduled_at ? new Date(scheduled_at) : new Date();
+    const isScheduledToday = scheduledDate >= today && scheduledDate < tomorrow;
 
-    if (countError) {
-      throw new Error(`Failed to check daily limit: ${countError.message}`);
-    }
+    if (isScheduledToday) {
+      const { count: dailyCount, error: countError } = await supabaseDb
+        .from('linkedin_outreach_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'sent')
+        .gte('sent_at', today.toISOString());
 
-    const DAILY_LIMIT = 20;
-    const remainingRequests = DAILY_LIMIT - (dailyCount || 0);
-    
-    if (linkedin_urls.length > remainingRequests) {
-      throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${remainingRequests} more requests today.`);
+      if (countError) {
+        throw new Error(`Failed to check daily limit: ${countError.message}`);
+      }
+
+      const DAILY_LIMIT = 20;
+      const remainingRequests = DAILY_LIMIT - (dailyCount || 0);
+      if (linkedin_urls.length > remainingRequests) {
+        throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${remainingRequests} more requests today.`);
+      }
     }
 
     // Calculate total credits needed

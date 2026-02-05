@@ -86,6 +86,10 @@ export default function Leads() {
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showLinkedInScheduleModal, setShowLinkedInScheduleModal] = useState(false);
+  const [linkedinScheduleInfo, setLinkedinScheduleInfo] = useState({ total: 0, limit: 20, remaining: 20 });
+  const [linkedinPendingUrls, setLinkedinPendingUrls] = useState([]);
+  const [isQueuingLinkedIn, setIsQueuingLinkedIn] = useState(false);
 
   // Campaign filtering state
   const [selectedCampaignId, setSelectedCampaignId] = useState('all');
@@ -414,6 +418,149 @@ export default function Leads() {
     setShowExportModal(false);
   };
 
+  const fetchLinkedinDailyCount = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Authentication required');
+    const base = import.meta.env.VITE_BACKEND_URL || '';
+    const url = `${base}/api/linkedin/daily-count`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => res.statusText);
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    return res.json();
+  };
+
+  const queueLinkedinRequests = async (urls, scheduledAt) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Authentication required');
+    const base = import.meta.env.VITE_BACKEND_URL || '';
+    const url = `${base}/api/rex/tools/linkedin_connect`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        linkedin_urls: urls,
+        scheduled_at: scheduledAt || undefined
+      })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(body?.error || body?.details || `HTTP ${res.status}`);
+    }
+    if (body?.success === false) {
+      throw new Error(body?.error || 'Failed to queue LinkedIn requests');
+    }
+    return body;
+  };
+
+  const scheduleLinkedinRequests = async ({ urls, limit, remaining }) => {
+    const batches = [];
+    const now = new Date();
+    const todayCapacity = Math.max(0, Number(remaining || 0));
+    const dailyCap = Math.max(1, Number(limit || 1));
+
+    let idx = 0;
+    if (todayCapacity > 0) {
+      const take = Math.min(todayCapacity, urls.length);
+      if (take > 0) {
+        batches.push({ urls: urls.slice(0, take), scheduledAt: now.toISOString() });
+        idx = take;
+      }
+    }
+
+    let dayOffset = todayCapacity > 0 ? 1 : 1;
+    while (idx < urls.length) {
+      const take = Math.min(dailyCap, urls.length - idx);
+      const d = new Date();
+      d.setHours(9, 0, 0, 0);
+      d.setDate(d.getDate() + dayOffset);
+      batches.push({ urls: urls.slice(idx, idx + take), scheduledAt: d.toISOString() });
+      idx += take;
+      dayOffset += 1;
+    }
+
+    for (const batch of batches) {
+      await queueLinkedinRequests(batch.urls, batch.scheduledAt);
+    }
+    return { batches: batches.length };
+  };
+
+  const handleBulkLinkedInRequest = async () => {
+    if (selectedLeads.length === 0) {
+      toast.error('Please select at least one lead');
+      return;
+    }
+
+    const selectedData = leads.filter(lead => selectedLeads.includes(lead.id));
+    const urls = selectedData
+      .map(lead => lead.linkedin_url)
+      .filter(u => typeof u === 'string' && u.includes('linkedin.com/'));
+
+    const skipped = selectedData.length - urls.length;
+    if (urls.length === 0) {
+      toast.error('No valid LinkedIn URLs found in selection');
+      return;
+    }
+
+    try {
+      setIsQueuingLinkedIn(true);
+      const counts = await fetchLinkedinDailyCount();
+      const limit = Number(counts?.limit || 20);
+      const remaining = Number(counts?.remaining || 0);
+
+      if (urls.length > remaining) {
+        setLinkedinPendingUrls(urls);
+        setLinkedinScheduleInfo({ total: urls.length, limit, remaining });
+        setShowLinkedInScheduleModal(true);
+        return;
+      }
+
+      await queueLinkedinRequests(urls);
+      toast.success(`Queued ${urls.length} LinkedIn request(s)${skipped ? ` (${skipped} skipped)` : ''}`);
+    } catch (e) {
+      toast.error(e?.message || 'Failed to queue LinkedIn requests');
+    } finally {
+      setIsQueuingLinkedIn(false);
+    }
+  };
+
+  const handleScheduleLinkedIn = async () => {
+    if (!linkedinPendingUrls.length) return;
+    const { limit, remaining } = linkedinScheduleInfo || {};
+    try {
+      setIsQueuingLinkedIn(true);
+      await scheduleLinkedinRequests({
+        urls: linkedinPendingUrls,
+        limit,
+        remaining
+      });
+      const dailyLimit = Math.max(1, Number(limit || 1));
+      const remainingToday = Math.max(0, Number(remaining || 0));
+      const todayBatch = remainingToday > 0 ? Math.min(remainingToday, linkedinPendingUrls.length) : 0;
+      const leftover = Math.max(0, linkedinPendingUrls.length - todayBatch);
+      const days = (todayBatch > 0 ? 1 : 0) + Math.ceil(leftover / dailyLimit);
+      toast.success(`Scheduled ${linkedinPendingUrls.length} requests over ~${days} day(s).`);
+      setShowLinkedInScheduleModal(false);
+      setLinkedinPendingUrls([]);
+    } catch (e) {
+      toast.error(e?.message || 'Failed to schedule LinkedIn requests');
+    } finally {
+      setIsQueuingLinkedIn(false);
+    }
+  };
+
   // Bulk tag handler
   const handleBulkTag = async () => {
     const tagToAdd = bulkTagInput.trim();
@@ -652,6 +799,13 @@ export default function Leads() {
                 {selectedLeads.length} leads selected
               </div>
               <button className="px-3 py-1 rounded bg-gray-100 text-gray-700 text-sm hover:bg-gray-200">Message</button>
+              <button
+                className={`px-3 py-1 rounded bg-blue-100 text-blue-700 text-sm hover:bg-blue-200 ${isQueuingLinkedIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={handleBulkLinkedInRequest}
+                disabled={isQueuingLinkedIn}
+              >
+                {isQueuingLinkedIn ? 'Queuing…' : 'LinkedIn Request'}
+              </button>
               <button 
                 className={`px-3 py-1 rounded bg-gray-100 text-gray-700 text-sm hover:bg-gray-200 ${selectedLeads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={selectedLeads.length > 0 ? () => setShowBulkTagModal(true) : undefined}
@@ -886,6 +1040,52 @@ export default function Leads() {
                 disabled={isBulkTagging || !bulkTagInput.trim()}
               >
                 {isBulkTagging ? 'Adding Tag...' : 'Add Tag'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LinkedIn Schedule Modal */}
+      {showLinkedInScheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Over daily LinkedIn limit</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setShowLinkedInScheduleModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">
+              You selected {linkedinScheduleInfo.total} leads, but your daily limit is {linkedinScheduleInfo.limit}.
+              We can schedule these to run daily so your LinkedIn stays safe.
+            </p>
+            <div className="mb-4 text-sm text-gray-500">
+              {(() => {
+                const dailyLimit = Math.max(1, Number(linkedinScheduleInfo.limit || 1));
+                const remainingToday = Math.max(0, Number(linkedinScheduleInfo.remaining || 0));
+                const todayBatch = remainingToday > 0 ? Math.min(remainingToday, linkedinScheduleInfo.total) : 0;
+                const leftover = Math.max(0, linkedinScheduleInfo.total - todayBatch);
+                const days = (todayBatch > 0 ? 1 : 0) + Math.ceil(leftover / dailyLimit);
+                return `Remaining today: ${remainingToday}. Estimated days: ${days}.`;
+              })()}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                onClick={() => setShowLinkedInScheduleModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                onClick={handleScheduleLinkedIn}
+                disabled={isQueuingLinkedIn}
+              >
+                {isQueuingLinkedIn ? 'Scheduling…' : 'Schedule Daily'}
               </button>
             </div>
           </div>
