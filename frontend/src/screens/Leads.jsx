@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import CsvImportButton from '../components/leads/CsvImportButton';
 import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/api';
 import { Toaster, toast } from 'react-hot-toast';
 import { FaPlus, FaSearch, FaFilter, FaDownload } from 'react-icons/fa';
 import { downloadCSV } from '../utils/csvExport';
@@ -214,23 +215,10 @@ export default function Leads() {
       const userId = session.user?.id;
       if (!userId) return;
 
-      const base = import.meta.env.VITE_BACKEND_URL || '';
       const params = new URLSearchParams();
       if (campaignId && campaignId !== 'all') params.set('campaignId', campaignId);
-      const url = `${base}/api/leads${params.toString() ? `?${params.toString()}` : ''}`;
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        credentials: 'include'
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => res.statusText);
-        throw new Error(msg || `HTTP ${res.status}`);
-      }
-      const leadsData = await res.json();
+      const endpoint = `/api/leads${params.toString() ? `?${params.toString()}` : ''}`;
+      const leadsData = await apiGet(endpoint);
 
       const BATCH_SIZE = 1000; // Supabase default max per request
       const MAX_TOTAL = 10000; // Safety ceiling
