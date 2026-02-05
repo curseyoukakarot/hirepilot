@@ -146,7 +146,7 @@ export default function JobSeekerCloudEngineSettings() {
         </div>
         <div className="border rounded-lg p-4">
           <div className="text-xs font-semibold text-gray-500">Provider</div>
-          <div className="mt-1 text-sm font-semibold text-gray-900">Airtop Cloud Engine</div>
+          <div className="mt-1 text-sm font-semibold text-gray-900">HirePilot Cloud Engine</div>
           <div className="mt-1 text-xs text-gray-500">Cloud execution only for Job Seeker Agent.</div>
         </div>
       </div>
