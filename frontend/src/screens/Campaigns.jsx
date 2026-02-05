@@ -20,6 +20,7 @@ function Campaigns() {
   const [showPersonaModal, setShowPersonaModal] = useState(false);
   const [personaText, setPersonaText] = useState('');
   const [personaCampaign, setPersonaCampaign] = useState(null);
+  const isJobSeekerHost = typeof window !== 'undefined' && window.location.hostname.startsWith('jobs.');
 
   // Paid role-gated visibility for Persona quick start
   const paidRoles = ['members','admin','recruitpro','team_admin','super_admin'];
@@ -188,6 +189,15 @@ function Campaigns() {
           <p className="text-gray-500 dark:text-gray-400 mb-4 md:mb-0">Manage, launch, and track your recruiting campaigns in one place.</p>
         </div>
         <div className="flex items-center gap-3">
+          {isJobSeekerHost && (
+            <button
+              onClick={() => navigate('/campaigns/job-seeker-agent')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
+              title="Launch Job Seeker Agent"
+            >
+              <FaRocket className="mr-2" /> Job Seeker Agent
+            </button>
+          )}
           <button
             onClick={handleTryRex}
             className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg text-lg flex items-center shadow transition-all duration-150"
