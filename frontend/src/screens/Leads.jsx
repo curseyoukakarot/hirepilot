@@ -134,7 +134,10 @@ export default function Leads() {
     }
     const first = lead.first_name || enrichment?.first_name || '';
     const last = lead.last_name || enrichment?.last_name || '';
-    return `${first} ${last}`.trim();
+    const full = `${first} ${last}`.trim();
+    if (full) return full;
+    // Fall back to legacy/name-only fields
+    return (lead.name || enrichment?.name || lead.linkedin_url || '').trim();
   };
 
   const valueForSort = (lead, field) => {
@@ -208,6 +211,18 @@ export default function Leads() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+      const userId = session.user?.id;
+      if (!userId) return;
+
+      let workspaceId = userId;
+      try {
+        const { data: me } = await supabase
+          .from('users')
+          .select('team_id')
+          .eq('id', userId)
+          .maybeSingle();
+        if (me?.team_id) workspaceId = me.team_id;
+      } catch {}
 
       const BATCH_SIZE = 1000; // Supabase default max per request
       const MAX_TOTAL = 10000; // Safety ceiling
@@ -216,7 +231,7 @@ export default function Leads() {
         let q = supabase
           .from('leads')
           .select('*')
-          .eq('user_id', session.user.id)
+          .or(`user_id.eq.${userId},and(workspace_id.eq.${workspaceId},user_id.eq.${workspaceId})`)
           .order('created_at', { ascending: false });
         if (campaignId && campaignId !== 'all') q = q.eq('campaign_id', campaignId);
         return q;
