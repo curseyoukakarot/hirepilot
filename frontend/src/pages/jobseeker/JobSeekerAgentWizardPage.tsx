@@ -26,7 +26,7 @@ type JobSeekerTarget = {
 };
 
 function resolveApiBase() {
-  const env = String((import.meta as any)?.env?.VITE_BACKEND_URL || '').trim();
+  const env = String(import.meta?.env?.VITE_BACKEND_URL || '').trim();
   if (env) return env.replace(/\/$/, '');
   if (typeof window !== 'undefined' && window.location.host.endsWith('thehirepilot.com')) return 'https://api.thehirepilot.com';
   return 'http://localhost:8080';
@@ -48,11 +48,9 @@ export default function JobSeekerAgentWizardPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [agentModeEnabled, setAgentModeEnabled] = useState<boolean | null>(null);
 
-  const isPaid = useMemo(() => {
-    const role = String(userRole || '').toLowerCase();
-    if (!role) return true;
-    return role !== 'job_seeker_free';
-  }, [userRole]);
+  const roleLower = useMemo(() => String(userRole || '').toLowerCase(), [userRole]);
+  const isEligibleRole = useMemo(() => ['job_seeker_pro', 'job_seeker_elite'].includes(roleLower), [roleLower]);
+  const isFree = roleLower === 'job_seeker_free';
 
   const tabButtonClass = (isActive: boolean) =>
     isActive
@@ -148,12 +146,12 @@ export default function JobSeekerAgentWizardPage() {
   }, [activeTab, selectedRunId, loadTargets]);
 
   const handleLaunch = async () => {
-    if (agentModeEnabled === false) {
-      window.alert('Agent Mode must be enabled before launching Job Seeker Agent.');
+    if (!isEligibleRole) {
+      window.alert('Upgrade to Job Seeker Pro or Elite to use Job Seeker Agent.');
       return;
     }
-    if (!isPaid) {
-      window.alert('Upgrade required to launch Job Seeker Agent.');
+    if (agentModeEnabled === false) {
+      window.alert('Agent Mode must be enabled before launching Job Seeker Agent.');
       return;
     }
     setWorking(true);
@@ -191,7 +189,28 @@ export default function JobSeekerAgentWizardPage() {
         * { font-family: 'Inter', sans-serif; }
       `}</style>
 
-      {agentModeEnabled === false && (
+      {!isEligibleRole && roleLower && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="text-lg font-bold text-gray-900">Upgrade Required</div>
+            <div className="mt-2 text-sm text-gray-600">
+              {isFree
+                ? 'You must upgrade to Job Seeker Pro or Elite to use Job Seeker Agent.'
+                : 'Your plan does not include Job Seeker Agent. Upgrade to Pro or Elite to continue.'}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => navigate('/pricing')}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              >
+                Agent Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEligibleRole && agentModeEnabled === false && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <div className="text-lg font-bold text-gray-900">Agent Mode Required</div>
