@@ -2375,7 +2375,6 @@ export async function linkedin_connect({
     }
 
     // Prepare queue items
-    const scheduledDate = scheduled_at ? new Date(scheduled_at) : new Date();
     const queueItems = linkedin_urls.map(url => ({
       user_id: userId,
       linkedin_url: url,
