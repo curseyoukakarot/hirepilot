@@ -232,6 +232,51 @@ export default function PrepPage() {
               <span>Browse Themes (Elite)</span>
             </Link>
           </div>
+
+          {/* Job Seeker Agent Card */}
+          <div
+            id="job-seeker-agent-card"
+            className="relative overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-500/20">
+                  <FaRocket className="text-indigo-400 text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Job Seeker Agent</h3>
+                  <p className="text-sm text-slate-400">Automated hiring manager discovery</p>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-2 py-1 text-xs font-medium text-indigo-300">
+                <FaWandMagicSparkles />
+                <span>New</span>
+              </div>
+            </div>
+
+            <p className="text-slate-300 mb-4">
+              Paste a LinkedIn job search URL, let AI extract job signals, and surface the best hiring managers to contact.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="text-center p-2 rounded bg-slate-800/30">
+                <div className="text-xs font-medium text-white">Targets</div>
+                <div className="text-xs text-slate-400">Hiring managers</div>
+              </div>
+              <div className="text-center p-2 rounded bg-slate-800/30">
+                <div className="text-xs font-medium text-white">Automation</div>
+                <div className="text-xs text-slate-400">Runs in background</div>
+              </div>
+            </div>
+
+            <Link
+              to="/campaigns/job-seeker-agent"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-3 text-sm font-medium text-white hover:bg-indigo-600 transition"
+            >
+              <FaRocket />
+              <span>Open Job Seeker Agent</span>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
