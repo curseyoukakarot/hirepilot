@@ -46,6 +46,7 @@ export default function JobSeekerAgentWizardPage() {
   const [targets, setTargets] = useState<JobSeekerTarget[]>([]);
   const [selectedTargets, setSelectedTargets] = useState<Record<string, boolean>>({});
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [agentModeEnabled, setAgentModeEnabled] = useState<boolean | null>(null);
 
   const isPaid = useMemo(() => {
     const role = String(userRole || '').toLowerCase();
@@ -119,6 +120,17 @@ export default function JobSeekerAgentWizardPage() {
   }, [fetchBootstrapRole]);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiFetch('/api/agent-mode');
+        setAgentModeEnabled(!!data?.agent_mode_enabled);
+      } catch {
+        setAgentModeEnabled(false);
+      }
+    })();
+  }, [apiFetch]);
+
+  useEffect(() => {
     if (activeTab === 'live-activity' || activeTab === 'results') {
       loadRuns().catch(() => {});
       const id = setInterval(() => {
@@ -136,6 +148,10 @@ export default function JobSeekerAgentWizardPage() {
   }, [activeTab, selectedRunId, loadTargets]);
 
   const handleLaunch = async () => {
+    if (agentModeEnabled === false) {
+      window.alert('Agent Mode must be enabled before launching Job Seeker Agent.');
+      return;
+    }
     if (!isPaid) {
       window.alert('Upgrade required to launch Job Seeker Agent.');
       return;
@@ -174,6 +190,25 @@ export default function JobSeekerAgentWizardPage() {
         ::-webkit-scrollbar { display: none;}
         * { font-family: 'Inter', sans-serif; }
       `}</style>
+
+      {agentModeEnabled === false && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="text-lg font-bold text-gray-900">Agent Mode Required</div>
+            <div className="mt-2 text-sm text-gray-600">
+              To use Job Seeker Agent, you must enable Agent Mode in Settings.
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => navigate('/settings/integrations')}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              >
+                Agent Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main id="main-content" className="max-w-7xl mx-auto px-6 py-8">
         <section id="wizard-header" className="mb-8">
@@ -223,6 +258,14 @@ export default function JobSeekerAgentWizardPage() {
                 <i className="fa-solid fa-trophy mr-2"></i>Results
               </button>
             </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => navigate('/settings/cloud-engine')}
+              className="rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+            >
+              Agent Settings
+            </button>
           </div>
         </section>
 
