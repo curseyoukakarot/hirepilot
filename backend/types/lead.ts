@@ -20,4 +20,5 @@ export interface Lead {
   email_source?: 'apollo' | 'skrapp' | null;
   enrichment_keywords?: string[] | null;
   brightdata_raw?: any | null;
+  persona_type?: string | null;
 } 

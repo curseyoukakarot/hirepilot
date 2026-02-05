@@ -185,6 +185,8 @@ import sniperSettingsRouter from './src/routes/sniper.settings';
 import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 import sniperV1Router from './src/routes/sniper.v1';
 import { sniperV1Worker } from './src/workers/sniper.v1.worker';
+import jobseekerAgentRouter from './src/routes/jobseeker.agent';
+import { jobseekerAgentWorker } from './src/workers/jobseeker.agent.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
@@ -634,6 +636,9 @@ app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
 });
   // LinkedIn session routes (encrypted storage)
   registerLinkedInSessionRoutes(app);
+  // Job seeker agent routes
+  app.use('/api/jobseeker', jobseekerAgentRouter);
+  void jobseekerAgentWorker;
   // Sniper v1 routes/workers (feature-flagged)
   if (SNIPER_V1_ENABLED) {
     app.use('/api/sniper', sniperV1Router);

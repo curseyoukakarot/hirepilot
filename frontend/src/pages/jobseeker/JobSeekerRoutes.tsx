@@ -18,6 +18,7 @@ import JobRequisitions from '../../screens/JobRequisitions';
 import JobRequisitionPage from '../../screens/JobRequisitionPage';
 import JobSeekerLogin from './auth/JobSeekerLogin';
 import JobSeekerSignup from './auth/JobSeekerSignup';
+import JobSeekerAgentWizardPage from './JobSeekerAgentWizardPage';
 import LeadManagement from '../../screens/LeadManagement';
 import Campaigns from '../../screens/Campaigns';
 import MessagingCenter from '../../screens/MessagingCenter';
@@ -228,6 +229,14 @@ export default function JobSeekerRoutes() {
                 <JobSeekerAppShell>
                   <JobRequisitions />
                 </JobSeekerAppShell>
+              </JobSeekerProtected>
+            }
+          />
+          <Route
+            path="/campaigns/job-seeker-agent"
+            element={
+              <JobSeekerProtected>
+                <JobSeekerAgentWizardPage />
               </JobSeekerProtected>
             }
           />

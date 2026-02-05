@@ -8,6 +8,7 @@ import SettingsNotifications from './SettingsNotifications';
 import SettingsApiKeys from './SettingsApiKeys';
 import SettingsSalesAgent from './SettingsSalesAgent';
 import SettingsCredits from './SettingsCredits';
+import JobSeekerCloudEngineSettings from './JobSeekerCloudEngineSettings';
 import { supabase } from '../lib/supabaseClient';
 import { useAppMode } from '../lib/appMode';
 
@@ -45,6 +46,7 @@ export default function Settings() {
       // Hide Team Settings entirely for job seekers
       if (appMode === 'job_seeker') {
         filtered = filtered.filter(t => t.id !== 'team');
+        filtered.push({ id: 'cloud-engine', label: 'Cloud Engine', path: '/settings/cloud-engine' });
       }
       // Determine if this user is a guest collaborator on any job
       let guestFlag = (typeof window !== 'undefined' && sessionStorage.getItem('guest_mode') === '1');
@@ -132,6 +134,8 @@ export default function Settings() {
         return <SettingsCredits />;
       case 'api':
         return <SettingsApiKeys />;
+      case 'cloud-engine':
+        return <JobSeekerCloudEngineSettings />;
       default:
         return <SettingsProfileInfo />;
     }
