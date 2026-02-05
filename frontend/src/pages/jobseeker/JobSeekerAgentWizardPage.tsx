@@ -175,43 +175,6 @@ export default function JobSeekerAgentWizardPage() {
         * { font-family: 'Inter', sans-serif; }
       `}</style>
 
-      <header id="header" className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-xl">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg">
-                <i className="fa-solid fa-rocket text-white text-lg"></i>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">HirePilot AI</h1>
-                <p className="text-xs text-slate-400">Job Seeker Sniper</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg border border-amber-500/30">
-                <i className="fa-solid fa-crown text-amber-400"></i>
-                <span className="text-sm font-semibold text-amber-300">Premium Active</span>
-              </div>
-              <button
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
-                onClick={() => navigate('/campaigns')}
-              >
-                <i className="fa-solid fa-history mr-2"></i>Campaign History
-              </button>
-              <button
-                className="px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
-                onClick={() => navigate('/settings')}
-              >
-                <i className="fa-solid fa-cog mr-2"></i>Settings
-              </button>
-              <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-indigo-500 shadow-lg shadow-indigo-500/50">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-full h-full object-cover" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main id="main-content" className="max-w-7xl mx-auto px-6 py-8">
         <section id="wizard-header" className="mb-8">
           <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white relative overflow-hidden shadow-2xl">
@@ -781,67 +744,6 @@ Example: I'm looking for a Senior Product Manager role in fintech or SaaS compan
         </div>
       </main>
 
-      <footer id="footer" className="bg-slate-950 text-white mt-16 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/50">
-                  <i className="fa-solid fa-rocket text-white"></i>
-                </div>
-                <span className="font-bold text-lg">HirePilot AI</span>
-              </div>
-              <p className="text-sm text-slate-400 mb-4">Intelligent job hunting powered by AI. Find jobs, connect with hiring managers, and land your dream role faster.</p>
-              <div className="flex items-center space-x-3">
-                <a href="#" className="w-9 h-9 bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center justify-center transition-colors border border-slate-800">
-                  <i className="fa-brands fa-twitter"></i>
-                </a>
-                <a href="#" className="w-9 h-9 bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center justify-center transition-colors border border-slate-800">
-                  <i className="fa-brands fa-linkedin"></i>
-                </a>
-                <a href="#" className="w-9 h-9 bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center justify-center transition-colors border border-slate-800">
-                  <i className="fa-brands fa-github"></i>
-                </a>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Case Studies</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Roadmap</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API Reference</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-slate-900 flex items-center justify-between">
-            <p className="text-sm text-slate-400">© 2024 HirePilot AI. All rights reserved.</p>
-            <div className="flex items-center space-x-6 text-sm text-slate-400">
-              <a href="#" className="hover:text-white transition-colors">Status</a>
-              <a href="#" className="hover:text-white transition-colors">Security</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

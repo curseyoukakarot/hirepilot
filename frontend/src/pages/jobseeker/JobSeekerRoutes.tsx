@@ -236,7 +236,9 @@ export default function JobSeekerRoutes() {
             path="/campaigns/job-seeker-agent"
             element={
               <JobSeekerProtected>
-                <JobSeekerAgentWizardPage />
+                <JobSeekerAppShell>
+                  <JobSeekerAgentWizardPage />
+                </JobSeekerAppShell>
               </JobSeekerProtected>
             }
           />
