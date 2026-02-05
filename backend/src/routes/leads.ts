@@ -2049,6 +2049,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       team_id: teamContext.teamId,
       role: teamContext.role || (req as ApiRequest).user?.role || null
     };
+    const workspaceOwnerId = String(
+      (req as any).workspaceId || userRow.team_id || userId
+    );
 
     let teamSharing = DEFAULT_TEAM_SETTINGS;
     if (userRow.team_id) {
@@ -2085,24 +2088,39 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       const otherTeamMembers = teamUserIds.filter(id => id !== userId);
       if (isAdmin) {
         if (adminViewPool) {
-          const ids = Array.from(new Set([userId, ...teamUserIds]));
+          const ids = Array.from(new Set([userId, ...teamUserIds, workspaceOwnerId]));
           query = query.in('user_id', ids);
+        } else if (workspaceOwnerId && workspaceOwnerId !== userId) {
+          query = query.in('user_id', [userId, workspaceOwnerId]);
         } else {
           query = query.eq('user_id', userId);
         }
       } else if (shareLeadsEnabled) {
-        const ids = Array.from(new Set([userId, ...teamUserIds]));
+        const ids = Array.from(new Set([userId, ...teamUserIds, workspaceOwnerId]));
         query = query.in('user_id', ids);
       } else {
         if (otherTeamMembers.length > 0) {
-          query = query.or(`user_id.eq.${userId},and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+          const orParts = [`user_id.eq.${userId}`];
+          if (workspaceOwnerId && workspaceOwnerId !== userId) {
+            orParts.push(`user_id.eq.${workspaceOwnerId}`);
+          }
+          orParts.push(`and(user_id.in.(${otherTeamMembers.join(',')}),shared.eq.true)`);
+          query = query.or(orParts.join(','));
         } else {
-          query = query.eq('user_id', userId);
+          if (workspaceOwnerId && workspaceOwnerId !== userId) {
+            query = query.in('user_id', [userId, workspaceOwnerId]);
+          } else {
+            query = query.eq('user_id', userId);
+          }
         }
       }
     } else {
       // No team - only see own leads
-      query = query.eq('user_id', userId);
+      if (workspaceOwnerId && workspaceOwnerId !== userId) {
+        query = query.in('user_id', [userId, workspaceOwnerId]);
+      } else {
+        query = query.eq('user_id', userId);
+      }
     }
     
     // Add campaign filter if provided
