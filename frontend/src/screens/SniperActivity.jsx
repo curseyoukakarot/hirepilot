@@ -11,6 +11,7 @@ export default function SniperActivity() {
   const [selectedUrls, setSelectedUrls] = useState(new Set());
   const [connectNote, setConnectNote] = useState('');
   const [messageText, setMessageText] = useState('');
+  const [importingLeads, setImportingLeads] = useState(false);
 
   async function loadJobs() {
     setLoadingJobs(true);
@@ -94,6 +95,23 @@ export default function SniperActivity() {
       }
     } catch (e) {
       toast.error(e.message || 'Failed to queue messages');
+    }
+  }
+
+  async function importToLeads() {
+    if (selectedList.length === 0) return toast.error('Select at least 1 profile');
+    setImportingLeads(true);
+    try {
+      const resp = await apiPost('/api/sniper/actions/import_to_leads', {
+        profile_urls: selectedList
+      });
+      const inserted = Number(resp?.inserted || 0);
+      const updated = Number(resp?.updated || 0);
+      toast.success(`Added to leads: ${inserted} new${updated ? `, ${updated} updated` : ''}`);
+    } catch (e) {
+      toast.error(e.message || 'Failed to add to leads');
+    } finally {
+      setImportingLeads(false);
     }
   }
 
@@ -185,7 +203,7 @@ export default function SniperActivity() {
               {extractItems.length > 0 && (
                 <div className="p-4 border-b border-gray-100 dark:border-slate-800">
                   <div className="font-medium mb-2">Actions on selected ({selectedList.length})</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <div className="text-sm font-medium">Connect request (optional note)</div>
                       <textarea
@@ -218,6 +236,19 @@ export default function SniperActivity() {
                         disabled={selectedList.length === 0 || !messageText.trim()}
                       >
                         Queue Message
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Add to Leads (enrich later)</div>
+                      <div className="text-xs text-gray-500 dark:text-slate-400">
+                        Saves selected profiles to your lead list for further enrichment.
+                      </div>
+                      <button
+                        className="px-3 py-2 rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={importToLeads}
+                        disabled={selectedList.length === 0 || importingLeads}
+                      >
+                        {importingLeads ? 'Adding…' : 'Add to Leads'}
                       </button>
                     </div>
                   </div>
