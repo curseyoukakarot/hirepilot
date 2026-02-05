@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../lib/api";
 import { supabase } from "../lib/supabaseClient";
@@ -643,7 +643,68 @@ function AddLeadsModal({ open, onClose, onConfirm }) {
   );
 }
 
-function SchedulePicker({ title, disabled, timezone, buildToolPayload, apiPost, showToast }) {
+function SchedulePromptModal({ open, title, limit, dailyCap, saving, onClose, onSchedule, onRunOnce }) {
+  if (!open) return null;
+  const safeLimit = Math.max(1, Number(limit || 0));
+  const safeDaily = Math.max(1, Number(dailyCap || 0));
+  const days = Math.max(1, Math.ceil(safeLimit / safeDaily));
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-950/90 shadow-2xl backdrop-blur">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <div className="text-lg font-bold text-slate-100">Schedule recommended</div>
+            <div className="mt-1 text-sm text-slate-400">{title || "Large run detected."}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
+            You selected <span className="font-semibold">{safeLimit}</span> profiles. Your daily cap is{" "}
+            <span className="font-semibold">{safeDaily}</span>. To keep pulls safe, schedule this to run daily.
+          </div>
+          <div className="text-xs text-slate-500">
+            Estimated: about {days} day{days === 1 ? "" : "s"} at {safeDaily} profiles/day. You can pause the schedule once you reach your total.
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-800 px-5 py-4">
+          <button
+            type="button"
+            onClick={onRunOnce}
+            disabled={saving}
+            className={cx(
+              "rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70",
+              saving && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            Run once anyway
+          </button>
+          <button
+            type="button"
+            onClick={onSchedule}
+            disabled={saving}
+            className={cx(
+              "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
+              saving && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            {saving ? "Scheduling..." : "Schedule daily"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePicker({ title, disabled, timezone, buildToolPayload, apiPost, showToast, maxLimit }) {
   const [mode, setMode] = useState("manual"); // manual | run_at | daily | weekly
   const [name, setName] = useState(title ? `Sniper • ${title}` : "Sniper • Mission");
   const [runAtLocal, setRunAtLocal] = useState("");
@@ -674,6 +735,9 @@ function SchedulePicker({ title, disabled, timezone, buildToolPayload, apiPost, 
     if (disabled) return;
     if (mode === "manual") return showToast("Select a schedule type first.", "info");
     const toolPayload = { ...(buildToolPayload ? buildToolPayload() : {}), timezone: tz };
+    if (Number.isFinite(maxLimit) && maxLimit > 0 && Number.isFinite(toolPayload?.limit)) {
+      toolPayload.limit = Math.min(toolPayload.limit, maxLimit);
+    }
     if (!toolPayload?.job_type) return showToast("Missing job type for schedule.", "error");
 
     let schedule_kind = "one_time";
@@ -806,6 +870,12 @@ function SchedulePicker({ title, disabled, timezone, buildToolPayload, apiPost, 
           {saving ? "Saving…" : "Save schedule"}
         </button>
 
+        {Number.isFinite(maxLimit) && maxLimit > 0 ? (
+          <div className="text-xs text-slate-500">
+            Per-run cap: {maxLimit} (from Sniper Settings).
+          </div>
+        ) : null}
+
         <div className="text-xs text-slate-500">
           You can manage schedules in <a className="text-sky-300 hover:underline" href="/agent/advanced/schedules">Agent Schedules</a>.
         </div>
@@ -836,6 +906,14 @@ export default function SniperTargets() {
   const [peopleSearchLimit, setPeopleSearchLimit] = useState(200);
   const [jobsSearchUrl, setJobsSearchUrl] = useState("");
   const [jobsSearchLimit, setJobsSearchLimit] = useState(100);
+  const [schedulePrompt, setSchedulePrompt] = useState({
+    open: false,
+    title: "",
+    limit: 0,
+    dailyCap: 0,
+  });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const schedulePendingRef = useRef({ onRunOnce: null, toolPayload: null, scheduleName: "" });
 
   const showToast = (message, type = "info") => {
     setToast({ show: true, message, type });
@@ -891,6 +969,76 @@ export default function SniperTargets() {
     void refreshAll();
   }, []);
 
+  const dailyCap = Number(sniperSettings?.max_actions_per_day);
+  const effectiveDailyCap = Number.isFinite(dailyCap) && dailyCap > 0 ? dailyCap : null;
+  const scheduleTimezone = String(sniperSettings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  const scheduleStart = String(sniperSettings?.active_hours_start || "09:00");
+
+  const buildDailyCronExpr = (timeStr) => {
+    const parts = String(timeStr || "09:00").split(":");
+    const h = Math.max(0, Math.min(Number(parts[0] || 9), 23));
+    const m = Math.max(0, Math.min(Number(parts[1] || 0), 59));
+    return `${m} ${h} * * *`;
+  };
+
+  const promptScheduleIfNeeded = ({ limit, title, toolPayload, scheduleName, onRunOnce }) => {
+    if (!effectiveDailyCap || Number(limit) <= effectiveDailyCap) {
+      onRunOnce?.();
+      return;
+    }
+    schedulePendingRef.current = {
+      onRunOnce,
+      toolPayload,
+      scheduleName: scheduleName || title || "Sniper • Mission",
+    };
+    setSchedulePrompt({
+      open: true,
+      title: title || "Large run detected.",
+      limit,
+      dailyCap: effectiveDailyCap,
+    });
+  };
+
+  const handleScheduleDaily = async () => {
+    const pending = schedulePendingRef.current || {};
+    const toolPayload = pending.toolPayload || {};
+    if (!toolPayload?.job_type) {
+      showToast("Missing job payload for schedule.", "error");
+      setSchedulePrompt((prev) => ({ ...prev, open: false }));
+      return;
+    }
+    setScheduleSaving(true);
+    try {
+      const perRunLimit = Number.isFinite(effectiveDailyCap) && effectiveDailyCap > 0
+        ? Math.min(Number(toolPayload.limit || effectiveDailyCap), effectiveDailyCap)
+        : toolPayload.limit;
+      await apiPost("/api/schedules", {
+        name: pending.scheduleName || "Sniper • Mission",
+        schedule_kind: "recurring",
+        cron_expr: buildDailyCronExpr(scheduleStart),
+        run_at: null,
+        action_tool: "sniper.run_job",
+        tool_payload: {
+          ...toolPayload,
+          limit: perRunLimit,
+          timezone: scheduleTimezone,
+        },
+      });
+      showToast("Daily schedule created. It will run automatically.", "success");
+      setSchedulePrompt((prev) => ({ ...prev, open: false }));
+    } catch (e) {
+      showToast(e?.message || "Failed to create schedule", "error");
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const handleRunOnceAnyway = () => {
+    const pending = schedulePendingRef.current || {};
+    setSchedulePrompt((prev) => ({ ...prev, open: false }));
+    pending.onRunOnce?.();
+  };
+
   const createAndRun = async () => {
     const url = String(postUrl || "").trim();
     if (!url) return showToast("Paste a LinkedIn post URL.", "info");
@@ -917,7 +1065,8 @@ export default function SniperTargets() {
     try {
       showToast("Run queued…", "info");
       const n = Number(limit);
-      await apiPost(`/api/sniper/targets/${id}/run`, { limit: Number.isFinite(n) && n > 0 ? n : 200 });
+      const safeLimit = Math.max(1, Math.min(Number.isFinite(n) && n > 0 ? n : 200, 1000));
+      await apiPost(`/api/sniper/targets/${id}/run`, { limit: safeLimit });
       await refreshAll();
       showToast("Run queued.", "success");
     } catch (e) {
@@ -1025,49 +1174,72 @@ export default function SniperTargets() {
     if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to run this mission.", "info");
     const url = String(peopleSearchUrl || "").trim();
     if (!url) return showToast("Paste a LinkedIn people search URL.", "info");
-    setWorkingId("people_search");
-    try {
-      const limit = Math.max(1, Math.min(Number(peopleSearchLimit) || 200, 2000));
-      const out = await apiPost("/api/sniper/jobs", {
-        target_id: null,
+    const limit = Math.max(1, Math.min(Number(peopleSearchLimit) || 200, 2000));
+    promptScheduleIfNeeded({
+      limit,
+      title: "People Search run exceeds daily cap.",
+      scheduleName: `Sniper • People Search • Daily (${limit})`,
+      toolPayload: {
         job_type: "people_search",
-        input_json: { search_url: url, limit },
-      });
-      showToast("People Search queued. Track progress in Sniper Activity.", "success");
-      // best-effort: open activity with job id if returned
-      const jobId = out?.job?.id || out?.job_id;
-      if (jobId) {
-        try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
-      }
-    } catch (e) {
-      showToast(e?.message || "Failed to queue People Search", "error");
-    } finally {
-      setWorkingId(null);
-    }
+        search_url: url,
+        limit,
+      },
+      onRunOnce: async () => {
+        setWorkingId("people_search");
+        try {
+          const out = await apiPost("/api/sniper/jobs", {
+            target_id: null,
+            job_type: "people_search",
+            input_json: { search_url: url, limit },
+          });
+          showToast("People Search queued. Track progress in Sniper Activity.", "success");
+          const jobId = out?.job?.id || out?.job_id;
+          if (jobId) {
+            try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
+          }
+        } catch (e) {
+          showToast(e?.message || "Failed to queue People Search", "error");
+        } finally {
+          setWorkingId(null);
+        }
+      },
+    });
   };
 
   const queueJobsIntent = async () => {
     if (!cloudEngineEnabled) return showToast("Enable Cloud Engine in Sniper Settings to run this mission.", "info");
     const url = String(jobsSearchUrl || "").trim();
     if (!url) return showToast("Paste a LinkedIn Jobs search URL.", "info");
-    setWorkingId("jobs_intent");
-    try {
-      const limit = Math.max(1, Math.min(Number(jobsSearchLimit) || 100, 2000));
-      const out = await apiPost("/api/sniper/jobs", {
-        target_id: null,
+    const limit = Math.max(1, Math.min(Number(jobsSearchLimit) || 100, 2000));
+    promptScheduleIfNeeded({
+      limit,
+      title: "Jobs Intent run exceeds daily cap.",
+      scheduleName: `Sniper • Jobs Intent • Daily (${limit})`,
+      toolPayload: {
         job_type: "jobs_intent",
-        input_json: { search_url: url, limit },
-      });
-      showToast("Jobs Intent queued. Track progress in Sniper Activity.", "success");
-      const jobId = out?.job?.id || out?.job_id;
-      if (jobId) {
-        try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
-      }
-    } catch (e) {
-      showToast(e?.message || "Failed to queue Jobs Intent", "error");
-    } finally {
-      setWorkingId(null);
-    }
+        search_url: url,
+        limit,
+      },
+      onRunOnce: async () => {
+        setWorkingId("jobs_intent");
+        try {
+          const out = await apiPost("/api/sniper/jobs", {
+            target_id: null,
+            job_type: "jobs_intent",
+            input_json: { search_url: url, limit },
+          });
+          showToast("Jobs Intent queued. Track progress in Sniper Activity.", "success");
+          const jobId = out?.job?.id || out?.job_id;
+          if (jobId) {
+            try { window.open(`/sniper/activity?job=${encodeURIComponent(String(jobId))}`, "_self"); } catch {}
+          }
+        } catch (e) {
+          showToast(e?.message || "Failed to queue Jobs Intent", "error");
+        } finally {
+          setWorkingId(null);
+        }
+      },
+    });
   };
 
   return (
@@ -1077,6 +1249,16 @@ export default function SniperTargets() {
         open={addLeadsOpen}
         onClose={() => setAddLeadsOpen(false)}
         onConfirm={applyAddedUrls}
+      />
+      <SchedulePromptModal
+        open={schedulePrompt.open}
+        title={schedulePrompt.title}
+        limit={schedulePrompt.limit}
+        dailyCap={schedulePrompt.dailyCap}
+        saving={scheduleSaving}
+        onClose={() => setSchedulePrompt((prev) => ({ ...prev, open: false }))}
+        onSchedule={handleScheduleDaily}
+        onRunOnce={handleRunOnceAnyway}
       />
 
       <div className="flex items-start justify-between gap-4">
@@ -1193,6 +1375,11 @@ export default function SniperTargets() {
                         onChange={(e) => setRunLimit(Number(e.target.value))}
                         className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                       />
+                      {effectiveDailyCap ? (
+                        <div className="mt-2 text-[11px] text-slate-500">
+                          Daily cap from settings: {effectiveDailyCap} profiles.
+                        </div>
+                      ) : null}
                     </label>
                   </div>
                 </div>
@@ -1205,6 +1392,7 @@ export default function SniperTargets() {
                   timezone={sniperSettings?.timezone}
                   apiPost={apiPost}
                   showToast={showToast}
+                  maxLimit={effectiveDailyCap}
                   buildToolPayload={() => ({
                     job_type: "prospect_post_engagers",
                     post_url: selectedTarget?.post_url || String(postUrl || "").trim(),
@@ -1239,7 +1427,17 @@ export default function SniperTargets() {
                       <button
                         type="button"
                         disabled={!selectedTarget || workingId === selectedTarget?.id}
-                        onClick={() => selectedTarget && runNow(selectedTarget.id, runLimit)}
+                        onClick={() => selectedTarget && promptScheduleIfNeeded({
+                          limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                          title: "Post Engagement run exceeds daily cap.",
+                          scheduleName: `Sniper • Post Engagement • Daily (${runLimit})`,
+                          toolPayload: {
+                            job_type: "prospect_post_engagers",
+                            post_url: selectedTarget?.post_url,
+                            limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                          },
+                          onRunOnce: () => runNow(selectedTarget.id, runLimit),
+                        })}
                         className={cx(
                           "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500",
                           (!selectedTarget || workingId === selectedTarget?.id) && "opacity-70 cursor-not-allowed"
@@ -1315,6 +1513,11 @@ export default function SniperTargets() {
                     onChange={(e) => setPeopleSearchLimit(Number(e.target.value))}
                     className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                   />
+                  {effectiveDailyCap ? (
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Daily cap from settings: {effectiveDailyCap} profiles.
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1325,6 +1528,7 @@ export default function SniperTargets() {
                   timezone={sniperSettings?.timezone}
                   apiPost={apiPost}
                   showToast={showToast}
+                  maxLimit={effectiveDailyCap}
                   buildToolPayload={() => ({
                     job_type: "people_search",
                     search_url: String(peopleSearchUrl || "").trim(),
@@ -1397,6 +1601,11 @@ export default function SniperTargets() {
                     onChange={(e) => setJobsSearchLimit(Number(e.target.value))}
                     className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
                   />
+                  {effectiveDailyCap ? (
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Daily cap from settings: {effectiveDailyCap} profiles.
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1407,6 +1616,7 @@ export default function SniperTargets() {
                   timezone={sniperSettings?.timezone}
                   apiPost={apiPost}
                   showToast={showToast}
+                  maxLimit={effectiveDailyCap}
                   buildToolPayload={() => ({
                     job_type: "jobs_intent",
                     search_url: String(jobsSearchUrl || "").trim(),
@@ -1751,7 +1961,17 @@ export default function SniperTargets() {
                           <button
                             type="button"
                             disabled={workingId === t.id}
-                            onClick={() => runNow(t.id, runLimit)}
+                            onClick={() => promptScheduleIfNeeded({
+                              limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                              title: "Post Engagement run exceeds daily cap.",
+                              scheduleName: `Sniper • Post Engagement • Daily (${runLimit})`,
+                              toolPayload: {
+                                job_type: "prospect_post_engagers",
+                                post_url: t.post_url,
+                                limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                              },
+                              onRunOnce: () => runNow(t.id, runLimit),
+                            })}
                             className={cx(
                               "rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-500",
                               workingId === t.id && "opacity-70 cursor-not-allowed"
@@ -1833,7 +2053,17 @@ export default function SniperTargets() {
                           <button
                             type="button"
                             disabled={workingId === t.id}
-                            onClick={() => runNow(t.id, runLimit)}
+                            onClick={() => promptScheduleIfNeeded({
+                              limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                              title: "Post Engagement run exceeds daily cap.",
+                              scheduleName: `Sniper • Post Engagement • Daily (${runLimit})`,
+                              toolPayload: {
+                                job_type: "prospect_post_engagers",
+                                post_url: t.post_url,
+                                limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
+                              },
+                              onRunOnce: () => runNow(t.id, runLimit),
+                            })}
                             className={cx(
                               "rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-500",
                               workingId === t.id && "opacity-70 cursor-not-allowed"
