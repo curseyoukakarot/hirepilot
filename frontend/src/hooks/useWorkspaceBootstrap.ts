@@ -31,6 +31,7 @@ export function useWorkspaceBootstrap(role?: string | null) {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token;
+      const userId = data?.session?.user?.id || null;
       if (!token) return;
 
       const resp = await apiGet('/api/workspaces/mine');
@@ -43,7 +44,10 @@ export function useWorkspaceBootstrap(role?: string | null) {
       } catch {}
 
       const hasStored = stored && list.some((w) => String(w.workspace_id) === String(stored));
-      const nextActive = hasStored ? String(stored) : String(list[0].workspace_id);
+      const personal = userId ? list.find((w) => String(w.workspace_id) === String(userId)) : null;
+      const nextActive = hasStored
+        ? String(stored)
+        : String((personal || list[0]).workspace_id);
       if (!hasStored) {
         try {
           window.localStorage.setItem(WORKSPACE_STORAGE_KEY, nextActive);
