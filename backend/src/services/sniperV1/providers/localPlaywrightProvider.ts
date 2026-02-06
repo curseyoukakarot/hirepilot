@@ -79,11 +79,11 @@ export const localPlaywrightProvider: SniperExecutionProvider = {
     }
   },
 
-  sendConnectionRequest: async ({ userId, workspaceId, profileUrl, note }) => {
+  sendConnectionRequest: async ({ userId, workspaceId, profileUrl, note, debug }) => {
     const { browser, page } = await createLocalLinkedInPage(userId, workspaceId);
     try {
       await assertAuthenticatedLinkedIn(page);
-      return await sendConnectionRequestOnPage(page, profileUrl, note);
+      return await sendConnectionRequestOnPage(page, profileUrl, note, debug);
     } catch (e: any) {
       if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
         await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);
@@ -94,11 +94,11 @@ export const localPlaywrightProvider: SniperExecutionProvider = {
     }
   },
 
-  sendMessage: async ({ userId, workspaceId, profileUrl, message }) => {
+  sendMessage: async ({ userId, workspaceId, profileUrl, message, debug }) => {
     const { browser, page } = await createLocalLinkedInPage(userId, workspaceId);
     try {
       await assertAuthenticatedLinkedIn(page);
-      return await sendMessageOnPage(page, profileUrl, message);
+      return await sendMessageOnPage(page, profileUrl, message, debug);
     } catch (e: any) {
       if (String(e?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
         await upsertUserLinkedinAuth(userId, workspaceId, { status: 'needs_reauth' } as any);

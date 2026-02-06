@@ -192,7 +192,7 @@ export const airtopProvider: SniperExecutionProvider = {
     }
   },
 
-  sendConnectionRequest: async ({ userId, workspaceId, profileUrl, note }) => {
+  sendConnectionRequest: async ({ userId, workspaceId, profileUrl, note, debug }) => {
     requireAirtop();
     const auth = await getUserLinkedinAuth(userId, workspaceId);
     if (!auth?.airtop_profile_id) throw new Error('needs_reauth');
@@ -201,7 +201,7 @@ export const airtopProvider: SniperExecutionProvider = {
       const { browser, page } = await connectAirtopPlaywright(session);
       try {
         await assertAuthenticatedLinkedIn(page);
-        const res = await sendConnectionRequestOnPage(page, profileUrl, note);
+        const res = await sendConnectionRequestOnPage(page, profileUrl, note, debug);
         return res as any;
       } finally {
         try { await browser.close(); } catch {}
@@ -219,7 +219,7 @@ export const airtopProvider: SniperExecutionProvider = {
     }
   },
 
-  sendMessage: async ({ userId, workspaceId, profileUrl, message }) => {
+  sendMessage: async ({ userId, workspaceId, profileUrl, message, debug }) => {
     requireAirtop();
     const auth = await getUserLinkedinAuth(userId, workspaceId);
     if (!auth?.airtop_profile_id) throw new Error('needs_reauth');
@@ -228,7 +228,7 @@ export const airtopProvider: SniperExecutionProvider = {
       const { browser, page } = await connectAirtopPlaywright(session);
       try {
         await assertAuthenticatedLinkedIn(page);
-        const res = await sendMessageOnPage(page, profileUrl, message);
+        const res = await sendMessageOnPage(page, profileUrl, message, debug);
         return res as any;
       } finally {
         try { await browser.close(); } catch {}

@@ -72,25 +72,55 @@ export const sniperRunJobTool = {
     // Daily quota reservation for connect requests (matches /api/sniper/actions/connect behavior)
     if (jobType === 'send_connect_requests') {
       const urls = payload.profile_urls || [];
-      const DAILY_CONNECT_LIMIT = 20;
       const tz = settings.timezone || 'UTC';
       const day = dayStringInTimezone(new Date(), tz);
-      try {
-        const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_daily_connects', {
-          p_user_id: userId,
-          p_workspace_id: workspaceId,
-          p_day: day,
-          p_delta: urls.length,
-          p_limit: DAILY_CONNECT_LIMIT
-        } as any);
-        if (error) throw error;
-        void data;
-      } catch (e: any) {
-        const msg = String(e?.message || '');
-        if (msg.includes('daily_connect_limit_exceeded')) {
-          return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'daily_connect_limit_exceeded' }) }] } as any;
-        }
-        throw e;
+      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
+        p_user_id: userId,
+        p_workspace_id: workspaceId,
+        p_day: day,
+        p_connect_delta: 0,
+        p_connect_limit: settings.max_connects_per_day,
+        p_workspace_connect_limit: settings.max_workspace_connects_per_day,
+        p_message_limit: settings.max_messages_per_day,
+        p_workspace_message_limit: settings.max_workspace_messages_per_day,
+        p_profile_limit: settings.max_page_interactions_per_day,
+        p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
+        p_job_page_limit: settings.max_page_interactions_per_day,
+        p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
+      } as any);
+      if (error) throw error;
+      const row: any = Array.isArray(data) ? data[0] : data;
+      const usedUser = Number(row?.user_connects || 0);
+      const usedWorkspace = Number(row?.workspace_connects || 0);
+      if (usedUser + urls.length > settings.max_connects_per_day || usedWorkspace + urls.length > settings.max_workspace_connects_per_day) {
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'daily_connect_limit_exceeded' }) }] } as any;
+      }
+    }
+
+    if (jobType === 'send_messages') {
+      const urls = payload.profile_urls || [];
+      const tz = settings.timezone || 'UTC';
+      const day = dayStringInTimezone(new Date(), tz);
+      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
+        p_user_id: userId,
+        p_workspace_id: workspaceId,
+        p_day: day,
+        p_message_delta: 0,
+        p_connect_limit: settings.max_connects_per_day,
+        p_workspace_connect_limit: settings.max_workspace_connects_per_day,
+        p_message_limit: settings.max_messages_per_day,
+        p_workspace_message_limit: settings.max_workspace_messages_per_day,
+        p_profile_limit: settings.max_page_interactions_per_day,
+        p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
+        p_job_page_limit: settings.max_page_interactions_per_day,
+        p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
+      } as any);
+      if (error) throw error;
+      const row: any = Array.isArray(data) ? data[0] : data;
+      const usedUser = Number(row?.user_messages || 0);
+      const usedWorkspace = Number(row?.workspace_messages || 0);
+      if (usedUser + urls.length > settings.max_messages_per_day || usedWorkspace + urls.length > settings.max_workspace_messages_per_day) {
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'daily_message_limit_exceeded' }) }] } as any;
       }
     }
 

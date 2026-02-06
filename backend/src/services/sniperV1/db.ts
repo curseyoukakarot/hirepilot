@@ -20,7 +20,7 @@ export type SniperJobType =
   | 'people_search'
   | 'jobs_intent';
 export type SniperProvider = 'airtop' | 'local_playwright';
-export type SniperJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'partially_succeeded' | 'canceled';
+export type SniperJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'partially_succeeded' | 'canceled' | 'paused_throttled' | 'paused_cooldown';
 
 export type SniperJobRow = {
   id: string;
@@ -36,12 +36,24 @@ export type SniperJobRow = {
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
+  next_run_at?: string | null;
   notified_at?: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type SniperJobItemStatus = 'queued' | 'running' | 'success' | 'failed' | 'skipped';
+export type SniperJobItemStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded_verified'
+  | 'succeeded_noop_already_connected'
+  | 'succeeded_noop_already_pending'
+  | 'failed_restricted'
+  | 'failed_verification'
+  | 'paused_throttled'
+  | 'paused_cooldown'
+  | 'skipped'
+  | 'failed';
 export type SniperJobItemAction = 'connect' | 'message' | 'extract';
 
 export type SniperJobItemRow = {
@@ -54,6 +66,10 @@ export type SniperJobItemRow = {
   status: SniperJobItemStatus;
   result_json: any | null;
   error_message: string | null;
+  error_code?: string | null;
+  last_step?: string | null;
+  strategy_used?: string | null;
+  screenshot_path?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -219,8 +235,8 @@ export async function summarizeJobItems(jobId: string): Promise<{ success: numbe
   if (error) throw error;
   const rows = (data || []) as any[];
   const total = rows.length;
-  const success = rows.filter((r) => r.status === 'success').length;
-  const failed = rows.filter((r) => r.status === 'failed').length;
+  const success = rows.filter((r) => String(r.status || '').startsWith('succeeded_')).length;
+  const failed = rows.filter((r) => String(r.status || '').startsWith('failed_') || r.status === 'failed').length;
   const skipped = rows.filter((r) => r.status === 'skipped').length;
   return { success, failed, skipped, total };
 }

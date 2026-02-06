@@ -10,6 +10,13 @@ export type SniperV1Settings = {
   provider_preference: ProviderName;
   max_actions_per_day: number;
   max_actions_per_hour: number;
+  max_connects_per_day: number;
+  max_messages_per_day: number;
+  max_page_interactions_per_day: number;
+  max_workspace_connects_per_day: number;
+  max_workspace_messages_per_day: number;
+  max_workspace_page_interactions_per_day: number;
+  cooldown_minutes: number;
   min_delay_seconds: number;
   max_delay_seconds: number;
   active_hours_json: {
@@ -28,6 +35,13 @@ export const DEFAULT_SNIPER_V1_SETTINGS: Omit<SniperV1Settings, 'workspace_id'> 
   provider_preference: (String(process.env.SNIPER_PROVIDER_DEFAULT || 'airtop').toLowerCase() === 'local_playwright' ? 'local_playwright' : 'airtop'),
   max_actions_per_day: 120,
   max_actions_per_hour: 30,
+  max_connects_per_day: 20,
+  max_messages_per_day: 100,
+  max_page_interactions_per_day: 300,
+  max_workspace_connects_per_day: 200,
+  max_workspace_messages_per_day: 500,
+  max_workspace_page_interactions_per_day: 1500,
+  cooldown_minutes: 120,
   min_delay_seconds: 20,
   max_delay_seconds: 60,
   active_hours_json: { days: [1, 2, 3, 4, 5], start: '09:00', end: '17:00', runOnWeekends: false },
@@ -38,7 +52,7 @@ export const DEFAULT_SNIPER_V1_SETTINGS: Omit<SniperV1Settings, 'workspace_id'> 
 export async function fetchSniperV1Settings(workspaceId: string): Promise<SniperV1Settings> {
   const { data } = await sniperSupabaseDb
     .from('sniper_settings')
-    .select('workspace_id,cloud_engine_enabled,provider,provider_preference,max_actions_per_day,max_actions_per_hour,min_delay_seconds,max_delay_seconds,active_hours_json,timezone,safety_mode')
+    .select('workspace_id,cloud_engine_enabled,provider,provider_preference,max_actions_per_day,max_actions_per_hour,max_connects_per_day,max_messages_per_day,max_page_interactions_per_day,max_workspace_connects_per_day,max_workspace_messages_per_day,max_workspace_page_interactions_per_day,cooldown_minutes,min_delay_seconds,max_delay_seconds,active_hours_json,timezone,safety_mode')
     .eq('workspace_id', workspaceId)
     .maybeSingle();
 
@@ -53,6 +67,13 @@ export async function fetchSniperV1Settings(workspaceId: string): Promise<Sniper
   merged.max_delay_seconds = Math.max(merged.min_delay_seconds, Math.min(1800, Number(merged.max_delay_seconds || 60)));
   merged.max_actions_per_hour = Math.max(1, Math.min(500, Number(merged.max_actions_per_hour || 30)));
   merged.max_actions_per_day = Math.max(1, Math.min(5000, Number(merged.max_actions_per_day || 120)));
+  merged.max_connects_per_day = Math.max(1, Math.min(1000, Number(merged.max_connects_per_day || 20)));
+  merged.max_messages_per_day = Math.max(1, Math.min(5000, Number(merged.max_messages_per_day || 100)));
+  merged.max_page_interactions_per_day = Math.max(1, Math.min(20000, Number(merged.max_page_interactions_per_day || 300)));
+  merged.max_workspace_connects_per_day = Math.max(1, Math.min(10000, Number(merged.max_workspace_connects_per_day || 200)));
+  merged.max_workspace_messages_per_day = Math.max(1, Math.min(50000, Number(merged.max_workspace_messages_per_day || 500)));
+  merged.max_workspace_page_interactions_per_day = Math.max(1, Math.min(200000, Number(merged.max_workspace_page_interactions_per_day || 1500)));
+  merged.cooldown_minutes = Math.max(5, Math.min(1440, Number(merged.cooldown_minutes || 120)));
   return merged;
 }
 
@@ -64,6 +85,13 @@ export async function upsertSniperV1Settings(workspaceId: string, patch: Partial
     provider_preference: patch.provider_preference,
     max_actions_per_day: patch.max_actions_per_day,
     max_actions_per_hour: patch.max_actions_per_hour,
+    max_connects_per_day: patch.max_connects_per_day,
+    max_messages_per_day: patch.max_messages_per_day,
+    max_page_interactions_per_day: patch.max_page_interactions_per_day,
+    max_workspace_connects_per_day: patch.max_workspace_connects_per_day,
+    max_workspace_messages_per_day: patch.max_workspace_messages_per_day,
+    max_workspace_page_interactions_per_day: patch.max_workspace_page_interactions_per_day,
+    cooldown_minutes: patch.cooldown_minutes,
     min_delay_seconds: patch.min_delay_seconds,
     max_delay_seconds: patch.max_delay_seconds,
     active_hours_json: patch.active_hours_json as any,
@@ -123,7 +151,7 @@ export async function countActionsSince(workspaceId: string, sinceIso: string): 
     .from('sniper_job_items')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId)
-    .eq('status', 'success')
+    .in('status', ['succeeded_verified', 'succeeded_noop_already_connected', 'succeeded_noop_already_pending'])
     .in('action_type', ['connect', 'message'])
     .gte('created_at', sinceIso);
   return Number(count || 0);

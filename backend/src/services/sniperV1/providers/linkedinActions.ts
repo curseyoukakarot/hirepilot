@@ -1,4 +1,6 @@
 import type { Page } from 'playwright';
+import fs from 'fs/promises';
+import path from 'path';
 import {
   openPost,
   expandAllComments,
@@ -8,6 +10,216 @@ import {
 } from '../../../lib/linkedin/helpers';
 
 export type ProspectProfile = { name?: string | null; headline?: string | null; profile_url: string };
+type ConnectionState = 'connected' | 'pending' | 'not_connected' | 'restricted' | 'unknown';
+type ConnectEntrypoint = { strategyUsed: string; click: () => Promise<boolean> };
+type ActionDebug = { jobId?: string | null; enabled?: boolean };
+
+const SNIPER_ARTIFACTS_DIR = String(process.env.SNIPER_ARTIFACTS_DIR || '/tmp/hirepilot/sniper');
+
+async function ensureArtifactsDir() {
+  await fs.mkdir(SNIPER_ARTIFACTS_DIR, { recursive: true }).catch(() => {});
+}
+
+function shouldDebug(debug?: ActionDebug) {
+  if (debug?.enabled) return true;
+  const envJobId = String(process.env.SNIPER_DEBUG_JOB_ID || '').trim();
+  return Boolean(debug?.jobId && envJobId && debug.jobId === envJobId);
+}
+
+function logDebug(debug: ActionDebug | undefined, payload: Record<string, any>) {
+  if (!shouldDebug(debug)) return;
+  const msg = { ts: new Date().toISOString(), scope: 'sniper', ...payload };
+  // eslint-disable-next-line no-console
+  console.info(JSON.stringify(msg));
+}
+
+async function captureScreenshot(page: Page, slug: string): Promise<string | null> {
+  try {
+    await ensureArtifactsDir();
+    const name = `${slug}-${Date.now()}.png`;
+    const full = path.join(SNIPER_ARTIFACTS_DIR, name);
+    await page.screenshot({ path: full, fullPage: true }).catch(() => {});
+    return full;
+  } catch {
+    return null;
+  }
+}
+
+async function captureDomSnippet(page: Page, maxChars = 2000): Promise<string | null> {
+  try {
+    const main = page.locator('main').first();
+    const text = await main.innerText().catch(() => '');
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return null;
+    return trimmed.slice(0, maxChars);
+  } catch {
+    return null;
+  }
+}
+async function waitForCondition(fn: () => Promise<boolean>, timeoutMs = 8000, pollMs = 400): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await fn()) return true;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  return false;
+}
+
+async function hasText(page: Page, pattern: RegExp): Promise<boolean> {
+  const locator = page.locator(`text=${pattern}`);
+  return (await locator.count().catch(() => 0)) > 0;
+}
+
+export async function detectConnectionState(page: Page): Promise<ConnectionState> {
+  const pending = await page.locator('button', { hasText: /^Pending$/ }).count().catch(() => 0);
+  if (pending) return 'pending';
+  const invited = await page.locator('button', { hasText: /^Invited$/ }).count().catch(() => 0);
+  if (invited) return 'pending';
+  const connected = await page.locator('button', { hasText: /^Message$/ }).count().catch(() => 0);
+  if (connected) return 'connected';
+  const restrictedPatterns = [
+    /can't connect/i,
+    /can’t connect/i,
+    /not accepting invitations/i,
+    /invitations are restricted/i,
+    /account restricted/i,
+    /weekly invitation limit/i,
+    /try again later/i
+  ];
+  for (const pattern of restrictedPatterns) {
+    if (await hasText(page, pattern)) return 'restricted';
+  }
+  return 'not_connected';
+}
+
+async function detectBlockReason(page: Page): Promise<string | null> {
+  if (await hasText(page, /weekly invitation limit/i)) return 'weekly_limit';
+  if (await hasText(page, /try again later/i)) return 'rate_limited';
+  if (await hasText(page, /account restricted/i)) return 'account_restricted';
+  return null;
+}
+
+export async function findConnectEntrypoint(page: Page): Promise<ConnectEntrypoint | null> {
+  const direct = page.locator('button', { hasText: /^Connect$/ }).first();
+  if (await direct.count().catch(() => 0)) {
+    return { strategyUsed: 'primary_connect', click: async () => !!(await direct.click({ timeout: 8000 }).then(() => true).catch(() => false)) };
+  }
+
+  const more = page.locator('button', { hasText: /^More/ }).first();
+  if (await more.count().catch(() => 0)) {
+    return {
+      strategyUsed: 'more_menu',
+      click: async () => {
+        await more.click({ timeout: 8000 }).catch(() => {});
+        const menuConnect = page.locator('[role="menu"] >> text=/^Connect$/').first();
+        if (await menuConnect.count().catch(() => 0)) {
+          await menuConnect.click({ timeout: 8000 }).catch(() => {});
+          return true;
+        }
+        return false;
+      }
+    };
+  }
+
+  const overflow = page.locator('button[aria-label*="More"], button[aria-label*="More actions"]').first();
+  if (await overflow.count().catch(() => 0)) {
+    return {
+      strategyUsed: 'overflow_menu',
+      click: async () => {
+        await overflow.click({ timeout: 8000 }).catch(() => {});
+        const menuConnect = page.locator('[role="menu"] >> text=/^Connect$/').first();
+        if (await menuConnect.count().catch(() => 0)) {
+          await menuConnect.click({ timeout: 8000 }).catch(() => {});
+          return true;
+        }
+        return false;
+      }
+    };
+  }
+
+  return null;
+}
+
+export async function sendConnectRequest(
+  page: Page,
+  input: { note?: string | null; debug?: ActionDebug }
+): Promise<{ status: 'sent' | 'skipped' | 'restricted' | 'failed'; details?: any; strategyUsed?: string; last_step?: string; block_reason?: string | null }> {
+  const state = await detectConnectionState(page);
+  if (state === 'restricted') {
+    return { status: 'restricted', details: { reason: 'restricted', error_code: 'restricted' }, last_step: 'detect_state' };
+  }
+  if (state === 'pending' || state === 'connected') {
+    return { status: 'skipped', details: { reason: `already_${state}`, error_code: `already_${state}` }, last_step: 'detect_state' };
+  }
+
+  const entry = await findConnectEntrypoint(page);
+  if (!entry) return { status: 'skipped', details: { reason: 'connect_not_available', error_code: 'connect_not_available' }, last_step: 'find_entrypoint' };
+  const clicked = await entry.click();
+  if (!clicked) return { status: 'failed', details: { reason: 'connect_click_failed', error_code: 'connect_click_failed' }, strategyUsed: entry.strategyUsed, last_step: 'click_entrypoint' };
+
+  const trimmed = String(input.note || '').trim();
+  if (trimmed) {
+    const addNote = page.locator('button', { hasText: /^Add a note$/ }).first();
+    if (await addNote.count().catch(() => 0)) {
+      await addNote.click({ timeout: 8000 }).catch(() => {});
+      const textarea = page.locator('textarea').first();
+      if (await textarea.count().catch(() => 0)) {
+        await textarea.fill(trimmed.slice(0, 300)).catch(() => {});
+      }
+    }
+  }
+
+  const send = page.locator('button', { hasText: /^Send$/ }).first();
+  if (await send.count().catch(() => 0)) {
+    await send.click({ timeout: 8000 }).catch(() => {});
+    const block = await detectBlockReason(page);
+    return { status: 'sent', strategyUsed: entry.strategyUsed, last_step: 'send', block_reason: block };
+  }
+  const done = page.locator('button', { hasText: /^Done$/ }).first();
+  if (await done.count().catch(() => 0)) {
+    await done.click({ timeout: 8000 }).catch(() => {});
+    const block = await detectBlockReason(page);
+    return { status: 'sent', strategyUsed: entry.strategyUsed, last_step: 'done', block_reason: block };
+  }
+
+  return { status: 'failed', details: { reason: 'send_button_missing', error_code: 'send_button_missing' }, strategyUsed: entry.strategyUsed, last_step: 'send_missing' };
+}
+
+export async function verifyInviteSent(page: Page, profileUrl: string, debug?: ActionDebug): Promise<{ ok: boolean; method?: string }> {
+  const pendingOk = await waitForCondition(async () => {
+    const pending = await page.locator('button', { hasText: /^Pending$/ }).count().catch(() => 0);
+    const invited = await page.locator('button', { hasText: /^Invited$/ }).count().catch(() => 0);
+    return pending > 0 || invited > 0;
+  }, 9000, 500);
+  if (pendingOk) return { ok: true, method: 'button_state' };
+
+  const normalized = normalizeLinkedInProfileUrl(profileUrl);
+  const slug = normalized?.split('/in/')[1]?.replace(/\/$/, '') || '';
+  await page.goto('https://www.linkedin.com/mynetwork/invitation-manager/sent/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  const found = await waitForCondition(async () => {
+    if (!slug) return false;
+    const link = page.locator(`a[href*="/in/${slug}"]`).first();
+    return (await link.count().catch(() => 0)) > 0;
+  }, 8000, 500);
+  if (found) return { ok: true, method: 'sent_invites' };
+
+  logDebug(debug, { event: 'verify_invite_failed', slug, url: normalized });
+  return { ok: false };
+}
+
+async function runActionWithVerification<T>(args: {
+  actionType: 'connect' | 'message';
+  page: Page;
+  perform: () => Promise<T>;
+  verify: () => Promise<{ ok: boolean; method?: string }>;
+  debug?: ActionDebug;
+}) {
+  logDebug(args.debug, { event: 'action_start', actionType: args.actionType });
+  const result = await args.perform();
+  const verified = await args.verify();
+  logDebug(args.debug, { event: 'action_verify', actionType: args.actionType, verified });
+  return { result, verified };
+}
 
 export async function prospectPostEngagersOnPage(page: Page, postUrl: string, limit: number): Promise<ProspectProfile[]> {
   await openPost(page, postUrl);
@@ -196,87 +408,69 @@ export async function prospectJobsFromSearchOnPage(page: Page, searchUrl: string
 export async function sendConnectionRequestOnPage(
   page: Page,
   profileUrl: string,
-  note?: string | null
-): Promise<{ status: 'sent' | 'pending' | 'already_connected' | 'skipped' | 'failed'; details?: any }> {
+  note?: string | null,
+  debug?: ActionDebug
+): Promise<{ status: 'sent_verified' | 'already_connected' | 'already_pending' | 'restricted' | 'skipped' | 'failed' | 'failed_verification'; details?: any }> {
   const url = normalizeLinkedInProfileUrl(profileUrl);
-  if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url' } };
+  if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url', error_code: 'invalid_profile_url' } };
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   // Quick already-connected/pending heuristics
   if (await page.locator('button:has-text("Pending")').first().count().catch(() => 0)) {
-    return { status: 'pending' };
+    return { status: 'already_pending' };
   }
   if (await page.locator('button:has-text("Message")').first().count().catch(() => 0)) {
     return { status: 'already_connected' };
   }
-
-  // Primary: direct Connect button
-  const connectBtn = page.locator('button:has-text("Connect")').first();
-  const hasConnect = await connectBtn.count().catch(() => 0);
-  if (hasConnect) {
-    await connectBtn.click({ timeout: 5000 }).catch(() => {});
-  } else {
-    // Fallback: More → Connect
-    const more = page.locator('button:has-text("More")').first();
-    if (await more.count().catch(() => 0)) {
-      await more.click({ timeout: 5000 }).catch(() => {});
-      const menuConnect = page.locator('[role="menu"] >> text=Connect').first();
-      if (await menuConnect.count().catch(() => 0)) {
-        await menuConnect.click({ timeout: 5000 }).catch(() => {});
-      } else {
-        return { status: 'skipped', details: { reason: 'connect_not_available' } };
-      }
-    } else {
-      return { status: 'skipped', details: { reason: 'connect_not_available' } };
-    }
+  if ((await detectConnectionState(page)) === 'restricted') {
+    return { status: 'restricted' };
   }
 
-  // If note present, try Add a note
-  const trimmed = String(note || '').trim();
-  if (trimmed) {
-    const addNote = page.locator('button:has-text("Add a note")').first();
-    if (await addNote.count().catch(() => 0)) {
-      await addNote.click({ timeout: 5000 }).catch(() => {});
-      // LinkedIn note textarea is often <textarea name="message"> or similar
-      const textarea = page.locator('textarea').first();
-      if (await textarea.count().catch(() => 0)) {
-        await textarea.fill(trimmed.slice(0, 300)).catch(() => {});
-      }
-    }
-  }
+  const { result, verified } = await runActionWithVerification({
+    actionType: 'connect',
+    page,
+    perform: () => sendConnectRequest(page, { note, debug }),
+    verify: () => verifyInviteSent(page, url, debug),
+    debug
+  });
 
-  // Send (varies: "Send", "Done")
-  const send = page.locator('button:has-text("Send")').first();
-  if (await send.count().catch(() => 0)) {
-    await send.click({ timeout: 8000 }).catch(() => {});
-    return { status: 'sent' };
-  }
-  const done = page.locator('button:has-text("Done")').first();
-  if (await done.count().catch(() => 0)) {
-    await done.click({ timeout: 8000 }).catch(() => {});
-    return { status: 'sent' };
-  }
+  if (result.status === 'restricted') return { status: 'restricted', details: result };
+  if (result.status === 'skipped' && result.details?.reason === 'already_pending') return { status: 'already_pending', details: result };
+  if (result.status === 'skipped' && result.details?.reason === 'already_connected') return { status: 'already_connected', details: result };
+  if (result.status === 'skipped') return { status: 'skipped', details: result };
+  if (result.status === 'failed') return { status: 'failed', details: result };
 
-  return { status: 'failed', details: { reason: 'send_button_missing' } };
+  if (verified.ok) return { status: 'sent_verified', details: { ...result, verification: verified } };
+
+  // Retry once after short human-like delay
+  await page.waitForTimeout(3000 + Math.floor(Math.random() * 3000)).catch(() => {});
+  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  const verifiedRetry = await verifyInviteSent(page, url, debug);
+  if (verifiedRetry.ok) return { status: 'sent_verified', details: { ...result, verification: verifiedRetry, retry: true } };
+
+  const screenshot = await captureScreenshot(page, 'connect-verify-failed');
+  const domSnippet = await captureDomSnippet(page);
+  return { status: 'failed_verification', details: { ...result, verification: verifiedRetry, screenshot, dom_snippet: domSnippet, error_code: 'verification_failed' } };
 }
 
 export async function sendMessageOnPage(
   page: Page,
   profileUrl: string,
-  message: string
-): Promise<{ status: 'sent' | 'not_1st_degree' | 'skipped' | 'failed'; details?: any }> {
+  message: string,
+  debug?: ActionDebug
+): Promise<{ status: 'sent_verified' | 'not_1st_degree' | 'skipped' | 'failed' | 'failed_verification'; details?: any }> {
   const url = normalizeLinkedInProfileUrl(profileUrl);
-  if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url' } };
+  if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url', error_code: 'invalid_profile_url' } };
   const msg = String(message || '').trim();
-  if (!msg) return { status: 'skipped', details: { reason: 'empty_message' } };
+  if (!msg) return { status: 'skipped', details: { reason: 'empty_message', error_code: 'empty_message' } };
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   // Must be 1st-degree: Message button visible
   const messageBtn = page.locator('button:has-text("Message")').first();
   if (!(await messageBtn.count().catch(() => 0))) {
-    return { status: 'not_1st_degree' };
+    return { status: 'not_1st_degree', details: { error_code: 'not_1st_degree' } };
   }
   await messageBtn.click({ timeout: 8000 }).catch(() => {});
 
@@ -285,7 +479,7 @@ export async function sendMessageOnPage(
   if (!(await box.count().catch(() => 0))) {
     // fallback: any role textbox
     const box2 = page.locator('[role="textbox"]').first();
-    if (!(await box2.count().catch(() => 0))) return { status: 'failed', details: { reason: 'composer_missing' } };
+    if (!(await box2.count().catch(() => 0))) return { status: 'failed', details: { reason: 'composer_missing', error_code: 'composer_missing' } };
     await box2.click({ timeout: 5000 }).catch(() => {});
     await box2.fill(msg).catch(() => {});
   } else {
@@ -293,9 +487,29 @@ export async function sendMessageOnPage(
     await box.fill(msg).catch(() => {});
   }
 
-  // Send: Enter key works for LinkedIn messaging by default
-  await page.keyboard.press('Enter').catch(() => {});
-  return { status: 'sent' };
+  const { verified } = await runActionWithVerification({
+    actionType: 'message',
+    page,
+    perform: async () => {
+      await page.keyboard.press('Enter').catch(() => {});
+      return { ok: true };
+    },
+    verify: async () => {
+      const snippet = msg.slice(0, 120);
+      const ok = await waitForCondition(async () => {
+        const bubble = page.locator('span', { hasText: snippet }).first();
+        return (await bubble.count().catch(() => 0)) > 0;
+      }, 8000, 500);
+      return { ok, method: ok ? 'message_bubble' : undefined };
+    },
+    debug
+  });
+
+  if (verified.ok) return { status: 'sent_verified', details: { verification: verified } };
+
+  const screenshot = await captureScreenshot(page, 'message-verify-failed');
+  const domSnippet = await captureDomSnippet(page);
+  return { status: 'failed_verification', details: { verification: verified, screenshot, dom_snippet: domSnippet, error_code: 'verification_failed' } };
 }
 
 export function normalizeLinkedInProfileUrl(input: string): string | null {

@@ -286,24 +286,30 @@ sniperV1Router.get('/bulk_quota', async (req: ApiRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
 
-    const DAILY_CONNECT_LIMIT = 20;
     const settings = await fetchSniperV1Settings(workspaceId);
     const tz = settings.timezone || 'UTC';
     const day = dayStringInTimezone(new Date(), tz);
 
-    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_daily_connects', {
+    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
       p_user_id: userId,
       p_workspace_id: workspaceId,
       p_day: day,
-      p_delta: 0,
-      p_limit: DAILY_CONNECT_LIMIT
+      p_connect_delta: 0,
+      p_connect_limit: settings.max_connects_per_day,
+      p_workspace_connect_limit: settings.max_workspace_connects_per_day,
+      p_message_limit: settings.max_messages_per_day,
+      p_workspace_message_limit: settings.max_workspace_messages_per_day,
+      p_profile_limit: settings.max_page_interactions_per_day,
+      p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
+      p_job_page_limit: settings.max_page_interactions_per_day,
+      p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
     } as any);
     if (error) throw error;
     const row: any = Array.isArray(data) ? data[0] : data;
-    const usedToday = Number(row?.used_today || 0);
-    const remainingToday = Number(row?.remaining_today || Math.max(0, DAILY_CONNECT_LIMIT - usedToday));
+    const usedToday = Number(row?.user_connects || 0);
+    const remainingToday = Math.max(0, settings.max_connects_per_day - usedToday);
     return res.json({
-      limit_per_day: DAILY_CONNECT_LIMIT,
+      limit_per_day: settings.max_connects_per_day,
       used_today: usedToday,
       remaining_today: remainingToday,
       day,
@@ -336,8 +342,6 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
 
     const provider = 'airtop' as any;
 
-    const DAILY_CONNECT_LIMIT = 20;
-
     const requests = (parsed.data.requests || []).map((r) => ({
       profile_url: r.profile_url,
       note: r.note ?? parsed.data.note ?? null
@@ -353,38 +357,49 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       return true;
     });
 
-    // Atomic daily quota reservation (per-user). Day boundary uses Sniper timezone (falls back to UTC).
     const settings = await fetchSniperV1Settings(workspaceId);
     const tz = settings.timezone || 'UTC';
     const day = dayStringInTimezone(new Date(), tz);
-    try {
-      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_daily_connects', {
-        p_user_id: userId,
-        p_workspace_id: workspaceId,
-        p_day: day,
-        p_delta: unique.length,
-        p_limit: DAILY_CONNECT_LIMIT
-      } as any);
-      if (error) throw error;
-      const row: any = Array.isArray(data) ? data[0] : data;
-      const usedToday = Number(row?.used_today || 0);
-      const remainingToday = Number(row?.remaining_today || Math.max(0, DAILY_CONNECT_LIMIT - usedToday));
-      // include on response later
-      (req as any)._sniperQuota = { usedToday, remainingToday, day, tz };
-    } catch (e: any) {
-      const msg = String(e?.message || '');
-      const usedFromDetail = Number(e?.details || e?.detail || 0) || 0;
-      if (msg.includes('daily_connect_limit_exceeded')) {
-        return res.status(429).json({
-          error: 'daily_connect_limit_exceeded',
-          limit_per_day: DAILY_CONNECT_LIMIT,
-          used_today: usedFromDetail,
-          remaining_today: Math.max(0, DAILY_CONNECT_LIMIT - usedFromDetail),
-          requested: unique.length
-        });
-      }
-      throw e;
+    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
+      p_user_id: userId,
+      p_workspace_id: workspaceId,
+      p_day: day,
+      p_connect_delta: 0,
+      p_connect_limit: settings.max_connects_per_day,
+      p_workspace_connect_limit: settings.max_workspace_connects_per_day,
+      p_message_limit: settings.max_messages_per_day,
+      p_workspace_message_limit: settings.max_workspace_messages_per_day,
+      p_profile_limit: settings.max_page_interactions_per_day,
+      p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
+      p_job_page_limit: settings.max_page_interactions_per_day,
+      p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
+    } as any);
+    if (error) throw error;
+    const row: any = Array.isArray(data) ? data[0] : data;
+    const usedToday = Number(row?.user_connects || 0);
+    const usedWorkspace = Number(row?.workspace_connects || 0);
+    if (usedToday + unique.length > settings.max_connects_per_day) {
+      return res.status(429).json({
+        error: 'daily_connect_limit_exceeded',
+        limit_per_day: settings.max_connects_per_day,
+        used_today: usedToday,
+        remaining_today: Math.max(0, settings.max_connects_per_day - usedToday),
+        requested: unique.length,
+        scope: 'user'
+      });
     }
+    if (usedWorkspace + unique.length > settings.max_workspace_connects_per_day) {
+      return res.status(429).json({
+        error: 'daily_connect_limit_exceeded',
+        limit_per_day: settings.max_workspace_connects_per_day,
+        used_today: usedWorkspace,
+        remaining_today: Math.max(0, settings.max_workspace_connects_per_day - usedWorkspace),
+        requested: unique.length,
+        scope: 'workspace'
+      });
+    }
+    const remainingToday = Math.max(0, settings.max_connects_per_day - usedToday);
+    (req as any)._sniperQuota = { usedToday, remainingToday, day, tz };
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -414,7 +429,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       queued: true,
       job_id: job.id,
       quota: {
-        limit_per_day: DAILY_CONNECT_LIMIT,
+        limit_per_day: settings.max_connects_per_day,
         used_today: q.usedToday,
         remaining_today: q.remainingToday,
         day: q.day,
@@ -443,6 +458,54 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
     const provider = 'airtop' as any;
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const tz = settings.timezone || 'UTC';
+    const day = dayStringInTimezone(new Date(), tz);
+
+    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
+      p_user_id: userId,
+      p_workspace_id: workspaceId,
+      p_day: day,
+      p_message_delta: 0,
+      p_connect_limit: settings.max_connects_per_day,
+      p_workspace_connect_limit: settings.max_workspace_connects_per_day,
+      p_message_limit: settings.max_messages_per_day,
+      p_workspace_message_limit: settings.max_workspace_messages_per_day,
+      p_profile_limit: settings.max_page_interactions_per_day,
+      p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
+      p_job_page_limit: settings.max_page_interactions_per_day,
+      p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
+    } as any);
+    if (error) throw error;
+    const row: any = Array.isArray(data) ? data[0] : data;
+    const usedToday = Number(row?.user_messages || 0);
+    const usedWorkspace = Number(row?.workspace_messages || 0);
+    if (usedToday + parsed.data.profile_urls.length > settings.max_messages_per_day) {
+      return res.status(429).json({
+        error: 'daily_message_limit_exceeded',
+        limit_per_day: settings.max_messages_per_day,
+        used_today: usedToday,
+        remaining_today: Math.max(0, settings.max_messages_per_day - usedToday),
+        requested: parsed.data.profile_urls.length,
+        scope: 'user'
+      });
+    }
+    if (usedWorkspace + parsed.data.profile_urls.length > settings.max_workspace_messages_per_day) {
+      return res.status(429).json({
+        error: 'daily_message_limit_exceeded',
+        limit_per_day: settings.max_workspace_messages_per_day,
+        used_today: usedWorkspace,
+        remaining_today: Math.max(0, settings.max_workspace_messages_per_day - usedWorkspace),
+        requested: parsed.data.profile_urls.length,
+        scope: 'workspace'
+      });
+    }
+    (req as any)._sniperQuota = {
+      usedToday,
+      remainingToday: Math.max(0, settings.max_messages_per_day - usedToday),
+      day,
+      tz
+    };
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -465,7 +528,18 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
-    return res.status(202).json({ queued: true, job_id: job.id });
+    const q = (req as any)._sniperQuota || {};
+    return res.status(202).json({
+      queued: true,
+      job_id: job.id,
+      quota: {
+        limit_per_day: settings.max_messages_per_day,
+        used_today: q.usedToday,
+        remaining_today: q.remainingToday,
+        day: q.day,
+        timezone: q.tz
+      }
+    });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_queue_messages' });
   }

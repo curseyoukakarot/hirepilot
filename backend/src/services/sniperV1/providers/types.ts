@@ -19,11 +19,13 @@ export type LinkedInAuthStartResult = {
   live_view_url: string;
 };
 
+export type ActionDebugContext = { jobId?: string | null; enabled?: boolean };
+
 export type SendConnectResult =
-  | { status: 'sent' | 'pending' | 'already_connected' | 'skipped' | 'failed'; details?: any };
+  | { status: 'sent_verified' | 'already_connected' | 'already_pending' | 'restricted' | 'skipped' | 'failed' | 'failed_verification'; details?: any };
 
 export type SendMessageResult =
-  | { status: 'sent' | 'not_1st_degree' | 'skipped' | 'failed'; details?: any };
+  | { status: 'sent_verified' | 'not_1st_degree' | 'skipped' | 'failed' | 'failed_verification'; details?: any };
 
 export interface SniperExecutionProvider {
   name: ProviderName;
@@ -33,8 +35,8 @@ export interface SniperExecutionProvider {
   prospectPostEngagers(args: { userId: string; workspaceId: string; postUrl: string; limit: number }): Promise<ProspectProfile[]>;
   prospectPeopleSearch(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<ProspectProfile[]>;
   prospectJobsIntent(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<JobListing[]>;
-  sendConnectionRequest(args: { userId: string; workspaceId: string; profileUrl: string; note?: string | null }): Promise<SendConnectResult>;
-  sendMessage(args: { userId: string; workspaceId: string; profileUrl: string; message: string }): Promise<SendMessageResult>;
+  sendConnectionRequest(args: { userId: string; workspaceId: string; profileUrl: string; note?: string | null; debug?: ActionDebugContext }): Promise<SendConnectResult>;
+  sendMessage(args: { userId: string; workspaceId: string; profileUrl: string; message: string; debug?: ActionDebugContext }): Promise<SendMessageResult>;
 }
 
 
