@@ -1006,26 +1006,6 @@ export default function JobSeekerLandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">
-            <div className="space-y-2">
-              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                10k+
-              </div>
-              <div className="text-sm text-gray-400">Active Job Seekers</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                2.5M+
-              </div>
-              <div className="text-sm text-gray-400">Messages Sent</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                47%
-              </div>
-              <div className="text-sm text-gray-400">Avg Response Rate</div>
-            </div>
-          </div>
         </div>
       </section>
 
