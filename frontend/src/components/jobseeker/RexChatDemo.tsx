@@ -134,7 +134,7 @@ export default function RexChatDemo() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-slate-300">
                   <i className="fa-solid fa-check text-emerald-400 text-xs"></i>
-                  <span>Resume: Brandon_Omoregie_Resume.pdf</span>
+                  <span>Resume: Brandon_Davis_Resume.pdf</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <i className="fa-solid fa-check text-emerald-400 text-xs"></i>

@@ -65,12 +65,19 @@ export default function JobSeekerAgentLandingPage() {
 
   return (
     <div className="bg-gradient-to-br from-[#0B0F1A] via-[#111827] to-[#0B0F1A] text-white font-sans min-h-screen">
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up { animation: fadeUp 0.7s ease-out both; }
+      `}</style>
       <div className="sticky top-0 z-50">
         <JobSeekerPublicNav variant="dark" />
       </div>
 
       <main>
-        <section id="hero" className="relative overflow-hidden">
+        <section id="hero" className="relative overflow-hidden animate-fade-up">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/30 via-transparent to-pink-900/30"></div>
           <div className="absolute -top-10 right-0 w-80 h-80 bg-purple-500/20 blur-3xl rounded-full"></div>
           <div className="absolute -bottom-20 left-10 w-96 h-96 bg-pink-500/20 blur-3xl rounded-full"></div>
@@ -116,7 +123,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="comparison" className="py-16">
+        <section id="comparison" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold">The Old Way vs The HirePilot Way</h2>
@@ -149,7 +156,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="py-16">
+        <section id="how-it-works" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold">From Job Signal → Hiring Manager → Conversation</h2>
@@ -167,7 +174,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="live-activity" className="py-16">
+        <section id="live-activity" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold">Watch Your Campaigns Run</h2>
@@ -179,7 +186,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="control" className="py-16">
+        <section id="control" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-8 items-center">
               <div>
@@ -220,7 +227,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="outreach" className="py-16">
+        <section id="outreach" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold">Outreach Where It Works</h2>
@@ -240,7 +247,7 @@ export default function JobSeekerAgentLandingPage() {
           </div>
         </section>
 
-        <section id="final-cta" className="py-16">
+        <section id="final-cta" className="py-16 animate-fade-up">
           <div className="max-w-5xl mx-auto px-6 text-center">
             <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-10">
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">Stop Applying. Launch Campaigns.</h2>

@@ -88,9 +88,14 @@ export default function JobSeekerLandingPage() {
           from { opacity: 0; transform: translateY(30px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .animate-float { animation: float 6s ease-in-out infinite; }
         .animate-glow { animation: glow 3s ease-in-out infinite; }
         .animate-slide-up { animation: slideUp 0.8s ease-out forwards; }
+        .animate-fade-up { animation: fadeUp 0.7s ease-out both; }
         .glass-panel {
           background: rgba(255, 255, 255, 0.03);
           backdrop-filter: blur(20px);
@@ -119,7 +124,7 @@ export default function JobSeekerLandingPage() {
         <JobSeekerPublicNav variant="dark" />
       </div>
 
-      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center">
+      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
         <div
@@ -256,7 +261,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="py-24 px-6 relative">
+      <section id="how-it-works" className="py-24 px-6 relative animate-fade-up">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-5xl font-black mb-4">The Old Way vs The HirePilot Way</h2>
@@ -353,7 +358,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="connection-engine" className="py-24 px-6 relative">
+      <section id="connection-engine" className="py-24 px-6 relative animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-900/5 to-transparent"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -509,7 +514,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="positioning" className="py-24 px-6 relative">
+      <section id="positioning" className="py-24 px-6 relative animate-fade-up">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-5xl font-black mb-6">
@@ -649,7 +654,7 @@ export default function JobSeekerLandingPage() {
       </section>
 
       <div id="how-it-works"></div>
-      <section id="pipeline" className="py-24 px-6 relative">
+      <section id="pipeline" className="py-24 px-6 relative animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-b from-purple-900/10 via-transparent to-pink-900/10"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -758,7 +763,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="rex" className="py-24 px-6 relative">
+      <section id="rex" className="py-24 px-6 relative animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -870,7 +875,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="features" className="py-24 px-6 relative">
+      <section id="features" className="py-24 px-6 relative animate-fade-up">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-5xl font-black mb-6">
@@ -960,7 +965,7 @@ export default function JobSeekerLandingPage() {
         </div>
       </section>
 
-      <section id="final-cta" className="py-32 px-6 relative overflow-hidden">
+      <section id="final-cta" className="py-32 px-6 relative overflow-hidden animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/30 to-purple-900/30"></div>
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
         <div

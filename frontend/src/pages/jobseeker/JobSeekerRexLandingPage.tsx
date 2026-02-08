@@ -67,12 +67,19 @@ export default function JobSeekerRexLandingPage() {
 
   return (
     <div className="bg-gradient-to-br from-[#0B0F1A] via-[#111827] to-[#0B0F1A] text-white font-sans min-h-screen">
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up { animation: fadeUp 0.7s ease-out both; }
+      `}</style>
       <div className="sticky top-0 z-50">
         <JobSeekerPublicNav variant="dark" />
       </div>
 
       <main>
-        <section id="hero" className="relative overflow-hidden">
+        <section id="hero" className="relative overflow-hidden animate-fade-up">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/25 via-transparent to-pink-900/25"></div>
           <div className="absolute -top-10 right-0 w-80 h-80 bg-purple-500/20 blur-3xl rounded-full"></div>
           <div className="absolute -bottom-20 left-10 w-96 h-96 bg-pink-500/20 blur-3xl rounded-full"></div>
@@ -110,7 +117,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="method" className="py-16">
+        <section id="method" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-8">
               <h2 className="text-3xl sm:text-4xl font-bold">From questions to conversations.</h2>
@@ -128,7 +135,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="targeting" className="py-16">
+        <section id="targeting" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-8 items-center">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">Find decision-makers at scale — on demand.</h2>
@@ -156,7 +163,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="resume-intel" className="py-16">
+        <section id="resume-intel" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-8 items-center">
             <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6">
               <h3 className="text-xl font-semibold mb-4">REX reads your resume like a recruiter.</h3>
@@ -185,7 +192,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="hirepilot-method" className="py-16">
+        <section id="hirepilot-method" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-8">
               <h2 className="text-3xl sm:text-4xl font-bold">Built on the direct-connection playbook.</h2>
@@ -200,7 +207,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="outreach" className="py-16">
+        <section id="outreach" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-8 items-center">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">Outreach that sounds human — and gets replies.</h2>
@@ -223,7 +230,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="rex-demo" className="py-16">
+        <section id="rex-demo" className="py-16 animate-fade-up">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-8">
               <h2 className="text-3xl sm:text-4xl font-bold">See REX in action.</h2>
@@ -235,7 +242,7 @@ export default function JobSeekerRexLandingPage() {
           </div>
         </section>
 
-        <section id="final-cta" className="py-16">
+        <section id="final-cta" className="py-16 animate-fade-up">
           <div className="max-w-5xl mx-auto px-6 text-center">
             <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-10">
               <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ask better questions. Get better opportunities.</h2>
