@@ -40,6 +40,7 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
           </div>
           <nav className="hidden md:flex items-center space-x-8 text-sm">
             <button className={baseLink} onClick={() => smoothScroll('method')}>How it works</button>
+            <button className={baseLink} onClick={() => navigate('/job-seeker-agent')}>Interviews on Autopilot</button>
             <button className={baseLink} onClick={() => navigate('/pricing')}>Pricing</button>
             <button className={baseLink} onClick={() => smoothScroll('rex-demo')}>Try REX</button>
             <button className={baseLink} onClick={() => navigate('/login')}>Sign in</button>
@@ -68,6 +69,7 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
         {open && (
           <div className="md:hidden pb-4 space-y-3 text-sm">
             <button className={`${baseLink} block w-full text-left`} onClick={() => { smoothScroll('method'); setOpen(false); }}>How it works</button>
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/job-seeker-agent'); setOpen(false); }}>Interviews on Autopilot</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/pricing'); setOpen(false); }}>Pricing</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { smoothScroll('rex-demo'); setOpen(false); }}>Try REX</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/login'); setOpen(false); }}>Sign in</button>
