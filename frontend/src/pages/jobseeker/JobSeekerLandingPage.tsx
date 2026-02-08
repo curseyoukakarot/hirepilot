@@ -1,586 +1,1031 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  FaInbox,
-  FaGhost,
-  FaUsers,
-  FaUpload,
-  FaBullseye,
-  FaLightbulb,
-  FaGlobe,
-  FaRobot,
-  FaRegFileAlt,
-  FaLinkedin,
-  FaEnvelope,
-  FaCrosshairs,
-  FaComments,
-  FaHandshake,
-  FaUserTie,
-  FaRocket,
-  FaStar,
-} from 'react-icons/fa';
 import { JobSeekerPublicNav } from '../../components/jobseeker/JobSeekerPublicNav';
 import PublicFooterJobs from '../../components/PublicFooterJobs';
-import { motion } from 'framer-motion';
-
-const primary = '#3b82f6';
-
-function Pill({ num, color, label, description }: { num: number; color: string; label: string; description: string }) {
-  return (
-    <div className="bg-gray-800 p-8 rounded-2xl text-center border border-gray-700">
-      <div
-        className="text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 text-xl font-bold"
-        style={{ background: color }}
-      >
-        {num}
-      </div>
-      <h3 className="text-xl font-bold text-white mb-4">{label}</h3>
-      <p className="text-gray-300">{description}</p>
-    </div>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="bg-gray-900 p-6 rounded-xl border border-gray-700">
-      <div className="text-2xl mb-4 text-[#3b82f6]">{icon}</div>
-      <h4 className="font-semibold text-white mb-2">{title}</h4>
-      <p className="text-gray-300">{description}</p>
-    </div>
-  );
-}
 
 export default function JobSeekerLandingPage() {
   const navigate = useNavigate();
-  const [prompt, setPrompt] = useState('');
-  const fadeUp = {
-    initial: { opacity: 0, y: 26 },
-    whileInView: { opacity: 1, y: 0 },
-    transition: { duration: 0.55, ease: 'easeOut' },
-    viewport: { once: true, amount: 0.35 },
-  };
-  const pop = {
-    initial: { opacity: 0, y: 20, scale: 0.97 },
-    whileInView: { opacity: 1, y: 0, scale: 1 },
-    transition: { duration: 0.5, ease: 'easeOut' },
-    viewport: { once: true, amount: 0.3 },
-  };
-  const stagger = {
-    animate: { transition: { staggerChildren: 0.08 } },
-  };
-
-  const rexPrompts = useMemo(
-    () => [
-      'Help me rewrite my resume for a software engineer role',
-      'Write an outreach message to a hiring manager at Google',
-      'Help me prepare for a product manager interview',
-    ],
-    []
-  );
+  const jobsCounterRef = useRef<HTMLDivElement | null>(null);
+  const managersCounterRef = useRef<HTMLDivElement | null>(null);
+  const timeCounterRef = useRef<HTMLDivElement | null>(null);
+  const hasAnimatedRef = useRef(false);
 
   const handleStart = useCallback(() => {
     navigate('/signup');
   }, [navigate]);
 
-  const goToRex = useCallback(
-    (text?: string) => {
-      const prefill = text || prompt;
-      const search = prefill ? `?prefill=${encodeURIComponent(prefill)}` : '';
-      navigate(`/prep/rex-chat${search}`);
+  const goToRex = useCallback(() => {
+    navigate('/prep/rex-chat');
+  }, [navigate]);
+
+  const scrollToId = useCallback(
+    (id: string) => {
+      if (typeof window === 'undefined') return;
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        navigate(`/#${id}`);
+        setTimeout(() => {
+          const target = document.getElementById(id);
+          if (target) target.scrollIntoView({ behavior: 'smooth' });
+        }, 200);
+      }
     },
-    [navigate, prompt]
+    [navigate]
   );
 
-  const handleSend = useCallback(() => {
-    if (!prompt.trim()) return;
-    goToRex(prompt.trim());
-  }, [goToRex, prompt]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const animateCounter = (element: HTMLElement | null, target: number, duration: number) => {
+      if (!element) return;
+      const start = performance.now();
+      const step = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const value = Math.floor(progress * target);
+        element.textContent = value.toString();
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        } else {
+          element.textContent = target.toString();
+        }
+      };
+      requestAnimationFrame(step);
+    };
+
+    const statsSection = document.getElementById('connection-engine');
+    if (!statsSection) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !hasAnimatedRef.current) {
+          hasAnimatedRef.current = true;
+          animateCounter(jobsCounterRef.current, 100, 2000);
+          animateCounter(managersCounterRef.current, 500, 2000);
+          animateCounter(timeCounterRef.current, 30, 2000);
+          observer.disconnect();
+        }
+      });
+    });
+
+    observer.observe(statsSection);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="bg-gray-900 font-sans text-white">
-      {/* Header */}
+    <div className="bg-gradient-to-br from-[#0B0F1A] via-[#111827] to-[#0B0F1A] text-white font-sans">
+      <style>{`
+        ::-webkit-scrollbar { display: none; }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        @keyframes glow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-glow { animation: glow 3s ease-in-out infinite; }
+        .animate-slide-up { animation: slideUp 0.8s ease-out forwards; }
+        .glass-panel {
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .gradient-border {
+          position: relative;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid transparent;
+        }
+        .gradient-border::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(236, 72, 153, 0.4));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+        }
+        .counter { font-variant-numeric: tabular-nums; }
+      `}</style>
+
       <div className="sticky top-0 z-50">
         <JobSeekerPublicNav variant="dark" />
       </div>
 
-      {/* Hero */}
-      <section id="hero" className="bg-gradient-to-b from-gray-800 to-gray-900 py-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
-              Stop applying. Start conversations with hiring managers.
-            </h1>
-            <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              HirePilot Jobs helps you generate a pro resume, build a personal landing page, and use REX to craft direct
-              outreach that gets replies.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
-              <button
-                className="bg-[#3b82f6] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-600"
-                onClick={handleStart}
-              >
-                Start Free
-              </button>
-              <button
-                className="border border-[#3b82f6] text-[#3b82f6] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-800"
-                onClick={() => goToRex()}
-              >
-                Try REX Chat
-              </button>
-            </div>
-            <p className="text-sm text-gray-400">Built by recruiters. Designed for job seekers.</p>
-          </div>
-        </div>
-      </section>
+      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
+        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
+        <div
+          className="absolute bottom-20 right-10 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-glow"
+          style={{ animationDelay: '1.5s' }}
+        ></div>
 
-      {/* Problem */}
-      <section id="problem" className="py-16 bg-gray-800">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white mb-8">The job board game is broken</h2>
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div className="bg-gray-900 p-6 rounded-xl border border-gray-700">
-              <FaInbox className="text-red-400 text-2xl mb-4" />
-              <p className="text-gray-300">Applications disappear into ATS black holes</p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded-xl border border-gray-700">
-              <FaGhost className="text-red-400 text-2xl mb-4" />
-              <p className="text-gray-300">Endless ghosting and automated rejections</p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded-xl border border-gray-700">
-              <FaUsers className="text-red-400 text-2xl mb-4" />
-              <p className="text-gray-300">Competing with 1000+ other applicants</p>
-            </div>
-          </div>
-          <p className="text-lg font-semibold text-white">The fastest path is direct outreach.</p>
-        </div>
-      </section>
-
-      {/* Method */}
-      <section id="method" className="py-20 bg-gray-900">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <motion.div {...fadeUp} className="text-center mb-16 space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">The HirePilot Jobs method</h2>
-            <p className="text-lg sm:text-xl text-gray-300">This is the playbook recruiters use — now you have it.</p>
-          </motion.div>
-          <motion.div {...stagger} className="grid md:grid-cols-3 gap-6 md:gap-8">
-            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
-              <Pill num={1} color="#3b82f6" label="Position" description="Resume + LinkedIn rewrite that positions you as the perfect candidate" />
-            </motion.div>
-            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
-              <Pill num={2} color="#22c55e" label="Package" description="Personal landing page that showcases your value proposition" />
-            </motion.div>
-            <motion.div {...pop} whileHover={{ y: -4, scale: 1.01 }}>
-              <Pill num={3} color="#a855f7" label="Prospect" description="Direct outreach scripts that get hiring managers to respond" />
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Walkthrough */}
-      <section id="walkthrough" className="py-20 bg-gray-800">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <motion.div {...fadeUp} className="text-center mb-16 space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">Your 5-step journey to job success</h2>
-            <p className="text-lg sm:text-xl text-gray-300">Simple, guided, and effective</p>
-          </motion.div>
-          <motion.div {...stagger} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            {[ 
-              { icon: <FaUpload />, title: 'Upload resume', description: 'Get instant rewrite' },
-              { icon: <FaBullseye />, title: 'Set target role', description: 'Define your goals' },
-              { icon: <FaLightbulb />, title: 'Generate angles', description: 'Outreach strategies' },
-              { icon: <FaGlobe />, title: 'Build landing page', description: 'Professional showcase' },
-              { icon: <FaRobot />, title: 'Chat with REX', description: 'Refine everything' },
-            ].map((card, idx) => (
-              <motion.div key={card.title} {...pop} transition={{ ...pop.transition, delay: 0.05 * idx }} whileHover={{ y: -4, scale: 1.02 }}>
-                <FeatureCard icon={card.icon} title={card.title} description={card.description} />
-              </motion.div>
-            ))}
-          </motion.div>
-          <motion.div {...fadeUp} className="text-center mt-8">
-            <p className="text-lg font-semibold text-green-400">🎁 Bonus credits for completing setup</p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* REX preview (revamped) */}
-      <section id="rex-demo" className="py-16 bg-[#020617] text-slate-100">
-        <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col gap-4">
-          {/* Header bar */}
-          <motion.div {...fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2">
-              <div className="px-3 py-1 w-fit rounded-full bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs">
-                REX · Job Prep Assistant
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-8 animate-slide-up">
+              <div className="inline-block">
+                <span className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 text-sm font-medium text-purple-300">
+                  <i className="fa-solid fa-sparkles mr-2"></i>Career Operating System
+                </span>
               </div>
-              <div className="space-y-1">
-                <h2 className="text-lg sm:text-xl font-semibold text-slate-100 leading-snug">Ask REX anything about your job search</h2>
-                <p className="text-sm text-slate-400">
-                  Optimize your resume, LinkedIn, outreach messages, and interview prep with an AI coach tuned to your targets.
+
+              <h1 className="text-6xl lg:text-7xl font-black leading-tight">
+                Turn Your Job Search Into a{' '}
+                <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+                  High-Performance Campaign
+                </span>
+              </h1>
+
+              <p className="text-xl text-gray-300 leading-relaxed max-w-2xl">
+                HirePilot automates meaningful connections — helping you source opportunities, target hiring managers, and launch
+                intelligent outreach campaigns powered by AI.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  type="button"
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:shadow-2xl hover:shadow-purple-500/50 transition-all transform hover:scale-105"
+                  onClick={handleStart}
+                >
+                  Start Free
+                  <i className="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+                <button
+                  type="button"
+                  className="px-8 py-4 glass-panel rounded-xl font-semibold text-lg hover:bg-white/10 transition-all"
+                  onClick={() => scrollToId('connection-engine')}
+                >
+                  See Agent in Action
+                  <i className="fa-solid fa-play ml-2"></i>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-6">
+                <div className="flex items-center space-x-3 text-sm">
+                  <i className="fa-solid fa-check text-green-400"></i>
+                  <span className="text-gray-300">AI Hiring Manager Targeting</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <i className="fa-solid fa-check text-green-400"></i>
+                  <span className="text-gray-300">Resume & Microsite Builder</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <i className="fa-solid fa-check text-green-400"></i>
+                  <span className="text-gray-300">Smart Outreach Automation</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <i className="fa-solid fa-check text-green-400"></i>
+                  <span className="text-gray-300">Background Processing Campaigns</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative animate-float" style={{ animationDelay: '0.5s' }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-pink-600/30 rounded-3xl blur-3xl"></div>
+              <div className="relative glass-panel rounded-3xl p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">Campaign Dashboard</h3>
+                  <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold">Active</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="glass-panel rounded-xl p-4 space-y-2">
+                    <div className="text-3xl font-bold text-purple-400 counter">342</div>
+                    <div className="text-xs text-gray-400">Jobs Extracted</div>
+                  </div>
+                  <div className="glass-panel rounded-xl p-4 space-y-2">
+                    <div className="text-3xl font-bold text-pink-400 counter">127</div>
+                    <div className="text-xs text-gray-400">Managers Found</div>
+                  </div>
+                  <div className="glass-panel rounded-xl p-4 space-y-2">
+                    <div className="text-3xl font-bold text-blue-400 counter">89</div>
+                    <div className="text-xs text-gray-400">Sent</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 glass-panel rounded-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-600/20 flex items-center justify-center">
+                        <i className="fa-solid fa-building text-purple-400"></i>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">Senior Product Designer</div>
+                        <div className="text-xs text-gray-400">Tech Corp</div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-green-400">Responded</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 glass-panel rounded-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-pink-600/20 flex items-center justify-center">
+                        <i className="fa-solid fa-building text-pink-400"></i>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">UX Lead</div>
+                        <div className="text-xs text-gray-400">Innovation Labs</div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-yellow-400">Pending</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 glass-panel rounded-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-600/20 flex items-center justify-center">
+                        <i className="fa-solid fa-building text-blue-400"></i>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">Design Director</div>
+                        <div className="text-xs text-gray-400">Creative Studio</div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-purple-400">Processing</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="comparison" className="py-24 px-6 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-black mb-4">The Old Way vs The HirePilot Way</h2>
+            <p className="text-xl text-gray-400">Two approaches. One clear winner.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            <div className="glass-panel rounded-3xl p-10 space-y-6 border-l-4 border-red-500/50">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+                  <i className="fa-solid fa-xmark text-red-400 text-xl"></i>
+                </div>
+                <h3 className="text-3xl font-bold text-red-400">The Old Way</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3 text-gray-300">
+                  <i className="fa-solid fa-circle text-red-500 text-xs mt-1.5"></i>
+                  <span>Apply to 200+ jobs blindly</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-300">
+                  <i className="fa-solid fa-circle text-red-500 text-xs mt-1.5"></i>
+                  <span>Compete with 1,000+ applicants per role</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-300">
+                  <i className="fa-solid fa-circle text-red-500 text-xs mt-1.5"></i>
+                  <span>Resume disappears into ATS black hole</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-300">
+                  <i className="fa-solid fa-circle text-red-500 text-xs mt-1.5"></i>
+                  <span>Endless ghosting and rejection</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-300">
+                  <i className="fa-solid fa-circle text-red-500 text-xs mt-1.5"></i>
+                  <span>Wait passively and hope for the best</span>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-red-500/20">
+                <div className="text-4xl font-black text-red-400 mb-2">2-5%</div>
+                <div className="text-sm text-gray-400">Average response rate</div>
+              </div>
+            </div>
+
+            <div className="glass-panel rounded-3xl p-10 space-y-6 border-l-4 border-purple-500/50 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl"></div>
+
+              <div className="flex items-center space-x-3 mb-6 relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                  <i className="fa-solid fa-check text-white text-xl"></i>
+                </div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  The HirePilot Way
+                </h3>
+              </div>
+
+              <div className="space-y-4 relative z-10">
+                <div className="flex items-start space-x-3 text-gray-200">
+                  <i className="fa-solid fa-circle text-purple-400 text-xs mt-1.5"></i>
+                  <span>Identify decision-makers at target companies</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-200">
+                  <i className="fa-solid fa-circle text-purple-400 text-xs mt-1.5"></i>
+                  <span>Launch intelligent outreach campaigns</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-200">
+                  <i className="fa-solid fa-circle text-purple-400 text-xs mt-1.5"></i>
+                  <span>Send personalized messages at scale</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-200">
+                  <i className="fa-solid fa-circle text-purple-400 text-xs mt-1.5"></i>
+                  <span>Track conversations in one dashboard</span>
+                </div>
+                <div className="flex items-start space-x-3 text-gray-200">
+                  <i className="fa-solid fa-circle text-purple-400 text-xs mt-1.5"></i>
+                  <span>Iterate with AI-powered insights</span>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-purple-500/20 relative z-10">
+                <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                  40-60%
+                </div>
+                <div className="text-sm text-gray-400">Average response rate</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center mt-16">
+            <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Stop applying. Start manufacturing conversations.
+            </h3>
+          </div>
+        </div>
+      </section>
+
+      <section id="connection-engine" className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-900/5 to-transparent"></div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-8">
+              <div>
+                <span className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 text-sm font-medium text-purple-300 inline-block mb-6">
+                  <i className="fa-solid fa-robot mr-2"></i>Powered by AI
+                </span>
+                <h2 className="text-5xl font-black mb-6 leading-tight">
+                  The Connection{' '}
+                  <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Engine</span>
+                </h2>
+                <p className="text-xl text-gray-300 leading-relaxed">
+                  The Job Seeker Agent analyzes job signals, identifies hiring managers, and launches personalized outreach
+                  campaigns — automatically.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-purple-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-brands fa-linkedin text-purple-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Extract job signals from LinkedIn</h4>
+                    <p className="text-sm text-gray-400">Automatically capture opportunities that match your criteria</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-pink-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-solid fa-magnifying-glass text-pink-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Source opportunities via Apollo or LinkedIn</h4>
+                    <p className="text-sm text-gray-400">Tap into millions of companies and decision-makers</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-solid fa-crosshairs text-blue-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Identify hiring managers inside target companies</h4>
+                    <p className="text-sm text-gray-400">Skip HR and connect directly with decision-makers</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-green-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-solid fa-message text-green-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Generate personalized outreach messages</h4>
+                    <p className="text-sm text-gray-400">AI crafts compelling messages tailored to each recipient</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-yellow-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-solid fa-paper-plane text-yellow-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Send via LinkedIn or email</h4>
+                    <p className="text-sm text-gray-400">Multi-channel outreach for maximum reach</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-4 p-4 glass-panel rounded-xl hover:bg-white/5 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-indigo-600/20 flex items-center justify-center flex-shrink-0">
+                    <i className="fa-solid fa-gears text-indigo-400 text-xl"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Process campaigns in the background</h4>
+                    <p className="text-sm text-gray-400">Set it and forget it — your agent works 24/7</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-3xl blur-3xl"></div>
+
+              <div className="relative glass-panel rounded-3xl p-8 space-y-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold">Live Campaign Stats</h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-green-400">Processing</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="gradient-border rounded-2xl p-6 text-center space-y-2">
+                    <div ref={jobsCounterRef} className="text-5xl font-black text-purple-400 counter">
+                      0
+                    </div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide">Jobs Extracted</div>
+                    <div className="text-xs text-green-400">+12 today</div>
+                  </div>
+
+                  <div className="gradient-border rounded-2xl p-6 text-center space-y-2">
+                    <div ref={managersCounterRef} className="text-5xl font-black text-pink-400 counter">
+                      0
+                    </div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide">Managers Identified</div>
+                    <div className="text-xs text-green-400">+8 today</div>
+                  </div>
+
+                  <div className="gradient-border rounded-2xl p-6 text-center space-y-2">
+                    <div ref={timeCounterRef} className="text-5xl font-black text-blue-400 counter">
+                      0
+                    </div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide">Min to Launch</div>
+                    <div className="text-xs text-purple-400">avg time</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-4">
+                  <div className="glass-panel rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold">Campaign Progress</span>
+                      <span className="text-sm text-purple-400">78%</span>
+                    </div>
+                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full" style={{ width: '78%' }}></div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="glass-panel rounded-xl p-4 space-y-1">
+                      <div className="text-2xl font-bold text-green-400">42</div>
+                      <div className="text-xs text-gray-400">Messages Sent</div>
+                    </div>
+                    <div className="glass-panel rounded-xl p-4 space-y-1">
+                      <div className="text-2xl font-bold text-yellow-400">18</div>
+                      <div className="text-xs text-gray-400">Responses</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Next batch processing in:</span>
+                    <span className="font-mono text-purple-400">04:23</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="positioning" className="py-24 px-6 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-black mb-6">
+              Position Yourself As a{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Top Candidate</span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              Stand out from the crowd with professional tools that showcase your expertise
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 mb-12">
+            <div className="gradient-border rounded-3xl p-10 space-y-6 hover:scale-105 transition-transform duration-300">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center mb-4">
+                <i className="fa-solid fa-file-lines text-white text-2xl"></i>
+              </div>
+
+              <h3 className="text-3xl font-bold">Resume Builder</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Create stunning, ATS-optimized resumes that get you noticed by both humans and algorithms.
+              </p>
+
+              <div className="space-y-4 pt-4">
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-purple-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Clean modern templates</div>
+                    <div className="text-sm text-gray-400">Professional designs that stand out</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-purple-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">AI rewrite engine</div>
+                    <div className="text-sm text-gray-400">Optimize your content with AI assistance</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-purple-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Structured positioning</div>
+                    <div className="text-sm text-gray-400">Highlight what matters most</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-purple-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Export-ready PDF</div>
+                    <div className="text-sm text-gray-400">Download and share instantly</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <div className="glass-panel rounded-xl p-4 flex items-center space-x-4">
+                  <div className="w-16 h-16 rounded-lg bg-purple-600/20 flex items-center justify-center">
+                    <i className="fa-solid fa-file-lines text-purple-300 text-2xl"></i>
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm">Professional Resume</div>
+                    <div className="text-xs text-gray-400">Last edited 2 hours ago</div>
+                  </div>
+                  <i className="fa-solid fa-arrow-right text-purple-400"></i>
+                </div>
+              </div>
+            </div>
+
+            <div className="gradient-border rounded-3xl p-10 space-y-6 hover:scale-105 transition-transform duration-300">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-600 to-pink-800 flex items-center justify-center mb-4">
+                <i className="fa-solid fa-globe text-white text-2xl"></i>
+              </div>
+
+              <h3 className="text-3xl font-bold">Personal Landing Page Builder</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Build a stunning online presence that showcases your work, achievements, and professional story.
+              </p>
+
+              <div className="space-y-4 pt-4">
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-pink-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Fully customizable</div>
+                    <div className="text-sm text-gray-400">Design your perfect portfolio</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-pink-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Custom HTML support</div>
+                    <div className="text-sm text-gray-400">Full control over your design</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-pink-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Shareable link</div>
+                    <div className="text-sm text-gray-400">Easy to include in outreach</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <i className="fa-solid fa-check text-pink-400 mt-1"></i>
+                  <div>
+                    <div className="font-semibold">Showcase achievements</div>
+                    <div className="text-sm text-gray-400">Case studies, metrics, and more</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <div className="glass-panel rounded-xl p-4 flex items-center space-x-4">
+                  <div className="w-16 h-16 rounded-lg bg-pink-600/20 flex items-center justify-center">
+                    <i className="fa-solid fa-laptop text-pink-300 text-2xl"></i>
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm">yourname.hirepilot.com</div>
+                    <div className="text-xs text-gray-400">Live and ready to share</div>
+                  </div>
+                  <i className="fa-solid fa-arrow-right text-pink-400"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <h3 className="text-3xl font-bold">
+              Don't just send a resume.{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Send authority.</span>
+            </h3>
+          </div>
+        </div>
+      </section>
+
+      <div id="how-it-works"></div>
+      <section id="pipeline" className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/10 via-transparent to-pink-900/10"></div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-black mb-6">
+              Build Your{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Career Pipeline</span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              Your job search becomes a living pipeline — not a guessing game.
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 transform -translate-y-1/2 hidden lg:block"></div>
+
+            <div className="grid lg:grid-cols-6 gap-6 relative z-10">
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">1</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Define Target Role</h4>
+                  <p className="text-sm text-gray-400">Set your career goals and ideal position</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-bullseye text-purple-400 text-2xl"></i>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">2</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Source Opportunities</h4>
+                  <p className="text-sm text-gray-400">Find relevant jobs and companies</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-magnifying-glass text-pink-400 text-2xl"></i>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-600 to-pink-800 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">3</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Identify Decision Makers</h4>
+                  <p className="text-sm text-gray-400">Find hiring managers and leaders</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-users text-pink-400 text-2xl"></i>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-600 to-blue-600 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">4</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Launch Outreach</h4>
+                  <p className="text-sm text-gray-400">Send personalized campaigns</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-paper-plane text-blue-400 text-2xl"></i>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-green-600 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">5</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Track Conversations</h4>
+                  <p className="text-sm text-gray-400">Monitor all interactions</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-chart-line text-green-400 text-2xl"></i>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-600 to-purple-600 flex items-center justify-center mx-auto">
+                  <span className="text-2xl font-bold">6</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold mb-2">Refine with REX</h4>
+                  <p className="text-sm text-gray-400">Optimize your strategy</p>
+                </div>
+                <div className="flex justify-center">
+                  <i className="fa-solid fa-robot text-purple-400 text-2xl"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-16 text-center">
+            <div className="inline-block glass-panel rounded-2xl px-8 py-6">
+              <p className="text-xl text-gray-300">
+                <i className="fa-solid fa-lightbulb text-yellow-400 mr-3"></i>
+                Your job search becomes a <span className="text-purple-400 font-bold">living pipeline</span> — not a guessing game.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="rex" className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="gradient-border rounded-3xl p-12 lg:p-16 space-y-12">
+            <div className="text-center max-w-4xl mx-auto space-y-6">
+              <div className="inline-block">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center mx-auto mb-6">
+                  <i className="fa-solid fa-robot text-white text-3xl"></i>
+                </div>
+              </div>
+
+              <h2 className="text-5xl lg:text-6xl font-black mb-6">
+                Your Embedded Recruiter:{' '}
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">REX</span>
+              </h2>
+
+              <p className="text-2xl text-gray-300 leading-relaxed">
+                REX doesn't just answer questions.
+                <br />
+                <span className="text-white font-semibold">
+                  It builds strategy, angles, and outreach campaigns around your goals.
+                </span>
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-purple-600/20 flex items-center justify-center">
+                  <i className="fa-solid fa-file-lines text-purple-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">Resume Optimization</h4>
+                <p className="text-gray-400 text-sm">
+                  AI-powered suggestions to make your resume stand out and pass ATS filters
+                </p>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-pink-600/20 flex items-center justify-center">
+                  <i className="fa-brands fa-linkedin text-pink-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">LinkedIn Positioning</h4>
+                <p className="text-gray-400 text-sm">
+                  Craft compelling headlines, summaries, and experience sections that attract recruiters
+                </p>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center">
+                  <i className="fa-solid fa-message text-blue-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">Outreach Angle Generation</h4>
+                <p className="text-gray-400 text-sm">
+                  Create personalized messaging strategies that resonate with hiring managers
+                </p>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-green-600/20 flex items-center justify-center">
+                  <i className="fa-solid fa-comments text-green-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">Interview Prep</h4>
+                <p className="text-gray-400 text-sm">
+                  Practice with AI-powered mock interviews and get real-time feedback
+                </p>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-yellow-600/20 flex items-center justify-center">
+                  <i className="fa-solid fa-handshake text-yellow-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">Negotiation Coaching</h4>
+                <p className="text-gray-400 text-sm">Get strategic advice on salary negotiations and offer evaluations</p>
+              </div>
+
+              <div className="glass-panel rounded-2xl p-6 space-y-4 hover:bg-white/5 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-indigo-600/20 flex items-center justify-center">
+                  <i className="fa-solid fa-chart-simple text-indigo-400 text-xl"></i>
+                </div>
+                <h4 className="text-xl font-bold">Reply Analysis</h4>
+                <p className="text-gray-400 text-sm">
+                  Analyze responses and get intelligent follow-up recommendations
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs sm:text-sm">
-                Target: Head of Sales · B2B SaaS
-              </div>
-              <div className="text-xs text-slate-500 flex items-center gap-1">
-                <span className="hidden sm:inline">Mode:</span>
-                <select
-                  className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300 text-xs"
-                  value="General"
-                  disabled
-                >
-                  {['General', 'Resume', 'LinkedIn', 'Outreach', 'Interview'].map((m) => (
-                    <option key={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </motion.div>
 
-          <motion.div {...pop} className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2fr)_minmax(0,1.1fr)] pointer-events-none select-none">
-            {/* Left panel */}
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-4 text-xs">
-              <div className="space-y-2">
-                <h3 className="font-medium text-slate-200">Current context</h3>
-                <div className="space-y-1 text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Role:</span>
-                    <span className="text-slate-300">Head of Sales</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Industry:</span>
-                    <span className="text-slate-300">B2B SaaS</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Focus:</span>
-                    <span className="text-slate-300">Leadership · Remote-first</span>
-                  </div>
+            <div className="glass-panel rounded-2xl p-8 max-w-3xl mx-auto">
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center flex-shrink-0">
+                  <i className="fa-solid fa-quote-left text-white text-sm"></i>
                 </div>
-                <button className="text-sky-400 hover:text-sky-300 text-xs">Edit job target</button>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-medium text-slate-200">Attached assets</h3>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <i className="fa-solid fa-check text-emerald-400 text-xs" />
-                    <span>Resume: Brandon_Wells_Resume.pdf</span>
+                <div className="space-y-3">
+                  <p className="text-gray-300 italic">
+                    "REX helped me reposition my entire approach. Instead of applying to 50 jobs a week, I targeted 10
+                    decision-makers with personalized outreach. I had 3 interviews within a week."
+                  </p>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-500/30 flex items-center justify-center text-sm font-semibold">
+                      AT
+                    </div>
+                    <div>
+                      <div className="font-semibold">Alex Thompson</div>
+                      <div className="text-sm text-gray-400">Product Manager</div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <i className="fa-solid fa-check text-emerald-400 text-xs" />
-                    <span>LinkedIn: /in/brandon</span>
-                  </div>
-                </div>
-                <p className="text-slate-500 text-xs">REX will use these when rewriting content.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-medium text-slate-200">Try asking</h3>
-                <div className="space-y-2">
-                  {[
-                    'Rewrite my resume summary for a Head of Sales role.',
-                    'Give me 3 stronger bullets for my VP of Sales experience.',
-                    "Tighten this LinkedIn 'About' section.",
-                    'Draft an outreach email to a VP of Sales recruiter.',
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      className="w-full text-left p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 text-slate-300 text-xs transition-colors"
-                      onClick={() => setPrompt(q)}
-                    >
-                      {q}
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Chat panel */}
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 flex flex-col h-full relative">
-              <div id="messages-area" className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
-                <div className="flex justify-end">
-                  <div className="max-w-[70%]">
-                    <div className="bg-sky-500 text-slate-50 rounded-3xl rounded-br-lg px-4 py-3 message-bubble">
-                      Can you rewrite my resume summary for a Head of Sales role?
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1 text-right">2:34 PM</div>
-                  </div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="max-w-[80%]">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
-                        RX
-                      </div>
-                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
-                        <p>Here&apos;s a rewritten summary tailored for Head of Sales positions in B2B SaaS:</p>
-                        <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
-                          <p className="text-sm">
-                            Results-driven sales executive with 8+ years leading high-performing teams in B2B SaaS environments. Proven track record of scaling revenue from $2M to $15M+ while building remote-first sales organizations. Expert in enterprise deal cycles, strategic partnerships, and implementing data-driven sales processes that consistently exceed targets by 20-30%.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1 ml-11">2:34 PM</div>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <div className="max-w-[70%]">
-                    <div className="bg-sky-500 text-slate-50 rounded-3xl rounded-br-lg px-4 py-3 message-bubble">
-                      Now give me 3 bullets for my Nimbus Data experience.
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1 text-right">2:36 PM</div>
-                  </div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="max-w-[80%]">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
-                        RX
-                      </div>
-                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
-                        <p>Here are 3 strong bullets for your Nimbus Data experience:</p>
-                        <ul className="mt-3 space-y-2 text-sm">
-                          <li className="flex items-start gap-2">
-                            <span className="text-sky-400 mt-1">•</span>
-                            <span>Scaled enterprise sales team from 5 to 15 reps, driving 340% revenue growth ($3M to $13.2M ARR) over 18 months</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="text-sky-400 mt-1">•</span>
-                            <span>Implemented Salesforce automation and lead scoring system, reducing sales cycle by 25% and improving conversion rates by 35%</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="text-sky-400 mt-1">•</span>
-                            <span>Secured 3 enterprise deals worth $2M+ each by developing strategic partnerships with Fortune 500 technology integrators</span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1 ml-11">2:37 PM</div>
-                  </div>
-                </div>
+      <section id="features" className="py-24 px-6 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-black mb-6">
+              Everything You Need to{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Manufacture Meaningful Connections
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              A complete career operating system in one powerful platform
+            </p>
+          </div>
 
-                {/* Thinking message */}
-                <div className="flex justify-start">
-                  <div className="max-w-[80%]">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300 flex-shrink-0">
-                        RX
-                      </div>
-                      <div className="bg-slate-800 text-slate-100 rounded-3xl rounded-bl-lg px-4 py-3 message-bubble">
-                        <div className="flex gap-1 mb-2 typing-dots">
-                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
-                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
-                          <span className="w-2 h-2 bg-slate-400 rounded-full" />
-                        </div>
-                        <p className="text-sm text-slate-400">Analyzing attached resume...</p>
-                        <div className="mt-2 h-1 w-full rounded-full bg-slate-700">
-                          <div className="h-full w-1/2 rounded-full bg-sky-500 transition-all" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-purple-500/50 transition-shadow">
+                <i className="fa-solid fa-robot text-white text-2xl"></i>
               </div>
-
-              {/* Input */}
-              <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
-                <div className="rounded-2xl border border-slate-700 bg-slate-950/90 px-3 py-2 flex items-end gap-2">
-                  <textarea
-                    rows={1}
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Ask REX to improve your resume, LinkedIn, or outreach copy..."
-                    className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 resize-none outline-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                  />
-                  <button className="text-slate-400 hover:text-slate-200 p-2">
-                    <i className="fa-solid fa-sparkles" />
-                  </button>
-                  <button
-                    className="bg-sky-500 hover:bg-sky-400 text-slate-50 rounded-full w-10 h-10 flex items-center justify-center transition-colors"
-                    onClick={handleSend}
-                  >
-                    <i className="fa-solid fa-arrow-up" />
-                  </button>
-                </div>
-              </div>
+              <h3 className="text-xl font-bold">Job Seeker Agent</h3>
+              <p className="text-gray-400 text-sm">AI-powered automation that works 24/7 to advance your career</p>
             </div>
 
-            {/* Right panel */}
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 flex flex-col h-full text-xs">
-              <div className="space-y-2 mb-4">
-                <h3 className="font-medium text-slate-200">REX status</h3>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-slate-500 rounded-full" />
-                  <span className="text-slate-400">Idle · Ready for your next question</span>
-                </div>
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-600 to-pink-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-pink-500/50 transition-shadow">
+                <i className="fa-solid fa-file-lines text-white text-2xl"></i>
               </div>
-
-              <div className="space-y-3 mb-4">
-                <h4 className="font-medium text-slate-300">Processing steps</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center">
-                      <i className="fa-solid fa-check text-slate-900 text-xs" />
-                    </div>
-                    <span className="text-slate-300">Analyze your request</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-sky-400 animate-spin">
-                      <div className="w-2 h-2 bg-slate-900 rounded-full ml-1 mt-1" />
-                    </div>
-                    <span className="text-slate-200">Pull in resume / profile context</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-slate-600" />
-                    <span className="text-slate-500">Draft and refine response</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <button className="w-full rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:border-rose-500 hover:text-rose-300 py-2 px-4 transition-colors">
-                  <i className="fa-solid fa-stop mr-2" />
-                  Stop generating
-                </button>
-                <p className="text-slate-500 text-xs mt-2 text-center">Stopping keeps partial drafts visible in the thread.</p>
-              </div>
-
-              <div className="mt-auto">
-                <h4 className="font-medium text-slate-300 mb-2">Recent actions</h4>
-                <ul className="space-y-1 text-slate-400">
-                  <li className="flex items-center gap-2">
-                    <i className="fa-solid fa-circle text-xs text-emerald-400" />
-                    Rewrote resume summary for Head of Sales
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <i className="fa-solid fa-circle text-xs text-emerald-400" />
-                    Generated 3 new experience bullets for Nimbus Data
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <i className="fa-solid fa-circle text-xs text-slate-600" />
-                    Tightened LinkedIn About section
-                  </li>
-                </ul>
-              </div>
+              <h3 className="text-xl font-bold">Resume Builder</h3>
+              <p className="text-gray-400 text-sm">Professional templates with AI optimization</p>
             </div>
-          </motion.div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-blue-500/50 transition-shadow">
+                <i className="fa-solid fa-globe text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Landing Page Builder</h3>
+              <p className="text-gray-400 text-sm">Showcase your work with a custom portfolio site</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-green-500/50 transition-shadow">
+                <i className="fa-solid fa-crosshairs text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Hiring Manager Targeting</h3>
+              <p className="text-gray-400 text-sm">Identify and connect with decision-makers directly</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-600 to-yellow-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-yellow-500/50 transition-shadow">
+                <i className="fa-brands fa-linkedin text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">LinkedIn Outreach</h3>
+              <p className="text-gray-400 text-sm">Automated, personalized LinkedIn messaging campaigns</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-red-500/50 transition-shadow">
+                <i className="fa-solid fa-envelope text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Email Outreach</h3>
+              <p className="text-gray-400 text-sm">Professional email campaigns with tracking</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-indigo-500/50 transition-shadow">
+                <i className="fa-solid fa-magnifying-glass text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Apollo Sourcing</h3>
+              <p className="text-gray-400 text-sm">Access millions of companies and contacts</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-purple-500/50 transition-shadow">
+                <i className="fa-solid fa-comments text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Interview Coaching</h3>
+              <p className="text-gray-400 text-sm">AI-powered practice and feedback</p>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-8 space-y-4 hover:scale-105 transition-transform group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-teal-500/50 transition-shadow">
+                <i className="fa-solid fa-handshake text-white text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold">Negotiation Support</h3>
+              <p className="text-gray-400 text-sm">Strategic guidance for salary discussions</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Features grid */}
-      <section id="features" className="py-20 bg-gray-800">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <motion.div {...fadeUp} className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">What can REX help with?</h2>
-          </motion.div>
-          <motion.div {...stagger} className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-            {[
-              { icon: <FaRegFileAlt />, title: 'Resume rewrite', description: "Transform your resume into a compelling story that hiring managers can't ignore." },
-              { icon: <FaLinkedin />, title: 'Automated outreach to hiring managers', description: 'Automated outreach to hiring managers via email or LinkedIn.' },
-              { icon: <FaEnvelope />, title: 'Outreach scripts', description: 'Craft personalized messages that get hiring managers to respond and engage.' },
-              { icon: <FaCrosshairs />, title: 'Hiring manager targeting', description: 'Find the right people to contact and learn how to approach them effectively.' },
-              { icon: <FaComments />, title: 'Interview prep', description: 'Practice answers, learn company insights, and prepare for any interview scenario.' },
-              { icon: <FaHandshake />, title: 'Negotiation coaching', description: 'Get the salary and benefits you deserve with proven negotiation strategies.' },
-            ].map((card, idx) => (
-              <motion.div key={card.title} {...pop} transition={{ ...pop.transition, delay: 0.04 * idx }} whileHover={{ y: -4, scale: 1.02 }}>
-                <FeatureCard icon={card.icon} title={card.title} description={card.description} />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      <section id="final-cta" className="py-32 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/30 to-purple-900/30"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
+        <div
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-glow"
+          style={{ animationDelay: '1.5s' }}
+        ></div>
 
-      {/* Credibility */}
-      <section id="credibility" className="py-16 bg-gray-900">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-          <motion.div {...stagger} className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {[
-              { icon: <FaUserTie className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: 'Built from real recruiter workflows' },
-              { icon: <FaRocket className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: 'Designed for direct outreach' },
-              { icon: <FaStar className="text-[#3b82f6] text-3xl mb-2 mx-auto" />, title: `"Finally something that doesn't just spam job boards."` },
-            ].map((item, idx) => (
-              <motion.div key={item.title} {...pop} transition={{ ...pop.transition, delay: 0.04 * idx }} whileHover={{ y: -4, scale: 1.01 }}>
-                {item.icon}
-                <h4 className="font-semibold text-white">{item.title}</h4>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+        <div className="max-w-5xl mx-auto text-center relative z-10 space-y-10">
+          <div className="space-y-6">
+            <h2 className="text-6xl lg:text-7xl font-black leading-tight">
+              The Job Board Era{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Is Over</span>
+            </h2>
 
-      {/* FAQ */}
-      <section id="faq" className="py-20 bg-gray-900">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <motion.h2 {...fadeUp} className="text-3xl sm:text-4xl font-bold text-white text-center mb-14">
-            Frequently asked questions
-          </motion.h2>
-          <motion.div {...stagger} className="space-y-8">
-            {[
-              {
-                q: 'Do you auto-apply to jobs?',
-                a: "No. We don't believe in it. HirePilot Jobs focuses on direct outreach to hiring managers, not mass applications.",
-              },
-              {
-                q: 'What makes this different?',
-                a: 'Direct outreach playbook + REX coaching. We teach you the strategies recruiters use to connect candidates with opportunities.',
-              },
-              {
-                q: 'Do I need a resume already?',
-                a: 'You can upload anything - even a basic resume or LinkedIn profile. REX will help you transform it into something powerful.',
-              },
-              {
-                q: 'Is this for executives or entry-level?',
-                a: 'Both! Our targeting-based approach works for any level. REX adapts strategies based on your experience and goals.',
-              },
-              {
-                q: 'Does it work with LinkedIn?',
-                a: 'Yes, we have a LinkedIn extension that helps you research prospects and send personalized outreach directly.',
-              },
-            ].map((item, idx) => (
-              <motion.div key={item.q} {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.05 * idx }} className="border-b border-gray-700 pb-6">
-                <h4 className="text-lg font-semibold text-white mb-2">{item.q}</h4>
-                <p className="text-gray-300">{item.a}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+            <p className="text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Build Conversations That Lead to Offers.
+            </p>
+          </div>
 
-      {/* Final CTA */}
-      <section id="final-cta" className="py-20 bg-gradient-to-r from-[#3b82f6] to-blue-700 text-white">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to transform your job search?</h2>
-          <p className="text-xl mb-8 opacity-90">Stop applying. Start having conversations with hiring managers.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center pt-8">
             <button
-              className="bg-white text-[#3b82f6] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100"
+              type="button"
+              className="px-12 py-5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl font-bold text-xl hover:shadow-2xl hover:shadow-purple-500/50 transition-all transform hover:scale-110"
               onClick={handleStart}
             >
               Start Free
+              <i className="fa-solid fa-rocket ml-3"></i>
             </button>
             <button
-              className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-[#3b82f6]"
-              onClick={() => goToRex()}
+              type="button"
+              className="px-12 py-5 glass-panel rounded-2xl font-semibold text-xl hover:bg-white/10 transition-all"
+              onClick={goToRex}
             >
               Try REX Chat
+              <i className="fa-solid fa-robot ml-3"></i>
             </button>
           </div>
-          <p className="text-sm opacity-75">✨ Complete onboarding → earn bonus credits</p>
+
+          <div className="pt-8">
+            <div className="inline-flex items-center space-x-3 px-6 py-3 glass-panel rounded-full">
+              <i className="fa-solid fa-sparkles text-yellow-400"></i>
+              <span className="text-sm text-gray-300">Complete onboarding → Earn bonus credits</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">
+            <div className="space-y-2">
+              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                10k+
+              </div>
+              <div className="text-sm text-gray-400">Active Job Seekers</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                2.5M+
+              </div>
+              <div className="text-sm text-gray-400">Messages Sent</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                47%
+              </div>
+              <div className="text-sm text-gray-400">Avg Response Rate</div>
+            </div>
+          </div>
         </div>
       </section>
 
