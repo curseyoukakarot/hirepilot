@@ -255,7 +255,7 @@ export default function JobSeekerAgentLandingPage() {
                 <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Stop Applying. Launch Campaigns.</h2>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  className="px-8 py-3 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-colors shadow-lg shadow-white/10"
+                  className="px-8 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/40"
                   onClick={() => navigate('/signup')}
                 >
                   Start Free
