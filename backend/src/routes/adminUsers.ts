@@ -602,6 +602,58 @@ router.patch('/users/:id/credits', requireAuth, requireSuperAdmin, async (req: R
   res.json({ success: true, user_id: userId, total_credits });
 });
 
+// POST /api/admin/users/bulk-credits - Add credits to many users
+router.post('/users/bulk-credits', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const amount = Number((req.body || {}).amount);
+    const applyTo = String((req.body || {}).apply_to || '').toLowerCase();
+    let userIds: string[] = Array.isArray((req.body || {}).user_ids)
+      ? (req.body || {}).user_ids.map((id: any) => String(id)).filter(Boolean)
+      : [];
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'amount must be a positive number' });
+    }
+
+    if (applyTo === 'all') {
+      const { data, error } = await supabaseDb.from('users').select('id');
+      if (error) return res.status(500).json({ error: error.message });
+      userIds = (data || []).map((u: any) => String(u.id));
+    }
+
+    const uniqueIds = Array.from(new Set(userIds));
+    if (!uniqueIds.length) {
+      return res.status(400).json({ error: 'user_ids required' });
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errorDetails: Array<{ user_id: string; error: string }> = [];
+
+    for (const userId of uniqueIds) {
+      try {
+        const ok = await CreditService.addCredits(userId, amount);
+        if (!ok) throw new Error('add_failed');
+        successCount += 1;
+      } catch (e: any) {
+        errorCount += 1;
+        errorDetails.push({ user_id: userId, error: e?.message || 'add_failed' });
+      }
+    }
+
+    return res.json({
+      success: true,
+      amount,
+      totalUsers: uniqueIds.length,
+      successful: successCount,
+      errors: errorCount,
+      errorDetails: errorDetails.length ? errorDetails : undefined
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'Failed to add credits' });
+  }
+});
+
 // PATCH /api/admin/users  – update user when body contains id (fallback for UI)
 router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { id, firstName, lastName, role } = req.body;
