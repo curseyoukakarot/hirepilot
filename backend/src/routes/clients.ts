@@ -171,13 +171,14 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const allowed = await canViewClients(userId);
     if (!allowed) { res.status(403).json({ error: 'access_denied' }); return; }
 
-    const { name, domain, industry, revenue, location } = req.body || {};
+    const { name, domain, industry, revenue, location, org_meta } = req.body || {};
     const insert = {
       name: name || null,
       domain: domain || null,
       industry: industry || null,
       revenue: revenue ?? null,
       location: location || null,
+      org_meta: org_meta && typeof org_meta === 'object' ? org_meta : null,
       // SECURITY: Never allow creating clients for another user.
       owner_id: userId,
       created_at: new Date().toISOString()
@@ -207,6 +208,23 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
     // SECURITY: Never allow transferring ownership via API.
     const fields = ['name','domain','industry','revenue','location','stage','notes'];
     for (const f of fields) if (req.body?.[f] !== undefined) update[f] = req.body[f];
+    if (req.body?.org_meta !== undefined) {
+      const { data: existing, error: existingErr } = await supabase
+        .from('clients')
+        .select('org_meta')
+        .eq('id', id)
+        .eq('owner_id', userId)
+        .maybeSingle();
+      if (existingErr) { res.status(500).json({ error: existingErr.message }); return; }
+      if (!existing) { res.status(404).json({ error: 'not_found' }); return; }
+      const prev = (existing as any)?.org_meta || {};
+      const incoming = req.body?.org_meta || {};
+      const merged: any = { ...prev, ...incoming };
+      if (incoming?.manual !== undefined) {
+        merged.manual = { ...(prev?.manual || {}), ...(incoming?.manual || {}) };
+      }
+      update.org_meta = merged;
+    }
     const { data, error } = await supabase
       .from('clients')
       .update(update)
@@ -489,8 +507,16 @@ router.post('/:id/sync-enrichment', requireAuth, async (req: Request, res: Respo
       if (typeof locationFromEnrich === 'string') update.location = locationFromEnrich;
     }
     if (overrideExisting || !client.revenue) update.revenue = revenueParsed ?? client.revenue ?? null;
-    // Save raw org meta for UI richness
-    update.org_meta = { apollo: { organization: org, latest_funding_stage: chosen.enrichment_data?.apollo?.latest_funding_stage || null, total_funding_printed: chosen.enrichment_data?.apollo?.total_funding_printed || null } };
+    // Save raw org meta for UI richness (preserve manual overrides)
+    const prevMeta = (client as any)?.org_meta || {};
+    update.org_meta = {
+      ...prevMeta,
+      apollo: {
+        organization: org,
+        latest_funding_stage: chosen.enrichment_data?.apollo?.latest_funding_stage || null,
+        total_funding_printed: chosen.enrichment_data?.apollo?.total_funding_printed || null
+      }
+    };
 
     if (Object.keys(update).length === 0) { res.json({ updated: false, client }); return; }
 

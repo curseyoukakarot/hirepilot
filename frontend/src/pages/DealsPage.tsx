@@ -89,6 +89,20 @@ export default function DealsPage() {
   const [form, setForm] = useState<{ title: string; client_id: string; value: string; billing_type: string }>({ title: '', client_id: '', value: '', billing_type: '' });
   const [showAddModal, setShowAddModal] = useState(false);
   const [logModal, setLogModal] = useState<{ type: 'client'|'decision_maker'|'opportunity'; id: string } | null>(null);
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [addClientLoading, setAddClientLoading] = useState(false);
+  const [addClientError, setAddClientError] = useState('');
+  const [addClientDraft, setAddClientDraft] = useState<any>({
+    name: '',
+    domain: '',
+    industry: '',
+    location: '',
+    revenue: '',
+    funding: '',
+    founded: '',
+    tech_stack: '',
+    keywords: ''
+  });
   // Removed modal caret refs
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState<string>('');
@@ -104,6 +118,17 @@ export default function DealsPage() {
     const cleaned = s.replace(/[\s$,]/g, '').replace(/%/g, '');
     const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
+  };
+
+  const parseRevenueInput = (value: string): number | null => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const upper = raw.toUpperCase();
+    const multiplier = upper.endsWith('B') ? 1_000_000_000 : upper.endsWith('M') ? 1_000_000 : upper.endsWith('K') ? 1_000 : 1;
+    const cleaned = upper.replace(/[^0-9.]/g, '');
+    const num = Number(cleaned);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num * multiplier);
   };
 
   const normalizeMarginType = (raw: any): 'currency' | 'percent' => {
@@ -312,6 +337,69 @@ export default function DealsPage() {
     } else {
       // Surface brief error toast in UI console for now
       try { const e = await safeJson(resp); console.warn('Sync enrichment failed', e); } catch {}
+    }
+  };
+
+  const openAddClientModal = () => {
+    setAddClientError('');
+    setAddClientDraft({
+      name: '',
+      domain: '',
+      industry: '',
+      location: '',
+      revenue: '',
+      funding: '',
+      founded: '',
+      tech_stack: '',
+      keywords: ''
+    });
+    setAddClientOpen(true);
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (addClientLoading) return;
+    const name = String(addClientDraft?.name || '').trim();
+    if (!name) {
+      setAddClientError('Company name is required');
+      return;
+    }
+    setAddClientLoading(true);
+    setAddClientError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const techStackList = String(addClientDraft?.tech_stack || '').split(/[,;\n]/).map((t) => t.trim()).filter(Boolean);
+      const keywordsList = String(addClientDraft?.keywords || '').split(/[,;\n]/).map((k) => k.trim()).filter(Boolean);
+      const payload = {
+        name,
+        domain: String(addClientDraft?.domain || '').trim() || null,
+        industry: String(addClientDraft?.industry || '').trim() || null,
+        location: String(addClientDraft?.location || '').trim() || null,
+        revenue: parseRevenueInput(String(addClientDraft?.revenue || '')),
+        org_meta: {
+          manual: {
+            revenue_printed: String(addClientDraft?.revenue || '').trim() || null,
+            total_funding_printed: String(addClientDraft?.funding || '').trim() || null,
+            founded_year: String(addClientDraft?.founded || '').trim() || null,
+            technology_names: techStackList,
+            keywords: keywordsList
+          }
+        }
+      };
+      const resp = await fetch(`${BACKEND_BASE}/api/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload)
+      });
+      const js = resp.ok ? await resp.json() : await safeJson(resp);
+      if (!resp.ok) throw new Error((js as any)?.error || 'Failed to create client');
+      setClients(prev => [js, ...prev]);
+      setAddClientOpen(false);
+    } catch (err: any) {
+      setAddClientError(err?.message || 'Failed to create client');
+    } finally {
+      setAddClientLoading(false);
     }
   };
 
@@ -996,7 +1084,12 @@ export default function DealsPage() {
         </div>
         <div className="flex items-center space-x-3">
           <button className="bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold py-2 px-4 rounded-lg">Import CSV</button>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded-lg">Add Client</button>
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded-lg"
+            onClick={openAddClientModal}
+          >
+            New Client
+          </button>
         </div>
       </div>
       <div className="flex items-center justify-between mb-4">
@@ -2032,6 +2125,110 @@ export default function DealsPage() {
             </div>
           ) : renderAccessDenied())}
         </>
+      )}
+      {addClientOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              onClick={() => setAddClientOpen(false)}
+              title="Close"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold mb-4 dark:text-gray-100">New Client</h2>
+            <form onSubmit={handleCreateClient} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Company name</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.name}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Website</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.domain}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, domain: e.target.value }))}
+                    placeholder="e.g., https://example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Industry</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.industry}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, industry: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Location</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.location}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, location: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Revenue</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.revenue}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, revenue: e.target.value }))}
+                    placeholder="e.g., 300K"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Funding</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.funding}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, funding: e.target.value }))}
+                    placeholder="e.g., 22.7M"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Founded</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.founded}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, founded: e.target.value }))}
+                    placeholder="e.g., 2021"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Tech stack</label>
+                  <input
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={addClientDraft.tech_stack}
+                    onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, tech_stack: e.target.value }))}
+                    placeholder="Comma-separated"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Keywords</label>
+                <input
+                  className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                  value={addClientDraft.keywords}
+                  onChange={(e)=>setAddClientDraft((prev:any)=>({ ...prev, keywords: e.target.value }))}
+                  placeholder="Comma-separated"
+                />
+              </div>
+              {addClientError && <div className="text-sm text-red-600">{addClientError}</div>}
+              <div className="flex justify-end gap-2">
+                <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setAddClientOpen(false)}>Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50" disabled={addClientLoading}>
+                  {addClientLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       {logModal && (
         <DealLogActivityModal entityType={logModal.type} entityId={logModal.id} onClose={()=>setLogModal(null)} onSaved={()=>{
