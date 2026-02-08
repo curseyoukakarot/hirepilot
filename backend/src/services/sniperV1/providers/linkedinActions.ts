@@ -65,6 +65,16 @@ async function waitForCondition(fn: () => Promise<boolean>, timeoutMs = 8000, po
   return false;
 }
 
+function isAuthWallUrl(url: string): boolean {
+  return /linkedin\.com\/(login|checkpoint|authwall)/i.test(url);
+}
+
+async function waitForProfileReady(page: Page) {
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  await page.waitForTimeout(1200).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+}
+
 async function hasText(page: Page, pattern: RegExp): Promise<boolean> {
   const locator = page.locator(`text=${pattern}`);
   return (await locator.count().catch(() => 0)) > 0;
@@ -100,25 +110,65 @@ async function detectBlockReason(page: Page): Promise<string | null> {
 }
 
 export async function findConnectEntrypoint(page: Page): Promise<ConnectEntrypoint | null> {
-  const direct = page.locator('button', { hasText: /^Connect$/ }).first();
-  if (await direct.count().catch(() => 0)) {
-    return { strategyUsed: 'primary_connect', click: async () => !!(await direct.click({ timeout: 8000 }).then(() => true).catch(() => false)) };
+  const directSelectors = [
+    'button:has-text("Connect")',
+    'button[aria-label*="Connect"]',
+    'button[aria-label*="Invite"]',
+    'button[data-control-name="connect"]',
+    '[data-tracking-control-name="connect"] button',
+    'div[role="button"]:has-text("Connect")',
+    'a:has-text("Connect")'
+  ];
+  for (const selector of directSelectors) {
+    const direct = page.locator(selector).first();
+    if (await direct.count().catch(() => 0)) {
+      return {
+        strategyUsed: `direct:${selector}`,
+        click: async () => {
+          await direct.scrollIntoViewIfNeeded().catch(() => {});
+          return !!(await direct.click({ timeout: 8000 }).then(() => true).catch(() => false));
+        }
+      };
+    }
   }
 
-  const more = page.locator('button', { hasText: /^More/ }).first();
-  if (await more.count().catch(() => 0)) {
-    return {
-      strategyUsed: 'more_menu',
-      click: async () => {
-        await more.click({ timeout: 8000 }).catch(() => {});
-        const menuConnect = page.locator('[role="menu"] >> text=/^Connect$/').first();
-        if (await menuConnect.count().catch(() => 0)) {
-          await menuConnect.click({ timeout: 8000 }).catch(() => {});
-          return true;
+  const moreSelectors = [
+    'button:has-text("More")',
+    'button[aria-label="More actions"]',
+    'button[aria-label*="More actions"]',
+    'button[aria-label*="More"]',
+    'button.artdeco-dropdown-trigger',
+    '[data-control-name="overflow_menu"]',
+    'button[aria-haspopup="true"][aria-expanded="false"]'
+  ];
+  for (const selector of moreSelectors) {
+    const more = page.locator(selector).first();
+    if (await more.count().catch(() => 0)) {
+      return {
+        strategyUsed: `more_menu:${selector}`,
+        click: async () => {
+          await more.scrollIntoViewIfNeeded().catch(() => {});
+          await more.click({ timeout: 8000 }).catch(() => {});
+          const menuConnect = page.locator(
+            [
+              '[role="menu"] button:has-text("Connect")',
+              '[role="menu"] button[aria-label*="Connect"]',
+              '[role="menu"] button[aria-label*="Invite"]',
+              '[role="menuitem"]:has-text("Connect")',
+              '.artdeco-dropdown__content button:has-text("Connect")',
+              '.artdeco-dropdown__content button[aria-label*="Connect"]',
+              '.artdeco-dropdown__content button[aria-label*="Invite"]',
+              'div[role="menuitem"]:has-text("Connect")'
+            ].join(', ')
+          ).first();
+          if (await menuConnect.count().catch(() => 0)) {
+            await menuConnect.click({ timeout: 8000 }).catch(() => {});
+            return true;
+          }
+          return false;
         }
-        return false;
-      }
-    };
+      };
+    }
   }
 
   const overflow = page.locator('button[aria-label*="More"], button[aria-label*="More actions"]').first();
@@ -152,32 +202,60 @@ export async function sendConnectRequest(
     return { status: 'skipped', details: { reason: `already_${state}`, error_code: `already_${state}` }, last_step: 'detect_state' };
   }
 
-  const entry = await findConnectEntrypoint(page);
+  let entry = await findConnectEntrypoint(page);
+  if (!entry) {
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.4)).catch(() => {});
+    await page.waitForTimeout(800).catch(() => {});
+    entry = await findConnectEntrypoint(page);
+  }
   if (!entry) return { status: 'skipped', details: { reason: 'connect_not_available', error_code: 'connect_not_available' }, last_step: 'find_entrypoint' };
   const clicked = await entry.click();
   if (!clicked) return { status: 'failed', details: { reason: 'connect_click_failed', error_code: 'connect_click_failed' }, strategyUsed: entry.strategyUsed, last_step: 'click_entrypoint' };
 
+  await page.waitForTimeout(700).catch(() => {});
   const trimmed = String(input.note || '').trim();
   if (trimmed) {
-    const addNote = page.locator('button', { hasText: /^Add a note$/ }).first();
+    const addNote = page.locator(
+      [
+        'button:has-text("Add a note")',
+        'button[aria-label*="Add a note"]',
+        'button[data-control-name="add_note"]'
+      ].join(', ')
+    ).first();
     if (await addNote.count().catch(() => 0)) {
       await addNote.click({ timeout: 8000 }).catch(() => {});
-      const textarea = page.locator('textarea').first();
-      if (await textarea.count().catch(() => 0)) {
-        await textarea.fill(trimmed.slice(0, 300)).catch(() => {});
+      await page.waitForTimeout(400).catch(() => {});
+    }
+    const textarea = page.locator('textarea[name="message"], textarea').first();
+    if (await textarea.count().catch(() => 0)) {
+      await textarea.fill(trimmed.slice(0, 300)).catch(() => {});
+    } else {
+      const editor = page.locator('[role="textbox"][contenteditable="true"]').first();
+      if (await editor.count().catch(() => 0)) {
+        await editor.click({ timeout: 5000 }).catch(() => {});
+        await editor.fill(trimmed.slice(0, 300)).catch(() => {});
       }
     }
   }
 
-  const send = page.locator('button', { hasText: /^Send$/ }).first();
+  const send = page.locator(
+    [
+      'button:has-text("Send")',
+      'button:has-text("Send now")',
+      'button:has-text("Send invitation")',
+      'button[aria-label*="Send"]'
+    ].join(', ')
+  ).first();
   if (await send.count().catch(() => 0)) {
     await send.click({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(600).catch(() => {});
     const block = await detectBlockReason(page);
     return { status: 'sent', strategyUsed: entry.strategyUsed, last_step: 'send', block_reason: block };
   }
-  const done = page.locator('button', { hasText: /^Done$/ }).first();
+  const done = page.locator('button:has-text("Done"), button[aria-label*="Done"]').first();
   if (await done.count().catch(() => 0)) {
     await done.click({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(600).catch(() => {});
     const block = await detectBlockReason(page);
     return { status: 'sent', strategyUsed: entry.strategyUsed, last_step: 'done', block_reason: block };
   }
@@ -415,6 +493,10 @@ export async function sendConnectionRequestOnPage(
   if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url', error_code: 'invalid_profile_url' } };
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await waitForProfileReady(page);
+  if (isAuthWallUrl(page.url())) {
+    throw new Error('LINKEDIN_AUTH_REQUIRED');
+  }
 
   // Quick already-connected/pending heuristics
   if (await page.locator('button:has-text("Pending")').first().count().catch(() => 0)) {
