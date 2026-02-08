@@ -41,7 +41,7 @@ export default function GtmStickyPromoBanner({
           >
             <span className="inline-flex items-center justify-center gap-2">
               <span className="hidden sm:inline">New:</span>
-              <span>Get the 2026 GTM Strategy Guide (teaser) →</span>
+              <span>Get the 2026 GTM Strategy Guide →</span>
             </span>
           </a>
           <button
