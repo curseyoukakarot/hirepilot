@@ -4,6 +4,7 @@ import {
   createResponseRepo,
   deleteFormRepo,
   getFormByIdRepo,
+  getFormBySlugRepo,
   getFormBySlugPublicRepo,
   getFormWithFieldsRepo,
   getResponseDetailRepo,
@@ -18,6 +19,8 @@ import type { FieldUpsertDto, FormCreateDto, FormPatchDto, SubmissionPayloadDto 
 import { supabaseDb } from '../lib/supabase';
 import type { FormWithFields } from '../shared/types/forms';
 import { GTM_STRATEGY_FORM_SLUG, handleGtmStrategyFormSubmission } from './workflows/gtmStrategy';
+
+const PUBLIC_FORM_SLUG_ALLOWLIST = new Set([GTM_STRATEGY_FORM_SLUG]);
 
 // Optional integrations (no-ops if missing or misconfigured)
 async function emitFormSubmitted(form: FormWithFields, responseId: string) {
@@ -54,7 +57,10 @@ export async function getForm(id: string, userId: string) {
 }
 
 export async function getFormPublicBySlug(slug: string) {
-  return getFormBySlugPublicRepo(slug);
+  const form = await getFormBySlugPublicRepo(slug);
+  if (form) return form;
+  if (!PUBLIC_FORM_SLUG_ALLOWLIST.has(slug)) return null;
+  return getFormBySlugRepo(slug);
 }
 
 export async function updateForm(id: string, patch: FormPatchDto, userId: string) {
@@ -76,7 +82,7 @@ export async function togglePublish(id: string, isPublic: boolean, userId: strin
 }
 
 export async function submitFormBySlug(req: Request, slug: string, payload: SubmissionPayloadDto) {
-  const form = await getFormBySlugPublicRepo(slug);
+  const form = await getFormPublicBySlug(slug);
   if (!form) throw new Error('form_not_found_or_not_public');
   const response = await createResponseRepo(form.id, {
     source: payload.source || 'direct',

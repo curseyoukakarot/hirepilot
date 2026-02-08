@@ -97,6 +97,21 @@ export async function getFormBySlugPublicRepo(slug: string): Promise<FormWithFie
   return { ...(form as any), fields: (fields || []) as FormFieldRecord[] };
 }
 
+export async function getFormBySlugRepo(slug: string): Promise<FormWithFields | null> {
+  const { data: form } = await supabaseDb
+    .from('forms')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (!form) return null;
+  const { data: fields } = await supabaseDb
+    .from('form_fields')
+    .select('*')
+    .eq('form_id', form.id)
+    .order('position', { ascending: true });
+  return { ...(form as any), fields: (fields || []) as FormFieldRecord[] };
+}
+
 export async function updateFormRepo(id: string, patch: Partial<FormRecord>, userId?: string) {
   let q = supabaseDb.from('forms').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
   if (userId) q = q.eq('user_id', userId);
