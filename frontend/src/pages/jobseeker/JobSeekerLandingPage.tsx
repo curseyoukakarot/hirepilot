@@ -124,7 +124,7 @@ export default function JobSeekerLandingPage() {
         <JobSeekerPublicNav variant="dark" />
       </div>
 
-      <section id="hero" className="relative pt-44 sm:pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center animate-fade-up">
+      <section id="hero" className="relative pt-56 sm:pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
         <div
@@ -141,7 +141,7 @@ export default function JobSeekerLandingPage() {
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black leading-tight">
+              <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black leading-snug max-w-4xl mx-auto">
                 Turn Your Job Search Into a{' '}
                 <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
                   High-Performance Campaign
