@@ -249,21 +249,24 @@ export default function JobSeekerAgentLandingPage() {
 
         <section id="final-cta" className="py-16 animate-fade-up">
           <div className="max-w-5xl mx-auto px-6 text-center">
-            <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-10">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4">Stop Applying. Launch Campaigns.</h2>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950/80 border border-white/10 p-10 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/30 via-purple-600/30 to-pink-600/30"></div>
+              <div className="relative">
+                <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Stop Applying. Launch Campaigns.</h2>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  className="px-8 py-3 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-colors"
+                  className="px-8 py-3 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-colors shadow-lg shadow-white/10"
                   onClick={() => navigate('/signup')}
                 >
                   Start Free
                 </button>
                 <button
-                  className="px-8 py-3 bg-slate-900/80 text-white rounded-xl font-semibold border border-white/20 hover:bg-slate-900 transition-colors"
+                  className="px-8 py-3 bg-white/10 text-white rounded-xl font-semibold border border-white/40 hover:bg-white/20 transition-colors"
                   onClick={() => navigate('/campaigns/job-seeker-agent')}
                 >
                   Launch a Campaign
                 </button>
+                </div>
               </div>
             </div>
           </div>
