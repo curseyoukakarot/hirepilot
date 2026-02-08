@@ -124,7 +124,7 @@ export default function JobSeekerLandingPage() {
         <JobSeekerPublicNav variant="dark" />
       </div>
 
-      <section id="hero" className="relative pt-56 sm:pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center animate-fade-up">
+      <section id="hero" className="relative pt-72 sm:pt-32 pb-20 px-6 overflow-hidden h-[900px] flex items-center animate-fade-up">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-pink-900/20"></div>
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-glow"></div>
         <div
