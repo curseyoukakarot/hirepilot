@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, ChevronDown, ArrowLeft, ArrowRight, Plus, Trash2, GripVertical, Smile, Code, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { attachPipelineToJob, ensureCampaignJob, fetchPipelines } from '../../lib/campaigns/pipelineAttach';
 import WizardStepHeader from './WizardStepHeader';
 import { useWizard } from '../../context/WizardContext';
 
@@ -27,29 +28,19 @@ export default function Step2Pipeline({ onBack, onNext }) {
 
   // Fetch existing pipelines
   useEffect(() => {
-    const fetchPipelines = async () => {
+    const loadPipelines = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('User not authenticated');
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          credentials: 'include',
-        });
-        if (!response.ok) throw new Error('Failed to fetch pipelines');
-        
-        const data = await response.json();
-        setExistingPipelines(data.pipelines || []);
+        const pipelines = await fetchPipelines({ token: session.access_token });
+        setExistingPipelines(pipelines || []);
       } catch (err) {
         console.error('Error fetching pipelines:', err);
         setError(err.message);
       }
     };
 
-    fetchPipelines();
+    loadPipelines();
   }, []);
 
   // Stage icon mapping
@@ -98,45 +89,34 @@ export default function Step2Pipeline({ onBack, onNext }) {
         const selected = existingPipelines.find(p => p.id === selectedPipeline);
         if (!selected) throw new Error('Selected pipeline not found');
         setWizard(prev => ({ ...prev, pipeline: selected }));
-        // Ensure a job exists; create if missing
-        let jobId = wizard?.campaign?.job_id;
-        if (!jobId) {
-          const createRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-            body: JSON.stringify({ title: wizard?.campaign?.title || pipelineName || 'Campaign Job' })
-          });
-          const created = await createRes.json();
-          if (!createRes.ok) throw new Error(created?.error || 'Failed to create job');
-          jobId = created?.jobId;
-          if (jobId) setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
+        const jobTitle = wizard?.campaign?.title || pipelineName || 'Campaign Job';
+        const { jobId, created } = await ensureCampaignJob({
+          token: session.access_token,
+          campaign: wizard?.campaign,
+          title: jobTitle
+        });
+        if (created && jobId) {
+          setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
         }
-        // Attach pipeline to job
         if (jobId) {
           try {
-            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${jobId}/pipeline`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-              body: JSON.stringify({ pipeline_id: selected.id })
-            });
+            await attachPipelineToJob({ token: session.access_token, jobId, pipelineId: selected.id });
           } catch {}
         }
       } else {
         // Create new pipeline
         let data;
+        let jobId;
         try {
-          // Ensure a job exists; create if missing
-          let jobId = wizard?.campaign?.job_id || null;
-          if (!jobId) {
-            const createRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/create`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-              body: JSON.stringify({ title: wizard?.campaign?.title || pipelineName || 'Campaign Job' })
-            });
-            const created = await createRes.json();
-            if (!createRes.ok) throw new Error(created?.error || 'Failed to create job');
-            jobId = created?.jobId;
-            if (jobId) setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
+          const jobTitle = wizard?.campaign?.title || pipelineName || 'Campaign Job';
+          const jobResult = await ensureCampaignJob({
+            token: session.access_token,
+            campaign: wizard?.campaign,
+            title: jobTitle
+          });
+          jobId = jobResult?.jobId;
+          if (jobResult?.created && jobId) {
+            setWizard(prev => ({ ...prev, campaign: { ...(prev.campaign || {}), job_id: jobId } }));
           }
           const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pipelines`, {
             method: 'POST',
@@ -181,13 +161,9 @@ export default function Step2Pipeline({ onBack, onNext }) {
         }
         const { pipeline: newPipeline } = data;
         setWizard(prev => ({ ...prev, pipeline: newPipeline }));
-        if (wizard?.campaign?.job_id && newPipeline?.id) {
+        if (newPipeline?.id && jobId) {
           try {
-            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/jobs/${wizard.campaign.job_id}/pipeline`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-              body: JSON.stringify({ pipeline_id: newPipeline.id })
-            });
+            await attachPipelineToJob({ token: session.access_token, jobId, pipelineId: newPipeline.id });
           } catch {}
         }
       }
