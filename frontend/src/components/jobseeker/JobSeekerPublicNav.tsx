@@ -40,9 +40,9 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
           </div>
           <nav className="hidden md:flex items-center space-x-8 text-sm">
             <button className={baseLink} onClick={() => smoothScroll('how-it-works')}>How it works</button>
+            <button className={baseLink} onClick={() => navigate('/rex')}>Try REX Chat</button>
             <button className={baseLink} onClick={() => navigate('/job-seeker-agent')}>Interviews on Autopilot</button>
             <button className={baseLink} onClick={() => navigate('/pricing')}>Pricing</button>
-            <button className={baseLink} onClick={() => navigate('/rex')}>Try REX Chat</button>
             <button className={baseLink} onClick={() => navigate('/login')}>Sign in</button>
           </nav>
           <div className="flex items-center space-x-3 text-sm">
@@ -69,9 +69,9 @@ export function JobSeekerPublicNav({ variant = 'dark' }: JobSeekerPublicNavProps
         {open && (
           <div className="md:hidden pb-4 space-y-3 text-sm">
             <button className={`${baseLink} block w-full text-left`} onClick={() => { smoothScroll('how-it-works'); setOpen(false); }}>How it works</button>
+            <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/rex'); setOpen(false); }}>Try REX Chat</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/job-seeker-agent'); setOpen(false); }}>Interviews on Autopilot</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/pricing'); setOpen(false); }}>Pricing</button>
-            <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/rex'); setOpen(false); }}>Try REX Chat</button>
             <button className={`${baseLink} block w-full text-left`} onClick={() => { navigate('/login'); setOpen(false); }}>Sign in</button>
             <button
               className={isDark ? 'w-full text-left bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors' : 'w-full text-left bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors'}
