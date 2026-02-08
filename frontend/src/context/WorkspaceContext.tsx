@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useWorkspaceBootstrap } from '../hooks/useWorkspaceBootstrap';
 
 type WorkspaceRow = {
@@ -36,6 +36,16 @@ export function WorkspaceProvider({
   role?: string | null;
 }) {
   const { workspaces, activeWorkspaceId, activeWorkspace, refreshWorkspaces } = useWorkspaceBootstrap(role);
+
+  useEffect(() => {
+    try {
+      if (!activeWorkspaceId) return;
+      if (typeof window === 'undefined') return;
+      const extId = (import.meta as any)?.env?.VITE_EXTENSION_ID || 'hocopaaojddfommlkiegnflimmmppbnk';
+      if (!(window as any).chrome?.runtime || !extId) return;
+      (window as any).chrome.runtime.sendMessage(extId, { action: 'SET_WORKSPACE', workspace_id: activeWorkspaceId }, () => {});
+    } catch {}
+  }, [activeWorkspaceId]);
 
   const setActiveWorkspace = (workspaceId: string) => {
     try {

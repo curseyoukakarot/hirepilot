@@ -7632,15 +7632,16 @@
   if (enrichBtn) enrichBtn.onclick = async ()=>{
     showStatus('Enriching (2 credits)...', false);
     try {
-      const storage = await chrome.storage.local.get(['hp_jwt']);
+      const storage = await chrome.storage.local.get(['hp_jwt', 'hp_workspace_id']);
       const jwt = storage.hp_jwt;
+      const workspaceId = storage.hp_workspace_id || '';
       if (!jwt) { showStatus('Not logged in', true); return; }
       const api = (window.HP_BACKEND || 'https://api.thehirepilot.com');
       const profileUrl = (currentProfile && (currentProfile.profileUrl || currentProfile.linkedinUrl)) || '';
       // Create the lead using bulk-add (no campaign required)
       const addRes = await fetch(`${api}/api/leads/bulk-add`, { 
         method:'POST', 
-        headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, 
+        headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json', ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) }, 
         body: JSON.stringify({ leads:[{ 
           name: leadName?.textContent || currentProfile?.name || '-', 
           title: currentProfile?.title || '', 
@@ -7661,7 +7662,7 @@
       const pollLead = async (maxMs=6000)=>{
         const start = Date.now();
         while (Date.now()-start < maxMs) {
-          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}`, ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) } });
           if (check.status === 401) { showStatus('Session expired. Please sign in again.', true); return null; }
           if (check.ok) { return await check.json().catch(()=>null); }
           await new Promise(r=>setTimeout(r, 500));
@@ -7671,17 +7672,17 @@
       await pollLead(3000);
 
       // Try decodo enrich first, then :id/enrich
-      let resp = await fetch(`${api}/api/leads/decodo/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' }, body: JSON.stringify({ leadId, profileUrl }) });
+      let resp = await fetch(`${api}/api/leads/decodo/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json', ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) }, body: JSON.stringify({ leadId, profileUrl }) });
       if (resp.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
       let data = await resp.json().catch(()=>({}));
       if (!resp.ok) {
-        const fallback = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' } });
+        const fallback = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json', ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) } });
         if (fallback.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
         data = await fallback.json().catch(()=>({}));
         if (!fallback.ok) {
           // Final retry after short wait
           await new Promise(r=>setTimeout(r, 1200));
-          const retry = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json' } });
+          const retry = await fetch(`${api}/api/leads/${leadId}/enrich`, { method:'POST', headers:{ 'Authorization':`Bearer ${jwt}`, 'Content-Type':'application/json', ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) } });
           if (retry.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
           data = await retry.json().catch(()=>({}));
         }
@@ -7690,7 +7691,7 @@
       let email = data?.lead?.email || data?.enrichment?.data?.email || '';
       if (!email) {
         for (let i=0; i<8; i++) { // up to ~8s
-          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}` } });
+          const check = await fetch(`${api}/api/leads/${leadId}`, { headers:{ 'Authorization':`Bearer ${jwt}`, ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}) } });
           if (check.status === 401) { showStatus('Session expired. Please sign in again.', true); return; }
           const lead = await check.json().catch(()=>({}));
           email = lead?.email || '';
