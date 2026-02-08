@@ -226,6 +226,10 @@ export default function JobSeekerPricingPage() {
                   <p className="text-gray-400 mb-8">
                     Turn warm outreach into a polished professional presence that gets taken seriously.
                   </p>
+                  <div className="mb-6 space-y-2 text-sm text-blue-200">
+                    <p>Job Seeker Agent keeps your search moving while you focus on interviews.</p>
+                    <p>Automated sourcing + outreach prompts help you reach decision-makers faster.</p>
+                  </div>
                 </div>
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-4">Everything in Free, plus</h4>
@@ -284,6 +288,10 @@ export default function JobSeekerPricingPage() {
                   <p className="text-gray-300 mb-8">
                     The full recruiter-grade job search system for people who want to run their search like a pipeline.
                   </p>
+                  <div className="mb-6 space-y-2 text-sm text-yellow-200">
+                    <p>Job Seeker Agent runs your pipeline end-to-end with deeper automation.</p>
+                    <p>Agent Mode delivers always-on outreach with premium follow-up logic.</p>
+                  </div>
                 </div>
                 <div className="mb-8">
                   <h4 className="font-semibold text-white mb-4">Everything in Pro, plus</h4>
