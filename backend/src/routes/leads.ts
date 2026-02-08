@@ -39,6 +39,24 @@ const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
     ownerColumn
   });
 
+async function resolveWorkspaceIdForUser(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('ensure_default_workspace_for_user', { p_user_id: userId });
+    if (!error && data) return String(data);
+  } catch {}
+  try {
+    const { data } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if ((data as any)?.workspace_id) return String((data as any).workspace_id);
+  } catch {}
+  return null;
+}
+
 const scopedNoOwner = (req: Request, table: string) => {
   const base: any = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
@@ -2537,7 +2555,10 @@ router.post('/bulk-add', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const workspaceId = (req as any).workspaceId || null;
+    let workspaceId = (req as any).workspaceId || null;
+    if (!workspaceId) {
+      workspaceId = await resolveWorkspaceIdForUser(userId);
+    }
 
     // Normalize leads data from Sales Navigator scraping
     const normalizedLeads = leads.map((lead: any) => {
