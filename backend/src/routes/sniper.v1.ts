@@ -556,7 +556,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     ]);
     const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
     if (!baseUrl) throw new Error('Missing BACKEND_PUBLIC_URL or BACKEND_URL for batch worker');
-    const batchApiKey = requireEnv('AIRTOP_BATCH_API_KEY');
+    const batchApiKey = requireEnvAny(['AIRTOP_BATCH_API_KEY', 'AIRTOP_API_KEY']);
 
     const { invocationId } = await invokeAgentWebhook({
       agentId: batchAgentId,
