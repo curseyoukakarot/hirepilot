@@ -37,14 +37,22 @@ export function safeOutputParse(output: any) {
 export async function invokeAgentWebhook({ agentId, webhookId, configVars }: InvokeArgs) {
   const apiKey = requireApiKey();
   const url = `${AIRTOP_API_BASE}/${encodeURIComponent(agentId)}/webhooks/${encodeURIComponent(webhookId)}`;
-  const resp = await axios.post(
-    url,
-    { configVars },
-    {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      timeout: 30_000
-    }
-  );
+  let resp;
+  try {
+    resp = await axios.post(
+      url,
+      { configVars },
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: 30_000
+      }
+    );
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    const details = data ? JSON.stringify(data) : err?.message || 'unknown_error';
+    throw new Error(`Airtop webhook error (${status || 'unknown'}): ${details}`);
+  }
   const invocationId = resp?.data?.invocationId;
   if (!invocationId) {
     throw new Error('Missing Airtop invocationId');
