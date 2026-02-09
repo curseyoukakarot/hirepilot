@@ -15,6 +15,7 @@ import { fetchSniperV1Settings, countActionsSince, isWithinActiveHours } from '.
 import { applyCooldown, getUsageSnapshot, isCooldownActive, recordActionUsage } from '../services/sniperV1/throttle';
 import { getProvider } from '../services/sniperV1/providers';
 import { notifySniperJobFinished } from '../services/sniperV1/notifications';
+import { invokeAgentWebhook } from '../services/airtop/agentWebhooks';
 
 const QUEUE = 'sniper:v1';
 
@@ -202,145 +203,37 @@ export const sniperV1Worker = new Worker(
       }
 
       if (jobRow.job_type === 'send_connect_requests') {
-        const note = (jobRow.input_json?.note ?? null) as string | null;
-        const debug = { jobId, enabled: Boolean(jobRow.input_json?.debug) };
-        const items = await listJobItems(jobId, 5000);
-        let paused = false;
-        for (const it of items) {
-          if (!['queued', 'running'].includes(it.status)) continue;
-
-          // honor per-item scheduling
-          if (it.scheduled_for) {
-            const due = new Date(it.scheduled_for).getTime();
-            if (Number.isFinite(due) && Date.now() < due) continue;
-          }
-
-          // Active-hours guardrail (re-check inside long jobs)
-          if (!isWithinActiveHours(new Date(), settings)) {
-            break;
-          }
-
-          // cap enforcement (per-user + per-workspace + hourly guardrail)
-          const hourSince = dayjs().subtract(1, 'hour').toISOString();
-          const daySince = dayjs().startOf('day').toISOString();
-          const usedHour = await countActionsSince(jobRow.workspace_id, hourSince);
-          const usedDay = await countActionsSince(jobRow.workspace_id, daySince);
-          if (usedHour >= settings.max_actions_per_hour || usedDay >= settings.max_actions_per_day) {
-            const deferMinutes = usedHour >= settings.max_actions_per_hour ? 60 : 30;
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: dayjs().add(deferMinutes, 'minute').toISOString(), error_message: 'throttled: cap reached' } as any);
-            continue;
-          }
-
-          const usage = await getUsageSnapshot({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings });
-          if (isCooldownActive(usage.cooldown_until)) {
-            const nextRun = usage.cooldown_until || nextThrottleRunAt();
-            await updateJob(jobId, {
-              status: 'paused_cooldown',
-              next_run_at: nextRun,
-              error_code: 'cooldown_active',
-              error_message: `Cooldown active until ${nextRun}`
-            } as any);
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'cooldown_active' } as any);
-            await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
-            paused = true;
-            break;
-          }
-          if (isConnectCapExceeded(usage, settings)) {
-            const nextRun = nextThrottleRunAt();
-            await updateJob(jobId, {
-              status: 'paused_throttled',
-              next_run_at: nextRun,
-              error_code: 'throttled_daily_limit',
-              error_message: 'Daily cap reached'
-            } as any);
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'throttled: cap reached' } as any);
-            await sniperV1Queue.add('sniper_v1', { jobId }, { delay: 24 * 60 * 60_000 });
-            paused = true;
-            break;
-          }
-
-          await updateJobItem(it.id, { status: 'running', error_message: null } as any);
-          try {
-            const itemNote = (it.result_json && typeof it.result_json === 'object' ? (it.result_json as any).note : null) as string | null;
-            const effectiveNote = (itemNote ?? note) || null;
-            const res = await provider.sendConnectionRequest({
-              userId: jobRow.created_by,
-              workspaceId: jobRow.workspace_id,
-              profileUrl: it.profile_url,
-              note: effectiveNote,
-              debug
-            });
-            try {
-              if (res.status === 'sent_verified') {
-                await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'connect' });
-              } else {
-                await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'profile_visit' });
-              }
-            } catch {}
-
-            if (res.details?.block_reason) {
-              const cooldownUntil = dayjs().add(settings.cooldown_minutes, 'minute').toISOString();
-              await applyCooldown({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, cooldownUntil });
-            }
-
-            const status =
-              res.status === 'sent_verified' ? 'succeeded_verified' :
-              res.status === 'already_connected' ? 'succeeded_noop_already_connected' :
-              res.status === 'already_pending' ? 'succeeded_noop_already_pending' :
-              res.status === 'restricted' ? 'failed_restricted' :
-              res.status === 'failed_verification' ? 'failed_verification' :
-              (res.status === 'skipped' ? 'skipped' : 'failed');
-            await updateJobItem(it.id, {
-              status,
-              result_json: { ...res, note_used: effectiveNote },
-              error_message: String((res as any)?.details?.reason || (res as any)?.details?.error || '') || null,
-              error_code: (res as any)?.details?.error_code || null,
-              last_step: (res as any)?.details?.last_step || null,
-              strategy_used: (res as any)?.details?.strategyUsed || null,
-              screenshot_path: (res as any)?.details?.screenshot || null
-            } as any);
-
-            if (res.details?.block_reason) {
-              const nextRun = dayjs().add(settings.cooldown_minutes, 'minute').toISOString();
-              await updateJob(jobId, {
-                status: 'paused_cooldown',
-                next_run_at: nextRun,
-                error_code: 'cooldown_blocked',
-                error_message: `LinkedIn block detected (${res.details.block_reason})`
-              } as any);
-              await updateJobItem(it.id, { status, error_message: `LinkedIn block detected (${res.details.block_reason})` } as any);
-              await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
-              paused = true;
-              break;
-            }
-          } catch (e: any) {
-            await updateJobItem(it.id, { status: 'failed', error_message: String(e?.message || e) } as any);
-          }
-
-          // Safety: enforce a minimum delay for connect requests to avoid LinkedIn rate limits.
-          const minDelay = Math.max(settings.min_delay_seconds, 60);
-          const maxDelay = Math.max(settings.max_delay_seconds, minDelay);
-          const delaySec = clamp(
-            minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1)),
-            1,
-            3600
-          );
-          await sleep(delaySec * 1000);
+        const batchAgentId = String(process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID || '').trim();
+        const batchWebhookId = String(process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID || '').trim();
+        const batchApiKey = String(process.env.AIRTOP_BATCH_API_KEY || '').trim();
+        const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
+        if (!batchAgentId || !batchWebhookId || !batchApiKey || !baseUrl) {
+          throw new Error('Airtop batch webhook not configured for connect requests');
         }
 
-        if (paused) {
-          return { ok: true, paused: true };
+        if (!jobRow.input_json?.batch_invocation_id) {
+          const { invocationId } = await invokeAgentWebhook({
+            agentId: batchAgentId,
+            webhookId: batchWebhookId,
+            configVars: {
+              batch_run_id: jobId,
+              base_url: baseUrl,
+              api_key: batchApiKey,
+              timeout_seconds: 3600
+            }
+          });
+          await updateJob(jobId, {
+            input_json: {
+              ...(jobRow.input_json || {}),
+              execution_mode: 'airtop_batch',
+              batch_invocation_id: invocationId
+            }
+          } as any);
+          console.log('[airtop] batch connect invocation', { invocationId, jobId });
         }
 
-        const summary = await summarizeJobItems(jobId);
-        const finalStatus: any =
-          summary.total === 0 ? 'failed' :
-          (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
-          (summary.failed > 0 && summary.success === 0) ? 'failed' :
-          'succeeded';
-        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
-        try { await notifySniperJobFinished(jobId); } catch {}
-        return { ok: true, summary };
+        await updateJob(jobId, { status: 'running' } as any);
+        return { ok: true, delegated: true };
       }
 
       if (jobRow.job_type === 'send_messages') {

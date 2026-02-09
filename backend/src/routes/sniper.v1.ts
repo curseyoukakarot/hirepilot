@@ -13,12 +13,17 @@ import {
   listJobItems,
   listJobs,
   listTargets,
-  setTargetStatus
+  setTargetStatus,
+  updateJob,
+  updateJobItem
 } from '../services/sniperV1/db';
 import { fetchSniperV1Settings, upsertSniperV1Settings } from '../services/sniperV1/settings';
 import { getProvider } from '../services/sniperV1/providers';
 import { getUserLinkedinAuth } from '../services/sniperV1/linkedinAuth';
 import { sniperSupabaseDb } from '../services/sniperV1/supabase';
+import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../services/airtop/agentWebhooks';
+import { canAttemptLinkedinConnect } from '../services/sniperV1/connectThrottle';
+import { recordActionUsage } from '../services/sniperV1/throttle';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -45,6 +50,23 @@ function dayStringInTimezone(now: Date, tz: string): string {
   // Use en-CA for YYYY-MM-DD format.
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' });
   return fmt.format(now); // YYYY-MM-DD
+}
+
+function requireEnv(name: string): string {
+  const v = String(process.env[name] || '').trim();
+  if (!v) throw new Error(`Missing ${name}`);
+  return v;
+}
+
+function normalizeAirtopStatus(raw: string): { ok: boolean; status: string } {
+  const s = String(raw || '').toUpperCase();
+  if (['SENT', 'ALREADY_PENDING', 'ALREADY_CONNECTED'].includes(s)) {
+    return { ok: true, status: s };
+  }
+  if (s === 'AUTH_REQUIRED') {
+    return { ok: false, status: s };
+  }
+  return { ok: false, status: s || 'FAILED' };
 }
 
 export const sniperV1Router = Router();
@@ -357,49 +379,33 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       return true;
     });
 
-    const settings = await fetchSniperV1Settings(workspaceId);
-    const tz = settings.timezone || 'UTC';
-    const day = dayStringInTimezone(new Date(), tz);
-    const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
-      p_user_id: userId,
-      p_workspace_id: workspaceId,
-      p_day: day,
-      p_connect_delta: 0,
-      p_connect_limit: settings.max_connects_per_day,
-      p_workspace_connect_limit: settings.max_workspace_connects_per_day,
-      p_message_limit: settings.max_messages_per_day,
-      p_workspace_message_limit: settings.max_workspace_messages_per_day,
-      p_profile_limit: settings.max_page_interactions_per_day,
-      p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
-      p_job_page_limit: settings.max_page_interactions_per_day,
-      p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
-    } as any);
-    if (error) throw error;
-    const row: any = Array.isArray(data) ? data[0] : data;
-    const usedToday = Number(row?.user_connects || 0);
-    const usedWorkspace = Number(row?.workspace_connects || 0);
-    if (usedToday + unique.length > settings.max_connects_per_day) {
+    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId });
+    if (!throttle.ok) {
+      console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
       return res.status(429).json({
-        error: 'daily_connect_limit_exceeded',
-        limit_per_day: settings.max_connects_per_day,
-        used_today: usedToday,
-        remaining_today: Math.max(0, settings.max_connects_per_day - usedToday),
-        requested: unique.length,
-        scope: 'user'
+        error: throttle.reason || 'connect_throttled',
+        cooldown_seconds: throttle.cooldownSeconds,
+        limit_per_day: throttle.limit,
+        remaining_today: throttle.remaining,
+        requested: unique.length
       });
     }
-    if (usedWorkspace + unique.length > settings.max_workspace_connects_per_day) {
+    if (unique.length > throttle.remaining) {
+      console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: 'daily_connect_limit_exceeded', remaining: throttle.remaining });
       return res.status(429).json({
         error: 'daily_connect_limit_exceeded',
-        limit_per_day: settings.max_workspace_connects_per_day,
-        used_today: usedWorkspace,
-        remaining_today: Math.max(0, settings.max_workspace_connects_per_day - usedWorkspace),
-        requested: unique.length,
-        scope: 'workspace'
+        cooldown_seconds: 60 * 60,
+        limit_per_day: throttle.limit,
+        remaining_today: throttle.remaining,
+        requested: unique.length
       });
     }
-    const remainingToday = Math.max(0, settings.max_connects_per_day - usedToday);
-    (req as any)._sniperQuota = { usedToday, remainingToday, day, tz };
+    (req as any)._sniperQuota = {
+      usedToday: Math.max(0, throttle.limit - throttle.remaining),
+      remainingToday: throttle.remaining,
+      day: dayStringInTimezone(new Date(), throttle.settings.timezone || 'UTC'),
+      tz: throttle.settings.timezone || 'UTC'
+    };
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -407,7 +413,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       target_id: null,
       job_type: 'send_connect_requests',
       provider,
-      input_json: { note: parsed.data.note || null }
+      input_json: { note: parsed.data.note || null, execution_mode: 'airtop_webhook' }
     });
 
     await insertJobItems(
@@ -423,13 +429,119 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       }))
     );
 
-    await sniperV1Queue.add('sniper_v1', { jobId: job.id });
     const q = (req as any)._sniperQuota || {};
+
+    // Single profile: execute immediately via Airtop Single-Profile webhook.
+    if (unique.length === 1) {
+      const singleAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID');
+      const singleWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID');
+      const itemRows = await listJobItems(job.id, 1);
+      const item = itemRows?.[0];
+      if (!item) {
+        throw new Error('connect_item_not_found');
+      }
+
+      const { invocationId } = await invokeAgentWebhook({
+        agentId: singleAgentId,
+        webhookId: singleWebhookId,
+        configVars: {
+          profile_url: item.profile_url,
+          note: item?.result_json?.note || parsed.data.note || null,
+          send_without_note_if_blocked: true,
+          max_attempts: 3,
+          dry_run: false,
+          verification_mode: 'either',
+          timeout_seconds: 180,
+          task_id: item.id
+        }
+      });
+      console.log('[airtop] single connect invocation', { invocationId, jobId: job.id });
+
+      const result = await pollInvocationResult({
+        agentId: singleAgentId,
+        invocationId,
+        timeoutSeconds: 180,
+        pollIntervalMs: 2000
+      });
+      const output = safeOutputParse(result.output);
+      const normalized = normalizeAirtopStatus(output?.status);
+      const itemStatus =
+        normalized.status === 'SENT' ? 'succeeded_verified' :
+        normalized.status === 'ALREADY_CONNECTED' ? 'succeeded_noop_already_connected' :
+        normalized.status === 'ALREADY_PENDING' ? 'succeeded_noop_already_pending' :
+        normalized.status === 'AUTH_REQUIRED' ? 'paused_cooldown' :
+        'failed';
+
+      await updateJobItem(item.id, {
+        status: itemStatus as any,
+        result_json: {
+          ...(typeof output === 'object' && output ? output : { output }),
+          invocationId,
+          finished_at: new Date().toISOString()
+        },
+        error_code: normalized.status === 'AUTH_REQUIRED' ? 'auth_required' : null,
+        error_message: normalized.ok ? null : (output?.error || output?.message || 'Airtop connect failed')
+      } as any);
+
+      if (normalized.status === 'AUTH_REQUIRED') {
+        await updateJob(job.id, {
+          status: 'paused_cooldown' as any,
+          error_code: 'needs_reauth',
+          error_message: 'LinkedIn auth required',
+          finished_at: null
+        } as any);
+      } else {
+        await updateJob(job.id, {
+          status: normalized.ok ? 'succeeded' : 'failed',
+          finished_at: new Date().toISOString()
+        } as any);
+        try {
+          await recordActionUsage({ userId, workspaceId, settings: throttle.settings, actionType: 'connect' });
+        } catch (e: any) {
+          console.warn('[sniper-connect] usage record failed', e?.message || e);
+        }
+      }
+
+      return res.status(200).json({
+        queued: false,
+        job_id: job.id,
+        invocation_id: invocationId,
+        status: itemStatus,
+        quota: {
+          limit_per_day: throttle.settings.max_connects_per_day,
+          used_today: q.usedToday,
+          remaining_today: q.remainingToday,
+          day: q.day,
+          timezone: q.tz
+        }
+      });
+    }
+
+    // Bulk: trigger Airtop Batch Worker once and let it pull tasks.
+    const batchAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID');
+    const batchWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID');
+    const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
+    if (!baseUrl) throw new Error('Missing BACKEND_PUBLIC_URL or BACKEND_URL for batch worker');
+    const batchApiKey = requireEnv('AIRTOP_BATCH_API_KEY');
+
+    const { invocationId } = await invokeAgentWebhook({
+      agentId: batchAgentId,
+      webhookId: batchWebhookId,
+      configVars: {
+        batch_run_id: job.id,
+        base_url: baseUrl,
+        api_key: batchApiKey,
+        timeout_seconds: 3600
+      }
+    });
+    console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
+
     return res.status(202).json({
       queued: true,
       job_id: job.id,
+      invocation_id: invocationId,
       quota: {
-        limit_per_day: settings.max_connects_per_day,
+        limit_per_day: throttle.settings.max_connects_per_day,
         used_today: q.usedToday,
         remaining_today: q.remainingToday,
         day: q.day,

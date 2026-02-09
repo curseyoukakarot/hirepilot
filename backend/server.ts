@@ -196,6 +196,7 @@ import analyticsInsightsRouter from './src/routes/analytics.insights';
 import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 import { authenticate } from './src/middleware/authenticate';
 import formsRouter from './forms/routes';
+import airtopBatchRouter from './src/routes/airtopBatch';
 // Defer MCP SSE server initialization to runtime with a safe try/catch
 
 declare module 'express-list-endpoints';
@@ -251,6 +252,9 @@ app.get('/.well-known/ai-plugin.json', (_req, res) => {
     legal_info_url: "https://thehirepilot.com/legal"
   });
 });
+
+// Airtop batch worker callbacks (API-key protected in router)
+app.use('/batch', airtopBatchRouter);
 
 // Configure CORS before routes
 const allowed = [

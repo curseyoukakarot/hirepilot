@@ -9,6 +9,10 @@ import { enrichLead as apolloEnrichLead } from '../services/apollo/enrichLead';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { personalizeMessage } from '../utils/messageUtils';
+import { createJob, insertJobItems, listJobItems, updateJob, updateJobItem } from '../src/services/sniperV1/db';
+import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../src/services/airtop/agentWebhooks';
+import { canAttemptLinkedinConnect } from '../src/services/sniperV1/connectThrottle';
+import { recordActionUsage } from '../src/services/sniperV1/throttle';
 
 export async function sourceLeads({
   userId,
@@ -2304,96 +2308,178 @@ export async function linkedin_connect({
   scheduled_at?: string;
 }) {
   try {
-    // Validate required parameters
+    const requireEnv = (name: string) => {
+      const v = String(process.env[name] || '').trim();
+      if (!v) throw new Error(`Missing ${name}`);
+      return v;
+    };
+    const normalizeAirtopStatus = (raw: string) => {
+      const s = String(raw || '').toUpperCase();
+      if (['SENT', 'ALREADY_PENDING', 'ALREADY_CONNECTED'].includes(s)) {
+        return { ok: true, status: s };
+      }
+      if (s === 'AUTH_REQUIRED') {
+        return { ok: false, status: s };
+      }
+      return { ok: false, status: s || 'FAILED' };
+    };
+
     if (!linkedin_urls || linkedin_urls.length === 0) {
       throw new Error('At least one LinkedIn URL is required');
     }
-
-    // Validate message length if provided
     if (message && message.length > 300) {
       throw new Error('Message cannot exceed 300 characters');
     }
-
-    // Validate LinkedIn URLs
     const invalidUrls = linkedin_urls.filter(url => !url.includes('linkedin.com/in/'));
     if (invalidUrls.length > 0) {
       throw new Error(`Invalid LinkedIn URL format: ${invalidUrls.join(', ')}`);
     }
 
-    // Check user's daily limit only for requests scheduled today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const scheduledDate = scheduled_at ? new Date(scheduled_at) : new Date();
-    const isScheduledToday = scheduledDate >= today && scheduledDate < tomorrow;
+    const { data: userRow } = await supabaseDb
+      .from('users')
+      .select('team_id')
+      .eq('id', userId)
+      .maybeSingle();
+    const workspaceId = (userRow as any)?.team_id || userId;
 
-    if (isScheduledToday) {
-      const { count: dailyCount, error: countError } = await supabaseDb
-        .from('linkedin_outreach_queue')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'sent')
-        .gte('sent_at', today.toISOString());
-
-      if (countError) {
-        throw new Error(`Failed to check daily limit: ${countError.message}`);
-      }
-
-      const DAILY_LIMIT = 20;
-      const remainingRequests = DAILY_LIMIT - (dailyCount || 0);
-      if (linkedin_urls.length > remainingRequests) {
-        throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${remainingRequests} more requests today.`);
-      }
+    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId });
+    if (!throttle.ok) {
+      console.log('[rex-linkedin_connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
+      throw new Error(throttle.reason || 'connect_throttled');
+    }
+    if (linkedin_urls.length > throttle.remaining) {
+      console.log('[rex-linkedin_connect] throttle block', { userId, workspaceId, reason: 'daily_connect_limit_exceeded', remaining: throttle.remaining });
+      throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${throttle.remaining} more requests today.`);
     }
 
-    // Calculate total credits needed
-    // Free plan auto-send cost = 5 credits per message
     const creditCostPerRequest = 5;
     const totalCreditsNeeded = linkedin_urls.length * creditCostPerRequest;
-
-    // Check user credits via unified CreditService
     const { CreditService } = await import('../services/creditService');
     const hasEnough = await CreditService.hasSufficientCredits(userId, totalCreditsNeeded);
     if (!hasEnough) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded} credits.`);
 
-    // Check for duplicate URLs
-    const { data: existingRequests, error: duplicateError } = await supabaseDb
-      .from('linkedin_outreach_queue')
-      .select('linkedin_url')
-      .eq('user_id', userId)
-      .in('linkedin_url', linkedin_urls)
-      .neq('status', 'failed');
+    const scheduledDate = scheduled_at ? new Date(scheduled_at) : new Date();
+    const job = await createJob({
+      workspace_id: workspaceId,
+      created_by: userId,
+      target_id: null,
+      job_type: 'send_connect_requests',
+      provider: 'airtop',
+      input_json: { note: message?.trim() || null, execution_mode: 'airtop_webhook', source: 'rex_tools' }
+    });
 
-    if (duplicateError) {
-      throw new Error(`Failed to check for duplicates: ${duplicateError.message}`);
+    await insertJobItems(
+      linkedin_urls.map((url) => ({
+        job_id: job.id,
+        workspace_id: workspaceId,
+        profile_url: url,
+        action_type: 'connect',
+        scheduled_for: scheduledDate.toISOString(),
+        status: 'queued',
+        result_json: message ? { note: message.trim() } : null
+      }))
+    );
+
+    if (linkedin_urls.length === 1) {
+      const singleAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID');
+      const singleWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID');
+      const itemRows = await listJobItems(job.id, 1);
+      const item = itemRows?.[0];
+      if (!item) throw new Error('connect_item_not_found');
+
+      const { invocationId } = await invokeAgentWebhook({
+        agentId: singleAgentId,
+        webhookId: singleWebhookId,
+        configVars: {
+          profile_url: item.profile_url,
+          note: message?.trim() || null,
+          send_without_note_if_blocked: true,
+          max_attempts: 3,
+          dry_run: false,
+          verification_mode: 'either',
+          timeout_seconds: 180,
+          task_id: item.id
+        }
+      });
+      console.log('[airtop] single connect invocation', { invocationId, jobId: job.id });
+
+      const result = await pollInvocationResult({
+        agentId: singleAgentId,
+        invocationId,
+        timeoutSeconds: 180,
+        pollIntervalMs: 2000
+      });
+      const output = safeOutputParse(result.output);
+      const normalized = normalizeAirtopStatus(output?.status);
+      const itemStatus =
+        normalized.status === 'SENT' ? 'succeeded_verified' :
+        normalized.status === 'ALREADY_CONNECTED' ? 'succeeded_noop_already_connected' :
+        normalized.status === 'ALREADY_PENDING' ? 'succeeded_noop_already_pending' :
+        normalized.status === 'AUTH_REQUIRED' ? 'paused_cooldown' :
+        'failed';
+
+      await updateJobItem(item.id, {
+        status: itemStatus as any,
+        result_json: {
+          ...(typeof output === 'object' && output ? output : { output }),
+          invocationId,
+          finished_at: new Date().toISOString()
+        },
+        error_code: normalized.status === 'AUTH_REQUIRED' ? 'auth_required' : null,
+        error_message: normalized.ok ? null : (output?.error || output?.message || 'Airtop connect failed')
+      } as any);
+
+      if (normalized.status === 'AUTH_REQUIRED') {
+        await updateJob(job.id, {
+          status: 'paused_cooldown' as any,
+          error_code: 'needs_reauth',
+          error_message: 'LinkedIn auth required',
+          finished_at: null
+        } as any);
+      } else {
+        await updateJob(job.id, {
+          status: normalized.ok ? 'succeeded' : 'failed',
+          finished_at: new Date().toISOString()
+        } as any);
+        try {
+          await recordActionUsage({ userId, workspaceId, settings: throttle.settings, actionType: 'connect' });
+        } catch (e: any) {
+          console.warn('[rex-linkedin_connect] usage record failed', e?.message || e);
+        }
+      }
+
+      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+
+      return {
+        success: true,
+        message: `Processed ${linkedin_urls.length} LinkedIn connection request(s)`,
+        queued_count: linkedin_urls.length,
+        credits_used: totalCreditsNeeded,
+        scheduled_at: scheduledDate.toISOString(),
+        job_id: job.id,
+        invocation_id: invocationId,
+        status: itemStatus
+      };
     }
 
-    const duplicateUrls = existingRequests?.map(req => req.linkedin_url) || [];
-    if (duplicateUrls.length > 0) {
-      throw new Error(`LinkedIn requests already exist for: ${duplicateUrls.join(', ')}`);
-    }
+    const batchAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID');
+    const batchWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID');
+    const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
+    if (!baseUrl) throw new Error('Missing BACKEND_PUBLIC_URL or BACKEND_URL for batch worker');
+    const batchApiKey = requireEnv('AIRTOP_BATCH_API_KEY');
 
-    // Prepare queue items
-    const queueItems = linkedin_urls.map(url => ({
-      user_id: userId,
-      linkedin_url: url,
-      message: message?.trim() || null,
-      scheduled_at: scheduledDate.toISOString(),
-      credit_cost: creditCostPerRequest,
-    }));
+    const { invocationId } = await invokeAgentWebhook({
+      agentId: batchAgentId,
+      webhookId: batchWebhookId,
+      configVars: {
+        batch_run_id: job.id,
+        base_url: baseUrl,
+        api_key: batchApiKey,
+        timeout_seconds: 3600
+      }
+    });
+    console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
 
-    // Insert queue items
-    const { data: insertedItems, error: insertError } = await supabaseDb
-      .from('linkedin_outreach_queue')
-      .insert(queueItems)
-      .select();
-
-    if (insertError) {
-      throw new Error(`Failed to queue LinkedIn requests: ${insertError.message}`);
-    }
-
-    // Deduct credits and log
     await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
 
     return {
@@ -2402,7 +2488,8 @@ export async function linkedin_connect({
       queued_count: linkedin_urls.length,
       credits_used: totalCreditsNeeded,
       scheduled_at: scheduledDate.toISOString(),
-      queue_ids: insertedItems!.map(item => item.id)
+      job_id: job.id,
+      invocation_id: invocationId
     };
 
   } catch (error) {

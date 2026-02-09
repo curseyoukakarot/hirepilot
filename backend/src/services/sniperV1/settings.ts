@@ -151,7 +151,15 @@ export async function countActionsSince(workspaceId: string, sinceIso: string): 
     .from('sniper_job_items')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId)
-    .in('status', ['succeeded_verified', 'succeeded_noop_already_connected', 'succeeded_noop_already_pending'])
+    .in('status', [
+      'succeeded_verified',
+      'succeeded_noop_already_connected',
+      'succeeded_noop_already_pending',
+      'failed_restricted',
+      'failed_verification',
+      'failed',
+      'skipped'
+    ])
     .in('action_type', ['connect', 'message'])
     .gte('created_at', sinceIso);
   return Number(count || 0);
