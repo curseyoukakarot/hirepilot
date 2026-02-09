@@ -203,8 +203,16 @@ export const sniperV1Worker = new Worker(
       }
 
       if (jobRow.job_type === 'send_connect_requests') {
-        const batchAgentId = String(process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID || '').trim();
-        const batchWebhookId = String(process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID || '').trim();
+        const batchAgentId = String(
+          process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID ||
+          process.env.AIRTOP_LINKEDIN_CONNECT_AGENT_ID ||
+          ''
+        ).trim();
+        const batchWebhookId = String(
+          process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID ||
+          process.env.AIRTOP_LINKEDIN_CONNECT_WEBHOOK_ID ||
+          ''
+        ).trim();
         const batchApiKey = String(process.env.AIRTOP_BATCH_API_KEY || '').trim();
         const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
         if (!batchAgentId || !batchWebhookId || !batchApiKey || !baseUrl) {

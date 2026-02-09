@@ -2314,6 +2314,13 @@ export async function linkedin_connect({
       if (!v) throw new Error(`Missing ${name}`);
       return v;
     };
+    const requireEnvAny = (names: string[]) => {
+      for (const name of names) {
+        const v = String(process.env[name] || '').trim();
+        if (v) return v;
+      }
+      throw new Error(`Missing ${names[0]}`);
+    };
     const normalizeAirtopStatus = (raw: string) => {
       const s = String(raw || '').toUpperCase();
       if (['SENT', 'ALREADY_PENDING', 'ALREADY_CONNECTED'].includes(s)) {
@@ -2384,8 +2391,14 @@ export async function linkedin_connect({
     const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
 
     if (linkedin_urls.length === 1 && !shouldQueueOnly) {
-      const singleAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID');
-      const singleWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID');
+      const singleAgentId = requireEnvAny([
+        'AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID',
+        'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
+      ]);
+      const singleWebhookId = requireEnvAny([
+        'AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID',
+        'AIRTOP_LINKEDIN_CONNECT_WEBHOOK_ID'
+      ]);
       const itemRows = await listJobItems(job.id, 1);
       const item = itemRows?.[0];
       if (!item) throw new Error('connect_item_not_found');
@@ -2477,8 +2490,14 @@ export async function linkedin_connect({
       };
     }
 
-    const batchAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID');
-    const batchWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID');
+    const batchAgentId = requireEnvAny([
+      'AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID',
+      'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
+    ]);
+    const batchWebhookId = requireEnvAny([
+      'AIRTOP_LINKEDIN_CONNECT_BATCH_WEBHOOK_ID',
+      'AIRTOP_LINKEDIN_CONNECT_WEBHOOK_ID'
+    ]);
     const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
     if (!baseUrl) throw new Error('Missing BACKEND_PUBLIC_URL or BACKEND_URL for batch worker');
     const batchApiKey = requireEnv('AIRTOP_BATCH_API_KEY');
