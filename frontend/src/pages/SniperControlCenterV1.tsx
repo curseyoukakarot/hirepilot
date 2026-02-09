@@ -438,7 +438,7 @@ export default function SniperControlCenterV1() {
               onClick={async () => {
                 setSaving(true);
                 try {
-                  await apiPut("/api/sniper/settings", settings);
+                  await apiPut("/sniper/settings", settings);
                   showToast("Settings saved.", "success");
                 } catch (e: any) {
                   showToast(`Failed to save: ${e?.message || "Unknown error"}`, "error");
