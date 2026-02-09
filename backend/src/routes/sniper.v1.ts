@@ -582,6 +582,11 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         job_id: job.id,
         queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
         queue_source: 'zapier_sheets',
+        tasks: items.map((item) => ({
+          task_id: item.id,
+          batch_run_id: job.id,
+          profile_url: item.profile_url
+        })),
         quota: {
           limit_per_day: throttle.settings.max_connects_per_day,
           used_today: q.usedToday,

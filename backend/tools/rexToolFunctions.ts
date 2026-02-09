@@ -2529,7 +2529,12 @@ export async function linkedin_connect({
         scheduled_at: scheduledDate.toISOString(),
         job_id: job.id,
         queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
-        queue_source: 'zapier_sheets'
+        queue_source: 'zapier_sheets',
+        tasks: items.map((item) => ({
+          task_id: item.id,
+          batch_run_id: job.id,
+          profile_url: item.profile_url
+        }))
       };
     }
 
