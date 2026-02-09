@@ -2390,6 +2390,54 @@ export async function linkedin_connect({
 
     const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
 
+    const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
+    if (zapierWebhookUrl) {
+      // TEMP: Google Sheets staging for Airtop testing
+      const items = await listJobItems(job.id, linkedin_urls.length);
+      await Promise.all(
+        items.map((item) =>
+          axios.post(
+            zapierWebhookUrl,
+            {
+              batch_run_id: job.id,
+              task_id: item.id,
+              profile_url: item.profile_url,
+              message: item?.result_json?.note || message?.trim() || null
+            },
+            { timeout: 15_000 }
+          )
+        )
+      );
+      await notifyConnectQueued({
+        userId,
+        workspaceId,
+        jobId: job.id,
+        totalTargets: linkedin_urls.length,
+        profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
+        note: message?.trim() || null,
+        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+        isBulk: linkedin_urls.length > 1
+      });
+
+      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+
+      return {
+        success: true,
+        message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
+        queued_count: linkedin_urls.length,
+        credits_used: totalCreditsNeeded,
+        scheduled_at: scheduledDate.toISOString(),
+        job_id: job.id,
+        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
+        queue_source: 'zapier_sheets',
+        tasks: items.map((item) => ({
+          task_id: item.id,
+          batch_run_id: job.id,
+          profile_url: item.profile_url
+        }))
+      };
+    }
+
     if (linkedin_urls.length === 1 && !shouldQueueOnly) {
       const singleAgentId = requireEnvAny([
         'AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID',
@@ -2487,54 +2535,6 @@ export async function linkedin_connect({
         job_id: job.id,
         invocation_id: invocationId,
         status: itemStatus
-      };
-    }
-
-    const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
-    if (zapierWebhookUrl) {
-      // TEMP: Google Sheets staging for Airtop testing
-      const items = await listJobItems(job.id, linkedin_urls.length);
-      await Promise.all(
-        items.map((item) =>
-          axios.post(
-            zapierWebhookUrl,
-            {
-              batch_run_id: job.id,
-              task_id: item.id,
-              profile_url: item.profile_url,
-              message: item?.result_json?.note || message?.trim() || null
-            },
-            { timeout: 15_000 }
-          )
-        )
-      );
-      await notifyConnectQueued({
-        userId,
-        workspaceId,
-        jobId: job.id,
-        totalTargets: linkedin_urls.length,
-        profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
-        note: message?.trim() || null,
-        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-        isBulk: linkedin_urls.length > 1
-      });
-
-      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
-
-      return {
-        success: true,
-        message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
-        queued_count: linkedin_urls.length,
-        credits_used: totalCreditsNeeded,
-        scheduled_at: scheduledDate.toISOString(),
-        job_id: job.id,
-        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
-        queue_source: 'zapier_sheets',
-        tasks: items.map((item) => ({
-          task_id: item.id,
-          batch_run_id: job.id,
-          profile_url: item.profile_url
-        }))
       };
     }
 

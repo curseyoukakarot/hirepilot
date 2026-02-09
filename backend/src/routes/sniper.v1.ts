@@ -442,6 +442,56 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const q = (req as any)._sniperQuota || {};
     const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
 
+    const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
+    // TEMP: Google Sheets staging for Airtop testing
+    if (zapierWebhookUrl) {
+      const items = await listJobItems(job.id, unique.length);
+      await Promise.all(
+        items.map((item) =>
+          axios.post(
+            zapierWebhookUrl,
+            {
+              batch_run_id: job.id,
+              task_id: item.id,
+              profile_url: item.profile_url,
+              message: item?.result_json?.note || parsed.data.note || null
+            },
+            { timeout: 15_000 }
+          )
+        )
+      );
+
+      await notifyConnectQueued({
+        userId,
+        workspaceId,
+        jobId: job.id,
+        totalTargets: unique.length,
+        profileUrl: unique.length === 1 ? unique[0].profile_url : null,
+        note: (unique.length === 1 ? unique[0].note : parsed.data.note) || null,
+        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+        isBulk: unique.length > 1
+      });
+
+      return res.status(202).json({
+        queued: true,
+        job_id: job.id,
+        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
+        queue_source: 'zapier_sheets',
+        tasks: items.map((item) => ({
+          task_id: item.id,
+          batch_run_id: job.id,
+          profile_url: item.profile_url
+        })),
+        quota: {
+          limit_per_day: throttle.settings.max_connects_per_day,
+          used_today: q.usedToday,
+          remaining_today: q.remainingToday,
+          day: q.day,
+          timezone: q.tz
+        }
+      });
+    }
+
     // Single profile: execute immediately via Airtop Single-Profile webhook.
     if (unique.length === 1 && !shouldQueueOnly) {
       const singleAgentId = requireEnvAny([
@@ -547,56 +597,6 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     }
 
     // Bulk: trigger Airtop Batch Worker once and let it pull tasks.
-    const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
-    if (zapierWebhookUrl) {
-      // TEMP: Google Sheets staging for Airtop testing
-      const items = await listJobItems(job.id, unique.length);
-      await Promise.all(
-        items.map((item) =>
-          axios.post(
-            zapierWebhookUrl,
-            {
-              batch_run_id: job.id,
-              task_id: item.id,
-              profile_url: item.profile_url,
-              message: item?.result_json?.note || parsed.data.note || null
-            },
-            { timeout: 15_000 }
-          )
-        )
-      );
-
-      await notifyConnectQueued({
-        userId,
-        workspaceId,
-        jobId: job.id,
-        totalTargets: unique.length,
-        profileUrl: unique.length === 1 ? unique[0].profile_url : null,
-        note: (unique.length === 1 ? unique[0].note : parsed.data.note) || null,
-        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-        isBulk: unique.length > 1
-      });
-
-      return res.status(202).json({
-        queued: true,
-        job_id: job.id,
-        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
-        queue_source: 'zapier_sheets',
-        tasks: items.map((item) => ({
-          task_id: item.id,
-          batch_run_id: job.id,
-          profile_url: item.profile_url
-        })),
-        quota: {
-          limit_per_day: throttle.settings.max_connects_per_day,
-          used_today: q.usedToday,
-          remaining_today: q.remainingToday,
-          day: q.day,
-          timezone: q.tz
-        }
-      });
-    }
-
     const batchAgentId = requireEnvAny([
       'AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID',
       'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
