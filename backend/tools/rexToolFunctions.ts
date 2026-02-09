@@ -2490,6 +2490,49 @@ export async function linkedin_connect({
       };
     }
 
+    const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
+    if (zapierWebhookUrl) {
+      // TEMP: Google Sheets staging for Airtop testing
+      const items = await listJobItems(job.id, linkedin_urls.length);
+      await Promise.all(
+        items.map((item) =>
+          axios.post(
+            zapierWebhookUrl,
+            {
+              batch_run_id: job.id,
+              task_id: item.id,
+              profile_url: item.profile_url,
+              message: item?.result_json?.note || message?.trim() || null
+            },
+            { timeout: 15_000 }
+          )
+        )
+      );
+      await notifyConnectQueued({
+        userId,
+        workspaceId,
+        jobId: job.id,
+        totalTargets: linkedin_urls.length,
+        profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
+        note: message?.trim() || null,
+        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+        isBulk: linkedin_urls.length > 1
+      });
+
+      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+
+      return {
+        success: true,
+        message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
+        queued_count: linkedin_urls.length,
+        credits_used: totalCreditsNeeded,
+        scheduled_at: scheduledDate.toISOString(),
+        job_id: job.id,
+        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
+        queue_source: 'zapier_sheets'
+      };
+    }
+
     const batchAgentId = requireEnvAny([
       'AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID',
       'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
@@ -2499,18 +2542,29 @@ export async function linkedin_connect({
       'AIRTOP_LINKEDIN_CONNECT_WEBHOOK_ID'
     ]);
     const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
-    if (!baseUrl) throw new Error('Missing BACKEND_PUBLIC_URL or BACKEND_URL for batch worker');
     const batchApiKey = requireEnvAny(['AIRTOP_BATCH_API_KEY', 'AIRTOP_API_KEY']);
+    const batchGoogleSheetUrl = String(
+      process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_GOOGLE_SHEET_URL ||
+      process.env.AIRTOP_LINKEDIN_CONNECT_GOOGLE_SHEET_URL ||
+      ''
+    ).trim();
+    if (!batchGoogleSheetUrl && !baseUrl) {
+      throw new Error('Missing BACKEND_PUBLIC_URL or AIRTOP_LINKEDIN_CONNECT_BATCH_GOOGLE_SHEET_URL for batch worker');
+    }
+
+    const configVars = batchGoogleSheetUrl
+      ? { googleSheetUrl: batchGoogleSheetUrl }
+      : {
+          batch_run_id: job.id,
+          base_url: baseUrl,
+          api_key: batchApiKey,
+          timeout_seconds: 3600
+        };
 
     const { invocationId } = await invokeAgentWebhook({
       agentId: batchAgentId,
       webhookId: batchWebhookId,
-      configVars: {
-        batch_run_id: job.id,
-        base_url: baseUrl,
-        api_key: batchApiKey,
-        timeout_seconds: 3600
-      }
+      configVars
     });
     console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
 

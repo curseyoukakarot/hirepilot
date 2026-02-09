@@ -213,22 +213,30 @@ export const sniperV1Worker = new Worker(
           process.env.AIRTOP_LINKEDIN_CONNECT_WEBHOOK_ID ||
           ''
         ).trim();
-        const batchApiKey = String(process.env.AIRTOP_BATCH_API_KEY || '').trim();
+        const batchApiKey = String(process.env.AIRTOP_BATCH_API_KEY || process.env.AIRTOP_API_KEY || '').trim();
         const baseUrl = String(process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || process.env.BACKEND_BASE_URL || '').trim();
-        if (!batchAgentId || !batchWebhookId || !batchApiKey || !baseUrl) {
+        const batchGoogleSheetUrl = String(
+          process.env.AIRTOP_LINKEDIN_CONNECT_BATCH_GOOGLE_SHEET_URL ||
+          process.env.AIRTOP_LINKEDIN_CONNECT_GOOGLE_SHEET_URL ||
+          ''
+        ).trim();
+        if (!batchAgentId || !batchWebhookId || (!batchGoogleSheetUrl && (!batchApiKey || !baseUrl))) {
           throw new Error('Airtop batch webhook not configured for connect requests');
         }
 
         if (!jobRow.input_json?.batch_invocation_id) {
+          const configVars = batchGoogleSheetUrl
+            ? { googleSheetUrl: batchGoogleSheetUrl }
+            : {
+                batch_run_id: jobId,
+                base_url: baseUrl,
+                api_key: batchApiKey,
+                timeout_seconds: 3600
+              };
           const { invocationId } = await invokeAgentWebhook({
             agentId: batchAgentId,
             webhookId: batchWebhookId,
-            configVars: {
-              batch_run_id: jobId,
-              base_url: baseUrl,
-              api_key: batchApiKey,
-              timeout_seconds: 3600
-            }
+            configVars
           });
           await updateJob(jobId, {
             input_json: {

@@ -64,6 +64,7 @@ import userRouter from './src/routes/user';
 import runPhantomRouter from './api/runPhantom';
 import phantombusterWebhookRouter from './api/phantombusterWebhook';
 import zapierPhantomWebhook from './api/zapierPhantomWebhook';
+import airtopSheetRouter from './src/routes/airtopSheet';
 import phantomStatusUpdate from './api/phantomStatusUpdate';
 import phantomPoll from './api/phantomPoll';
 import deleteJobRequisitions from './api/deleteJobRequisitions';
@@ -550,6 +551,7 @@ app.use('/api', offrWebsiteRouter);
 app.use('/api/phantombuster', runPhantomRouter);
 app.use('/api/phantombuster', phantombusterWebhookRouter);
 app.use('/api/zapier/phantom', zapierPhantomWebhook);
+app.use('/airtop-sheet-result', airtopSheetRouter);
 app.use('/api/phantom', phantomStatusUpdate);
 app.use('/api/phantom', phantomPoll);
 // REX Widget endpoints
