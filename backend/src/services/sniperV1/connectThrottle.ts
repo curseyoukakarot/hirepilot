@@ -44,8 +44,8 @@ function isWithinActiveHoursWithGrace(now: Date, settings: Awaited<ReturnType<ty
   const days = Array.isArray(settings.active_hours_json?.days) ? settings.active_hours_json.days : [1, 2, 3, 4, 5];
   const runOnWeekends = Boolean(settings.active_hours_json?.runOnWeekends);
   const isWeekend = day === 6 || day === 7;
-  if (isWeekend && !runOnWeekends) return false;
-  if (!days.includes(day)) return false;
+  if (isWeekend && !runOnWeekends) return true;
+  if (!days.includes(day)) return true;
 
   const [sh, sm] = String(settings.active_hours_json?.start || '00:00').split(':').map((x) => Number(x));
   const [eh, em] = String(settings.active_hours_json?.end || '23:59').split(':').map((x) => Number(x));
