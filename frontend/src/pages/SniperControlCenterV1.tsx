@@ -63,6 +63,10 @@ export default function SniperControlCenterV1() {
   const [settings, setSettings] = useState<SniperSettings | null>(null);
   const [airtop, setAirtop] = useState<AirtopAuthStatus | null>(null);
   const [lastAuthSessionId, setLastAuthSessionId] = useState<string | null>(null);
+  const [airtopAuthUrl, setAirtopAuthUrl] = useState<string | null>(null);
+  const [airtopAuthOpen, setAirtopAuthOpen] = useState(false);
+  const [airtopAuthBusy, setAirtopAuthBusy] = useState(false);
+  const [airtopAuthError, setAirtopAuthError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" | "info" }>({
     show: false,
@@ -183,10 +187,37 @@ export default function SniperControlCenterV1() {
       showToast("Starting LinkedIn connect…", "info");
       const resp = await apiPost<{ url: string; auth_session_id?: string }>("/sniper/linkedin/auth/start", {});
       if (resp?.auth_session_id) setLastAuthSessionId(resp.auth_session_id);
-      // Open the auth URL in a new tab (embedded/live view flow)
-      window.open(resp.url, "_blank", "noopener,noreferrer");
+      if (!resp?.url) throw new Error("Missing live view URL");
+      setAirtopAuthError(null);
+      setAirtopAuthUrl(resp.url);
+      setAirtopAuthOpen(true);
     } catch (e: any) {
       showToast(`LinkedIn connect failed: ${e?.message || "Unknown error"}`, "error");
+    }
+  };
+
+  const handleAirtopComplete = async () => {
+    if (!lastAuthSessionId) {
+      setAirtopAuthError("Missing auth session. Please restart the connect flow.");
+      return;
+    }
+    setAirtopAuthBusy(true);
+    setAirtopAuthError(null);
+    try {
+      await apiPost("/sniper/linkedin/auth/complete", { auth_session_id: lastAuthSessionId });
+      const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
+      setAirtop(a);
+      showToast(a.connected ? "LinkedIn is connected." : "LinkedIn not connected yet.", a.connected ? "success" : "info");
+      if (a.connected) {
+        setAirtopAuthOpen(false);
+        setAirtopAuthUrl(null);
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || "Unknown error");
+      setAirtopAuthError(msg);
+      showToast(`Failed to finalize LinkedIn: ${msg}`, "error");
+    } finally {
+      setAirtopAuthBusy(false);
     }
   };
 
@@ -239,6 +270,56 @@ export default function SniperControlCenterV1() {
   return (
     <div className="p-6">
       <Toast show={toast.show} message={toast.message} type={toast.type} />
+      {airtopAuthOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/90 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <div>
+                <div className="text-lg font-semibold text-slate-100">Connect LinkedIn</div>
+                <div className="text-xs text-slate-400">Log in inside the window, then click “I’m logged in”.</div>
+              </div>
+              <button
+                onClick={() => { setAirtopAuthOpen(false); }}
+                className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-950/70"
+              >
+                Close
+              </button>
+            </div>
+            <div className="bg-black/40">
+              {airtopAuthUrl ? (
+                <iframe
+                  src={airtopAuthUrl}
+                  className="h-[70vh] w-full"
+                  sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+                  allow="clipboard-write"
+                  onError={() => setAirtopAuthError("Live view failed to load. Please try again.")}
+                />
+              ) : (
+                <div className="flex h-[70vh] items-center justify-center text-sm text-slate-400">
+                  Starting remote session…
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800 px-5 py-4">
+              <div className="text-xs text-slate-400">
+                {airtopAuthError ? `Error: ${airtopAuthError}` : "Keep this window open until LinkedIn finishes loading."}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAirtopComplete}
+                  disabled={airtopAuthBusy}
+                  className={cx(
+                    "rounded-lg px-3 py-2 text-xs font-semibold",
+                    airtopAuthBusy ? "bg-slate-800 text-slate-400" : "bg-sky-600 text-white hover:bg-sky-500"
+                  )}
+                >
+                  {airtopAuthBusy ? "Finalizing…" : "I’m logged in"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6">
         <div className="flex items-start justify-between gap-6">
@@ -323,7 +404,7 @@ export default function SniperControlCenterV1() {
                     Check
                   </button>
                 </div>
-                <div className="mt-2 text-xs text-slate-500">After connecting, return here and click “Check”.</div>
+                <div className="mt-2 text-xs text-slate-500">Complete the login in the popup and click “I’m logged in”.</div>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
