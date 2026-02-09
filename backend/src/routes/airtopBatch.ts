@@ -4,6 +4,7 @@ import { getJob, summarizeJobItems, updateJob, updateJobItem } from '../services
 import { safeOutputParse } from '../services/airtop/agentWebhooks';
 import { canAttemptLinkedinConnect } from '../services/sniperV1/connectThrottle';
 import { recordActionUsage } from '../services/sniperV1/throttle';
+import { notifyConnectBulkSummary, notifyConnectResult } from '../services/sniperV1/connectNotifications';
 
 const router = Router();
 
@@ -141,6 +142,31 @@ router.post('/:batch_run_id/result', async (req: Request, res: Response) => {
       error_message: normalized.ok ? null : (parsedOutput?.error || parsedOutput?.message || 'Airtop connect failed')
     } as any);
 
+    if (normalized.ok) {
+      try {
+        const { data: itemRow } = await sniperSupabaseDb
+          .from('sniper_job_items')
+          .select('profile_url, result_json')
+          .eq('id', task_id)
+          .maybeSingle();
+        const profileUrl = (itemRow as any)?.profile_url;
+        if (profileUrl) {
+          const note = (itemRow as any)?.result_json?.note || job?.input_json?.note || null;
+          await notifyConnectResult({
+            userId: job.created_by,
+            workspaceId: job.workspace_id,
+            jobId: batchRunId,
+            profileUrl,
+            finalStatus: normalized.status,
+            message: parsedOutput?.message || parsedOutput?.error || null,
+            note
+          });
+        }
+      } catch (e: any) {
+        console.warn('[airtop-batch] connect success notify failed (non-fatal):', e?.message || e);
+      }
+    }
+
     if (normalized.status !== 'AUTH_REQUIRED') {
       try {
         const throttle = await canAttemptLinkedinConnect({ workspaceId: job.workspace_id, userId: job.created_by });
@@ -172,6 +198,11 @@ router.post('/:batch_run_id/result', async (req: Request, res: Response) => {
         status: finalStatus as any,
         finished_at: new Date().toISOString()
       } as any);
+      try {
+        await notifyConnectBulkSummary(batchRunId, job.created_by, job.workspace_id);
+      } catch (e: any) {
+        console.warn('[airtop-batch] bulk summary notify failed (non-fatal):', e?.message || e);
+      }
     }
 
     return res.json({ ok: true, status: itemStatus });

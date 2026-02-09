@@ -24,6 +24,7 @@ import { sniperSupabaseDb } from '../services/sniperV1/supabase';
 import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../services/airtop/agentWebhooks';
 import { canAttemptLinkedinConnect } from '../services/sniperV1/connectThrottle';
 import { recordActionUsage } from '../services/sniperV1/throttle';
+import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/connectNotifications';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -379,7 +380,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       return true;
     });
 
-    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId });
+    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId, respectActiveHours: false });
     if (!throttle.ok) {
       console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
       return res.status(429).json({
@@ -430,9 +431,10 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     );
 
     const q = (req as any)._sniperQuota || {};
+    const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
 
     // Single profile: execute immediately via Airtop Single-Profile webhook.
-    if (unique.length === 1) {
+    if (unique.length === 1 && !shouldQueueOnly) {
       const singleAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID');
       const singleWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID');
       const itemRows = await listJobItems(job.id, 1);
@@ -502,6 +504,18 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         }
       }
 
+      if (normalized.ok) {
+        await notifyConnectResult({
+          userId,
+          workspaceId,
+          jobId: job.id,
+          profileUrl: item.profile_url,
+          finalStatus: normalized.status,
+          message: output?.message || output?.error || null,
+          note: item?.result_json?.note || parsed.data.note || null
+        });
+      }
+
       return res.status(200).json({
         queued: false,
         job_id: job.id,
@@ -536,10 +550,22 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     });
     console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
 
+    await notifyConnectQueued({
+      userId,
+      workspaceId,
+      jobId: job.id,
+      totalTargets: unique.length,
+      profileUrl: unique.length === 1 ? unique[0].profile_url : null,
+      note: (unique.length === 1 ? unique[0].note : parsed.data.note) || null,
+      estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+      isBulk: unique.length > 1
+    });
+
     return res.status(202).json({
       queued: true,
       job_id: job.id,
       invocation_id: invocationId,
+      queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
       quota: {
         limit_per_day: throttle.settings.max_connects_per_day,
         used_today: q.usedToday,

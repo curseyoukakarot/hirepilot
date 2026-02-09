@@ -9,6 +9,7 @@ type AttemptResult = {
   remaining: number;
   limit: number;
   settings: Awaited<ReturnType<typeof fetchSniperV1Settings>>;
+  outsideActiveHours: boolean;
 };
 
 function secondsUntil(msUntil: number): number {
@@ -59,21 +60,23 @@ function isWithinActiveHoursWithGrace(now: Date, settings: Awaited<ReturnType<ty
   return localMinutes >= (startMin - grace) && localMinutes <= (endMin + grace);
 }
 
-export async function canAttemptLinkedinConnect(args: { workspaceId: string; userId: string }): Promise<AttemptResult> {
+export async function canAttemptLinkedinConnect(args: { workspaceId: string; userId: string; respectActiveHours?: boolean }): Promise<AttemptResult> {
   const settings = await fetchSniperV1Settings(args.workspaceId);
 
   if (!settings.cloud_engine_enabled) {
-    return { ok: false, cooldownSeconds: 0, reason: 'cloud_engine_disabled', remaining: 0, limit: settings.max_connects_per_day, settings };
+    return { ok: false, cooldownSeconds: 0, reason: 'cloud_engine_disabled', remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours: false };
   }
 
-  if (!isWithinActiveHoursWithGrace(new Date(), settings)) {
-    return { ok: false, cooldownSeconds: 15 * 60, reason: 'outside_active_hours', remaining: 0, limit: settings.max_connects_per_day, settings };
+  const outsideActiveHours = !isWithinActiveHoursWithGrace(new Date(), settings);
+  const respectActiveHours = args.respectActiveHours ?? true;
+  if (outsideActiveHours && respectActiveHours) {
+    return { ok: false, cooldownSeconds: 15 * 60, reason: 'outside_active_hours', remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours };
   }
 
   const usage = await getUsageSnapshot({ userId: args.userId, workspaceId: args.workspaceId, settings });
   if (isCooldownActive(usage.cooldown_until)) {
     const cooldownSeconds = secondsUntil(new Date(usage.cooldown_until as string).getTime() - Date.now());
-    return { ok: false, cooldownSeconds, reason: 'cooldown_active', remaining: 0, limit: settings.max_connects_per_day, settings };
+    return { ok: false, cooldownSeconds, reason: 'cooldown_active', remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours };
   }
 
   // Hour/day action guardrails (shared across connect/message)
@@ -82,10 +85,10 @@ export async function canAttemptLinkedinConnect(args: { workspaceId: string; use
   const usedHour = await countActionsSince(args.workspaceId, hourSince);
   const usedDay = await countActionsSince(args.workspaceId, daySince);
   if (usedHour >= settings.max_actions_per_hour + ACTIONS_PER_HOUR_GRACE) {
-    return { ok: false, cooldownSeconds: 60 * 60, reason: 'throttled_actions_per_hour', remaining: 0, limit: settings.max_connects_per_day, settings };
+    return { ok: false, cooldownSeconds: 60 * 60, reason: 'throttled_actions_per_hour', remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours };
   }
   if (usedDay >= settings.max_actions_per_day + ACTIONS_PER_DAY_GRACE) {
-    return { ok: false, cooldownSeconds: 60 * 60, reason: 'throttled_actions_per_day', remaining: 0, limit: settings.max_connects_per_day, settings };
+    return { ok: false, cooldownSeconds: 60 * 60, reason: 'throttled_actions_per_day', remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours };
   }
 
   const remainingUser = Math.max(0, settings.max_connects_per_day - usage.user_connects);
@@ -93,8 +96,8 @@ export async function canAttemptLinkedinConnect(args: { workspaceId: string; use
   const remaining = Math.min(remainingUser, remainingWorkspace);
   if (remaining <= 0) {
     const reason = remainingUser <= 0 ? 'daily_connect_limit_exceeded' : 'workspace_daily_connect_limit_exceeded';
-    return { ok: false, cooldownSeconds: 60 * 60, reason, remaining: 0, limit: settings.max_connects_per_day, settings };
+    return { ok: false, cooldownSeconds: 60 * 60, reason, remaining: 0, limit: settings.max_connects_per_day, settings, outsideActiveHours };
   }
 
-  return { ok: true, cooldownSeconds: 0, reason: null, remaining, limit: settings.max_connects_per_day, settings };
+  return { ok: true, cooldownSeconds: 0, reason: null, remaining, limit: settings.max_connects_per_day, settings, outsideActiveHours };
 }

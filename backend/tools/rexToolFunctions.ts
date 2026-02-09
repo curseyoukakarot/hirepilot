@@ -13,6 +13,7 @@ import { createJob, insertJobItems, listJobItems, updateJob, updateJobItem } fro
 import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../src/services/airtop/agentWebhooks';
 import { canAttemptLinkedinConnect } from '../src/services/sniperV1/connectThrottle';
 import { recordActionUsage } from '../src/services/sniperV1/throttle';
+import { notifyConnectQueued, notifyConnectResult } from '../src/services/sniperV1/connectNotifications';
 
 export async function sourceLeads({
   userId,
@@ -2342,7 +2343,7 @@ export async function linkedin_connect({
       .maybeSingle();
     const workspaceId = (userRow as any)?.team_id || userId;
 
-    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId });
+    const throttle = await canAttemptLinkedinConnect({ workspaceId, userId, respectActiveHours: false });
     if (!throttle.ok) {
       console.log('[rex-linkedin_connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
       throw new Error(throttle.reason || 'connect_throttled');
@@ -2380,7 +2381,9 @@ export async function linkedin_connect({
       }))
     );
 
-    if (linkedin_urls.length === 1) {
+    const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
+
+    if (linkedin_urls.length === 1 && !shouldQueueOnly) {
       const singleAgentId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID');
       const singleWebhookId = requireEnv('AIRTOP_LINKEDIN_CONNECT_SINGLE_WEBHOOK_ID');
       const itemRows = await listJobItems(job.id, 1);
@@ -2448,6 +2451,18 @@ export async function linkedin_connect({
         }
       }
 
+      if (normalized.ok) {
+        await notifyConnectResult({
+          userId,
+          workspaceId,
+          jobId: job.id,
+          profileUrl: item.profile_url,
+          finalStatus: normalized.status,
+          message: output?.message || output?.error || null,
+          note: message?.trim() || null
+        });
+      }
+
       await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
 
       return {
@@ -2480,6 +2495,17 @@ export async function linkedin_connect({
     });
     console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
 
+    await notifyConnectQueued({
+      userId,
+      workspaceId,
+      jobId: job.id,
+      totalTargets: linkedin_urls.length,
+      profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
+      note: message?.trim() || null,
+      estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+      isBulk: linkedin_urls.length > 1
+    });
+
     await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
 
     return {
@@ -2489,7 +2515,8 @@ export async function linkedin_connect({
       credits_used: totalCreditsNeeded,
       scheduled_at: scheduledDate.toISOString(),
       job_id: job.id,
-      invocation_id: invocationId
+      invocation_id: invocationId,
+      queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined
     };
 
   } catch (error) {
