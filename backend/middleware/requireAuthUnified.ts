@@ -20,6 +20,7 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
     // Allowlist: public/alternate-auth endpoints that handle their own auth (e.g., x-user-id)
     // Avoid blocking LinkedIn remote session bootstrap and streaming endpoints
     const path = String(req.path || '');
+    const normalizedPath = path.startsWith('/api/') ? path : `/api${path}`;
     if (process.env.LOG_REQUESTS === 'true') {
       console.log('[auth.unified] enter', { path, hasAuth: Boolean(req.headers.authorization), hasSessionCookie: Boolean((req as any)?.cookies?.hp_session) });
     }
@@ -29,7 +30,11 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
       // Allow public OAuth callbacks (Outlook etc.) to proceed without auth
       path.startsWith('/api/auth/outlook/callback') ||
       // Allow public checkout sessions (pricing / jobs signup)
-      path.startsWith('/api/public-checkout')
+      path.startsWith('/api/public-checkout') ||
+      // Allow public forms runtime endpoints (by-slug, submit, uploads)
+      normalizedPath.startsWith('/api/forms/by-slug/') ||
+      normalizedPath.startsWith('/api/forms/uploads') ||
+      /\/api\/forms\/[^/]+\/submit$/.test(normalizedPath)
     ) {
       if (process.env.LOG_REQUESTS === 'true') {
         console.log('[auth.unified] allowlist', { path });

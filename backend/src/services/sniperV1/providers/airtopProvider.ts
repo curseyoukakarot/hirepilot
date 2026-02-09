@@ -200,6 +200,8 @@ export const airtopProvider: SniperExecutionProvider = {
     try {
       const { browser, page } = await connectAirtopPlaywright(session);
       try {
+        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await page.waitForTimeout(800).catch(() => {});
         await assertAuthenticatedLinkedIn(page);
         const res = await sendConnectionRequestOnPage(page, profileUrl, note, debug);
         return res as any;

@@ -487,7 +487,7 @@ export default function TableEditor() {
             provider: selectedProvider,
             template_data: buildTemplateData(row)
           };
-          const resp = await fetch(`${API_BASE_URL}/messages/send`, {
+          const resp = await fetch(`${API_BASE_URL}/message/send`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

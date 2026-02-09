@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaCheck, FaTrash, FaRocket, FaPause, FaGear } from 'react-icons/fa6';
-import { FaSearch, FaChartBar, FaUsers, FaRegFileAlt, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaChartBar, FaUsers, FaRegFileAlt, FaTimes, FaBriefcase } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { apiDelete, apiPost } from '../lib/api';
 import { toast } from '../components/ui/use-toast';
 import { usePlan } from '../context/PlanContext';
+import { attachPipelineToJob, ensureCampaignJob, fetchPipelines } from '../lib/campaigns/pipelineAttach';
 
 function Campaigns() {
   const navigate = useNavigate();
@@ -17,6 +18,18 @@ function Campaigns() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showTemplates, setShowTemplates] = useState(null);
   const [showMeta, setShowMeta] = useState(null); // campaign id for meta modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [attachCampaign, setAttachCampaign] = useState(null);
+  const [attachJobName, setAttachJobName] = useState('');
+  const [attachPipelineId, setAttachPipelineId] = useState('');
+  const [attachPipelines, setAttachPipelines] = useState([]);
+  const [attachCurrentPipeline, setAttachCurrentPipeline] = useState(null);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [attachFetching, setAttachFetching] = useState(false);
+  const [attachError, setAttachError] = useState('');
   const [showPersonaModal, setShowPersonaModal] = useState(false);
   const [personaText, setPersonaText] = useState('');
   const [personaCampaign, setPersonaCampaign] = useState(null);
@@ -27,45 +40,92 @@ function Campaigns() {
   const roleLc = String(role || '').toLowerCase().replace(/\s|-/g, '_');
   const showPersonaCTA = !isFree && paidRoles.includes(roleLc);
 
-  useEffect(() => {
-    const fetchUserAndCampaigns = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authedUser = session?.user;
-        if (authedUser && session?.access_token) {
-          setUser(authedUser);
-          const response = await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns`,
-            {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`
-              }
+  const loadCampaigns = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authedUser = session?.user;
+      if (authedUser && session?.access_token) {
+        setUser(authedUser);
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/getCampaigns`,
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
             }
-          );
-          const result = await response.json();
-          if (response.ok) {
-            setCampaigns(result.campaigns);
-          } else {
-            console.error('Failed to fetch campaigns:', result.error);
           }
+        );
+        const result = await response.json();
+        if (response.ok) {
+          setCampaigns(result.campaigns);
+        } else {
+          console.error('Failed to fetch campaigns:', result.error);
         }
-      } catch (error) {
-        console.error('Error fetching campaigns:', error);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchUserAndCampaigns();
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCampaigns();
   }, []);
 
   const handleCreateCampaign = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname : '';
-    if (host.startsWith('jobs.')) {
-      navigate('/campaigns/wizard');
-    } else {
-      navigate('/campaigns/new/job-description');
+    setCreateName('');
+    setCreateError('');
+    setShowCreateModal(true);
+  };
+  const handleSubmitCreateCampaign = async (e) => {
+    e.preventDefault();
+    const name = createName.trim();
+    if (!name || createLoading) return;
+    setCreateLoading(true);
+    setCreateError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/saveCampaign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          campaignName: name,
+          jobReq: '',
+          keywords: '',
+          status: 'draft'
+        }),
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Server error: ' + text);
+      }
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create campaign');
+      }
+      const created = {
+        ...(data.campaign || {}),
+        total_leads: 0,
+        enriched_leads: 0
+      };
+      setCampaigns(prev => [created, ...prev]);
+      setShowCreateModal(false);
+      toast({
+        title: 'Campaign created',
+        description: 'Your campaign is ready. Add pipeline details when you are ready.'
+      });
+      loadCampaigns({ silent: true });
+    } catch (err) {
+      setCreateError(err.message || 'Failed to create campaign');
+    } finally {
+      setCreateLoading(false);
     }
   };
   const handleNewPersona = () => {
@@ -73,6 +133,90 @@ function Campaigns() {
   };
   const handleTryRex = () => {
     navigate('/rex-chat');
+  };
+
+  const openAttachModal = (campaign) => {
+    const name = campaign?.name || campaign?.title || '';
+    setAttachCampaign(campaign);
+    setAttachJobName(name);
+    setAttachPipelineId('');
+    setAttachPipelines([]);
+    setAttachCurrentPipeline(null);
+    setAttachError('');
+  };
+
+  useEffect(() => {
+    const loadPipelines = async () => {
+      if (!attachCampaign) return;
+      setAttachFetching(true);
+      setAttachError('');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('User not authenticated');
+        const pipelines = await fetchPipelines({ token: session.access_token });
+        let current = null;
+        if (attachCampaign?.job_id) {
+          const currentList = await fetchPipelines({
+            token: session.access_token,
+            jobId: attachCampaign.job_id
+          });
+          current = currentList?.[0] || null;
+        }
+        const unique = new Map();
+        (current ? [current, ...pipelines] : pipelines).forEach((p) => {
+          if (p?.id && !unique.has(p.id)) unique.set(p.id, p);
+        });
+        const merged = Array.from(unique.values());
+        setAttachPipelines(merged);
+        setAttachCurrentPipeline(current);
+        if (current?.id) setAttachPipelineId(current.id);
+      } catch (err) {
+        setAttachError(err.message || 'Failed to load pipelines');
+      } finally {
+        setAttachFetching(false);
+      }
+    };
+    loadPipelines();
+  }, [attachCampaign]);
+
+  const handleAttachPipeline = async (e) => {
+    e.preventDefault();
+    if (!attachCampaign || attachLoading) return;
+    setAttachLoading(true);
+    setAttachError('');
+    try {
+      if (!attachPipelineId) throw new Error('Select a pipeline');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('User not authenticated');
+      const jobTitle = attachJobName.trim() || attachCampaign?.name || attachCampaign?.title || 'Campaign Job';
+      const jobResult = await ensureCampaignJob({
+        token: session.access_token,
+        campaign: attachCampaign,
+        title: jobTitle
+      });
+      const jobId = jobResult?.jobId;
+      if (!jobId) throw new Error('Failed to resolve job');
+      await attachPipelineToJob({ token: session.access_token, jobId, pipelineId: attachPipelineId });
+      if (!attachCampaign.job_id && jobId) {
+        try {
+          await supabase
+            .from('campaigns')
+            .update({ job_id: jobId, updated_at: new Date().toISOString() })
+            .eq('id', attachCampaign.id);
+        } catch {}
+      }
+      setCampaigns(prev => prev.map(c => (c.id === attachCampaign.id ? { ...c, job_id: jobId } : c)));
+      setAttachCampaign(null);
+      toast({
+        title: 'Job + pipeline attached',
+        description: 'Campaign updated successfully.'
+      });
+      loadCampaigns({ silent: true });
+    } catch (err) {
+      setAttachError(err.message || 'Failed to attach pipeline');
+    } finally {
+      setAttachLoading(false);
+    }
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -150,8 +294,7 @@ function Campaigns() {
 
   const handleCampaignClick = (campaign) => {
     if (campaign.status === 'draft') {
-      // Resume draft campaigns at Step 2 (Pipeline) instead of Step 1
-      navigate(`/campaigns/new/pipeline?campaign_id=${campaign.id}`);
+      openAttachModal(campaign);
     } else if (campaign.status === 'active' || campaign.status === 'live') {
       navigate(`/leads?campaignId=${campaign.id}&campaignName=${encodeURIComponent(campaign.name || campaign.title || 'Campaign')}`);
     }
@@ -294,6 +437,13 @@ function Campaigns() {
                     >
                       <FaGear />
                     </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); openAttachModal(campaign); }}
+                      className="p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+                      title="Add Job + Pipeline"
+                    >
+                      <FaBriefcase />
+                    </button>
                     {campaign.status === 'draft' && (
                       <button
                         onClick={e => { e.stopPropagation(); handleLaunchCampaign(campaign.id); }}
@@ -333,6 +483,130 @@ function Campaigns() {
           </div>
         )}
       </div>
+
+      {/* Create Campaign Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              onClick={() => setShowCreateModal(false)}
+              title="Close"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-4 dark:text-gray-100">New Campaign</h2>
+            <form onSubmit={handleSubmitCreateCampaign} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Campaign Name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="e.g., Senior Frontend Engineer – NYC"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  You can add personas, pipeline, and outreach later.
+                </p>
+              </div>
+              {createError && (
+                <div className="text-sm text-red-600">{createError}</div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded bg-gray-200 text-gray-700"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                  disabled={createLoading || !createName.trim()}
+                >
+                  {createLoading ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attach Job + Pipeline Modal */}
+      {attachCampaign && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              onClick={() => setAttachCampaign(null)}
+              title="Close"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-2 dark:text-gray-100">Attach Job + Pipeline</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Campaign: {attachCampaign?.name || attachCampaign?.title || 'Untitled'}
+            </p>
+            <form onSubmit={handleAttachPipeline} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Job Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Customer Success Manager"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                  value={attachJobName}
+                  onChange={(e) => setAttachJobName(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Used only if the campaign does not already have a job.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Pipeline</label>
+                {attachFetching ? (
+                  <div className="text-sm text-gray-500">Loading pipelines...</div>
+                ) : (
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                    value={attachPipelineId}
+                    onChange={(e) => setAttachPipelineId(e.target.value)}
+                  >
+                    <option value="">Select a pipeline</option>
+                    {attachPipelines.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Current pipeline: {attachCurrentPipeline?.name || 'None'}
+                </div>
+              </div>
+              {attachError && (
+                <div className="text-sm text-red-600">{attachError}</div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded bg-gray-200 text-gray-700"
+                  onClick={() => setAttachCampaign(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                  disabled={attachLoading || attachFetching}
+                >
+                  {attachLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Templates Modal */}
       {showTemplates && selectedCampaign && (

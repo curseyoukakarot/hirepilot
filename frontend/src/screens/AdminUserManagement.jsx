@@ -18,6 +18,10 @@ export default function AdminUserManagement() {
   const [creditUser, setCreditUser] = useState(null);
   const [creditAmount, setCreditAmount] = useState(1000);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [bulkCreditOpen, setBulkCreditOpen] = useState(false);
+  const [bulkCreditAmount, setBulkCreditAmount] = useState(1000);
+  const [bulkCreditScope, setBulkCreditScope] = useState('selected'); // selected | all
+  const [bulkCreditLoading, setBulkCreditLoading] = useState(false);
   const [passwordUser, setPasswordUser] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -226,6 +230,50 @@ export default function AdminUserManagement() {
       setError('Failed to assign credits');
     }
     setCreditLoading(false);
+  };
+
+  const handleBulkAddCredits = async (e) => {
+    e.preventDefault();
+    setBulkCreditLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const amount = Number(bulkCreditAmount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Enter a positive credit amount');
+      }
+      const ids = bulkCreditScope === 'selected' ? Array.from(selectedUserIds) : [];
+      if (bulkCreditScope === 'selected' && !ids.length) {
+        throw new Error('Select at least one user');
+      }
+      if (bulkCreditScope === 'all') {
+        const confirmed = window.confirm(`Add ${amount} credits to all users?`);
+        if (!confirmed) {
+          setBulkCreditLoading(false);
+          return;
+        }
+      }
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/bulk-credits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          amount,
+          apply_to: bulkCreditScope,
+          user_ids: ids
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Failed to add credits');
+      }
+      const data = await res.json();
+      setSuccess(`Added ${amount} credits to ${data.totalUsers || 0} users.`);
+      setBulkCreditOpen(false);
+    } catch (err) {
+      setError(err.message || 'Failed to add credits');
+    }
+    setBulkCreditLoading(false);
   };
 
   // Delete user
@@ -555,6 +603,17 @@ export default function AdminUserManagement() {
             disabled={backfillLoading}
           >
             <FaCoins /> {backfillLoading ? 'Processing...' : 'Backfill Credits'}
+          </button>
+          <button
+            className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 disabled:opacity-50"
+            onClick={() => {
+              setBulkCreditAmount(1000);
+              setBulkCreditScope(selectedUserIds.size ? 'selected' : 'all');
+              setBulkCreditOpen(true);
+            }}
+            disabled={!users.length}
+          >
+            <FaCoins /> Bulk Add Credits
           </button>
           <button
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
@@ -981,6 +1040,60 @@ export default function AdminUserManagement() {
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setCreditUser(null)}>Cancel</button>
                 <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white" disabled={creditLoading}>{creditLoading ? 'Assigning...' : 'Assign'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Add Credits Modal */}
+      {bulkCreditOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg border border-gray-200">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Bulk Add Credits</h2>
+            <form onSubmit={handleBulkAddCredits} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Credits to add</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-gray-800 bg-gray-50"
+                  value={bulkCreditAmount}
+                  onChange={(e) => setBulkCreditAmount(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Apply to</div>
+                <label className={`flex items-center gap-2 text-gray-800 ${selectedUserIds.size ? '' : 'opacity-50'}`}>
+                  <input
+                    type="radio"
+                    name="bulk-credits-scope"
+                    value="selected"
+                    checked={bulkCreditScope === 'selected'}
+                    onChange={() => setBulkCreditScope('selected')}
+                    disabled={!selectedUserIds.size}
+                  />
+                  <span>Selected users ({selectedUserIds.size})</span>
+                </label>
+                <label className="flex items-center gap-2 text-gray-800 mt-2">
+                  <input
+                    type="radio"
+                    name="bulk-credits-scope"
+                    value="all"
+                    checked={bulkCreditScope === 'all'}
+                    onChange={() => setBulkCreditScope('all')}
+                  />
+                  <span>All users ({users.length})</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500">
+                Credits are added on top of existing balances.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setBulkCreditOpen(false)}>Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded bg-amber-600 text-white" disabled={bulkCreditLoading}>
+                  {bulkCreditLoading ? 'Applying...' : 'Add Credits'}
+                </button>
               </div>
             </form>
           </div>

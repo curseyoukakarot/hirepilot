@@ -27,6 +27,31 @@ async function getApiBase() {
 
   return DEFAULT_API_BASES[0];
 }
+
+async function resolveWorkspaceId(jwt, apiBase) {
+  try {
+    const { hp_workspace_id } = await chrome.storage.local.get('hp_workspace_id');
+    if (hp_workspace_id) return hp_workspace_id;
+  } catch {}
+
+  if (!jwt || !apiBase) return '';
+  try {
+    const resp = await fetch(`${apiBase}/workspaces/mine`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwt}` }
+    });
+    if (!resp.ok) return '';
+    const data = await resp.json().catch(() => ({}));
+    const workspaces = Array.isArray(data?.workspaces) ? data.workspaces : [];
+    const active = workspaces.find((w) => String(w.status || '').toLowerCase() === 'active') || workspaces[0];
+    const workspaceId = active?.workspace_id ? String(active.workspace_id) : '';
+    if (workspaceId) {
+      try { await chrome.storage.local.set({ hp_workspace_id: workspaceId }); } catch {}
+      return workspaceId;
+    }
+  } catch {}
+  return '';
+}
 let lastLinkedInTabId = null;
 const portsByTab = new Map();
 
@@ -753,6 +778,13 @@ chrome.runtime.onMessageExternal?.addListener((request, sender, sendResponse) =>
         return sendResponse({ ok: true });
       }
 
+      if (request?.action === 'SET_WORKSPACE') {
+        const workspaceId = request?.workspace_id || '';
+        if (!workspaceId) return sendResponse({ error: 'Missing workspace_id' });
+        try { await chrome.storage.local.set({ hp_workspace_id: workspaceId }); } catch {}
+        return sendResponse({ ok: true });
+      }
+
       if (request?.action === 'START_SCRAPE' || request?.action === 'STOP_SCRAPE') {
         // Token validation: compare token with value stored in local storage (set by popup/app)
         try {
@@ -797,6 +829,7 @@ async function handleBulkAddLeads(leads) {
   }
 
   const api = await getApiBase();
+  const workspaceId = await resolveWorkspaceId(jwt, api);
   console.log('[HirePilot Background] JWT token:', jwt.substring(0, 20) + '...');
   console.log('[HirePilot Background] API URL:', `${api}/leads/bulk-add`);
   console.log('[HirePilot Background] Request payload:', { leads: leads.slice(0, 2) }); // First 2 leads for debugging
@@ -808,7 +841,8 @@ async function handleBulkAddLeads(leads) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwt}`
+        'Authorization': `Bearer ${jwt}`,
+        ...(workspaceId ? { 'x-workspace-id': workspaceId } : {})
       },
       body: JSON.stringify({ campaignId: 'test', leads: [] })
     });
@@ -821,7 +855,8 @@ async function handleBulkAddLeads(leads) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${jwt}`
+      'Authorization': `Bearer ${jwt}`,
+      ...(workspaceId ? { 'x-workspace-id': workspaceId } : {})
     },
     body: JSON.stringify({ leads })
   });
