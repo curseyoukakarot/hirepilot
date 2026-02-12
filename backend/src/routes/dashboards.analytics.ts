@@ -18,7 +18,8 @@ const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
 
 const scopedFor = (req: Request, table: string, workspaceId?: string | null, ownerColumn: string = 'user_id') =>
   applyWorkspaceScope(supabase.from(table), {
-    workspaceId: workspaceId ?? (req as any).workspaceId,
+    // Only fall back to req workspace if caller truly omitted workspaceId.
+    workspaceId: workspaceId === undefined ? (req as any).workspaceId : workspaceId,
     userId: (req as any)?.user?.id,
     ownerColumn
   });
@@ -265,7 +266,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
     const sources: SourceSpec[] = Array.isArray(cfg.sources) ? cfg.sources : [];
     if (!sources.length) { res.status(400).json({ error: 'sources_required' }); return; }
     // Access checks
-    let dashWorkspaceId: string | null = null;
+    let dashWorkspaceId: string | null | undefined = undefined;
     for (const s of sources) {
       const directOk = await canAccessTable(userId, s.tableId, (req as any).workspaceId);
       const dashAccess = !directOk && dashboardId
@@ -273,7 +274,10 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
         : { ok: false };
       const ok = directOk || dashAccess.ok;
       if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId: s.tableId }); return; }
-      if (dashAccess.ok && dashAccess.workspaceId && !dashWorkspaceId) dashWorkspaceId = String(dashAccess.workspaceId);
+      if (dashAccess.ok && dashWorkspaceId === undefined) {
+        // Preserve explicit null to allow legacy dashboards without workspace_id.
+        dashWorkspaceId = dashAccess.workspaceId === null ? null : (dashAccess.workspaceId ? String(dashAccess.workspaceId) : undefined);
+      }
     }
     const joins: JoinSpec[] | undefined = Array.isArray(cfg.joins) ? cfg.joins : undefined;
     const filters: Filter[] | undefined = Array.isArray(cfg.filters) ? cfg.filters : undefined;
@@ -326,9 +330,12 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
       : { ok: false };
     const ok = directOk || dashAccess.ok;
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
-    const workspaceScopeId = dashAccess.ok && dashAccess.workspaceId
-      ? String(dashAccess.workspaceId)
-      : (req as any).workspaceId;
+    const workspaceScopeId =
+      dashAccess.ok && dashAccess.workspaceId === null
+        ? null
+        : (dashAccess.ok && dashAccess.workspaceId
+          ? String(dashAccess.workspaceId)
+          : (req as any).workspaceId);
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
     if (!metrics.length) { res.status(400).json({ error: 'metrics_required' }); return; }
