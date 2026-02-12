@@ -158,9 +158,9 @@ async function canAccessTable(userId: string, tableId: string, workspaceId?: str
   } catch { return false; }
 }
 
-async function canAccessDashboard(userId: string, dashboardId: string): Promise<boolean> {
+async function canAccessDashboard(userId: string, dashboardId: string, workspaceId?: string | null): Promise<boolean> {
   try {
-    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
+    const dash = await getDashboardById(dashboardId, workspaceId, userId || null);
     if (!dash) return false;
     if (String(dash.user_id) === String(userId)) return true;
     const collabs = parseCollaborators(dash.collaborators);
@@ -170,9 +170,9 @@ async function canAccessDashboard(userId: string, dashboardId: string): Promise<
   }
 }
 
-async function canAccessDashboardTable(userId: string, dashboardId: string, tableId: string): Promise<boolean> {
+async function canAccessDashboardTable(userId: string, dashboardId: string, tableId: string, workspaceId?: string | null): Promise<boolean> {
   try {
-    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
+    const dash = await getDashboardById(dashboardId, workspaceId, userId || null);
     if (!dash) return false;
     const hasDashAccess =
       String(dash.user_id) === String(userId)
@@ -204,7 +204,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
     if (!sources.length) { res.status(400).json({ error: 'sources_required' }); return; }
     // Access checks
     for (const s of sources) {
-      const ok = await canAccessTable(userId, s.tableId, (req as any).workspaceId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId));
+      const ok = await canAccessTable(userId, s.tableId, (req as any).workspaceId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId, (req as any).workspaceId));
       if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId: s.tableId }); return; }
     }
     const joins: JoinSpec[] | undefined = Array.isArray(cfg.joins) ? cfg.joins : undefined;
@@ -252,7 +252,7 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     const tableId = String(cfg.table_id || '').trim();
     if (!tableId) { res.status(400).json({ error: 'table_id_required' }); return; }
     const dashboardId = String((cfg as any)?.dashboard_id || '').trim();
-    const ok = await canAccessTable(userId, tableId, (req as any).workspaceId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId) : false);
+    const ok = await canAccessTable(userId, tableId, (req as any).workspaceId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId, (req as any).workspaceId) : false);
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
