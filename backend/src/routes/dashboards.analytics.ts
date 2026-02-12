@@ -265,21 +265,6 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     const schema = (Array.isArray((data as any)?.schema_json) ? (data as any).schema_json : []) as TableColumn[];
     const rows = (Array.isArray((data as any)?.data_json) ? (data as any).data_json : []) as any[];
 
-    // Validate that referenced columns exist (by id/key/label) to avoid confusing all-zero results.
-    const missing: string[] = [];
-    for (const m of metrics) {
-      const cid = String((m as any)?.column_id || '');
-      if (!resolveColumn(schema, cid)) missing.push(cid);
-    }
-    if (cfg.date_column_id) {
-      const dc = String(cfg.date_column_id || '');
-      if (dc && !resolveColumn(schema, dc)) missing.push(dc);
-    }
-    if (missing.length) {
-      res.status(400).json({ error: 'unknown_column', missing: Array.from(new Set(missing)) });
-      return;
-    }
-
     const result = runWidgetQuery(
       {
         table_id: tableId,
@@ -294,6 +279,23 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
       schema,
       rows
     );
+
+    const missing = new Set<string>();
+    for (const m of metrics) {
+      const cid = String((m as any)?.column_id || '').trim();
+      if (cid && !resolveColumn(schema, cid)) missing.add(cid);
+    }
+    if (cfg.date_column_id) {
+      const dc = String(cfg.date_column_id || '').trim();
+      if (dc && !resolveColumn(schema, dc)) missing.add(dc);
+    }
+
+    if (missing.size) {
+      const warnings = Array.isArray((result as any)?.warnings) ? [...(result as any).warnings] : [];
+      warnings.push(`Unknown column id(s): ${Array.from(missing).join(', ')}`);
+      res.json({ ...result, warnings, missing_columns: Array.from(missing) });
+      return;
+    }
 
     res.json(result);
   } catch (e: any) {
