@@ -492,6 +492,8 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     // 1. Create user in Supabase Auth (prefer setting both user_metadata and app_metadata)
     let userId: string | undefined;
     let creationError: any | null = null;
+    let listUsersError: any | null = null;
+    let inviteFallbackError: any | null = null;
     try {
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email,
@@ -513,7 +515,7 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       const { data: existingDbUser } = await supabase
         .from('users')
         .select('id, email')
-        .eq('email', email)
+        .ilike('email', email)
         .maybeSingle();
       if (existingDbUser?.id) {
         userId = existingDbUser.id;
@@ -522,17 +524,22 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       // If still unknown, try to find in Auth via listUsers (best-effort)
       if (!userId) {
         try {
-          const pageSize = 200;
+          const pageSize = 1000;
           let page = 1;
-          while (page <= 5 && !userId) { // scan up to 1000 users to avoid heavy calls
+          while (page <= 20 && !userId) {
             const { data: pageData, error: listErr } = await (supabase as any).auth.admin.listUsers({ page, perPage: pageSize });
-            if (listErr) break;
+            if (listErr) {
+              listUsersError = listErr;
+              break;
+            }
             const match = (pageData?.users || []).find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase());
             if (match) userId = match.id;
             if (!pageData || (pageData.users || []).length < pageSize) break;
             page += 1;
           }
-        } catch {}
+        } catch (scanErr: any) {
+          listUsersError = scanErr;
+        }
       }
 
       // As a last resort, attempt invite which also ensures an auth user exists
@@ -541,13 +548,36 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
           const { data: inviteData, error: inviteError } = await (supabase as any).auth.admin.inviteUserByEmail(email, {
             data: { firstName, lastName, role: normalizedRole },
           });
+          if (inviteError) inviteFallbackError = inviteError;
           if (!inviteError) userId = inviteData?.user?.id;
-        } catch {}
+        } catch (inviteErr: any) {
+          inviteFallbackError = inviteErr;
+        }
       }
 
       if (!userId) {
-        const message = (creationError && creationError.message) || 'Database error creating new user';
-        res.status(500).json({ error: message });
+        const rawMessage = String((creationError && creationError.message) || '').toLowerCase();
+        const isExistingAuthUser =
+          rawMessage.includes('already') &&
+          (rawMessage.includes('registered') || rawMessage.includes('exists') || rawMessage.includes('duplicate'));
+        if (isExistingAuthUser) {
+          return res.status(409).json({
+            error: 'Auth user already exists for this email. Edit the existing user instead of inviting again.',
+            details: (creationError && creationError.message) || null,
+            listUsersError: (listUsersError && listUsersError.message) || null,
+            inviteFallbackError: (inviteFallbackError && inviteFallbackError.message) || null
+          });
+        }
+        const message =
+          (creationError && creationError.message) ||
+          (listUsersError && listUsersError.message) ||
+          (inviteFallbackError && inviteFallbackError.message) ||
+          'Database error creating new user';
+        res.status(500).json({
+          error: message,
+          listUsersError: (listUsersError && listUsersError.message) || null,
+          inviteFallbackError: (inviteFallbackError && inviteFallbackError.message) || null
+        });
         return;
       }
     }
