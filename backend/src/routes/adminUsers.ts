@@ -579,7 +579,16 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
     console.log('[ADMIN USERS] Insert result:', { dbUser, dbError });
     if (dbError) {
       console.error('[ADMIN USERS] DB insert error (full object):', dbError);
-      res.status(500).json({ error: dbError.message || 'Database error creating new user' });
+      const detailParts = [dbError.message, dbError.details, dbError.hint].filter(Boolean).join(' | ');
+      const roleConstraintHint =
+        dbError.code === '23514'
+          ? `Role "${normalizedRole}" is not currently allowed by database constraints.`
+          : null;
+      res.status(500).json({
+        error: detailParts || 'Database error creating new user',
+        code: dbError.code || null,
+        ...(roleConstraintHint ? { roleConstraintHint } : {})
+      });
       return;
     }
     try {
