@@ -9,6 +9,9 @@ import { useLocation } from "react-router-dom";
  */
 export default function useGAPageViews() {
   const location = useLocation();
+  const igniteHostname =
+    (typeof import.meta !== "undefined" && import.meta?.env?.VITE_IGNITE_HOSTNAME) ||
+    "clients.ignitegtm.com";
 
   /**
    * Convert blog/article slugs like `flow-of-hirepilot` or `PipelineBestPractices` to
@@ -80,6 +83,14 @@ export default function useGAPageViews() {
 
   useEffect(() => {
     const path = location.pathname;
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const isIgniteHost = hostname === igniteHostname;
+    const isIgniteRoute =
+      path === "/login" ||
+      path === "/signup" ||
+      path.startsWith("/ignite") ||
+      path.startsWith("/proposals/") ||
+      path.startsWith("/share/");
 
     // 1. Determine the document title
     let docTitle = "HirePilot"; // Fallback
@@ -97,6 +108,35 @@ export default function useGAPageViews() {
     if (path.startsWith("/blog/") && path !== "/blog") {
       const slug = path.substring("/blog/".length);
       docTitle = `${slugToTitle(slug)} | HirePilot Blog`;
+    }
+
+    // Override title style for Ignite pages on Ignite host.
+    if (isIgniteHost && isIgniteRoute) {
+      const igniteTitleMap = {
+        "/login": "Log In | IgniteGTM",
+        "/signup": "Sign Up | IgniteGTM",
+        "/ignite/client": "Client Portal | IgniteGTM",
+        "/ignite/proposals/new": "Create Proposal | IgniteGTM",
+        "/ignite/proposals": "Proposals | IgniteGTM",
+        "/ignite/templates": "Templates | IgniteGTM",
+        "/ignite/rate-cards": "Vendors & Rate Cards | IgniteGTM",
+        "/ignite/clients": "Clients | IgniteGTM",
+        "/ignite/exports": "Exports | IgniteGTM",
+        "/proposals/": "Proposal | IgniteGTM",
+        "/share/": "Shared Proposal | IgniteGTM",
+      };
+
+      const matchedIgnitePrefix = Object.keys(igniteTitleMap)
+        .filter((prefix) => path.startsWith(prefix))
+        .sort((a, b) => b.length - a.length)[0];
+
+      if (matchedIgnitePrefix) {
+        docTitle = igniteTitleMap[matchedIgnitePrefix];
+      } else if (docTitle.includes("|")) {
+        docTitle = `${docTitle.split("|")[0].trim()} | IgniteGTM`;
+      } else {
+        docTitle = `${docTitle} | IgniteGTM`;
+      }
     }
 
     // Set the document title for the SPA
