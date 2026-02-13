@@ -194,6 +194,7 @@ import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
 import dashboardsAnalyticsRouter from './src/routes/dashboards.analytics';
 import analyticsInsightsRouter from './src/routes/analytics.insights';
+import igniteRouter from './src/routes/ignite';
 import { attachApiKeyAuth } from './src/middleware/withApiKeyAuth';
 import { authenticate } from './src/middleware/authenticate';
 import formsRouter from './forms/routes';
@@ -264,6 +265,7 @@ const allowed = [
   'https://app.thehirepilot.com',
   'https://hirepilot.vercel.app',
   'https://affiliates.thehirepilot.com',
+  'https://clients.ignitegtm.com',
   // OpenAI Agent Builder origins (allow fetching MCP manifest/tools from browser)
   'https://platform.openai.com',
   'https://builder.openai.com',
@@ -536,6 +538,7 @@ app.get('/api/health/overview', appHealth);
 app.get('/api/health/auth', authHealth);
 app.get('/api/health/workers', requireAuthFlag, workersHealth);
 app.use('/api/user', userRouter);
+app.use('/api/ignite', igniteRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/workspace-invites', workspaceInvitesRouter);
 app.use('/api/repo-agent', repoAgentRouter);

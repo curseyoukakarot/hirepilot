@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ignite Exports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>body { font-family: Inter, sans-serif; }</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div class="flex min-h-screen">
+    <aside class="w-64 border-r border-slate-200 bg-white">
+      <div class="border-b border-slate-200 p-6"><div class="flex items-center gap-2"><div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600"><i class="fa-solid fa-fire text-white text-sm"></i></div><span class="text-xl font-bold">Ignite</span></div></div>
+      <nav class="p-4 text-sm">
+        <a class="mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50" href="#"><i class="fa-solid fa-file-lines"></i>Proposals</a>
+        <a class="mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50" href="#"><i class="fa-solid fa-template"></i>Templates</a>
+        <a class="mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50" href="#"><i class="fa-solid fa-users"></i>Vendors / Rate Cards</a>
+        <a class="mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50" href="#"><i class="fa-solid fa-building"></i>Clients</a>
+        <a class="mb-2 flex items-center gap-3 rounded-lg bg-blue-50 px-3 py-2 font-medium text-blue-700" href="#"><i class="fa-solid fa-download"></i>Exports</a>
+      </nav>
+    </aside>
+    <main class="flex-1">
+      <header class="border-b border-slate-200 bg-white px-8 py-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold">Export Center</h1>
+            <p class="mt-1 text-sm text-slate-600">Generate, monitor, and distribute PDF/XLSX proposal outputs.</p>
+          </div>
+          <div class="flex gap-2">
+            <button class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"><i class="fa-solid fa-link mr-2"></i>Create Share Link</button>
+            <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"><i class="fa-solid fa-file-export mr-2"></i>New Export</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="p-8">
+        <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs uppercase text-slate-500">Completed Today</p><p class="mt-1 text-2xl font-bold text-emerald-600">14</p></div>
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs uppercase text-slate-500">Queued Jobs</p><p class="mt-1 text-2xl font-bold text-amber-600">3</p></div>
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs uppercase text-slate-500">Failed Jobs</p><p class="mt-1 text-2xl font-bold text-rose-600">1</p></div>
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs uppercase text-slate-500">Avg Generation Time</p><p class="mt-1 text-2xl font-bold text-blue-600">18s</p></div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div class="xl:col-span-2">
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="text-lg font-semibold">Export Jobs</h2>
+              <div class="flex gap-2">
+                <select class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option>All Formats</option><option>PDF</option><option>XLSX</option></select>
+                <select class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option>All Statuses</option><option>Completed</option><option>Queued</option><option>Failed</option></select>
+              </div>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th class="px-4 py-3 text-left">Proposal</th>
+                    <th class="px-4 py-3 text-left">Type</th>
+                    <th class="px-4 py-3 text-left">Requested By</th>
+                    <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  <tr>
+                    <td class="px-4 py-4"><p class="font-semibold">Supermicro Q3 Leadership Event</p><p class="text-xs text-slate-500">v12 • 2 options</p></td>
+                    <td class="px-4 py-4">PDF (Client View)</td>
+                    <td class="px-4 py-4">Nina T</td>
+                    <td class="px-4 py-4"><span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">Completed</span></td>
+                    <td class="px-4 py-4 text-right"><button class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">Download</button></td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-4"><p class="font-semibold">AMD Partner Summit</p><p class="text-xs text-slate-500">v4 • 1 option</p></td>
+                    <td class="px-4 py-4">XLSX (Internal)</td>
+                    <td class="px-4 py-4">Rae M</td>
+                    <td class="px-4 py-4"><span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">Queued</span></td>
+                    <td class="px-4 py-4 text-right"><button class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">View Job</button></td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-4"><p class="font-semibold">Founders Day NYC</p><p class="text-xs text-slate-500">v2 • 3 options</p></td>
+                    <td class="px-4 py-4">PDF (Internal)</td>
+                    <td class="px-4 py-4">Jules C</td>
+                    <td class="px-4 py-4"><span class="rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">Failed</span></td>
+                    <td class="px-4 py-4 text-right"><button class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">Retry</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Distribution</h3>
+              <div class="mt-3 space-y-3 text-sm">
+                <div class="flex items-center justify-between"><span>Email dispatches</span><span class="font-semibold">28</span></div>
+                <div class="flex items-center justify-between"><span>Share links generated</span><span class="font-semibold">17</span></div>
+                <div class="flex items-center justify-between"><span>Downloads by clients</span><span class="font-semibold">11</span></div>
+              </div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent Deliveries</h3>
+              <ul class="mt-3 space-y-3 text-sm">
+                <li class="rounded-lg bg-slate-50 p-3">PDF sent to <strong>supermicro.com</strong><br /><span class="text-xs text-slate-500">2 minutes ago</span></li>
+                <li class="rounded-lg bg-slate-50 p-3">Link copied for <strong>AMD Partner Summit</strong><br /><span class="text-xs text-slate-500">8 minutes ago</span></li>
+                <li class="rounded-lg bg-slate-50 p-3">XLSX downloaded by <strong>Rae M</strong><br /><span class="text-xs text-slate-500">21 minutes ago</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

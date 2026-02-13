@@ -304,6 +304,50 @@ async function syncAuthRoleMetadata(userId: string, role?: string, teamId?: stri
   }
 }
 
+function normalizeRoleValue(value: any): string {
+  return String(value || '').toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+const IGNITE_ROLES = new Set(['ignite_admin', 'ignite_team', 'ignite_client']);
+
+async function syncIgniteMembership(params: {
+  userId: string;
+  role?: string | null;
+  igniteClientId?: string | null;
+  actorUserId?: string | null;
+}) {
+  const normalizedRole = normalizeRoleValue(params.role);
+
+  // Keep a single active Ignite membership row in sync with the selected role.
+  // If role is no longer ignite_*, remove prior ignite memberships.
+  await supabaseDb
+    .from('ignite_client_users')
+    .delete()
+    .eq('user_id', params.userId)
+    .in('role', Array.from(IGNITE_ROLES) as any);
+
+  if (!IGNITE_ROLES.has(normalizedRole)) return;
+
+  const clientId =
+    normalizedRole === 'ignite_client' && params.igniteClientId
+      ? String(params.igniteClientId)
+      : null;
+
+  const membershipPayload = {
+    user_id: params.userId,
+    role: normalizedRole,
+    status: 'active',
+    client_id: clientId,
+    workspace_id: null,
+    created_by: params.actorUserId || null
+  };
+
+  const { error } = await supabaseDb.from('ignite_client_users').insert(membershipPayload as any);
+  if (error) {
+    throw new Error(`Failed to sync Ignite membership: ${error.message}`);
+  }
+}
+
 async function applyUserPatchAndSync(userId: string, updates: Record<string, any>) {
   const { data: before, error: loadErr } = await supabaseDb
     .from('users')
@@ -439,7 +483,7 @@ router.patch('/users/:id/features', requireAuth, requireSuperAdmin, async (req: 
 // POST /api/admin/users - Create/invite a user
 router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { email, firstName, lastName, role } = req.body;
+    const { email, firstName, lastName, role, ignite_client_id } = req.body;
     if (!email || !firstName || !lastName || !role) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
@@ -537,6 +581,16 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req: Request, res: 
       console.error('[ADMIN USERS] DB insert error (full object):', dbError);
       res.status(500).json({ error: dbError.message || 'Database error creating new user' });
       return;
+    }
+    try {
+      await syncIgniteMembership({
+        userId,
+        role: normalizedRole,
+        igniteClientId: ignite_client_id || null,
+        actorUserId: (req as any)?.user?.id || null
+      });
+    } catch (igniteErr: any) {
+      return res.status(500).json({ error: igniteErr?.message || 'Failed to sync ignite membership' });
     }
     // 3. Initialize credits based on role
     try {
@@ -656,7 +710,7 @@ router.post('/users/bulk-credits', requireAuth, requireSuperAdmin, async (req: R
 
 // PATCH /api/admin/users  – update user when body contains id (fallback for UI)
 router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
-  const { id, firstName, lastName, role } = req.body;
+  const { id, firstName, lastName, role, ignite_client_id } = req.body;
   if (!id) {
     return res.status(400).json({ error: 'id required' });
   }
@@ -672,6 +726,12 @@ router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res:
 
   try {
     const updatedUser = await applyUserPatchAndSync(id, updatePayload);
+    await syncIgniteMembership({
+      userId: id,
+      role: role !== undefined ? role : updatedUser?.role,
+      igniteClientId: ignite_client_id || null,
+      actorUserId: (req as any)?.user?.id || null
+    });
     return res.json(updatedUser);
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Failed to update user' });
@@ -683,7 +743,7 @@ router.patch('/users', requireAuth, requireSuperAdmin, async (req: Request, res:
 // ---------------------------------------------
 router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { firstName, lastName, role } = req.body;
+  const { firstName, lastName, role, ignite_client_id } = req.body;
 
   const updatePayload: Record<string, any> = {};
   if (role !== undefined) updatePayload.role = role;
@@ -696,6 +756,12 @@ router.patch('/users/:id', requireAuth, requireSuperAdmin, async (req: Request, 
 
   try {
     const updatedUser = await applyUserPatchAndSync(id, updatePayload);
+    await syncIgniteMembership({
+      userId: id,
+      role: role !== undefined ? role : updatedUser?.role,
+      igniteClientId: ignite_client_id || null,
+      actorUserId: (req as any)?.user?.id || null
+    });
     return res.json(updatedUser);
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Failed to update user' });

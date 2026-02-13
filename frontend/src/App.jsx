@@ -100,6 +100,7 @@ import LandingPageBuilderPage from './pages/jobseeker/LandingPageBuilderPage';
 import LandingThemesPage from './pages/jobseeker/LandingThemesPage';
 import OnboardingAppPage from './pages/OnboardingAppPage';
 import AuthCallback from './pages/AuthCallback';
+import IgniteRoutes from './pages/ignite/IgniteRoutes';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -357,6 +358,8 @@ function InnerApp() {
   const mode = useAppMode();
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const igniteHostname = String(import.meta.env.VITE_IGNITE_HOSTNAME || 'clients.ignitegtm.com').toLowerCase();
+  const isIgniteHost = String(hostname || '').toLowerCase() === igniteHostname;
   const [role, setRole] = useState(null);
 
   // Supabase may redirect magic links back to Site URL (often `https://thehirepilot.com/#...`).
@@ -707,6 +710,10 @@ function InnerApp() {
   // InnerApp previously returned early for onboarding/job-seeker/handoff, which broke hook ordering
   // during auth transitions (minified React invariant errors in production).
   if (handoffingToJobs) return null;
+
+  if (mode === 'ignite' || isIgniteHost) {
+    return <IgniteRoutes role={dbRole || role} />;
+  }
 
   // Onboarding route handling
   if (location.pathname === '/onboarding') {
