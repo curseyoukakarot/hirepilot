@@ -211,6 +211,9 @@ async function canAccessTable(userId: string, tableId: string, workspaceId?: str
       .eq('id', tableId)
       .maybeSingle();
     if (!data) return false;
+    // In workspace mode, applyWorkspaceScope already ensures the row belongs to
+    // the caller's workspace (or valid legacy fallback). If we got a row, allow it.
+    if (workspaceId) return true;
     if ((data as any).user_id === userId) return true;
     try {
       const collabs = ((data as any).collaborators || []) as Array<{ id?: string; user_id?: string; email?: string; role?: string }>;
