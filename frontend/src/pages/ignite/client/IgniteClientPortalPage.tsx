@@ -104,9 +104,11 @@ export default function IgniteClientPortalPage() {
       <div className="fixed left-0 top-0 z-50 h-full w-64 border-r border-gray-200 bg-white">
         <div className="p-6">
           <div className="mb-8 flex items-center space-x-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <i className="fas fa-fire text-sm text-white" />
-            </div>
+            <img
+              src="https://images.squarespace-cdn.com/content/v1/63e9b6d2e579fc1e26b444a1/b21b0d24-3b10-49a6-8df0-4d13b9ab3e3c/Scratchpad+2025.png?format=1500w"
+              alt="Ignite logo"
+              className="h-8 w-8 rounded-lg object-cover"
+            />
             <span className="text-xl font-bold text-gray-900">Ignite</span>
           </div>
 
