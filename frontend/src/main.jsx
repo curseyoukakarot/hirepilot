@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App'
 import './index.css'
+import './styles/ignite-theme.css'
 import './utils/fontAwesome'
 
 // 👇 Force supabaseClient.js to initialize

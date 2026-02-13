@@ -1,0 +1,180 @@
+.ignite-theme {
+  --ignite-bg: #eef2ff;
+  --ignite-bg-soft: #f8faff;
+  --ignite-surface: rgba(255, 255, 255, 0.88);
+  --ignite-surface-strong: rgba(255, 255, 255, 0.96);
+  --ignite-border: rgba(99, 102, 241, 0.18);
+  --ignite-text: #0f172a;
+  --ignite-text-muted: #475569;
+  --ignite-shadow: 0 18px 40px rgba(30, 41, 59, 0.12);
+}
+
+.ignite-theme .bg-gray-50,
+.ignite-theme .bg-slate-50 {
+  background:
+    radial-gradient(1200px 500px at 12% -15%, rgba(99, 102, 241, 0.18), transparent 50%),
+    radial-gradient(900px 380px at 88% -10%, rgba(14, 165, 233, 0.16), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-login .bg-gray-50,
+.ignite-theme.ignite-page-login .bg-slate-50,
+.ignite-theme.ignite-page-signup .bg-gray-50,
+.ignite-theme.ignite-page-signup .bg-slate-50 {
+  background:
+    radial-gradient(1100px 520px at 14% -12%, rgba(59, 130, 246, 0.22), transparent 50%),
+    radial-gradient(900px 360px at 84% -8%, rgba(14, 165, 233, 0.2), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-proposals .bg-gray-50,
+.ignite-theme.ignite-page-proposals .bg-slate-50 {
+  background:
+    radial-gradient(1300px 520px at 8% -18%, rgba(99, 102, 241, 0.26), transparent 48%),
+    radial-gradient(900px 400px at 92% 0%, rgba(168, 85, 247, 0.22), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-clients .bg-gray-50,
+.ignite-theme.ignite-page-clients .bg-slate-50 {
+  background:
+    radial-gradient(1200px 520px at 14% -14%, rgba(16, 185, 129, 0.22), transparent 50%),
+    radial-gradient(850px 380px at 86% -8%, rgba(20, 184, 166, 0.2), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-templates .bg-gray-50,
+.ignite-theme.ignite-page-templates .bg-slate-50 {
+  background:
+    radial-gradient(1250px 520px at 12% -15%, rgba(217, 70, 239, 0.22), transparent 50%),
+    radial-gradient(900px 390px at 90% -4%, rgba(99, 102, 241, 0.22), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-rate-cards .bg-gray-50,
+.ignite-theme.ignite-page-rate-cards .bg-slate-50 {
+  background:
+    radial-gradient(1250px 520px at 12% -15%, rgba(6, 182, 212, 0.22), transparent 50%),
+    radial-gradient(900px 390px at 90% -4%, rgba(59, 130, 246, 0.2), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-exports .bg-gray-50,
+.ignite-theme.ignite-page-exports .bg-slate-50 {
+  background:
+    radial-gradient(1250px 520px at 12% -15%, rgba(34, 197, 94, 0.2), transparent 50%),
+    radial-gradient(900px 390px at 90% -4%, rgba(16, 185, 129, 0.22), transparent 52%),
+    linear-gradient(180deg, var(--ignite-bg-soft) 0%, var(--ignite-bg) 100%) !important;
+}
+
+.ignite-theme.ignite-page-preview .bg-slate-950,
+.ignite-theme.ignite-page-client-proposal .bg-slate-950,
+.ignite-theme.ignite-page-share .bg-slate-950 {
+  background:
+    radial-gradient(1300px 560px at 50% -12%, rgba(99, 102, 241, 0.2), transparent 50%),
+    radial-gradient(920px 450px at 88% 0%, rgba(56, 189, 248, 0.15), transparent 56%),
+    linear-gradient(180deg, #050a18 0%, #040912 100%) !important;
+}
+
+.ignite-theme .bg-white {
+  background-color: var(--ignite-surface) !important;
+  backdrop-filter: blur(8px);
+}
+
+.ignite-theme .border,
+.ignite-theme .border-gray-200,
+.ignite-theme .border-slate-200,
+.ignite-theme .border-slate-300 {
+  border-color: var(--ignite-border) !important;
+}
+
+.ignite-theme .shadow-sm,
+.ignite-theme .shadow-md,
+.ignite-theme .shadow-lg {
+  box-shadow: var(--ignite-shadow) !important;
+}
+
+.ignite-theme .text-gray-900,
+.ignite-theme .text-slate-900,
+.ignite-theme .text-zinc-900 {
+  color: var(--ignite-text) !important;
+}
+
+.ignite-theme .text-gray-800,
+.ignite-theme .text-slate-800,
+.ignite-theme .text-zinc-800 {
+  color: #1e293b !important;
+}
+
+.ignite-theme .text-gray-700,
+.ignite-theme .text-slate-700,
+.ignite-theme .text-zinc-700,
+.ignite-theme .text-gray-600,
+.ignite-theme .text-slate-600,
+.ignite-theme .text-zinc-600,
+.ignite-theme .text-gray-500,
+.ignite-theme .text-slate-500,
+.ignite-theme .text-zinc-500 {
+  color: var(--ignite-text-muted) !important;
+}
+
+.ignite-theme input:not([type='checkbox']):not([type='radio']),
+.ignite-theme textarea,
+.ignite-theme select {
+  background-color: var(--ignite-surface-strong) !important;
+  color: var(--ignite-text) !important;
+  border-color: var(--ignite-border) !important;
+}
+
+.ignite-theme input::placeholder,
+.ignite-theme textarea::placeholder {
+  color: #64748b !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ignite-theme {
+    --ignite-bg: #050a18;
+    --ignite-bg-soft: #0b1226;
+    --ignite-surface: rgba(15, 23, 42, 0.9);
+    --ignite-surface-strong: rgba(15, 23, 42, 0.96);
+    --ignite-border: rgba(129, 140, 248, 0.28);
+    --ignite-text: #e2e8f0;
+    --ignite-text-muted: #cbd5e1;
+    --ignite-shadow: 0 20px 45px rgba(2, 6, 23, 0.55);
+  }
+}
+
+.dark .ignite-theme {
+  --ignite-bg: #050a18;
+  --ignite-bg-soft: #0b1226;
+  --ignite-surface: rgba(15, 23, 42, 0.9);
+  --ignite-surface-strong: rgba(15, 23, 42, 0.96);
+  --ignite-border: rgba(129, 140, 248, 0.28);
+  --ignite-text: #e2e8f0;
+  --ignite-text-muted: #cbd5e1;
+  --ignite-shadow: 0 20px 45px rgba(2, 6, 23, 0.55);
+}
+
+.ignite-theme .bg-blue-50 {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(99, 102, 241, 0.22)) !important;
+}
+
+.ignite-theme .bg-blue-600 {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+}
+
+.ignite-theme .hover\:bg-blue-700:hover {
+  background: linear-gradient(135deg, #1d4ed8, #4338ca) !important;
+}
+
+.ignite-theme .text-blue-700 {
+  color: #1d4ed8 !important;
+}
+
+.dark .ignite-theme .text-blue-700 {
+  color: #bfdbfe !important;
+}
+
+.ignite-theme .hover\:bg-gray-100:hover {
+  background: rgba(148, 163, 184, 0.16) !important;
+}
