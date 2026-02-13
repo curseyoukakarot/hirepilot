@@ -61,7 +61,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
     const response = await apiPost(`/api/ignite/proposals/${proposalId}/share`, {});
     const token = response?.share?.token ? String(response.share.token) : '';
     if (!token) throw new Error('Share token was not returned.');
-    const url = `${window.location.origin}/api/ignite/share/${token}`;
+    const url = `${window.location.origin}/share/${token}`;
     setShareUrl(url);
     return url;
   };
@@ -71,7 +71,11 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
       if (!proposalId) throw new Error('Save this proposal before exporting.');
       setError(null);
       setPdfBusy(true);
-      await apiPost(`/api/ignite/proposals/${proposalId}/export/pdf`, { export_view: 'client' });
+      const response = await apiPost(`/api/ignite/proposals/${proposalId}/export/pdf`, {
+        export_view: 'client',
+      });
+      const fileUrl = response?.export?.file_url ? String(response.export.file_url) : '';
+      if (fileUrl) window.open(fileUrl, '_blank', 'noopener,noreferrer');
       await loadHistory();
     } catch (e: any) {
       setError(String(e?.message || 'Failed to generate PDF.'));

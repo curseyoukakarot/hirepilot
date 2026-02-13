@@ -3,6 +3,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import { supabase } from '../lib/supabase';
 import { computeProposal } from '../services/ignite/computeProposal';
+import { buildComputedProposal } from '../services/ignite/buildComputedProposal';
+import { renderEventProposalPdfHtml } from '../ignite/pdf/renderEventProposalPdfHtml';
+import { generatePdfFromHtml } from '../ignite/pdf/generatePdf';
 
 type ApiRequest = Request & {
   user?: {
@@ -182,6 +185,35 @@ async function loadProposalBundle(proposalId: string) {
   };
 }
 
+async function getClientName(clientId: string): Promise<string | null> {
+  if (!clientId) return null;
+  const { data } = await supabase.from('ignite_clients').select('name').eq('id', clientId).maybeSingle();
+  return data?.name ? String(data.name) : null;
+}
+
+async function buildComputedPayloadForProposal(proposalId: string) {
+  const bundle = await loadProposalBundle(proposalId);
+  if (!bundle?.proposal) return null;
+  const existingPayload = bundle.proposal?.computed_json?.client_payload;
+  if (existingPayload && Array.isArray(existingPayload?.options)) {
+    return {
+      computed: existingPayload,
+      bundle,
+    };
+  }
+  const clientName = await getClientName(String(bundle.proposal.client_id || ''));
+  const computed = buildComputedProposal({
+    proposal: bundle.proposal,
+    clientName,
+    options: bundle.options || [],
+    lineItems: bundle.line_items || [],
+  });
+  return {
+    computed,
+    bundle,
+  };
+}
+
 function toNumber(value: any, fallback = 0): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -213,8 +245,9 @@ router.get('/share/:token', async (req: Request, res: Response) => {
       return res.status(410).json({ error: 'share_limit_reached' });
     }
 
-    const bundle = await loadProposalBundle(String(link.proposal_id));
-    if (!bundle?.proposal) return res.status(404).json({ error: 'proposal_not_found' });
+    const built = await buildComputedPayloadForProposal(String(link.proposal_id));
+    if (!built?.bundle?.proposal) return res.status(404).json({ error: 'proposal_not_found' });
+    const bundle = built.bundle;
 
     await supabase
       .from('ignite_share_links')
@@ -232,7 +265,8 @@ router.get('/share/:token', async (req: Request, res: Response) => {
         proposal_id: link.proposal_id,
         client_id: link.client_id
       },
-      ...sanitizeProposalForClient(bundle)
+      ...sanitizeProposalForClient(bundle),
+      computed: built.computed
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_share' });
@@ -313,6 +347,50 @@ router.post('/client-signup', async (req: Request, res: Response) => {
 router.use(requireAuth as any);
 router.use(requireIgniteAccess as any);
 
+// GET /ignite/client/proposals/:id
+router.get('/client/proposals/:id', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built) return res.status(404).json({ error: 'proposal_not_found' });
+    return res.json({ proposal: built.computed });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_client_proposal' });
+  }
+});
+
+// GET /ignite/client/proposals/:id/pdf?optionId=...
+router.get('/client/proposals/:id/pdf', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const optionId = req.query.optionId ? String(req.query.optionId) : null;
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built) return res.status(404).json({ error: 'proposal_not_found' });
+
+    const html = renderEventProposalPdfHtml({ proposal: built.computed, optionId });
+    const pdfBuffer = await generatePdfFromHtml(html);
+    const fileName = `${String(built.computed.eventName || 'proposal')
+      .replace(/[^a-z0-9]+/gi, '_')
+      .toLowerCase()}_${optionId || 'recommended'}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(pdfBuffer);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_generate_client_pdf' });
+  }
+});
+
 // POST /ignite/proposals create draft
 router.post('/proposals', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
   try {
@@ -384,6 +462,22 @@ router.get('/proposals/:id', async (req: ApiRequest, res: Response) => {
     return res.json(sanitizeProposalForClient(bundle));
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_proposal' });
+  }
+});
+
+// GET /ignite/proposals/:id/computed
+router.get('/proposals/:id/computed', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built) return res.status(404).json({ error: 'proposal_not_found' });
+    return res.json({ proposal: built.computed });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_computed_payload' });
   }
 });
 
@@ -538,10 +632,20 @@ router.post('/proposals/:id/compute', requireIgniteTeam as any, async (req: ApiR
     if (!assertProposalScopeOr403(ctx, proposal, res)) return;
 
     const computed = computeProposal(proposal, bundle.options, bundle.line_items);
+    const clientName = await getClientName(String(proposal.client_id || ''));
+    const computedPayload = buildComputedProposal({
+      proposal: { ...proposal, computed_json: computed },
+      clientName,
+      options: bundle.options || [],
+      lineItems: bundle.line_items || [],
+    });
     const { data, error } = await supabase
       .from('ignite_proposals')
       .update({
-        computed_json: computed,
+        computed_json: {
+          ...computed,
+          client_payload: computedPayload,
+        },
         updated_by: ctx.userId,
         updated_at: new Date().toISOString()
       })
@@ -549,7 +653,11 @@ router.post('/proposals/:id/compute', requireIgniteTeam as any, async (req: ApiR
       .select('id,computed_json,updated_at')
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
-    return res.json({ computed: data?.computed_json || computed, proposal_id: proposalId });
+    return res.json({
+      computed: data?.computed_json || computed,
+      client_payload: computedPayload,
+      proposal_id: proposalId,
+    });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_compute_proposal' });
   }
@@ -646,16 +754,23 @@ async function createExportRecord(
   proposalId: string,
   exportType: 'pdf' | 'xlsx',
   exportView: 'internal' | 'client',
-  createdBy: string
+  createdBy: string,
+  overrides?: {
+    status?: 'queued' | 'completed' | 'failed';
+    file_url?: string | null;
+    metadata_json?: Record<string, any>;
+  }
 ) {
   const payload = {
     proposal_id: proposalId,
     export_type: exportType,
     export_view: exportView,
-    status: 'completed',
+    status: overrides?.status || 'completed',
+    file_url: overrides?.file_url || null,
     metadata_json: {
       generated_at: new Date().toISOString(),
-      note: 'Export stub generated by API route. File generation wiring comes next.'
+      note: 'Export generated by Ignite API route.',
+      ...(overrides?.metadata_json || {})
     },
     created_by: createdBy
   };
@@ -678,8 +793,22 @@ router.post('/proposals/:id/export/pdf', async (req: ApiRequest, res: Response) 
     if (!assertProposalScopeOr403(ctx, proposal, res)) return;
 
     const exportView = normalizeRole((req.body || {}).export_view) === 'client' ? 'client' : 'internal';
+    const optionId = (req.body || {}).option_id ? String((req.body || {}).option_id) : null;
     const createdBy = ctx.userId;
-    const exportRow = await createExportRecord(proposalId, 'pdf', exportView, createdBy);
+    const inferredBase = `${req.protocol}://${req.get('host') || ''}`.replace(/\/$/, '');
+    const backendBase = String(
+      process.env.BACKEND_PUBLIC_URL || process.env.APP_URL || req.headers.origin || inferredBase
+    ).replace(/\/$/, '');
+    const relativePath = `/api/ignite/client/proposals/${proposalId}/pdf${optionId ? `?optionId=${encodeURIComponent(optionId)}` : ''}`;
+    const fileUrl = backendBase ? `${backendBase}${relativePath}` : relativePath;
+    const exportRow = await createExportRecord(proposalId, 'pdf', exportView, createdBy, {
+      status: 'completed',
+      file_url: fileUrl,
+      metadata_json: {
+        option_id: optionId,
+        mode: 'server_rendered_html_pdf',
+      },
+    });
     return res.status(201).json({ export: exportRow });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_export_pdf' });

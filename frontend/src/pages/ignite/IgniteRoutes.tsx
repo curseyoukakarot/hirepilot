@@ -10,6 +10,9 @@ import IgniteExportsPage from './IgniteExportsPage';
 import IgniteClientLoginPage from './client/IgniteClientLoginPage';
 import IgniteClientSignupPage from './client/IgniteClientSignupPage';
 import IgniteClientPortalPage from './client/IgniteClientPortalPage';
+import ClientProposalViewPage from './client/ClientProposalViewPage';
+import SharedProposalViewPage from './client/SharedProposalViewPage';
+import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
 
 type IgniteRoutesProps = {
   role?: string | null;
@@ -20,11 +23,28 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
     <Routes>
       <Route path="/login" element={<IgniteClientLoginPage />} />
       <Route path="/signup" element={<IgniteClientSignupPage />} />
+      <Route path="/share/:token" element={<SharedProposalViewPage />} />
+      <Route
+        path="/proposals/:proposalId"
+        element={
+          <RequireIgniteAccess role={role}>
+            <ClientProposalViewPage />
+          </RequireIgniteAccess>
+        }
+      />
       <Route
         path="/ignite/client"
         element={
           <RequireIgniteAccess role={role} allowedRoles={['ignite_client']}>
             <IgniteClientPortalPage />
+          </RequireIgniteAccess>
+        }
+      />
+      <Route
+        path="/ignite/proposals/:proposalId/preview"
+        element={
+          <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+            <BackofficeProposalPreviewPage />
           </RequireIgniteAccess>
         }
       />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../../../lib/api';
 import { supabase } from '../../../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 type Proposal = {
   id: string;
@@ -35,6 +36,7 @@ function formatDate(value: any): string {
 }
 
 export default function IgniteClientPortalPage() {
+  const navigate = useNavigate();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [selected, setSelected] = useState<ProposalBundle | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
@@ -203,7 +205,7 @@ export default function IgniteClientPortalPage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => void openProposal(proposal.id)}
+                        onClick={() => navigate(`/proposals/${proposal.id}`)}
                         className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                       >
                         View Proposal
