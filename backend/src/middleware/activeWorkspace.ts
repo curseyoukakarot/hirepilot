@@ -63,12 +63,20 @@ export async function activeWorkspace(req: Request, res: Response, next: NextFun
     const headerWorkspaceId = String(req.headers['x-workspace-id'] || '').trim();
     const cookieWorkspaceId = String((req as any)?.cookies?.active_workspace_id || '').trim();
     const requestedWorkspaceId = headerWorkspaceId || cookieWorkspaceId || '';
+    const requestedSource = headerWorkspaceId ? 'header' : (cookieWorkspaceId ? 'cookie' : 'none');
 
     if (requestedWorkspaceId) {
       const membership = await assertWorkspaceMember(userId, requestedWorkspaceId);
       if (membership.ok) {
         (req as any).workspaceId = requestedWorkspaceId;
         (req as any).workspaceRole = membership.role || null;
+        console.info('active_workspace_resolved', {
+          userId,
+          role: role || null,
+          workspaceId: requestedWorkspaceId,
+          workspaceRole: membership.role || null,
+          source: requestedSource
+        });
         return next();
       }
       if (WORKSPACES_ENABLED) {
@@ -76,6 +84,13 @@ export async function activeWorkspace(req: Request, res: Response, next: NextFun
         const allowedIds = allowed
           .filter((m) => String(m.status || '').toLowerCase() === 'active')
           .map((m) => String(m.workspace_id));
+        console.info('active_workspace_forbidden', {
+          userId,
+          role: role || null,
+          requestedWorkspaceId,
+          source: requestedSource,
+          allowedWorkspaceIds: allowedIds
+        });
         return res.status(403).json({
           error: 'workspace_forbidden',
           allowed_workspace_ids: allowedIds
@@ -94,6 +109,13 @@ export async function activeWorkspace(req: Request, res: Response, next: NextFun
         if (m.ok) {
           (req as any).workspaceId = created;
           (req as any).workspaceRole = m.role || null;
+          console.info('active_workspace_resolved', {
+            userId,
+            role: role || null,
+            workspaceId: created,
+            workspaceRole: m.role || null,
+            source: 'auto_created_default'
+          });
           return next();
         }
       }
@@ -104,6 +126,19 @@ export async function activeWorkspace(req: Request, res: Response, next: NextFun
     if (active?.workspace_id) {
       (req as any).workspaceId = String(active.workspace_id);
       (req as any).workspaceRole = active.role || null;
+      console.info('active_workspace_resolved', {
+        userId,
+        role: role || null,
+        workspaceId: String(active.workspace_id),
+        workspaceRole: active.role || null,
+        source: 'first_active_membership'
+      });
+    } else {
+      console.info('active_workspace_unset', {
+        userId,
+        role: role || null,
+        source: requestedSource
+      });
     }
     return next();
   } catch (e: any) {

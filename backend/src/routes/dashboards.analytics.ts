@@ -347,6 +347,7 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'unauthorized' }); return; }
+    res.set('x-debug-widgets-query-rev', '7a4f3521-active');
     const requesterRole = normRole((req as any)?.user?.role);
     const isSuperAdmin = requesterRole === 'super_admin' || requesterRole === 'superadmin';
     const cfg = (req.body || {}) as Partial<WidgetQueryInput> & { dashboard_id?: string };
@@ -361,7 +362,28 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
       ? await canAccessAnyDashboardTable(userId, tableId, (req as any).workspaceId)
       : false;
     const ok = isSuperAdmin || directOk || dashAccess.ok || dashAnyOk;
-    if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
+    if (!ok) {
+      console.info('widgets_query_access_denial', {
+        userId,
+        role: (req as any)?.user?.role || null,
+        isSuperAdmin,
+        workspaceId: (req as any).workspaceId ?? null,
+        tableId,
+        dashboardId: dashboardId || null,
+        directTableCheck: directOk,
+        dashboardAccessCheck: {
+          ok: Boolean((dashAccess as any)?.ok),
+          workspaceId: (dashAccess as any)?.workspaceId ?? null
+        },
+        anyDashboardTableOk: dashAnyOk,
+        finalDecision: ok,
+        path: req.path,
+        method: req.method,
+        requestId: String(req.headers['x-railway-request-id'] || '')
+      });
+      res.status(403).json({ error: 'forbidden_table', tableId });
+      return;
+    }
     const workspaceScopeId =
       isSuperAdmin
         ? null

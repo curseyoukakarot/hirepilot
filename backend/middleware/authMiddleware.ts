@@ -16,6 +16,12 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     }
     const useUnified = String(process.env.ENABLE_SESSION_COOKIE_AUTH || 'false').toLowerCase() === 'true';
     if (useUnified) {
+      console.info('[auth] delegating_to_unified', {
+        path: req.path,
+        method: req.method,
+        hasAuthorization: Boolean(req.headers.authorization),
+        hasSessionCookie: Boolean((req as any)?.cookies?.hp_session)
+      });
       // Delegate to unified middleware (supports Bearer or hp_session cookie)
       return requireAuthUnified(req, res, next);
     }
@@ -80,6 +86,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       invite_id: (appRoleLc === 'super_admin' || appRoleLc === 'superadmin') ? null : (meta?.invite_id || null),
       plan: meta?.plan || null,
     };
+    console.info('[auth] user_resolved', {
+      userId: user.id,
+      email: user.email || null,
+      role: appRole || null,
+      roleNormalized: appRoleLc,
+      teamId: (req as any).user?.team_id ?? null,
+      path: req.path,
+      method: req.method
+    });
 
     // If the JWT contains team_id, best-effort persist it so pooling and RLS-backed features work immediately.
     try {
