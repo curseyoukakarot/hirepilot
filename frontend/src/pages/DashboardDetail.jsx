@@ -1235,6 +1235,33 @@ function NetProfitOutlookCommandCenter() {
     return s;
   };
   const metricsForCols = (prefix, cols) => (cols || []).map((c, i) => ({ alias: `${prefix}${i}`, agg: 'SUM', column_id: c }));
+  const hasMissingMetricCols = (json) => {
+    const msg = String(json?.message || '').toLowerCase();
+    if (msg.includes('metric columns not found')) return true;
+    const ws = Array.isArray(json?.warnings) ? json.warnings : [];
+    return ws.some((w) => String((w && w.message) ? w.message : w).toLowerCase().includes('metric columns not found'));
+  };
+
+  const rangeBounds = () => {
+    const start = rangeToStartDate(range);
+    if (!start) return { start: null, end: null };
+    return { start, end: new Date() };
+  };
+
+  const bucketLabel = (date, bucketType) => {
+    const d = new Date(date);
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+    if (bucketType === 'day') return d.toISOString().slice(0, 10);
+    if (bucketType === 'week') {
+      const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const day = x.getUTCDay() || 7;
+      x.setUTCDate(x.getUTCDate() + 4 - day);
+      const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+      const week = Math.ceil((((x - yearStart) / 86400000) + 1) / 7);
+      return `${x.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+    }
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
 
   const load = async () => {
     setError('');
@@ -1279,6 +1306,43 @@ function NetProfitOutlookCommandCenter() {
         if (!resp.ok) throw new Error('Failed to query dashboard data');
         return resp.json();
       };
+      const loadTable = async (tableId) => {
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('schema_json,data_json')
+          .eq('id', tableId)
+          .maybeSingle();
+        return {
+          schema: Array.isArray(data?.schema_json) ? data.schema_json : [],
+          rows: Array.isArray(data?.data_json) ? data.data_json : []
+        };
+      };
+      const resolveCol = (schema, id) => {
+        const q = String(id || '').trim();
+        if (!q) return null;
+        return schema.find((c) => (
+          String(c?.id || '') === q
+          || String(c?.key || '') === q
+          || String(c?.label || c?.name || '') === q
+        )) || null;
+      };
+      const getCell = (row, col) => {
+        if (!col || !row) return undefined;
+        const key = col?.key;
+        const label = col?.label || col?.name;
+        if (key && Object.prototype.hasOwnProperty.call(row, key)) return row[key];
+        if (label && Object.prototype.hasOwnProperty.call(row, label)) return row[label];
+        if (col?.name && Object.prototype.hasOwnProperty.call(row, col.name)) return row[col.name];
+        return undefined;
+      };
+      const inRange = (v, start, end) => {
+        if (!start && !end) return true;
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      };
 
       // KPI totals
       const [profitTotalJson, costTotalJson] = await Promise.all([
@@ -1291,7 +1355,33 @@ function NetProfitOutlookCommandCenter() {
       const cost = sumAliasPrefix(crow, 'C', costAmountCols.length);
       const net = profit - cost;
       const margin = profit ? (net / profit) * 100 : 0;
-      setKpi({ profit, cost, net, margin });
+      let nextKpi = { profit, cost, net, margin };
+      const shouldFallbackTotals =
+        hasMissingMetricCols(profitTotalJson)
+        || hasMissingMetricCols(costTotalJson)
+        || (!prow && !crow);
+      if (shouldFallbackTotals) {
+        const [{ schema: pSchema, rows: pRows }, { schema: cSchema, rows: cRows }] = await Promise.all([
+          loadTable(profitTableId),
+          loadTable(costTableId)
+        ]);
+        const pCols = profitAmountCols.map((id) => resolveCol(pSchema, id)).filter(Boolean);
+        const cCols = costAmountCols.map((id) => resolveCol(cSchema, id)).filter(Boolean);
+        const pDateCol = resolveCol(pSchema, profitDateCol);
+        const cDateCol = resolveCol(cSchema, costDateCol);
+        const { start, end } = rangeBounds();
+        const pTotal = pRows.reduce((acc, r) => {
+          if (pDateCol && !inRange(getCell(r, pDateCol), start, end)) return acc;
+          return acc + pCols.reduce((s, c) => s + (Number(getCell(r, c)) || 0), 0);
+        }, 0);
+        const cTotal = cRows.reduce((acc, r) => {
+          if (cDateCol && !inRange(getCell(r, cDateCol), start, end)) return acc;
+          return acc + cCols.reduce((s, c) => s + (Number(getCell(r, c)) || 0), 0);
+        }, 0);
+        const nTotal = pTotal - cTotal;
+        nextKpi = { profit: pTotal, cost: cTotal, net: nTotal, margin: pTotal ? (nTotal / pTotal) * 100 : 0 };
+      }
+      setKpi(nextKpi);
 
       // Trend series: query each table separately, then merge
       const [profitTrendJson, costTrendJson] = await Promise.all([
@@ -1302,11 +1392,48 @@ function NetProfitOutlookCommandCenter() {
       const cRaw = Array.isArray(costTrendJson?.series) ? costTrendJson.series : [];
       const pSeries = pRaw.map((r) => ({ t: r?.t, Profit: sumAliasPrefix(r, 'P', profitAmountCols.length) }));
       const cSeries = cRaw.map((r) => ({ t: r?.t, Cost: sumAliasPrefix(r, 'C', costAmountCols.length) }));
-      const merged = mergeSeriesByT([pSeries, cSeries]).map((r) => {
+      let merged = mergeSeriesByT([pSeries, cSeries]).map((r) => {
         const p = Number(r?.Profit) || 0;
         const c = Number(r?.Cost) || 0;
         return { ...r, Net: p - c };
       });
+      const shouldFallbackTrend =
+        hasMissingMetricCols(profitTrendJson)
+        || hasMissingMetricCols(costTrendJson)
+        || (!pRaw.length && !cRaw.length);
+      if (shouldFallbackTrend) {
+        const [{ schema: pSchema, rows: pRows }, { schema: cSchema, rows: cRows }] = await Promise.all([
+          loadTable(profitTableId),
+          loadTable(costTableId)
+        ]);
+        const pCols = profitAmountCols.map((id) => resolveCol(pSchema, id)).filter(Boolean);
+        const cCols = costAmountCols.map((id) => resolveCol(cSchema, id)).filter(Boolean);
+        const pDateCol = resolveCol(pSchema, profitDateCol);
+        const cDateCol = resolveCol(cSchema, costDateCol);
+        const { start, end } = rangeBounds();
+        const points = new Map();
+        for (const r of pRows) {
+          const dv = pDateCol ? getCell(r, pDateCol) : null;
+          if (!dv || !inRange(dv, start, end)) continue;
+          const t = bucketLabel(dv, bucket);
+          if (!t) continue;
+          const prev = points.get(t) || { t, Profit: 0, Cost: 0 };
+          prev.Profit += pCols.reduce((s, c) => s + (Number(getCell(r, c)) || 0), 0);
+          points.set(t, prev);
+        }
+        for (const r of cRows) {
+          const dv = cDateCol ? getCell(r, cDateCol) : null;
+          if (!dv || !inRange(dv, start, end)) continue;
+          const t = bucketLabel(dv, bucket);
+          if (!t) continue;
+          const prev = points.get(t) || { t, Profit: 0, Cost: 0 };
+          prev.Cost += cCols.reduce((s, c) => s + (Number(getCell(r, c)) || 0), 0);
+          points.set(t, prev);
+        }
+        merged = Array.from(points.values())
+          .sort((a, b) => String(a.t).localeCompare(String(b.t)))
+          .map((r) => ({ ...r, Net: (Number(r.Profit) || 0) - (Number(r.Cost) || 0) }));
+      }
       setSeries(merged);
 
       // Best-effort category drivers (overall, not range-filtered; mirrors other templates)
