@@ -347,30 +347,37 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
   try {
     const userId = (req as any).user?.id as string | undefined;
     if (!userId) { res.status(401).json({ error: 'unauthorized' }); return; }
+    const requesterRole = normRole((req as any)?.user?.role);
+    const isSuperAdmin = requesterRole === 'super_admin' || requesterRole === 'superadmin';
     const cfg = (req.body || {}) as Partial<WidgetQueryInput> & { dashboard_id?: string };
     const tableId = String(cfg.table_id || '').trim();
     if (!tableId) { res.status(400).json({ error: 'table_id_required' }); return; }
     const dashboardId = String((cfg as any)?.dashboard_id || '').trim();
-    const directOk = await canAccessTable(userId, tableId, (req as any).workspaceId);
-    const dashAccess = !directOk && dashboardId
+    const directOk = isSuperAdmin ? true : await canAccessTable(userId, tableId, (req as any).workspaceId);
+    const dashAccess = (!isSuperAdmin && !directOk && dashboardId)
       ? await canAccessDashboardTable(userId, dashboardId, tableId, (req as any).workspaceId)
       : { ok: false };
-    const dashAnyOk = (!directOk && !dashAccess.ok && !dashboardId)
+    const dashAnyOk = (!isSuperAdmin && !directOk && !dashAccess.ok && !dashboardId)
       ? await canAccessAnyDashboardTable(userId, tableId, (req as any).workspaceId)
       : false;
-    const ok = directOk || dashAccess.ok || dashAnyOk;
+    const ok = isSuperAdmin || directOk || dashAccess.ok || dashAnyOk;
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
     const workspaceScopeId =
-      dashAccess.ok && dashAccess.workspaceId === null
+      isSuperAdmin
+        ? null
+        : (dashAccess.ok && dashAccess.workspaceId === null
         ? null
         : (dashAccess.ok && dashAccess.workspaceId
           ? String(dashAccess.workspaceId)
-          : (req as any).workspaceId);
+          : (req as any).workspaceId));
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
     if (!metrics.length) { res.status(400).json({ error: 'metrics_required' }); return; }
 
-    const { data } = await scopedFor(req, 'custom_tables', workspaceScopeId)
+    const baseQuery = isSuperAdmin
+      ? supabase.from('custom_tables')
+      : scopedFor(req, 'custom_tables', workspaceScopeId);
+    const { data } = await baseQuery
       .select('schema_json,data_json')
       .eq('id', tableId)
       .maybeSingle();
@@ -500,7 +507,7 @@ router.post('/:id/collaborators', requireAuth, async (req: Request, res: Respons
     if (!(isSuper || isTeamAdmin)) return res.status(403).json({ error: 'Only team admins can manage access' });
 
     const { id } = req.params;
-    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
+    const dash = await getDashboardById(id, (req as any).workspaceId, actorId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
 
     if (!isSuper) {
@@ -562,7 +569,7 @@ router.post('/:id/guest-invite', requireAuth, async (req: Request, res: Response
     const role: 'view' | 'edit' = roleIn === 'edit' ? 'edit' : 'view';
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
+    const dash = await getDashboardById(id, (req as any).workspaceId, inviterId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
 
     if (!isSuper) {
@@ -679,7 +686,7 @@ router.delete('/:id/guest-invite', requireAuth, async (req: Request, res: Respon
     const email = String((req.query as any)?.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'missing_email' });
 
-    const dash = await getDashboardById(id, (req as any).workspaceId, userId || null);
+    const dash = await getDashboardById(id, (req as any).workspaceId, actorId || null);
     if (!dash) return res.status(404).json({ error: 'not_found' });
     if (!isSuper) {
       const ownerRowResp = await runUsersQueryWithFallback<any>(async (cols) => {
