@@ -328,97 +328,92 @@ function ExecOverviewCommandCenter() {
       if (!tpl || !revenue?.tableId || !revenue?.columnId || !cost?.tableId || !cost?.columnId || !revDate?.columnId || !cstDate?.columnId) {
         throw new Error('Missing required template mappings (Revenue, Revenue Date, Cost, Cost Date).');
       }
-      const backendBase = (import.meta?.env && import.meta.env.VITE_BACKEND_URL) || 'https://api.thehirepilot.com';
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const tableCache = new Map();
       const rangeStart = rangeToStartDate(range);
-      const rangeCfg = mapRangeToWidgetRange(range, rangeStart || undefined);
-      const dashboardId = getDashboardIdFromPath();
-
-      const query = async (payload) => {
-        const resp = await fetch(`${backendBase}/api/dashboards/widgets/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
-          body: JSON.stringify({ ...payload, ...(dashboardId ? { dashboard_id: dashboardId } : {}) })
-        });
-        if (!resp.ok) throw new Error('Failed to query dashboard data');
-        return resp.json();
+      const rangeEnd = rangeStart ? new Date() : null;
+      const inRange = (v) => {
+        if (!rangeStart) return true;
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return false;
+        if (d < rangeStart) return false;
+        if (rangeEnd && d > rangeEnd) return false;
+        return true;
+      };
+      const bucketLabel = (v, bucketType) => {
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return '';
+        if (bucketType === 'day') return d.toISOString().slice(0, 10);
+        if (bucketType === 'week') {
+          const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+          const day = x.getUTCDay() || 7;
+          x.setUTCDate(x.getUTCDate() + 4 - day);
+          const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+          const week = Math.ceil((((x - yearStart) / 86400000) + 1) / 7);
+          return `${x.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+        }
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      };
+      const loadTable = async (tableId) => {
+        if (tableCache.has(tableId)) return tableCache.get(tableId);
+        const { data } = await supabase.from('custom_tables').select('schema_json,data_json').eq('id', tableId).maybeSingle();
+        const out = {
+          schema: Array.isArray(data?.schema_json) ? data.schema_json : [],
+          rows: Array.isArray(data?.data_json) ? data.data_json : []
+        };
+        tableCache.set(tableId, out);
+        return out;
+      };
+      const resolveCol = (schema, id) => schema.find((c) => String(c?.id || c?.key || c?.name || '') === String(id));
+      const get = (r, c) => {
+        if (!c) return undefined;
+        const key = c?.key;
+        const label = c?.label || c?.name;
+        return (key && r && Object.prototype.hasOwnProperty.call(r, key)) ? r[key] : (label && r ? r[label] : undefined);
+      };
+      const sumFor = async (tableId, amountColId, dateColId) => {
+        const { schema, rows } = await loadTable(tableId);
+        const amountC = resolveCol(schema, amountColId);
+        const dateC = resolveCol(schema, dateColId);
+        if (!amountC || !dateC) return 0;
+        return (rows || []).reduce((acc, r) => {
+          const dv = get(r, dateC);
+          if (!inRange(dv)) return acc;
+          return acc + (Number(get(r, amountC)) || 0);
+        }, 0);
+      };
+      const trendFor = async (tableId, amountColId, dateColId, alias, timeBucket) => {
+        const { schema, rows } = await loadTable(tableId);
+        const amountC = resolveCol(schema, amountColId);
+        const dateC = resolveCol(schema, dateColId);
+        if (!amountC || !dateC) return [];
+        const map = new Map();
+        for (const r of (rows || [])) {
+          const dv = get(r, dateC);
+          if (!inRange(dv)) continue;
+          const t = bucketLabel(dv, timeBucket);
+          if (!t) continue;
+          map.set(t, (map.get(t) || 0) + (Number(get(r, amountC)) || 0));
+        }
+        return Array.from(map.entries())
+          .map(([t, v]) => ({ t, [alias]: v }))
+          .sort((a, b) => String(a.t).localeCompare(String(b.t)));
       };
 
-      // KPI totals (can come from multiple tables)
-      let revenueTotal = 0;
-      let costTotal = 0;
-      if (revenue.tableId === cost.tableId) {
-        const kpiJson = await query({
-          table_id: revenue.tableId,
-          metrics: [
-            { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
-            { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
-          ],
-          time_bucket: 'none',
-          ...rangeCfg
-      });
-      const krow = Array.isArray(kpiJson?.series) ? kpiJson.series[0] : null;
-        revenueTotal = Number(krow?.Revenue) || 0;
-        costTotal = Number(krow?.Cost) || 0;
-      } else {
-        const [revJson, costJson] = await Promise.all([
-          query({
-            table_id: revenue.tableId,
-            metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
-            time_bucket: 'none',
-            ...rangeCfg
-          }),
-          query({
-            table_id: cost.tableId,
-            metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
-            time_bucket: 'none',
-          ...rangeCfg
-        })
-        ]);
-        const rrow = Array.isArray(revJson?.series) ? revJson.series[0] : null;
-        const crow = Array.isArray(costJson?.series) ? costJson.series[0] : null;
-        revenueTotal = Number(rrow?.Revenue) || 0;
-        costTotal = Number(crow?.Cost) || 0;
-      }
+      // KPI totals (direct table-read, date-filtered)
+      const [revenueTotal, costTotal] = await Promise.all([
+        sumFor(revenue.tableId, revenue.columnId, revDate.columnId),
+        sumFor(cost.tableId, cost.columnId, cstDate.columnId)
+      ]);
       const profit = revenueTotal - costTotal;
       const margin = revenueTotal ? (profit / revenueTotal) * 100 : 0;
       setKpi({ revenue: revenueTotal, cost: costTotal, profit, margin });
 
       const fetchTrend = async (timeBucket) => {
-        if (revenue.tableId === cost.tableId && revDate.columnId === cstDate.columnId) {
-          const trendJson = await query({
-            table_id: revenue.tableId,
-              metrics: [
-              { alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId },
-              { alias: 'Cost', agg: 'SUM', column_id: cost.columnId }
-              ],
-            date_column_id: revDate.columnId,
-            time_bucket: timeBucket,
-              ...rangeCfg
-          });
-          return Array.isArray(trendJson?.series) ? trendJson.series : [];
-        }
         const [revTrend, costTrend] = await Promise.all([
-          query({
-            table_id: revenue.tableId,
-            metrics: [{ alias: 'Revenue', agg: 'SUM', column_id: revenue.columnId }],
-            date_column_id: revDate.columnId,
-            time_bucket: timeBucket,
-            ...rangeCfg
-          }),
-          query({
-            table_id: cost.tableId,
-            metrics: [{ alias: 'Cost', agg: 'SUM', column_id: cost.columnId }],
-            date_column_id: cstDate.columnId,
-            time_bucket: timeBucket,
-            ...rangeCfg
-          })
+          trendFor(revenue.tableId, revenue.columnId, revDate.columnId, 'Revenue', timeBucket),
+          trendFor(cost.tableId, cost.columnId, cstDate.columnId, 'Cost', timeBucket)
         ]);
-        return mergeSeriesByT([
-          Array.isArray(revTrend?.series) ? revTrend.series : [],
-          Array.isArray(costTrend?.series) ? costTrend.series : []
-        ]);
+        return mergeSeriesByT([revTrend, costTrend]);
       };
 
       // Trend series (auto-fallback to day if bucketing collapses)
