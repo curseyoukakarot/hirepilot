@@ -16,6 +16,14 @@ const scoped = (req: Request, table: string, ownerColumn: string = 'user_id') =>
     ownerColumn
   });
 
+const scopedFor = (req: Request, table: string, workspaceId?: string | null, ownerColumn: string = 'user_id') =>
+  applyWorkspaceScope(supabase.from(table), {
+    // Only fall back to req workspace if caller truly omitted workspaceId.
+    workspaceId: workspaceId === undefined ? (req as any).workspaceId : workspaceId,
+    userId: (req as any)?.user?.id,
+    ownerColumn
+  });
+
 // -------------------- Sharing helpers (recruiter-only) --------------------
 const USER_SELECT_FULL = 'id,email,first_name,last_name,full_name,avatar_url,team_id,role';
 const USER_SELECT_MIN = 'id,email,role,team_id,avatar_url';
@@ -84,25 +92,40 @@ async function getDashboardById(
   id: string,
   workspaceId?: string | null,
   userId?: string | null
-): Promise<{ id: string; user_id: string; layout: any; collaborators: any; updated_at: any } | null> {
+): Promise<{ id: string; user_id: string; layout: any; collaborators: any; updated_at: any; workspace_id?: string | null } | null> {
   // collaborators may not exist in old envs; treat missing as empty list
   const base = workspaceId
     ? applyWorkspaceScope(supabase.from('user_dashboards'), { workspaceId, userId, ownerColumn: 'user_id' })
     : supabase.from('user_dashboards');
   const { data, error } = await base
-    .select('id,user_id,layout,updated_at,collaborators')
+    .select('id,user_id,layout,updated_at,collaborators,workspace_id')
     .eq('id', id)
     .maybeSingle();
   if (error && String((error as any)?.code || '') === '42703') {
     const fallbackBase = workspaceId
       ? applyWorkspaceScope(supabase.from('user_dashboards'), { workspaceId, userId, ownerColumn: 'user_id' })
       : supabase.from('user_dashboards');
-    const { data: d2 } = await fallbackBase
-      .select('id,user_id,layout,updated_at')
+    const { data: d2, error: e2 } = await fallbackBase
+      .select('id,user_id,layout,updated_at,collaborators')
       .eq('id', id)
       .maybeSingle();
+    if (e2 && String((e2 as any)?.code || '') === '42703') {
+      const { data: d3 } = await fallbackBase
+        .select('id,user_id,layout,updated_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (!d3?.id) return null;
+      return { id: String(d3.id), user_id: String((d3 as any).user_id), layout: (d3 as any).layout, collaborators: [], updated_at: (d3 as any).updated_at, workspace_id: null };
+    }
     if (!d2?.id) return null;
-    return { id: String(d2.id), user_id: String((d2 as any).user_id), layout: (d2 as any).layout, collaborators: [], updated_at: (d2 as any).updated_at };
+    return {
+      id: String(d2.id),
+      user_id: String((d2 as any).user_id),
+      layout: (d2 as any).layout,
+      collaborators: Array.isArray((d2 as any).collaborators) ? (d2 as any).collaborators : [],
+      updated_at: (d2 as any).updated_at,
+      workspace_id: null
+    };
   }
   if (!data?.id) return null;
   return {
@@ -111,7 +134,46 @@ async function getDashboardById(
     layout: (data as any).layout,
     collaborators: Array.isArray((data as any).collaborators) ? (data as any).collaborators : [],
     updated_at: (data as any).updated_at,
+    workspace_id: (data as any).workspace_id ?? null,
   };
+}
+
+function hasDashboardAccess(dash: { user_id: string; collaborators: any }, userId: string): boolean {
+  if (String(dash.user_id) === String(userId)) return true;
+  const collabs = parseCollaborators((dash as any).collaborators);
+  return collabs.some((c) => String(c.user_id) === String(userId));
+}
+
+async function loadDashboardWithFallback(
+  dashboardId: string,
+  workspaceId?: string | null,
+  userId?: string | null
+) {
+  const dash = await getDashboardById(dashboardId, workspaceId, userId || null);
+  if (dash) return dash;
+  if (!workspaceId) return null;
+  return await getDashboardById(dashboardId, null, userId || null);
+}
+
+function extractDashboardTableIds(layout: any): string[] {
+  const out = new Set<string>();
+  const add = (v: any) => {
+    const s = String(v || '').trim();
+    if (s) out.add(s);
+  };
+  const sources = Array.isArray(layout?.sources) ? layout.sources : [];
+  sources.forEach((s: any) => add(s?.tableId || s?.table_id));
+  add(layout?.template_table_id);
+  const templateIds = Array.isArray(layout?.template_table_ids) ? layout.template_table_ids : [];
+  templateIds.forEach(add);
+  const mappings = layout?.template_mappings;
+  if (mappings && typeof mappings === 'object') {
+    Object.values(mappings).forEach((m: any) => {
+      if (m && typeof m === 'object') add(m.tableId || m.table_id);
+      if (typeof m === 'string' && m.includes('::')) add(m.split('::')[0]);
+    });
+  }
+  return Array.from(out.values());
 }
 
 async function upsertDashboardCollaborator(
@@ -158,32 +220,33 @@ async function canAccessTable(userId: string, tableId: string, workspaceId?: str
   } catch { return false; }
 }
 
-async function canAccessDashboard(userId: string, dashboardId: string): Promise<boolean> {
+async function canAccessDashboard(userId: string, dashboardId: string, workspaceId?: string | null): Promise<boolean> {
   try {
-    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
+    const dash = await loadDashboardWithFallback(dashboardId, workspaceId, userId || null);
     if (!dash) return false;
-    if (String(dash.user_id) === String(userId)) return true;
-    const collabs = parseCollaborators(dash.collaborators);
-    return collabs.some((c) => String(c.user_id) === String(userId));
+    return hasDashboardAccess(dash as any, userId);
   } catch {
     return false;
   }
 }
 
-async function canAccessDashboardTable(userId: string, dashboardId: string, tableId: string): Promise<boolean> {
+async function canAccessDashboardTable(
+  userId: string,
+  dashboardId: string,
+  tableId: string,
+  workspaceId?: string | null
+): Promise<{ ok: boolean; workspaceId?: string | null }> {
   try {
-    const dash = await getDashboardById(dashboardId, (req as any).workspaceId, userId || null);
-    if (!dash) return false;
-    const hasDashAccess =
-      String(dash.user_id) === String(userId)
-      || parseCollaborators(dash.collaborators).some((c) => String(c.user_id) === String(userId));
-    if (!hasDashAccess) return false;
-
-    const sources = Array.isArray((dash.layout as any)?.sources) ? (dash.layout as any).sources : [];
-    const referenced = sources.some((s: any) => String(s?.tableId || s?.table_id || '').trim() === String(tableId));
-    return referenced;
+    const dash = await loadDashboardWithFallback(dashboardId, workspaceId, userId || null);
+    if (!dash) return { ok: false };
+    if (!hasDashboardAccess(dash as any, userId)) return { ok: false };
+    const referenced = extractDashboardTableIds((dash as any).layout).some(
+      (t) => String(t || '').trim() === String(tableId)
+    );
+    if (!referenced) return { ok: false };
+    return { ok: true, workspaceId: (dash as any).workspace_id ?? workspaceId ?? null };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
@@ -203,9 +266,18 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
     const sources: SourceSpec[] = Array.isArray(cfg.sources) ? cfg.sources : [];
     if (!sources.length) { res.status(400).json({ error: 'sources_required' }); return; }
     // Access checks
+    let dashWorkspaceId: string | null | undefined = undefined;
     for (const s of sources) {
-      const ok = await canAccessTable(userId, s.tableId, (req as any).workspaceId) || (dashboardId && await canAccessDashboardTable(userId, dashboardId, s.tableId));
+      const directOk = await canAccessTable(userId, s.tableId, (req as any).workspaceId);
+      const dashAccess = !directOk && dashboardId
+        ? await canAccessDashboardTable(userId, dashboardId, s.tableId, (req as any).workspaceId)
+        : { ok: false };
+      const ok = directOk || dashAccess.ok;
       if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId: s.tableId }); return; }
+      if (dashAccess.ok && dashWorkspaceId === undefined) {
+        // Preserve explicit null to allow legacy dashboards without workspace_id.
+        dashWorkspaceId = dashAccess.workspaceId === null ? null : (dashAccess.workspaceId ? String(dashAccess.workspaceId) : undefined);
+      }
     }
     const joins: JoinSpec[] | undefined = Array.isArray(cfg.joins) ? cfg.joins : undefined;
     const filters: Filter[] | undefined = Array.isArray(cfg.filters) ? cfg.filters : undefined;
@@ -215,7 +287,7 @@ router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, 
 
     // Row loader from Supabase (service role; we enforce access above)
     const loadRows = async (tableId: string) => {
-      const { data } = await scoped(req, 'custom_tables')
+      const { data } = await scopedFor(req, 'custom_tables', dashWorkspaceId)
         .select('schema_json,data_json')
         .eq('id', tableId)
         .maybeSingle();
@@ -252,33 +324,28 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     const tableId = String(cfg.table_id || '').trim();
     if (!tableId) { res.status(400).json({ error: 'table_id_required' }); return; }
     const dashboardId = String((cfg as any)?.dashboard_id || '').trim();
-    const ok = await canAccessTable(userId, tableId, (req as any).workspaceId) || (dashboardId ? await canAccessDashboardTable(userId, dashboardId, tableId) : false);
+    const directOk = await canAccessTable(userId, tableId, (req as any).workspaceId);
+    const dashAccess = !directOk && dashboardId
+      ? await canAccessDashboardTable(userId, dashboardId, tableId, (req as any).workspaceId)
+      : { ok: false };
+    const ok = directOk || dashAccess.ok;
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
+    const workspaceScopeId =
+      dashAccess.ok && dashAccess.workspaceId === null
+        ? null
+        : (dashAccess.ok && dashAccess.workspaceId
+          ? String(dashAccess.workspaceId)
+          : (req as any).workspaceId);
 
     const metrics = Array.isArray(cfg.metrics) ? cfg.metrics : [];
     if (!metrics.length) { res.status(400).json({ error: 'metrics_required' }); return; }
 
-    const { data } = await scoped(req, 'custom_tables')
+    const { data } = await scopedFor(req, 'custom_tables', workspaceScopeId)
       .select('schema_json,data_json')
       .eq('id', tableId)
       .maybeSingle();
     const schema = (Array.isArray((data as any)?.schema_json) ? (data as any).schema_json : []) as TableColumn[];
     const rows = (Array.isArray((data as any)?.data_json) ? (data as any).data_json : []) as any[];
-
-    // Validate that referenced columns exist (by id/key/label) to avoid confusing all-zero results.
-    const missing: string[] = [];
-    for (const m of metrics) {
-      const cid = String((m as any)?.column_id || '');
-      if (!resolveColumn(schema, cid)) missing.push(cid);
-    }
-    if (cfg.date_column_id) {
-      const dc = String(cfg.date_column_id || '');
-      if (dc && !resolveColumn(schema, dc)) missing.push(dc);
-    }
-    if (missing.length) {
-      res.status(400).json({ error: 'unknown_column', missing: Array.from(new Set(missing)) });
-      return;
-    }
 
     const result = runWidgetQuery(
       {
@@ -294,6 +361,23 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
       schema,
       rows
     );
+
+    const missing = new Set<string>();
+    for (const m of metrics) {
+      const cid = String((m as any)?.column_id || '').trim();
+      if (cid && !resolveColumn(schema, cid)) missing.add(cid);
+    }
+    if (cfg.date_column_id) {
+      const dc = String(cfg.date_column_id || '').trim();
+      if (dc && !resolveColumn(schema, dc)) missing.add(dc);
+    }
+
+    if (missing.size) {
+      const warnings = Array.isArray((result as any)?.warnings) ? [...(result as any).warnings] : [];
+      warnings.push(`Unknown column id(s): ${Array.from(missing).join(', ')}`);
+      res.json({ ...result, warnings, missing_columns: Array.from(missing) });
+      return;
+    }
 
     res.json(result);
   } catch (e: any) {
