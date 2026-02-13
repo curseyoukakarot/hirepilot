@@ -253,6 +253,30 @@ async function canAccessDashboardTable(
   }
 }
 
+async function canAccessAnyDashboardTable(
+  userId: string,
+  tableId: string,
+  workspaceId?: string | null
+): Promise<boolean> {
+  try {
+    const base = scopedFor({ user: { id: userId }, workspaceId } as any, 'user_dashboards', workspaceId, 'user_id');
+    const { data } = await base
+      .select('id,user_id,layout,collaborators')
+      .limit(500);
+    const rows = Array.isArray(data) ? data : [];
+    for (const dash of rows) {
+      if (!hasDashboardAccess(dash as any, userId)) continue;
+      const referenced = extractDashboardTableIds((dash as any).layout).some(
+        (t) => String(t || '').trim() === String(tableId)
+      );
+      if (referenced) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // POST /api/dashboards/:id/widgets/:widgetId/preview
 router.post('/:id/widgets/:widgetId/preview', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -331,7 +355,10 @@ router.post('/widgets/query', requireAuth, async (req: Request, res: Response) =
     const dashAccess = !directOk && dashboardId
       ? await canAccessDashboardTable(userId, dashboardId, tableId, (req as any).workspaceId)
       : { ok: false };
-    const ok = directOk || dashAccess.ok;
+    const dashAnyOk = (!directOk && !dashAccess.ok && !dashboardId)
+      ? await canAccessAnyDashboardTable(userId, tableId, (req as any).workspaceId)
+      : false;
+    const ok = directOk || dashAccess.ok || dashAnyOk;
     if (!ok) { res.status(403).json({ error: 'forbidden_table', tableId }); return; }
     const workspaceScopeId =
       dashAccess.ok && dashAccess.workspaceId === null

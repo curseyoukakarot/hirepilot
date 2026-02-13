@@ -9,8 +9,8 @@ const Plotly = PlotlyImport?.default || PlotlyImport;
 const getDashboardIdFromPath = () => {
   try {
     const path = String(window?.location?.pathname || '');
-    const m = path.match(/\/dashboards\/([0-9a-fA-F-]{36})/);
-    return m ? String(m[1]) : '';
+    const m = path.match(/\/dashboards\/([^/?#]+)/);
+    return m ? decodeURIComponent(String(m[1])) : '';
   } catch {
     return '';
   }
