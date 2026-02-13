@@ -132,6 +132,73 @@ const rangeToStartDate = (range) => {
   return now;
 };
 
+const parseTableDate = (value) => {
+  if (value === null || typeof value === 'undefined' || value === '') return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    // Unix ms / sec
+    if (value > 1e12) {
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (value > 1e9) {
+      const d = new Date(value * 1000);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    // Excel serial date (days since 1899-12-30)
+    if (value > 20000 && value < 100000) {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const d = new Date(excelEpoch + Math.round(value * 86400000));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // yyyy-mm-dd (and optionally time)
+  const isoLike = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T].*)?$/);
+  if (isoLike) {
+    const y = Number(isoLike[1]);
+    const m = Number(isoLike[2]);
+    const d = Number(isoLike[3]);
+    const out = new Date(Date.UTC(y, m - 1, d));
+    return Number.isNaN(out.getTime()) ? null : out;
+  }
+
+  // mm/dd/yyyy or dd/mm/yyyy (or with dashes)
+  const mdY = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (mdY) {
+    let a = Number(mdY[1]);
+    let b = Number(mdY[2]);
+    const y = Number(mdY[3]);
+    // Disambiguate: if first token >12, treat as dd/mm/yyyy.
+    const day = a > 12 ? a : b;
+    const month = a > 12 ? b : a;
+    const out = new Date(Date.UTC(y, month - 1, day));
+    return Number.isNaN(out.getTime()) ? null : out;
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toBucketLabel = (date, bucketType) => {
+  const d = parseTableDate(date);
+  if (!d) return '';
+  if (bucketType === 'day') return d.toISOString().slice(0, 10);
+  if (bucketType === 'week') {
+    const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const day = x.getUTCDay() || 7;
+    x.setUTCDate(x.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((x.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${x.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
 const isSafeIdentifier = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(s || ''));
 const aggRef = (alias, columnId) => {
   const a = String(alias || '').trim();
@@ -333,25 +400,11 @@ function ExecOverviewCommandCenter() {
       const rangeEnd = rangeStart ? new Date() : null;
       const inRange = (v) => {
         if (!rangeStart) return true;
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return false;
+        const d = parseTableDate(v);
+        if (!d) return false;
         if (d < rangeStart) return false;
         if (rangeEnd && d > rangeEnd) return false;
         return true;
-      };
-      const bucketLabel = (v, bucketType) => {
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return '';
-        if (bucketType === 'day') return d.toISOString().slice(0, 10);
-        if (bucketType === 'week') {
-          const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-          const day = x.getUTCDay() || 7;
-          x.setUTCDate(x.getUTCDate() + 4 - day);
-          const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
-          const week = Math.ceil((((x - yearStart) / 86400000) + 1) / 7);
-          return `${x.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-        }
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
       };
       const loadTable = async (tableId) => {
         if (tableCache.has(tableId)) return tableCache.get(tableId);
@@ -390,7 +443,7 @@ function ExecOverviewCommandCenter() {
         for (const r of (rows || [])) {
           const dv = get(r, dateC);
           if (!inRange(dv)) continue;
-          const t = bucketLabel(dv, timeBucket);
+          const t = toBucketLabel(dv, timeBucket);
           if (!t) continue;
           map.set(t, (map.get(t) || 0) + (Number(get(r, amountC)) || 0));
         }
@@ -644,8 +697,7 @@ function PipelineHealthCommandCenter() {
   const [upcomingItems, setUpcomingItems] = useState([]);
 
   const parseDate = (v) => {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
+    return parseTableDate(v);
   };
 
   const load = async () => {
@@ -1244,18 +1296,7 @@ function NetProfitOutlookCommandCenter() {
   };
 
   const bucketLabel = (date, bucketType) => {
-    const d = new Date(date);
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-    if (bucketType === 'day') return d.toISOString().slice(0, 10);
-    if (bucketType === 'week') {
-      const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-      const day = x.getUTCDay() || 7;
-      x.setUTCDate(x.getUTCDate() + 4 - day);
-      const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
-      const week = Math.ceil((((x - yearStart) / 86400000) + 1) / 7);
-      return `${x.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-    }
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    return toBucketLabel(date, bucketType);
   };
 
   const load = async () => {
@@ -1332,8 +1373,8 @@ function NetProfitOutlookCommandCenter() {
       };
       const inRange = (v, start, end) => {
         if (!start && !end) return true;
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return false;
+        const d = parseTableDate(v);
+        if (!d) return false;
         if (start && d < start) return false;
         if (end && d > end) return false;
         return true;
