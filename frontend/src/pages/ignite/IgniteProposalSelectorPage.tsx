@@ -29,6 +29,7 @@ export default function IgniteProposalSelectorPage() {
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [computedTotalsByProposalId, setComputedTotalsByProposalId] = useState<Record<string, number>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   async function loadData() {
@@ -51,6 +52,38 @@ export default function IgniteProposalSelectorPage() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!proposals.length) {
+      setComputedTotalsByProposalId({});
+      return;
+    }
+
+    let cancelled = false;
+    const loadComputedTotals = async () => {
+      const entries = await Promise.all(
+        proposals.map(async (proposal) => {
+          try {
+            const response = await apiGet(`/api/ignite/proposals/${proposal.id}/computed`);
+            const computed = response?.proposal || {};
+            const options = Array.isArray(computed?.options) ? computed.options : [];
+            const selected = options.find((option: any) => option?.isRecommended) || options[0] || null;
+            const total = Number(selected?.totals?.total || 0);
+            return [proposal.id, Number.isFinite(total) ? total : 0] as const;
+          } catch {
+            return [proposal.id, 0] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      setComputedTotalsByProposalId(Object.fromEntries(entries));
+    };
+
+    void loadComputedTotals();
+    return () => {
+      cancelled = true;
+    };
+  }, [proposals]);
 
   const clientMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -96,7 +129,8 @@ export default function IgniteProposalSelectorPage() {
   const renderCard = (proposal: ProposalRow, minWidth = false) => {
     const assumptions = (proposal.assumptions_json || {}) as Record<string, any>;
     const event = (assumptions.event || {}) as Record<string, any>;
-    const total = Number(proposal.computed_json?.per_option?.[0]?.total_investment || 0);
+    const fallbackTotal = Number(proposal.computed_json?.per_option?.[0]?.total_investment || 0);
+    const total = Number(computedTotalsByProposalId[proposal.id] || fallbackTotal || 0);
     const status = String(proposal.status || 'draft').toLowerCase();
     const statusClass =
       status === 'approved'
