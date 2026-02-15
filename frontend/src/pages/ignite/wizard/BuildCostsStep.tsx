@@ -53,6 +53,11 @@ export default function BuildCostsStep({
   costs,
   onCostsChange,
 }: BuildCostsStepProps) {
+  const fieldClassName =
+    'w-full rounded-md border border-slate-600/80 bg-slate-900/70 px-2 py-1.5 text-sm text-slate-100 placeholder-slate-400 shadow-inner shadow-black/20 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30';
+  const ghostButtonClassName =
+    'rounded-lg border border-slate-600/80 bg-slate-900/55 px-3 py-2 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800/80';
+
   const [activeOption, setActiveOption] = React.useState<1 | 2 | 3>(1);
 
   React.useEffect(() => {
@@ -131,18 +136,18 @@ export default function BuildCostsStep({
   return (
     <div className="flex gap-6">
       <div className="flex-1">
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 p-6">
+        <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 shadow-lg shadow-black/20">
+          <div className="border-b border-slate-700/70 p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">Step 3: Build Costs</h2>
+              <h2 className="text-xl font-semibold text-slate-100">Step 3: Build Costs</h2>
               <label className="flex cursor-pointer items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={groupPreview}
                   onChange={(e) => onCostsChange({ ...costs, groupPreview: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-indigo-500"
                 />
-                <span className="text-sm text-gray-700">Group View Preview</span>
+                <span className="text-sm text-slate-300">Group View Preview</span>
               </label>
             </div>
 
@@ -155,7 +160,7 @@ export default function BuildCostsStep({
                   className={`rounded-lg px-4 py-2 text-sm font-medium ${
                     activeOption === n
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700/80'
                   }`}
                 >
                   Option {n}
@@ -172,15 +177,15 @@ export default function BuildCostsStep({
                 <i className="fa-solid fa-plus mr-2" />
                 Add Line Item
               </button>
-              <button type="button" onClick={addRow} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <button type="button" onClick={addRow} className={ghostButtonClassName}>
                 <i className="fa-solid fa-file-import mr-2" />
                 Add from Template
               </button>
-              <button type="button" onClick={addRow} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <button type="button" onClick={addRow} className={ghostButtonClassName}>
                 <i className="fa-solid fa-users mr-2" />
                 Add from Vendor Library
               </button>
-              <button type="button" onClick={addRow} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <button type="button" onClick={addRow} className={ghostButtonClassName}>
                 <i className="fa-solid fa-table mr-2" />
                 Bulk Add
               </button>
@@ -190,18 +195,18 @@ export default function BuildCostsStep({
           <div className="overflow-x-auto">
             {groupPreview ? (
               <div className="p-6">
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
                   Group View Preview
                 </h3>
                 <div className="space-y-2">
                   {categoryRollup.map(([category, amount]) => (
-                    <div key={category} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
-                      <span className="text-sm font-medium text-gray-800">{category}</span>
-                      <span className="text-sm font-semibold text-gray-900">{formatMoney(amount)}</span>
+                    <div key={category} className="flex items-center justify-between rounded-lg border border-slate-700/70 bg-slate-900/50 px-4 py-3">
+                      <span className="text-sm font-medium text-slate-200">{category}</span>
+                      <span className="text-sm font-semibold text-slate-100">{formatMoney(amount)}</span>
                     </div>
                   ))}
                   {!categoryRollup.length && (
-                    <div className="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+                    <div className="rounded-lg border border-dashed border-slate-600 px-4 py-6 text-center text-sm text-slate-400">
                       No visible grouped items for this option.
                     </div>
                   )}
@@ -209,28 +214,28 @@ export default function BuildCostsStep({
               </div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="border-b border-gray-200 bg-gray-50">
+                <thead className="border-b border-slate-700/70 bg-slate-900/65">
                   <tr>
-                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Category</th>
-                    <th className="w-48 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Item / Description</th>
-                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Vendor</th>
-                    <th className="w-20 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Qty</th>
-                    <th className="w-24 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Unit Cost</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase text-gray-500">Service</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase text-gray-500">Tax</th>
-                    <th className="w-24 px-3 py-3 text-right text-xs font-medium uppercase text-gray-500">Total</th>
-                    <th className="w-28 px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Display</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase text-gray-500">Actions</th>
+                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Category</th>
+                    <th className="w-48 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Item / Description</th>
+                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vendor</th>
+                    <th className="w-20 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Qty</th>
+                    <th className="w-24 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Unit Cost</th>
+                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Service</th>
+                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Tax</th>
+                    <th className="w-24 px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Total</th>
+                    <th className="w-28 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Display</th>
+                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-700/70">
                   {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50">
+                    <tr key={row.id} className="bg-slate-950/20 hover:bg-slate-800/35">
                       <td className="px-3 py-3">
                         <select
                           value={row.category}
                           onChange={(e) => updateRow(row.id, { category: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                          className={fieldClassName}
                         >
                           <option value="Venue">Venue</option>
                           <option value="F&B">F&B</option>
@@ -244,30 +249,30 @@ export default function BuildCostsStep({
                         <input
                           value={row.item}
                           onChange={(e) => updateRow(row.id, { item: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                          className={fieldClassName}
                         />
                       </td>
                       <td className="px-3 py-3">
                         <input
                           value={row.vendor}
                           onChange={(e) => updateRow(row.id, { vendor: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                          className={fieldClassName}
                         />
                       </td>
                       <td className="px-3 py-3">
                         <input
                           value={row.qty}
                           onChange={(e) => updateRow(row.id, { qty: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                          className={fieldClassName}
                         />
                       </td>
                       <td className="px-3 py-3">
                         <div className="relative">
-                          <span className="absolute left-2 top-2 text-xs text-gray-500">$</span>
+                          <span className="absolute left-2 top-2 text-xs text-slate-400">$</span>
                           <input
                             value={row.unitCost}
                             onChange={(e) => updateRow(row.id, { unitCost: e.target.value })}
-                            className="w-full rounded border border-gray-300 py-1.5 pl-5 pr-2 text-sm"
+                            className="w-full rounded-md border border-slate-600/80 bg-slate-900/70 py-1.5 pl-5 pr-2 text-sm text-slate-100 shadow-inner shadow-black/20 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                           />
                         </div>
                       </td>
@@ -276,7 +281,7 @@ export default function BuildCostsStep({
                           type="checkbox"
                           checked={row.service}
                           onChange={(e) => updateRow(row.id, { service: e.target.checked })}
-                          className="h-4 w-4"
+                          className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-indigo-500"
                         />
                       </td>
                       <td className="px-3 py-3 text-center">
@@ -284,11 +289,11 @@ export default function BuildCostsStep({
                           type="checkbox"
                           checked={row.tax}
                           onChange={(e) => updateRow(row.id, { tax: e.target.checked })}
-                          className="h-4 w-4"
+                          className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-indigo-500"
                         />
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <span className="font-medium text-gray-900">
+                        <span className="font-semibold text-slate-100">
                           {formatMoney(computeLineTotal(row, serviceRatePct, taxRatePct, taxAfterService))}
                         </span>
                       </td>
@@ -298,7 +303,7 @@ export default function BuildCostsStep({
                           onChange={(e) =>
                             updateRow(row.id, { display: e.target.value as IgniteDisplayMode })
                           }
-                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+                          className="w-full rounded-md border border-slate-600/80 bg-slate-900/70 px-2 py-1.5 text-xs text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                         >
                           <option value="DETAIL">Detail</option>
                           <option value="GROUP">Group</option>
@@ -309,7 +314,7 @@ export default function BuildCostsStep({
                         <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            className="text-gray-500 hover:text-blue-600"
+                            className="text-slate-400 hover:text-indigo-300"
                             title="Add notes"
                             onClick={() => {
                               const next = window.prompt('Line item notes', row.notes || '');
@@ -320,7 +325,7 @@ export default function BuildCostsStep({
                           </button>
                           <button
                             type="button"
-                            className="text-gray-500 hover:text-blue-600"
+                            className="text-slate-400 hover:text-indigo-300"
                             title="Duplicate"
                             onClick={() => duplicateRow(row)}
                           >
@@ -328,7 +333,7 @@ export default function BuildCostsStep({
                           </button>
                           <button
                             type="button"
-                            className="text-gray-500 hover:text-red-600"
+                            className="text-slate-400 hover:text-rose-400"
                             title="Delete"
                             onClick={() => deleteRow(row.id)}
                           >
@@ -343,11 +348,11 @@ export default function BuildCostsStep({
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 p-6">
+          <div className="flex items-center justify-between border-t border-slate-700/70 bg-slate-900/45 p-6">
             <button
               type="button"
               onClick={onBack}
-              className="rounded-lg border border-gray-300 px-6 py-2 text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-slate-600/80 px-6 py-2 text-slate-300 hover:bg-slate-800/70"
             >
               <i className="fa-solid fa-arrow-left mr-2" />
               Back to Assumptions
@@ -365,25 +370,25 @@ export default function BuildCostsStep({
       </div>
 
       <aside className="w-80">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">Live Totals</h3>
+        <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 p-6 shadow-lg shadow-black/20">
+          <h3 className="mb-4 text-lg font-semibold text-slate-100">Live Totals</h3>
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Costs Subtotal</span>
-              <span className="font-medium text-gray-900">{formatMoney(subtotal)}</span>
+              <span className="text-slate-400">Costs Subtotal</span>
+              <span className="font-medium text-slate-100">{formatMoney(subtotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Ignite Fee ({igniteFeePct}%)</span>
-              <span className="font-medium text-gray-900">{formatMoney(igniteFee)}</span>
+              <span className="text-slate-400">Ignite Fee ({igniteFeePct}%)</span>
+              <span className="font-medium text-slate-100">{formatMoney(igniteFee)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Contingency ({contingencyPct}%)</span>
-              <span className="font-medium text-gray-900">{formatMoney(contingency)}</span>
+              <span className="text-slate-400">Contingency ({contingencyPct}%)</span>
+              <span className="font-medium text-slate-100">{formatMoney(contingency)}</span>
             </div>
-            <div className="border-t border-gray-200 pt-3">
+            <div className="border-t border-slate-700/70 pt-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-gray-900">Total Investment</span>
-                <span className="font-semibold text-blue-700">{formatMoney(totalInvestment)}</span>
+                <span className="font-semibold text-slate-100">Total Investment</span>
+                <span className="font-semibold text-indigo-300">{formatMoney(totalInvestment)}</span>
               </div>
             </div>
           </div>
