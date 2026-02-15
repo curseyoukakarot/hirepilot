@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPatch, apiPost } from '../../../lib/api';
+import { IgniteProposalComputed } from '../../../ignite/types/proposals';
 import AssumptionsStep from './AssumptionsStep';
 import BasicsStep from './BasicsStep';
 import BuildCostsStep from './BuildCostsStep';
@@ -98,6 +99,7 @@ export default function IgniteCreateProposalWizard() {
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [proposalId, setProposalId] = useState<string | null>(null);
+  const [reviewComputed, setReviewComputed] = useState<IgniteProposalComputed | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -114,6 +116,11 @@ export default function IgniteCreateProposalWizard() {
     if (!isUuid(state.clientId)) return false;
     return clients.some((client) => client.id === state.clientId);
   }, [state.clientId, clients]);
+
+  const selectedClientName = useMemo(() => {
+    const selected = clients.find((client) => client.id === state.clientId);
+    return selected?.name || '';
+  }, [clients, state.clientId]);
 
   const stepCompletion = useMemo(() => {
     const activeRows = state.buildCosts.rowsByOption[1] || [];
@@ -224,7 +231,8 @@ export default function IgniteCreateProposalWizard() {
       }
       setSaveError(null);
       const resolvedProposalId = await persistProposal(state, proposalId);
-      await apiPost(`/api/ignite/proposals/${resolvedProposalId}/compute`, {});
+      const computeResponse = await apiPost(`/api/ignite/proposals/${resolvedProposalId}/compute`, {});
+      setReviewComputed((computeResponse?.client_payload as IgniteProposalComputed) || null);
       setStep(4);
       setLastSavedAt(Date.now());
     } catch (e: any) {
@@ -338,7 +346,15 @@ export default function IgniteCreateProposalWizard() {
             onCostsChange={(nextCosts) => updateState({ buildCosts: nextCosts })}
           />
         )}
-        {step === 4 && <ReviewStep onBack={() => setStep(3)} onNext={() => setStep(5)} />}
+        {step === 4 && (
+          <ReviewStep
+            onBack={() => setStep(3)}
+            onNext={() => setStep(5)}
+            computed={reviewComputed}
+            state={state}
+            clientName={selectedClientName}
+          />
+        )}
         {step === 5 && <ExportStep onBack={() => setStep(4)} proposalId={proposalId} />}
       </div>
     </div>
