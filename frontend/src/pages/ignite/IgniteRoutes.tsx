@@ -7,6 +7,9 @@ import IgniteTemplatesPage from './IgniteTemplatesPage';
 import IgniteVendorRateCardsPage from './IgniteVendorRateCardsPage';
 import IgniteClientsPage from './IgniteClientsPage';
 import IgniteExportsPage from './IgniteExportsPage';
+import IgniteProposalSelectorPage from './IgniteProposalSelectorPage';
+import IgniteClientViewerPage from './IgniteClientViewerPage';
+import IgniteProposalViewerPage from './IgniteProposalViewerPage';
 import IgniteClientLoginPage from './client/IgniteClientLoginPage';
 import IgniteClientSignupPage from './client/IgniteClientSignupPage';
 import IgniteClientPortalPage from './client/IgniteClientPortalPage';
@@ -72,7 +75,27 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
           element={
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
+                <IgniteProposalSelectorPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/proposals/new"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
                 <IgniteCreateProposalWizard />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/proposals/:proposalId"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <IgniteProposalViewerPage />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }
@@ -83,6 +106,16 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
                 <IgniteClientsPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/clients/:clientId"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <IgniteClientViewerPage />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }

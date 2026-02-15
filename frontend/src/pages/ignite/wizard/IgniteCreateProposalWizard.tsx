@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiGet, apiPatch, apiPost } from '../../../lib/api';
 import { IgniteProposalComputed } from '../../../ignite/types/proposals';
 import AssumptionsStep from './AssumptionsStep';
@@ -61,6 +62,9 @@ function buildProposalPayload(state: IgniteWizardState) {
       optionsCount: state.optionsCount,
       quickTemplate: state.quickTemplate || null,
       venuePreset: state.venuePreset || null,
+      workflow: {
+        lastStep: 1,
+      },
     },
     settings_json: {
       igniteFeeRate: Number(state.mgmtFee || 0) / 100,
@@ -120,6 +124,7 @@ function buildCostsSyncPayload(state: IgniteWizardState) {
 }
 
 export default function IgniteCreateProposalWizard() {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<WizardStep>(1);
   const [state, setState] = useState<IgniteWizardState>(DEFAULT_IGNITE_WIZARD_STATE);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
@@ -129,6 +134,10 @@ export default function IgniteCreateProposalWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const resumeProposalId = searchParams.get('proposalId');
+  const preselectedClientId = searchParams.get('clientId');
+  const stepParam = Number(searchParams.get('step') || 1);
 
   const updateState = (patch: Partial<IgniteWizardState>) => {
     setState((prev) => ({ ...prev, ...patch }));
@@ -185,7 +194,11 @@ export default function IgniteCreateProposalWizard() {
     };
   }, []);
 
-  const persistProposal = async (draftState: IgniteWizardState, existingProposalId?: string | null) => {
+  const persistProposal = async (
+    draftState: IgniteWizardState,
+    existingProposalId?: string | null,
+    workflowStep: WizardStep = step
+  ) => {
     const clientIsValid =
       Boolean(draftState.clientId) &&
       isUuid(draftState.clientId) &&
@@ -195,6 +208,10 @@ export default function IgniteCreateProposalWizard() {
     }
 
     const payload = buildProposalPayload(draftState);
+    payload.assumptions_json.workflow = {
+      ...(payload.assumptions_json.workflow || {}),
+      lastStep: workflowStep,
+    };
     let resolvedProposalId = existingProposalId || proposalId;
     if (!resolvedProposalId) {
       const created = await apiPost('/api/ignite/proposals', {
@@ -212,6 +229,119 @@ export default function IgniteCreateProposalWizard() {
     return resolvedProposalId;
   };
 
+  function hydrateStateFromBundle(bundle: any): IgniteWizardState {
+    const proposal = bundle?.proposal || {};
+    const assumptions = (proposal.assumptions_json || {}) as Record<string, any>;
+    const settings = (proposal.settings_json || {}) as Record<string, any>;
+    const event = (assumptions.event || {}) as Record<string, any>;
+    const agreement = (assumptions.agreement || {}) as Record<string, any>;
+    const options = Array.isArray(bundle?.options) ? bundle.options : [];
+    const lineItems = Array.isArray(bundle?.line_items) ? bundle.line_items : [];
+    const optionNumbersById = new Map<string, 1 | 2 | 3>();
+    options.forEach((option: any, index: number) => {
+      const n = Math.min(3, Math.max(1, index + 1)) as 1 | 2 | 3;
+      optionNumbersById.set(String(option.id), n);
+    });
+
+    const rowsByOption: Record<1 | 2 | 3, any[]> = { 1: [], 2: [], 3: [] };
+    lineItems.forEach((item: any) => {
+      const optionNumber = optionNumbersById.get(String(item.option_id || '')) || 1;
+      const metadata = (item.metadata_json || {}) as Record<string, any>;
+      rowsByOption[optionNumber].push({
+        id: String(metadata.client_row_id || item.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+        category: String(item.category || 'Other'),
+        item: String(item.line_name || ''),
+        vendor: String(metadata.vendor || ''),
+        qty: String(item.qty ?? ''),
+        unitCost: String(item.unit_cost ?? ''),
+        service: Boolean(item.apply_service),
+        tax: Boolean(item.apply_tax),
+        display: String(metadata.display || (item.is_hidden_from_client ? 'HIDE' : 'DETAIL')),
+        notes: String(item.description || ''),
+      });
+    });
+
+    return {
+      ...DEFAULT_IGNITE_WIZARD_STATE,
+      clientId: String(proposal.client_id || ''),
+      eventName: String(proposal.name || event.eventName || ''),
+      location: String(event.location || ''),
+      venueAddress: String(event.venueAddress || ''),
+      city: String(event.city || ''),
+      eventDate: String(event.eventDate || ''),
+      startTime: String(event.startTime || ''),
+      endTime: String(event.endTime || ''),
+      headcount: String(event.headcount || ''),
+      primarySponsor: String(event.primarySponsor || ''),
+      coSponsors: Array.isArray(event.coSponsors) ? event.coSponsors.join(', ') : '',
+      eventObjective: String(event.eventObjective || ''),
+      successCriteria: Array.isArray(event.successCriteria) ? event.successCriteria.join('\n') : '',
+      modelType: assumptions.modelType === 'turnkey' ? 'turnkey' : 'cost-plus',
+      optionsCount: [1, 2, 3].includes(Number(assumptions.optionsCount)) ? (Number(assumptions.optionsCount) as 1 | 2 | 3) : (Math.min(3, Math.max(1, options.length || 1)) as 1 | 2 | 3),
+      quickTemplate: String(assumptions.quickTemplate || ''),
+      venuePreset: String(assumptions.venuePreset || ''),
+      serviceCharge: String(assumptions.serviceChargePercent ?? DEFAULT_IGNITE_WIZARD_STATE.serviceCharge),
+      salesTax: String(assumptions.salesTaxPercent ?? DEFAULT_IGNITE_WIZARD_STATE.salesTax),
+      taxAfterService: assumptions.taxAppliesAfterService !== false,
+      mgmtFee: String((Number(settings.igniteFeeRate || 0) * 100) || DEFAULT_IGNITE_WIZARD_STATE.mgmtFee),
+      contingency: String((Number(settings.contingencyRate || 0) * 100) || DEFAULT_IGNITE_WIZARD_STATE.contingency),
+      depositPercent: String(agreement.depositPercent ?? DEFAULT_IGNITE_WIZARD_STATE.depositPercent),
+      depositDueRule: String(agreement.depositDueRule || DEFAULT_IGNITE_WIZARD_STATE.depositDueRule),
+      balanceDueRule: String(agreement.balanceDueRule || DEFAULT_IGNITE_WIZARD_STATE.balanceDueRule),
+      cancellationWindowDays: String(agreement.cancellationWindowDays ?? DEFAULT_IGNITE_WIZARD_STATE.cancellationWindowDays),
+      confidentialityEnabled: agreement.confidentialityEnabled !== false,
+      costSplitNotes: String(agreement.costSplitNotes || ''),
+      signerName: String(agreement.signerName || ''),
+      signerEmail: String(agreement.signerEmail || ''),
+      signerTitle: String(agreement.signerTitle || ''),
+      signerCompany: String(agreement.signerCompany || ''),
+      turnkeyMethod: settings.turnkeyMethod === 'price' ? 'price' : 'margin',
+      targetMargin: String(settings.targetMarginPercent ?? DEFAULT_IGNITE_WIZARD_STATE.targetMargin),
+      targetPrice: String(settings.targetPrice ?? DEFAULT_IGNITE_WIZARD_STATE.targetPrice),
+      saveAsDefault: Boolean(settings.saveAsDefault),
+      buildCosts: {
+        groupPreview: false,
+        rowsByOption: {
+          1: rowsByOption[1].length ? rowsByOption[1] : DEFAULT_IGNITE_WIZARD_STATE.buildCosts.rowsByOption[1],
+          2: rowsByOption[2].length ? rowsByOption[2] : DEFAULT_IGNITE_WIZARD_STATE.buildCosts.rowsByOption[2],
+          3: rowsByOption[3].length ? rowsByOption[3] : DEFAULT_IGNITE_WIZARD_STATE.buildCosts.rowsByOption[3],
+        },
+      },
+    };
+  }
+
+  useEffect(() => {
+    if (!preselectedClientId) return;
+    setState((prev) => ({ ...prev, clientId: preselectedClientId }));
+  }, [preselectedClientId]);
+
+  useEffect(() => {
+    const normalized = Math.min(5, Math.max(1, Number.isFinite(stepParam) ? stepParam : 1)) as WizardStep;
+    setStep(normalized);
+  }, [stepParam]);
+
+  useEffect(() => {
+    if (!resumeProposalId) return;
+    let cancelled = false;
+    const loadProposal = async () => {
+      try {
+        const bundle = await apiGet(`/api/ignite/proposals/${resumeProposalId}`);
+        if (cancelled) return;
+        const nextState = hydrateStateFromBundle(bundle);
+        setState(nextState);
+        setProposalId(String(bundle?.proposal?.id || resumeProposalId));
+        const lastStep = Number(bundle?.proposal?.assumptions_json?.workflow?.lastStep || stepParam || 1);
+        setStep(Math.min(5, Math.max(1, lastStep)) as WizardStep);
+      } catch (e: any) {
+        if (!cancelled) setSaveError(String(e?.message || 'Failed to load proposal draft.'));
+      }
+    };
+    void loadProposal();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeProposalId]);
+
   useEffect(() => {
     const hasMinimumToSave = selectedClientValid;
     if (!hasMinimumToSave) return;
@@ -220,7 +350,7 @@ export default function IgniteCreateProposalWizard() {
       try {
         setIsSaving(true);
         setSaveError(null);
-        await persistProposal(state, proposalId);
+        await persistProposal(state, proposalId, step);
         setLastSavedAt(Date.now());
       } catch (e: any) {
         setSaveError(String(e?.message || 'Failed to autosave.'));
@@ -230,7 +360,7 @@ export default function IgniteCreateProposalWizard() {
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [state, proposalId, selectedClientValid]);
+  }, [state, proposalId, selectedClientValid, step]);
 
   const onSaveDraft = async () => {
     try {
@@ -240,7 +370,7 @@ export default function IgniteCreateProposalWizard() {
       }
       setIsSaving(true);
       setSaveError(null);
-      await persistProposal(state, proposalId);
+      await persistProposal(state, proposalId, step);
       setLastSavedAt(Date.now());
     } catch (e: any) {
       setSaveError(String(e?.message || 'Failed to save draft.'));
@@ -256,7 +386,7 @@ export default function IgniteCreateProposalWizard() {
         return;
       }
       setSaveError(null);
-      const resolvedProposalId = await persistProposal(state, proposalId);
+      const resolvedProposalId = await persistProposal(state, proposalId, step);
       const computeResponse = await apiPost(`/api/ignite/proposals/${resolvedProposalId}/compute`, {});
       setReviewComputed((computeResponse?.client_payload as IgniteProposalComputed) || null);
       setStep(4);

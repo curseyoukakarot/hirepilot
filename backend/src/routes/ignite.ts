@@ -217,6 +217,14 @@ function toNumber(value: any, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function readProposalLastStep(proposal: any): number {
+  const assumptions = (proposal?.assumptions_json || {}) as Record<string, any>;
+  const workflow = (assumptions?.workflow || {}) as Record<string, any>;
+  const value = Number(workflow?.lastStep || 1);
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(5, Math.max(1, Math.floor(value)));
+}
+
 async function resolveActiveShareLinkByToken(token: string) {
   const { data: link, error: linkError } = await supabase
     .from('ignite_share_links')
@@ -946,7 +954,11 @@ router.get('/proposals', async (req: ApiRequest, res: Response) => {
     }
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    return res.json({ proposals: data || [] });
+    const proposals = (data || []).map((proposal: any) => ({
+      ...proposal,
+      last_step: readProposalLastStep(proposal),
+    }));
+    return res.json({ proposals });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_list_proposals' });
   }
@@ -962,10 +974,125 @@ router.get('/proposals/:id', async (req: ApiRequest, res: Response) => {
     if (!assertProposalScopeOr403(ctx, proposal, res)) return;
 
     const bundle = await loadProposalBundle(proposalId);
-    if (ctx.isTeam) return res.json(bundle);
-    return res.json(sanitizeProposalForClient(bundle));
+    const responsePayload = {
+      ...bundle,
+      proposal: {
+        ...(bundle?.proposal || {}),
+        last_step: readProposalLastStep(bundle?.proposal || {}),
+      },
+    };
+    if (ctx.isTeam) return res.json(responsePayload);
+    return res.json(sanitizeProposalForClient(responsePayload));
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_proposal' });
+  }
+});
+
+// POST /ignite/proposals/:id/duplicate
+router.post('/proposals/:id/duplicate', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const bundle = await loadProposalBundle(proposalId);
+    if (!bundle?.proposal) return res.status(404).json({ error: 'proposal_not_found' });
+    if (!assertProposalScopeOr403(ctx, bundle.proposal, res)) return;
+
+    const source = bundle.proposal;
+    const copyName = `${String(source.name || 'Untitled Proposal')} (Copy)`;
+    const { data: newProposal, error: proposalError } = await supabase
+      .from('ignite_proposals')
+      .insert({
+        workspace_id: source.workspace_id,
+        client_id: source.client_id,
+        created_by: ctx.userId,
+        updated_by: ctx.userId,
+        name: copyName,
+        status: 'draft',
+        pricing_mode: source.pricing_mode,
+        currency: source.currency,
+        assumptions_json: source.assumptions_json || {},
+        settings_json: source.settings_json || {},
+        computed_json: source.computed_json || {},
+      })
+      .select('*')
+      .maybeSingle();
+    if (proposalError || !newProposal) return res.status(500).json({ error: proposalError?.message || 'failed_to_duplicate_proposal' });
+
+    if (Array.isArray(bundle.options) && bundle.options.length > 0) {
+      const optionRows = bundle.options.map((option: any) => ({
+        proposal_id: newProposal.id,
+        option_key: option.option_key,
+        label: option.label,
+        sort_order: option.sort_order,
+        is_enabled: option.is_enabled,
+        pricing_mode: option.pricing_mode,
+        package_price: option.package_price,
+        metadata_json: option.metadata_json || {},
+      }));
+      const { data: copiedOptions, error: optionError } = await supabase
+        .from('ignite_proposal_options')
+        .insert(optionRows)
+        .select('id,option_key');
+      if (optionError) return res.status(500).json({ error: optionError.message });
+      const optionIdByKey = new Map<string, string>();
+      for (const row of copiedOptions || []) optionIdByKey.set(String(row.option_key), String(row.id));
+
+      if (Array.isArray(bundle.line_items) && bundle.line_items.length > 0) {
+        const lineRows = bundle.line_items.map((line: any) => {
+          const sourceOption = (bundle.options || []).find((option: any) => String(option.id) === String(line.option_id));
+          const targetOptionId = sourceOption ? optionIdByKey.get(String(sourceOption.option_key)) || null : null;
+          return {
+            proposal_id: newProposal.id,
+            option_id: targetOptionId,
+            category: line.category,
+            line_name: line.line_name,
+            description: line.description,
+            qty: line.qty,
+            unit_cost: line.unit_cost,
+            apply_service: line.apply_service,
+            service_rate: line.service_rate,
+            apply_tax: line.apply_tax,
+            tax_rate: line.tax_rate,
+            tax_applies_after_service: line.tax_applies_after_service,
+            sort_order: line.sort_order,
+            is_hidden_from_client: line.is_hidden_from_client,
+            metadata_json: line.metadata_json || {},
+          };
+        });
+        const { error: lineError } = await supabase.from('ignite_proposal_line_items').insert(lineRows);
+        if (lineError) return res.status(500).json({ error: lineError.message });
+      }
+    }
+
+    return res.status(201).json({ proposal: newProposal });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_duplicate_proposal' });
+  }
+});
+
+// DELETE /ignite/proposals/:id
+router.delete('/proposals/:id', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+
+    const { data, error } = await supabase
+      .from('ignite_proposals')
+      .update({
+        status: 'archived',
+        updated_by: ctx.userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', proposalId)
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ proposal: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_archive_proposal' });
   }
 });
 
@@ -1510,6 +1637,92 @@ router.post('/proposals/:id/export/xlsx', async (req: ApiRequest, res: Response)
   }
 });
 
+// GET /ignite/proposals/:id/pdf
+router.get('/proposals/:id/pdf', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const optionId = req.query.optionId ? String(req.query.optionId) : null;
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built?.computed) return res.status(404).json({ error: 'proposal_not_found' });
+    const html = renderEventProposalPdfHtml({ proposal: built.computed, optionId });
+    const pdfBuffer = await generatePdfFromHtml(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${String(built.computed.eventName || 'proposal').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.pdf"`);
+    return res.send(pdfBuffer);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_generate_pdf' });
+  }
+});
+
+// GET /ignite/proposals/:id/xlsx
+router.get('/proposals/:id/xlsx', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built?.computed) return res.status(404).json({ error: 'proposal_not_found' });
+    const selected = (built.computed.options || []).find((option: any) => option?.isRecommended) || built.computed.options?.[0];
+    const csvLines = [
+      ['Event', built.computed.eventName || ''],
+      ['Client', built.computed.clientName || ''],
+      ['Subtotal', String(selected?.totals?.subtotal || 0)],
+      ['Ignite Fee', String(selected?.totals?.fee || 0)],
+      ['Contingency', String(selected?.totals?.contingency || 0)],
+      ['Total', String(selected?.totals?.total || 0)],
+    ]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${String(built.computed.eventName || 'proposal').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.xlsx"`);
+    return res.send(csvLines);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_generate_xlsx' });
+  }
+});
+
+// POST /ignite/proposals/:id/share-link
+router.post('/proposals/:id/share-link', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+    const token = crypto.randomBytes(24).toString('hex');
+    const { data, error } = await supabase
+      .from('ignite_share_links')
+      .insert({
+        proposal_id: proposalId,
+        client_id: proposal.client_id || null,
+        token,
+        created_by: ctx.userId,
+      })
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json({ share: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_create_share_link' });
+  }
+});
+
+// POST /ignite/proposals/:id/send-email (stub)
+router.post('/proposals/:id/send-email', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  return res.status(202).json({ ok: true, stub: true, message: 'Email sending stub accepted.' });
+});
+
+// POST /ignite/proposals/:id/send-docusign
+router.post('/proposals/:id/send-docusign', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  return res.status(202).json({ ok: true, stub: true, message: 'DocuSign send stub accepted.' });
+});
+
 // GET /ignite/exports
 router.get('/exports', async (req: ApiRequest, res: Response) => {
   try {
@@ -1582,6 +1795,26 @@ router.get('/clients', async (req: ApiRequest, res: Response) => {
   }
 });
 
+// GET /ignite/clients/:clientId
+router.get('/clients/:clientId', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const clientId = String(req.params.clientId || '');
+    let query = supabase.from('ignite_clients').select('*').eq('id', clientId);
+    if (ctx.isTeam) {
+      if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    } else {
+      if (!ctx.clientIds.has(clientId)) return res.status(403).json({ error: 'forbidden' });
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'client_not_found' });
+    return res.json({ client: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_client' });
+  }
+});
+
 // POST /ignite/clients
 router.post('/clients', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
   try {
@@ -1606,6 +1839,89 @@ router.post('/clients', requireIgniteTeam as any, async (req: ApiRequest, res: R
     return res.status(201).json({ client: data });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_create_client' });
+  }
+});
+
+// PATCH /ignite/clients/:clientId
+router.patch('/clients/:clientId', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const clientId = String(req.params.clientId || '');
+    const body = req.body || {};
+    const patch: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    const allowed = ['name', 'legal_name', 'external_ref', 'metadata_json', 'status'];
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) patch[key] = body[key];
+    }
+    let query = supabase
+      .from('ignite_clients')
+      .update(patch)
+      .eq('id', clientId)
+      .select('*');
+    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    const { data, error } = await query.maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'client_not_found' });
+    return res.json({ client: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_update_client' });
+  }
+});
+
+// POST /ignite/clients/:clientId/duplicate
+router.post('/clients/:clientId/duplicate', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const clientId = String(req.params.clientId || '');
+    let sourceQuery = supabase
+      .from('ignite_clients')
+      .select('*')
+      .eq('id', clientId);
+    if (ctx.workspaceId) sourceQuery = sourceQuery.eq('workspace_id', ctx.workspaceId);
+    const { data: source, error: sourceError } = await sourceQuery.maybeSingle();
+    if (sourceError) return res.status(500).json({ error: sourceError.message });
+    if (!source) return res.status(404).json({ error: 'client_not_found' });
+    const { data, error } = await supabase
+      .from('ignite_clients')
+      .insert({
+        workspace_id: ctx.workspaceId,
+        name: `${String(source.name || 'Client')} (Copy)`,
+        legal_name: source.legal_name || null,
+        external_ref: source.external_ref || null,
+        metadata_json: source.metadata_json || {},
+        created_by: ctx.userId,
+      })
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json({ client: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_duplicate_client' });
+  }
+});
+
+// DELETE /ignite/clients/:clientId
+router.delete('/clients/:clientId', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const clientId = String(req.params.clientId || '');
+    let query = supabase
+      .from('ignite_clients')
+      .update({
+        status: 'inactive',
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('id', clientId)
+      .select('*');
+    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    const { data, error } = await query.maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'client_not_found' });
+    return res.json({ client: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_delete_client' });
   }
 });
 
