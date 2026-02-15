@@ -215,31 +215,42 @@ function toNumber(value: any, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+async function resolveActiveShareLinkByToken(token: string) {
+  const { data: link, error: linkError } = await supabase
+    .from('ignite_share_links')
+    .select('*')
+    .eq('token', token)
+    .is('revoked_at', null)
+    .maybeSingle();
+  if (linkError) throw new Error(linkError.message);
+  if (!link) return { link: null, reason: 'share_not_found' as const };
+
+  const expiresAt = link.expires_at ? new Date(link.expires_at).getTime() : null;
+  if (expiresAt && expiresAt < Date.now()) {
+    return { link: null, reason: 'share_expired' as const };
+  }
+  const maxAccessCount = toNumber(link.max_access_count, 0);
+  const accessCount = toNumber(link.access_count, 0);
+  if (maxAccessCount > 0 && accessCount >= maxAccessCount) {
+    return { link: null, reason: 'share_limit_reached' as const };
+  }
+
+  return { link, reason: null };
+}
+
 
 // Public share-link resolver (token gated, no auth)
 router.get('/share/:token', async (req: Request, res: Response) => {
   try {
     const token = String(req.params.token || '').trim();
     if (!token) return res.status(400).json({ error: 'token_required' });
-
-    const { data: link, error: linkError } = await supabase
-      .from('ignite_share_links')
-      .select('*')
-      .eq('token', token)
-      .is('revoked_at', null)
-      .maybeSingle();
-    if (linkError) return res.status(500).json({ error: linkError.message });
-    if (!link) return res.status(404).json({ error: 'share_not_found' });
-
-    const expiresAt = link.expires_at ? new Date(link.expires_at).getTime() : null;
-    if (expiresAt && expiresAt < Date.now()) {
-      return res.status(410).json({ error: 'share_expired' });
+    const resolved = await resolveActiveShareLinkByToken(token);
+    if (!resolved.link) {
+      if (resolved.reason === 'share_not_found') return res.status(404).json({ error: resolved.reason });
+      return res.status(410).json({ error: resolved.reason });
     }
-    const maxAccessCount = toNumber(link.max_access_count, 0);
+    const link = resolved.link;
     const accessCount = toNumber(link.access_count, 0);
-    if (maxAccessCount > 0 && accessCount >= maxAccessCount) {
-      return res.status(410).json({ error: 'share_limit_reached' });
-    }
 
     const built = await buildComputedPayloadForProposal(String(link.proposal_id));
     if (!built?.bundle?.proposal) return res.status(404).json({ error: 'proposal_not_found' });
@@ -266,6 +277,46 @@ router.get('/share/:token', async (req: Request, res: Response) => {
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_share' });
+  }
+});
+
+// Public share-link PDF resolver (token gated, no auth)
+router.get('/share/:token/pdf', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'token_required' });
+    const optionId = req.query.optionId ? String(req.query.optionId) : null;
+
+    const resolved = await resolveActiveShareLinkByToken(token);
+    if (!resolved.link) {
+      if (resolved.reason === 'share_not_found') return res.status(404).json({ error: resolved.reason });
+      return res.status(410).json({ error: resolved.reason });
+    }
+    const link = resolved.link;
+    const accessCount = toNumber(link.access_count, 0);
+
+    const built = await buildComputedPayloadForProposal(String(link.proposal_id));
+    if (!built?.computed) return res.status(404).json({ error: 'proposal_not_found' });
+
+    const html = renderEventProposalPdfHtml({ proposal: built.computed, optionId });
+    const pdfBuffer = await generatePdfFromHtml(html);
+    const fileName = `${String(built.computed.eventName || 'proposal')
+      .replace(/[^a-z0-9]+/gi, '_')
+      .toLowerCase()}_${optionId || 'recommended'}.pdf`;
+
+    await supabase
+      .from('ignite_share_links')
+      .update({
+        access_count: accessCount + 1,
+        last_accessed_at: new Date().toISOString()
+      })
+      .eq('id', link.id);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(pdfBuffer);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_generate_shared_pdf' });
   }
 });
 
@@ -779,6 +830,27 @@ async function createExportRecord(
   return data;
 }
 
+async function createShareLinkTokenForProposal(
+  proposalId: string,
+  clientId: string | null,
+  createdBy: string
+) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const { data, error } = await supabase
+    .from('ignite_share_links')
+    .insert({
+      proposal_id: proposalId,
+      client_id: clientId,
+      token,
+      created_by: createdBy
+    })
+    .select('token')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.token) throw new Error('failed_to_create_share_token');
+  return String(data.token);
+}
+
 // POST /ignite/proposals/:id/export/pdf
 router.post('/proposals/:id/export/pdf', async (req: ApiRequest, res: Response) => {
   try {
@@ -795,7 +867,14 @@ router.post('/proposals/:id/export/pdf', async (req: ApiRequest, res: Response) 
     const backendBase = String(
       process.env.BACKEND_PUBLIC_URL || process.env.APP_URL || req.headers.origin || inferredBase
     ).replace(/\/$/, '');
-    const relativePath = `/api/ignite/client/proposals/${proposalId}/pdf${optionId ? `?optionId=${encodeURIComponent(optionId)}` : ''}`;
+    const shareToken = await createShareLinkTokenForProposal(
+      proposalId,
+      proposal.client_id ? String(proposal.client_id) : null,
+      createdBy
+    );
+    const relativePath = `/api/ignite/share/${shareToken}/pdf${
+      optionId ? `?optionId=${encodeURIComponent(optionId)}` : ''
+    }`;
     const fileUrl = backendBase ? `${backendBase}${relativePath}` : relativePath;
     const exportRow = await createExportRecord(proposalId, 'pdf', exportView, createdBy, {
       status: 'completed',

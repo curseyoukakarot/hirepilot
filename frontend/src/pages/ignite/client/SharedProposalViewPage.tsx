@@ -44,5 +44,10 @@ export default function SharedProposalViewPage() {
     );
   }
 
-  return <EventProposalLandingTemplate proposal={proposal} />;
+  const downloadPdf = (optionId: string) => {
+    const suffix = optionId ? `?optionId=${encodeURIComponent(optionId)}` : '';
+    window.open(`/api/ignite/share/${token}/pdf${suffix}`, '_blank', 'noopener,noreferrer');
+  };
+
+  return <EventProposalLandingTemplate proposal={proposal} onDownloadPdf={downloadPdf} />;
 }
