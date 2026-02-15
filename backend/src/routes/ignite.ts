@@ -194,16 +194,12 @@ async function getClientName(clientId: string): Promise<string | null> {
 async function buildComputedPayloadForProposal(proposalId: string) {
   const bundle = await loadProposalBundle(proposalId);
   if (!bundle?.proposal) return null;
-  const existingPayload = bundle.proposal?.computed_json?.client_payload;
-  if (existingPayload && Array.isArray(existingPayload?.options)) {
-    return {
-      computed: existingPayload,
-      bundle,
-    };
-  }
+  // Always compute from current options/line items to avoid stale or missing totals
+  // in client/share views when computed_json has not been refreshed recently.
+  const computedJson = computeProposal(bundle.proposal, bundle.options || [], bundle.line_items || []);
   const clientName = await getClientName(String(bundle.proposal.client_id || ''));
   const computed = buildComputedProposal({
-    proposal: bundle.proposal,
+    proposal: { ...bundle.proposal, computed_json: computedJson },
     clientName,
     options: bundle.options || [],
     lineItems: bundle.line_items || [],

@@ -23,6 +23,12 @@ function asArray<T = any>(value: any): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeRate(value: any): number {
+  const raw = asNumber(value, 0);
+  if (raw <= 0) return 0;
+  return raw > 1 ? raw / 100 : raw;
+}
+
 function normalizeModelType(value: any): 'cost_plus' | 'turnkey' {
   return asString(value).toLowerCase() === 'turnkey' ? 'turnkey' : 'cost_plus';
 }
@@ -75,6 +81,8 @@ export function buildComputedProposal(args: BuildComputedProposalArgs): IgnitePr
   const perOption = asArray(computedJson.per_option);
   const settings = (proposal.settings_json || {}) as JsonMap;
   const metadata = (proposal.metadata_json || {}) as JsonMap;
+  const igniteFeeRate = normalizeRate(settings.igniteFeeRate ?? settings.ignite_fee_rate);
+  const contingencyRate = normalizeRate(settings.contingencyRate ?? settings.contingency_rate);
 
   const modelType = normalizeModelType(proposal.pricing_mode || proposal.model_type);
   const showLineItems =
@@ -90,15 +98,24 @@ export function buildComputedProposal(args: BuildComputedProposalArgs): IgnitePr
       (item: any) => asString(item?.option_id) === optionId
     );
 
-    const fallbackSubtotal = optionItems.reduce((sum: number, item: any) => {
+    const fallbackLineTotal = (item: any): number => {
       const qty = asNumber(item?.qty, 0);
       const unitCost = asNumber(item?.unit_cost, 0);
-      return sum + qty * unitCost;
+      const base = qty * unitCost;
+      const serviceRate = item?.apply_service ? normalizeRate(item?.service_rate) : 0;
+      const taxRate = item?.apply_tax ? normalizeRate(item?.tax_rate) : 0;
+      const taxAfterService = item?.tax_applies_after_service !== false;
+      if (taxAfterService) return base * (1 + serviceRate) * (1 + taxRate);
+      return base * (1 + taxRate) * (1 + serviceRate);
+    };
+
+    const fallbackSubtotal = optionItems.reduce((sum: number, item: any) => {
+      return sum + fallbackLineTotal(item);
     }, 0);
 
     const subtotal = asNumber(optionComputed?.subtotal, fallbackSubtotal);
-    const fee = asNumber(optionComputed?.ignite_fee, 0);
-    const contingency = asNumber(optionComputed?.contingency, 0);
+    const fee = asNumber(optionComputed?.ignite_fee, subtotal * igniteFeeRate);
+    const contingency = asNumber(optionComputed?.contingency, subtotal * contingencyRate);
     const total = asNumber(optionComputed?.total_investment, subtotal + fee + contingency);
 
     const breakdownObject = (optionComputed?.category_breakdown || {}) as JsonMap;
@@ -113,7 +130,7 @@ export function buildComputedProposal(args: BuildComputedProposalArgs): IgnitePr
 
     const lineItems = optionItems.map((item: any) => {
       const computed = computedLineItemsById.get(asString(item?.id)) || {};
-      const fallbackAmount = asNumber(item?.qty, 0) * asNumber(item?.unit_cost, 0);
+      const fallbackAmount = fallbackLineTotal(item);
       const metadataJson = (item?.metadata_json || {}) as JsonMap;
       return {
         id: item?.id ? asString(item.id) : null,
