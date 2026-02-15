@@ -145,9 +145,10 @@ export default function IgniteProposalSelectorPage() {
         ? 'bg-green-500/10 border-green-500/20 text-green-400'
         : status === 'sent'
         ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-        : status === 'final'
+        : status === 'final' || status === 'shared'
         ? 'bg-purple-500/10 border-purple-500/20 text-purple-400'
         : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400';
+    const statusLabel = status === 'shared' ? 'final' : status;
 
     return (
       <article
@@ -157,7 +158,7 @@ export default function IgniteProposalSelectorPage() {
       >
         <div className="mb-4 flex items-start justify-between">
           <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusClass}`}>
-            {status}
+            {statusLabel}
           </span>
           <div className="relative">
             <button

@@ -39,6 +39,14 @@ function normalizeRole(value: any): string {
   return String(value || '').toLowerCase().replace(/[\s-]/g, '_');
 }
 
+function normalizeProposalStatus(value: any): string | null {
+  const status = normalizeRole(value);
+  if (!status) return null;
+  const mapped = status === 'final' || status === 'sent' || status === 'approved' ? 'shared' : status;
+  const allowed = new Set(['draft', 'internal_review', 'client_preview', 'shared', 'archived']);
+  return allowed.has(mapped) ? mapped : null;
+}
+
 function getUserId(req: ApiRequest): string | null {
   const value = (req as any)?.user?.id || req.headers['x-user-id'];
   return value ? String(value) : null;
@@ -1136,7 +1144,13 @@ router.patch('/proposals/:id', requireIgniteTeam as any, async (req: ApiRequest,
     ];
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
-        patch[key] = body[key];
+        if (key === 'status') {
+          const normalizedStatus = normalizeProposalStatus(body[key]);
+          if (!normalizedStatus) return res.status(400).json({ error: 'invalid_status' });
+          patch[key] = normalizedStatus;
+        } else {
+          patch[key] = body[key];
+        }
       }
     }
 

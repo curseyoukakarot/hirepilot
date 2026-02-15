@@ -204,11 +204,12 @@ export default function IgniteClientPortalPage() {
                 const hasNewVersion = Number(proposal.current_version || 1) > 1;
                 const status = String(proposal.status || 'draft');
                 const statusClass =
-                  status === 'final'
+                  status === 'final' || status === 'shared'
                     ? 'bg-green-100 text-green-800'
                     : status === 'draft'
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'bg-slate-100 text-slate-800';
+                const statusLabel = status === 'shared' ? 'final' : status;
 
                 return (
                   <div
@@ -223,7 +224,7 @@ export default function IgniteClientPortalPage() {
                       </div>
                       <div className="flex flex-col items-end space-y-2">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}>
-                          {status}
+                          {statusLabel}
                         </span>
                         {hasNewVersion && (
                           <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">

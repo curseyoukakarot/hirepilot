@@ -182,10 +182,11 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
   const markAsFinal = async () => {
     try {
       if (!proposalId) throw new Error('Save this proposal before marking final.');
-      if (String(proposalStatus || '').toLowerCase() === 'final') return;
+      const normalizedStatus = String(proposalStatus || '').toLowerCase();
+      if (normalizedStatus === 'final' || normalizedStatus === 'shared') return;
       setError(null);
       setFinalizeBusy(true);
-      await apiPatch(`/api/ignite/proposals/${proposalId}`, { status: 'final' });
+      await apiPatch(`/api/ignite/proposals/${proposalId}`, { status: 'shared' });
       await loadHistory();
     } catch (e: any) {
       setError(String(e?.message || 'Failed to mark proposal as final.'));
@@ -457,11 +458,11 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
           <button
             type="button"
             onClick={markAsFinal}
-            disabled={finalizeBusy || String(proposalStatus || '').toLowerCase() === 'final'}
+            disabled={finalizeBusy || ['final', 'shared'].includes(String(proposalStatus || '').toLowerCase())}
             className="rounded-lg bg-emerald-500 px-6 py-2 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <i className="fa-solid fa-check mr-2" />
-            {String(proposalStatus || '').toLowerCase() === 'final'
+            {['final', 'shared'].includes(String(proposalStatus || '').toLowerCase())
               ? 'Already Final'
               : finalizeBusy
               ? 'Marking...'
