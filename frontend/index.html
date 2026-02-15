@@ -142,6 +142,10 @@
     </div>
     <script>
       (function() {
+        var host = (window.location && window.location.hostname) || '';
+        // Disable the legacy support-chat polling widget inside Ignite host pages.
+        if (host === 'clients.ignitegtm.com' || host.endsWith('.ignitegtm.com')) return;
+
         var faqPanel = document.getElementById('faq-panel');
         var liveChatPanel = document.getElementById('live-chat-panel');
         var popupToggle = document.getElementById('rex-popup-toggle');
@@ -217,7 +221,8 @@
         function getApiBase(){
           try {
             var flags = (window.__REX_FLAGS__) || {};
-            var apiBase = flags.apiBaseUrl || (window).VITE_BACKEND_URL || (location.origin.indexOf('thehirepilot.com') > -1 ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
+            var isProdWeb = location.origin.indexOf('thehirepilot.com') > -1 || location.origin.indexOf('ignitegtm.com') > -1;
+            var apiBase = flags.apiBaseUrl || (window).VITE_BACKEND_URL || (isProdWeb ? 'https://api.thehirepilot.com' : 'http://localhost:8080');
             return apiBase.endsWith('/api') ? apiBase : (apiBase + '/api');
           } catch (_) { return '/api'; }
         }
