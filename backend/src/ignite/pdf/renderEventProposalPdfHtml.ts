@@ -82,12 +82,13 @@ export function renderEventProposalPdfHtml(args: {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>IgniteGTM - Event Proposal (PDF)</title>
   <style>
-    @page { size: Letter; margin: 1.4in 0.75in 1in 0.75in; }
+    @page { size: Letter; margin: 1.9in 0.75in 1in 0.75in; }
     :root{ --ink:#0b1220; --muted:#4b5563; --line:#e5e7eb; --soft:#f6f7fb; --brand:#4f46e5; }
     * { box-sizing: border-box; }
     body { margin:0; color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; font-size:12px; line-height:1.4; print-color-adjust:exact; background:#fff; }
-    header { position:fixed; top:0; left:0; right:0; height:1in; border-bottom:1px solid var(--line); padding:0.25in 0 0.15in 0; background:#fff; }
+    header { position:fixed; top:0; left:0; right:0; height:1.25in; border-bottom:1px solid var(--line); padding:0.28in 0 0.16in 0; background:#fff; }
     footer { position:fixed; bottom:0; left:0; right:0; height:0.75in; border-top:1px solid var(--line); padding:0.15in 0 0.2in 0; color:var(--muted); font-size:10px; background:#fff; }
+    main { padding-top: 0.08in; }
     .header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
     .brand-left{display:flex;align-items:center;gap:12px;}
     .logo{height:32px;width:auto;display:block;}
