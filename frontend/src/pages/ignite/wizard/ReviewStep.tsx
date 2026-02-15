@@ -19,16 +19,16 @@ function Accordion({
 }) {
   const [open, setOpen] = React.useState(false);
   return (
-    <div className="rounded-lg border border-gray-200">
+    <div className="rounded-lg border border-slate-700/70 bg-slate-950/35">
       <button
         type="button"
-        className="flex w-full items-center justify-between px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50"
+        className="flex w-full items-center justify-between px-4 py-3 text-left font-medium text-slate-100 hover:bg-slate-800/50"
         onClick={() => setOpen((v) => !v)}
       >
         <span>{title}</span>
-        <i className={`fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'} text-gray-400`} />
+        <i className={`fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400`} />
       </button>
-      {open && <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-600">{children}</div>}
+      {open && <div className="border-t border-slate-700/70 px-4 py-3 text-sm text-slate-300">{children}</div>}
     </div>
   );
 }
@@ -212,21 +212,21 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
   }, [previewLineItems]);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900">Step 4: Review</h2>
-        <p className="mt-1 text-gray-600">Review internal calculations and client presentation</p>
+    <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 shadow-lg shadow-black/20">
+      <div className="border-b border-slate-700/70 p-6">
+        <h2 className="text-xl font-semibold text-slate-100">Step 4: Review</h2>
+        <p className="mt-1 text-slate-300">Review internal calculations and client presentation</p>
       </div>
 
-      <div className="border-b border-gray-200">
+      <div className="border-b border-slate-700/70">
         <div className="flex">
           <button
             type="button"
             onClick={() => setTab('internal')}
             className={`px-6 py-4 text-sm font-medium ${
               tab === 'internal'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-indigo-500 text-indigo-300'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <i className="fa-solid fa-calculator mr-2" />
@@ -237,8 +237,8 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
             onClick={() => setTab('client')}
             className={`px-6 py-4 text-sm font-medium ${
               tab === 'client'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-indigo-500 text-indigo-300'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <i className="fa-solid fa-file-invoice mr-2" />
@@ -250,52 +250,52 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
       {tab === 'internal' ? (
         <div className="p-6">
           <div className="mb-8 grid grid-cols-4 gap-4">
-            <div className="rounded-lg bg-blue-50 p-4">
-              <div className="mb-1 text-sm font-medium text-blue-600">Total Investment</div>
-              <div className="text-2xl font-bold text-blue-700">{formatMoney(totals.total)}</div>
+            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/15 p-4">
+              <div className="mb-1 text-sm font-medium text-indigo-200">Total Investment</div>
+              <div className="text-2xl font-bold text-indigo-100">{formatMoney(totals.total)}</div>
             </div>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <div className="mb-1 text-sm font-medium text-gray-600">Costs Subtotal</div>
-              <div className="text-2xl font-bold text-gray-900">{formatMoney(totals.subtotal)}</div>
+            <div className="rounded-lg border border-violet-500/30 bg-violet-500/15 p-4">
+              <div className="mb-1 text-sm font-medium text-violet-200">Costs Subtotal</div>
+              <div className="text-2xl font-bold text-violet-100">{formatMoney(totals.subtotal)}</div>
             </div>
-            <div className="rounded-lg bg-green-50 p-4">
-              <div className="mb-1 text-sm font-medium text-green-600">Ignite Fee ({toNumber(state.mgmtFee)}%)</div>
-              <div className="text-2xl font-bold text-green-700">{formatMoney(totals.fee)}</div>
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 p-4">
+              <div className="mb-1 text-sm font-medium text-emerald-200">Ignite Fee ({toNumber(state.mgmtFee)}%)</div>
+              <div className="text-2xl font-bold text-emerald-100">{formatMoney(totals.fee)}</div>
             </div>
-            <div className="rounded-lg bg-purple-50 p-4">
-              <div className="mb-1 text-sm font-medium text-purple-600">Contingency ({toNumber(state.contingency)}%)</div>
-              <div className="text-2xl font-bold text-purple-700">{formatMoney(totals.contingency)}</div>
+            <div className="rounded-lg border border-purple-500/30 bg-purple-500/15 p-4">
+              <div className="mb-1 text-sm font-medium text-purple-200">Contingency ({toNumber(state.contingency)}%)</div>
+              <div className="text-2xl font-bold text-purple-100">{formatMoney(totals.contingency)}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <h3 className="mb-4 text-lg font-semibold text-gray-900">Category Breakdown</h3>
+              <h3 className="mb-4 text-lg font-semibold text-slate-100">Category Breakdown</h3>
               <div className="space-y-3">
                 {breakdown.map((row, index) => (
-                  <div key={row.categoryName} className="flex items-center justify-between border-b border-gray-100 py-3">
+                  <div key={row.categoryName} className="flex items-center justify-between border-b border-slate-700/60 py-3">
                     <div className="flex items-center space-x-3">
                       <div className={`h-3 w-3 rounded-full ${COLOR_DOTS[index % COLOR_DOTS.length]}`} />
-                      <span className="font-medium text-gray-900">{row.categoryName}</span>
+                      <span className="font-medium text-slate-100">{row.categoryName}</span>
                     </div>
-                    <span className="font-semibold text-gray-900">{formatMoney(row.amount)}</span>
+                    <span className="font-semibold text-slate-100">{formatMoney(row.amount)}</span>
                   </div>
                 ))}
                 {!breakdown.length && (
-                  <div className="py-3 text-sm text-gray-500">No line items available yet.</div>
+                  <div className="py-3 text-sm text-slate-400">No line items available yet.</div>
                 )}
               </div>
             </div>
 
             <div>
-              <h3 className="mb-4 text-lg font-semibold text-gray-900">Audit</h3>
+              <h3 className="mb-4 text-lg font-semibold text-slate-100">Audit</h3>
               <div className="space-y-4">
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                <div className="rounded-lg border border-amber-400/40 bg-amber-300/15 p-4">
                   <div className="mb-2 flex items-center space-x-2">
-                    <i className="fa-solid fa-exclamation-triangle text-yellow-600" />
-                    <span className="font-medium text-yellow-800">Warnings</span>
+                    <i className="fa-solid fa-exclamation-triangle text-amber-300" />
+                    <span className="font-medium text-amber-200">Warnings</span>
                   </div>
-                  <ul className="space-y-1 text-sm text-yellow-700">
+                  <ul className="space-y-1 text-sm text-amber-100">
                     {warnings.length ? (
                       warnings.map((warning) => <li key={warning}>• {warning}</li>)
                     ) : (
@@ -336,10 +336,10 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
       ) : (
         <div className="p-6">
           <div className="mx-auto max-w-2xl">
-            <div className="mb-6 rounded-lg bg-gray-50 p-6">
+            <div className="mb-6 rounded-lg border border-slate-700/70 bg-slate-900/55 p-6">
               <div className="mb-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900">{eventTitle}</h3>
-                <p className="mt-1 text-gray-600">
+                <h3 className="text-xl font-bold text-slate-100">{eventTitle}</h3>
+                <p className="mt-1 text-slate-300">
                   {eventClientName} • {formatDate(eventDate)} • {eventHeadcount || 0} guests
                 </p>
               </div>
@@ -347,37 +347,37 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
 
             <div className="space-y-6">
               {groupedPreviewItems.map(([category, items]) => (
-                <div key={category} className="border-b border-gray-200 pb-4">
-                  <h4 className="mb-3 font-semibold text-gray-900">{category}</h4>
+                <div key={category} className="border-b border-slate-700/60 pb-4">
+                  <h4 className="mb-3 font-semibold text-slate-100">{category}</h4>
                   <div className="space-y-2">
                     {items.map((item) => (
                       <div key={`${category}-${item.id || item.name}`} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{item.name}</span>
-                        <span className="font-medium">{formatMoney(item.amount)}</span>
+                        <span className="text-slate-300">{item.name}</span>
+                        <span className="font-medium text-slate-100">{formatMoney(item.amount)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
-              <div className="border-b border-gray-200 pb-4">
+              <div className="border-b border-slate-700/60 pb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700">Subtotal</span>
-                  <span className="font-medium">{formatMoney(totals.subtotal)}</span>
+                  <span className="font-medium text-slate-300">Subtotal</span>
+                  <span className="font-medium text-slate-100">{formatMoney(totals.subtotal)}</span>
                 </div>
               </div>
-              <div className="border-b border-gray-200 pb-4">
+              <div className="border-b border-slate-700/60 pb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700">Ignite Management Fee ({toNumber(state.mgmtFee)}%)</span>
-                  <span className="font-medium">{formatMoney(totals.fee)}</span>
+                  <span className="font-medium text-slate-300">Ignite Management Fee ({toNumber(state.mgmtFee)}%)</span>
+                  <span className="font-medium text-slate-100">{formatMoney(totals.fee)}</span>
                 </div>
               </div>
-              <div className="rounded-lg bg-blue-50 p-4">
+              <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/15 p-4">
                 <div className="flex justify-between">
-                  <span className="text-lg font-bold text-blue-900">Total Investment</span>
-                  <span className="text-lg font-bold text-blue-900">{formatMoney(totals.total)}</span>
+                  <span className="text-lg font-bold text-indigo-100">Total Investment</span>
+                  <span className="text-lg font-bold text-indigo-100">{formatMoney(totals.total)}</span>
                 </div>
               </div>
-              <div className="mt-6 text-xs text-gray-500">
+              <div className="mt-6 text-xs text-slate-400">
                 <p>
                   This proposal is valid for 30 days. All prices include applicable taxes and service
                   charges.
@@ -388,17 +388,17 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 p-6">
+      <div className="flex items-center justify-between border-t border-slate-700/70 bg-slate-900/45 p-6">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-gray-300 px-6 py-2 text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-slate-600/80 px-6 py-2 text-slate-300 hover:bg-slate-800/70"
         >
           <i className="fa-solid fa-arrow-left mr-2" />
           Back to Build Costs
         </button>
         <div className="flex items-center space-x-3">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-slate-300">
             <i className="fa-solid fa-check-circle mr-1 text-green-500" />
             Ready to export
           </div>
