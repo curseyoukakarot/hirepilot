@@ -52,8 +52,8 @@ export default function IgniteExportsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="rounded-xl border border-slate-200 bg-white px-4 py-5 shadow-sm sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Export Center</h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -96,8 +96,8 @@ export default function IgniteExportsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-3 text-left">Proposal</th>

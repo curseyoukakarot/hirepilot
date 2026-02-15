@@ -44,7 +44,7 @@ export default function IgniteClientSignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-center gap-2">
           <img
             src="https://images.squarespace-cdn.com/content/v1/63e9b6d2e579fc1e26b444a1/b21b0d24-3b10-49a6-8df0-4d13b9ab3e3c/Scratchpad+2025.png?format=1500w"
@@ -59,7 +59,7 @@ export default function IgniteClientSignupPage() {
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">First Name</label>
               <input

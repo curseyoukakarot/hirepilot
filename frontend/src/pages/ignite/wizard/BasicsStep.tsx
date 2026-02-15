@@ -18,10 +18,10 @@ const QUICK_TEMPLATES = [
 export default function BasicsStep({ state, clients, clientsLoading = false, onChange, onNext }: BasicsStepProps) {
   return (
     <div className="max-w-4xl">
-      <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-8">
         <h2 className="mb-6 text-xl font-semibold text-gray-900">Step 1: Event Basics</h2>
 
-        <div className="grid grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div className="space-y-6">
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Client</label>
@@ -116,7 +116,7 @@ export default function BasicsStep({ state, clients, clientsLoading = false, onC
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Number of Options</label>
-              <div className="flex items-center space-x-6">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 {[1, 2, 3].map((count) => (
                   <label key={count} className="flex items-center">
                     <input
@@ -156,7 +156,7 @@ export default function BasicsStep({ state, clients, clientsLoading = false, onC
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
+        <div className="mt-8 flex flex-col-reverse items-stretch justify-between gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center">
           <button
             type="button"
             disabled

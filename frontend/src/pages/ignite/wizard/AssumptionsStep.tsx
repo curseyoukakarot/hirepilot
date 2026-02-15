@@ -40,10 +40,10 @@ export default function AssumptionsStep({ state, onChange, onBack, onNext }: Ass
 
   return (
     <div className="max-w-6xl">
-      <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-8">
         <h2 className="mb-6 text-xl font-semibold text-gray-900">Step 2: Assumptions & Pricing Structure</h2>
 
-        <div className="grid grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
           <div className="space-y-6">
             <div className="border-b border-gray-200 pb-4">
               <h3 className="text-lg font-semibold text-gray-900">Venue & Fee Assumptions</h3>
@@ -106,7 +106,7 @@ export default function AssumptionsStep({ state, onChange, onBack, onNext }: Ass
               <p className="mt-1.5 text-xs text-gray-500">NYC: 8.875% | CA: 7.25-10.25%</p>
             </div>
 
-            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 p-4">
               <div>
                 <label className="text-sm font-medium text-gray-700">Tax applies after service</label>
                 <p className="mt-0.5 text-xs text-gray-500">Standard calculation method</p>
@@ -279,7 +279,7 @@ export default function AssumptionsStep({ state, onChange, onBack, onNext }: Ass
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
+        <div className="mt-8 flex flex-col-reverse items-stretch justify-between gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={onBack}

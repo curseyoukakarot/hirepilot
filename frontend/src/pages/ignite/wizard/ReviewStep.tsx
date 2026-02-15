@@ -219,7 +219,7 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
       </div>
 
       <div className="border-b border-slate-700/70">
-        <div className="flex">
+        <div className="flex overflow-x-auto">
           <button
             type="button"
             onClick={() => setTab('internal')}
@@ -248,8 +248,8 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
       </div>
 
       {tab === 'internal' ? (
-        <div className="p-6">
-          <div className="mb-8 grid grid-cols-4 gap-4">
+        <div className="p-4 sm:p-6">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/15 p-4">
               <div className="mb-1 text-sm font-medium text-indigo-200">Total Investment</div>
               <div className="text-2xl font-bold text-indigo-100">{formatMoney(totals.total)}</div>
@@ -268,7 +268,7 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
             <div>
               <h3 className="mb-4 text-lg font-semibold text-slate-100">Category Breakdown</h3>
               <div className="space-y-3">
@@ -334,7 +334,7 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
           </div>
         </div>
       ) : (
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="mx-auto max-w-2xl">
             <div className="mb-6 rounded-lg border border-slate-700/70 bg-slate-900/55 p-6">
               <div className="mb-6 text-center">
@@ -388,7 +388,7 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-slate-700/70 bg-slate-900/45 p-6">
+      <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-slate-700/70 bg-slate-900/45 p-4 sm:flex-row sm:items-center sm:p-6">
         <button
           type="button"
           onClick={onBack}
@@ -397,7 +397,7 @@ export default function ReviewStep({ onBack, onNext, computed, state, clientName
           <i className="fa-solid fa-arrow-left mr-2" />
           Back to Build Costs
         </button>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm text-slate-300">
             <i className="fa-solid fa-check-circle mr-1 text-green-500" />
             Ready to export

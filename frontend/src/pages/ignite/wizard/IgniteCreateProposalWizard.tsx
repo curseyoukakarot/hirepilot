@@ -242,15 +242,15 @@ export default function IgniteCreateProposalWizard() {
 
   return (
     <div>
-      <header className="border-b border-gray-200 bg-white px-8 py-4">
-        <div className="flex items-center justify-between">
+      <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Create Proposal</h1>
-            <p className="mt-1 text-gray-600">
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Create Proposal</h1>
+            <p className="mt-1 text-sm text-gray-600 sm:text-base">
               Build professional event proposals with standardized workflows
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {lastSavedAt && !isSaving && (
               <div className="text-xs text-gray-500">
                 <i className="fa-solid fa-check-circle mr-1 text-green-500" />
@@ -261,7 +261,7 @@ export default function IgniteCreateProposalWizard() {
             <button
               type="button"
               onClick={onSaveDraft}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 sm:px-4"
             >
               <i className="fa-solid fa-save mr-2" />
               Save Draft
@@ -269,7 +269,7 @@ export default function IgniteCreateProposalWizard() {
             <button
               type="button"
               onClick={onPreview}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 sm:px-4"
             >
               <i className="fa-solid fa-eye mr-2" />
               Preview
@@ -279,8 +279,8 @@ export default function IgniteCreateProposalWizard() {
         {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
       </header>
 
-      <div className="border-b border-gray-200 bg-white px-8 py-4">
-        <div className="flex items-center space-x-8">
+      <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-4 overflow-x-auto pb-1 sm:gap-8">
           {([1, 2, 3, 4, 5] as WizardStep[]).map((s, idx) => {
             const done = s < step && stepCompletion[s];
             const active = s === step;
@@ -290,7 +290,7 @@ export default function IgniteCreateProposalWizard() {
                   type="button"
                   data-step={s}
                   onClick={() => setStep(s)}
-                  className="flex items-center space-x-2"
+                  className="flex shrink-0 items-center space-x-2"
                 >
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
@@ -303,18 +303,18 @@ export default function IgniteCreateProposalWizard() {
                   >
                     {done ? <i className="fa-solid fa-check text-xs" /> : s}
                   </div>
-                  <span className={`${active ? 'font-medium text-blue-600' : 'text-gray-600'}`}>
+                  <span className={`${active ? 'font-medium text-blue-600' : 'text-gray-600'} hidden sm:inline`}>
                     {STEP_LABELS[s]}
                   </span>
                 </button>
-                {idx < 4 && <div className="h-px w-8 bg-gray-300" />}
+                {idx < 4 && <div className="h-px w-4 bg-gray-300 sm:w-8" />}
               </React.Fragment>
             );
           })}
         </div>
       </div>
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         {step === 1 && (
           <BasicsStep
             state={state}

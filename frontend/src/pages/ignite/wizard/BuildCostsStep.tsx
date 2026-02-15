@@ -134,11 +134,11 @@ export default function BuildCostsStep({
   };
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col gap-6 xl:flex-row">
       <div className="flex-1">
         <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 shadow-lg shadow-black/20">
-          <div className="border-b border-slate-700/70 p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="border-b border-slate-700/70 p-4 sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-semibold text-slate-100">Step 3: Build Costs</h2>
               <label className="flex cursor-pointer items-center space-x-2">
                 <input
@@ -151,7 +151,7 @@ export default function BuildCostsStep({
               </label>
             </div>
 
-            <div className="mb-6 flex items-center space-x-2">
+            <div className="mb-6 flex flex-wrap items-center gap-2">
               {[1, 2, 3].slice(0, optionsCount).map((n) => (
                 <button
                   key={n}
@@ -168,7 +168,7 @@ export default function BuildCostsStep({
               ))}
             </div>
 
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={addRow}
@@ -348,7 +348,7 @@ export default function BuildCostsStep({
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-700/70 bg-slate-900/45 p-6">
+          <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-slate-700/70 bg-slate-900/45 p-4 sm:flex-row sm:items-center sm:p-6">
             <button
               type="button"
               onClick={onBack}
@@ -369,7 +369,7 @@ export default function BuildCostsStep({
         </div>
       </div>
 
-      <aside className="w-80">
+      <aside className="w-full xl:w-80">
         <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 p-6 shadow-lg shadow-black/20">
           <h3 className="mb-4 text-lg font-semibold text-slate-100">Live Totals</h3>
           <div className="space-y-3 text-sm">

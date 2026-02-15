@@ -76,8 +76,8 @@ export default function IgniteClientsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="rounded-xl border border-slate-200 bg-white px-4 py-5 shadow-sm sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -145,7 +145,7 @@ export default function IgniteClientsPage() {
                   {client.status}
                 </span>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+              <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <p className="text-slate-500">Open Proposals</p>
                   <p className="font-semibold text-slate-900">{proposalCounts.get(client.id) || 0}</p>

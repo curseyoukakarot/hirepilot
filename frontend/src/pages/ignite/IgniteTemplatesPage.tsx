@@ -72,8 +72,8 @@ export default function IgniteTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="rounded-xl border border-slate-200 bg-white px-4 py-5 shadow-sm sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Template Library</h1>
             <p className="mt-1 text-sm text-slate-600">

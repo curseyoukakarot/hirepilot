@@ -128,13 +128,13 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
         <p className="mt-1 text-slate-300">Generate deliverables and share your proposal</p>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {error && (
           <div className="mb-4 rounded-lg border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             {error}
           </div>
         )}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-rose-500/35 bg-gradient-to-br from-rose-500/15 to-red-500/10 p-6 shadow-lg shadow-black/20">
             <div className="mb-4 flex items-center space-x-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/90">
@@ -261,7 +261,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
             {exportsHistory.slice(0, 6).map((row, idx) => (
               <div
                 key={row.id}
-                className={`flex items-center justify-between py-2 ${
+                className={`flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between ${
                   idx < exportsHistory.length - 1 ? 'border-b border-slate-700/60' : ''
                 }`}
               >
@@ -316,7 +316,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-700/70 bg-slate-900/45 p-6">
+      <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-slate-700/70 bg-slate-900/45 p-4 sm:flex-row sm:items-center sm:p-6">
         <button
           type="button"
           onClick={onBack}
@@ -325,7 +325,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
           <i className="fa-solid fa-arrow-left mr-2" />
           Back to Review
         </button>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm text-emerald-300">
             <i className="fa-solid fa-check-circle mr-1" />
             Proposal ready for delivery

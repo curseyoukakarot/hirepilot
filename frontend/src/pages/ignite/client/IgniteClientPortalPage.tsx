@@ -42,6 +42,7 @@ export default function IgniteClientPortalPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const activeCount = proposals.length;
 
@@ -101,7 +102,20 @@ export default function IgniteClientPortalPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="fixed left-0 top-0 z-50 h-full w-64 border-r border-gray-200 bg-white">
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed left-0 top-0 z-50 h-full w-64 border-r border-gray-200 bg-white transition-transform lg:translate-x-0 ${
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="p-6">
           <div className="mb-8 flex items-center space-x-3">
             <img
@@ -116,6 +130,7 @@ export default function IgniteClientPortalPage() {
             <button
               type="button"
               className="flex w-full items-center space-x-3 rounded-lg bg-blue-50 px-3 py-2.5 text-left font-medium text-blue-700"
+              onClick={() => setMobileNavOpen(false)}
             >
               <i className="fas fa-file-contract text-sm" />
               <span>Proposals</span>
@@ -123,6 +138,7 @@ export default function IgniteClientPortalPage() {
             <button
               type="button"
               className="flex w-full items-center space-x-3 rounded-lg px-3 py-2.5 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              onClick={() => setMobileNavOpen(false)}
             >
               <i className="fas fa-user text-sm" />
               <span>Profile</span>
@@ -139,7 +155,28 @@ export default function IgniteClientPortalPage() {
         </div>
       </div>
 
-      <div className="ml-64 p-8">
+      <div className="border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="rounded-md p-2 text-gray-600 hover:bg-gray-100"
+            aria-label="Open menu"
+          >
+            <i className="fa-solid fa-bars" />
+          </button>
+          <div className="flex items-center gap-2">
+            <img
+              src="https://images.squarespace-cdn.com/content/v1/63e9b6d2e579fc1e26b444a1/b21b0d24-3b10-49a6-8df0-4d13b9ab3e3c/Scratchpad+2025.png?format=1500w"
+              alt="Ignite logo"
+              className="h-6 w-6 rounded-md object-cover"
+            />
+            <span className="text-sm font-semibold text-gray-900">Ignite Client</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-6 lg:ml-64 lg:p-8">
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -231,11 +268,11 @@ export default function IgniteClientPortalPage() {
               </button>
             </div>
 
-            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6">
-              <div className="mb-4 flex items-start justify-between">
+            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+              <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                   <h1 className="mb-2 text-2xl font-bold text-gray-900">{selected.proposal.name}</h1>
-                  <div className="flex items-center space-x-4 text-gray-600">
+                  <div className="flex flex-col gap-2 text-gray-600 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
                     <span className="flex items-center">
                       <i className="fas fa-map-marker-alt mr-2" />
                       {String(selected.proposal.assumptions_json?.event?.location || 'Location TBA')}
@@ -246,7 +283,7 @@ export default function IgniteClientPortalPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
                     {String(selected.proposal.status || 'final')}
                   </span>
@@ -262,9 +299,9 @@ export default function IgniteClientPortalPage() {
               </div>
             </div>
 
-            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6">
+            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
               <h3 className="mb-4 text-lg font-semibold text-gray-900">Choose Your Option:</h3>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-3">
                 {(selected.options || []).map((option, idx) => {
                   const active = String(selectedOptionId) === String(option.id);
                   return (
@@ -285,12 +322,12 @@ export default function IgniteClientPortalPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
               <h3 className="mb-6 text-lg font-semibold text-gray-900">Proposal Details</h3>
 
               <div className="mb-6 space-y-4">
                 {currentLineItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between border-b border-gray-100 py-3">
+                  <div key={item.id} className="flex flex-col gap-2 border-b border-gray-100 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="font-medium text-gray-900">{item.line_name}</div>
                       <div className="text-sm text-gray-500">{item.description || item.category}</div>
