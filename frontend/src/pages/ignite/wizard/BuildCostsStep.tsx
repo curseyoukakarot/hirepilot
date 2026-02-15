@@ -213,25 +213,25 @@ export default function BuildCostsStep({
                 </div>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="min-w-[1480px] w-full text-[15px]">
                 <thead className="border-b border-slate-700/70 bg-slate-900/65">
                   <tr>
-                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Category</th>
-                    <th className="w-48 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Item / Description</th>
-                    <th className="w-32 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vendor</th>
-                    <th className="w-20 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Qty</th>
-                    <th className="w-24 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Unit Cost</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Service</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Tax</th>
-                    <th className="w-24 px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Total</th>
-                    <th className="w-28 px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Display</th>
-                    <th className="w-20 px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Actions</th>
+                    <th className="w-[180px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Category</th>
+                    <th className="w-[320px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Item / Description</th>
+                    <th className="w-[220px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Vendor</th>
+                    <th className="w-[100px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Qty</th>
+                    <th className="w-[140px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Unit Cost</th>
+                    <th className="w-[100px] px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Service</th>
+                    <th className="w-[100px] px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Tax</th>
+                    <th className="w-[150px] px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Total</th>
+                    <th className="w-[150px] px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Display</th>
+                    <th className="w-[120px] px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/70">
                   {rows.map((row) => (
                     <tr key={row.id} className="bg-slate-950/20 hover:bg-slate-800/35">
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <select
                           value={row.category}
                           onChange={(e) => updateRow(row.id, { category: e.target.value })}
@@ -245,28 +245,28 @@ export default function BuildCostsStep({
                           <option value="Other">Other</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <input
                           value={row.item}
                           onChange={(e) => updateRow(row.id, { item: e.target.value })}
                           className={fieldClassName}
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <input
                           value={row.vendor}
                           onChange={(e) => updateRow(row.id, { vendor: e.target.value })}
                           className={fieldClassName}
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <input
                           value={row.qty}
                           onChange={(e) => updateRow(row.id, { qty: e.target.value })}
                           className={fieldClassName}
                         />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <div className="relative">
                           <span className="absolute left-2 top-2 text-xs text-slate-400">$</span>
                           <input
@@ -276,7 +276,7 @@ export default function BuildCostsStep({
                           />
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         <input
                           type="checkbox"
                           checked={row.service}
@@ -284,7 +284,7 @@ export default function BuildCostsStep({
                           className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-indigo-500"
                         />
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         <input
                           type="checkbox"
                           checked={row.tax}
@@ -292,12 +292,12 @@ export default function BuildCostsStep({
                           className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-indigo-500"
                         />
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-slate-100">
                           {formatMoney(computeLineTotal(row, serviceRatePct, taxRatePct, taxAfterService))}
                         </span>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <select
                           value={row.display}
                           onChange={(e) =>
@@ -310,7 +310,7 @@ export default function BuildCostsStep({
                           <option value="HIDE">Hide</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
