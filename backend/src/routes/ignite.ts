@@ -256,24 +256,135 @@ function pickDefaultOptionId(computed: any, explicitOptionId?: string | null): s
   return recommended?.id ? String(recommended.id) : null;
 }
 
-function buildAgreementPayload(computed: any, optionId: string | null, proposal: any) {
+function buildAgreementPayload(
+  computed: any,
+  optionId: string | null,
+  proposal: any,
+  bundle?: { options?: any[]; line_items?: any[] }
+) {
   const selectedOption =
     (Array.isArray(computed?.options) ? computed.options : []).find(
       (option: any) => String(option?.id || '') === String(optionId || '')
     ) || (Array.isArray(computed?.options) ? computed.options[0] : null);
   const assumptions = (proposal?.assumptions_json || {}) as Record<string, any>;
+  const settings = (proposal?.settings_json || {}) as Record<string, any>;
+  const event = (assumptions?.event || {}) as Record<string, any>;
   const agreement = (assumptions?.agreement || {}) as Record<string, any>;
+  const computedOptions = Array.isArray(computed?.options) ? computed.options : [];
+  const rawLineItems = Array.isArray(bundle?.line_items) ? bundle!.line_items : [];
+  const selectedOptionId = selectedOption?.id ? String(selectedOption.id) : optionId ? String(optionId) : null;
+  const selectedRawLineItems = selectedOptionId
+    ? rawLineItems.filter((item: any) => String(item?.option_id || '') === selectedOptionId)
+    : [];
+
+  const serializeComputedOption = (option: any) => ({
+    id: option?.id ? String(option.id) : null,
+    name: String(option?.name || ''),
+    description: String(option?.description || ''),
+    is_recommended: Boolean(option?.isRecommended),
+    totals: {
+      subtotal: Number(option?.totals?.subtotal || 0),
+      ignite_fee: Number(option?.totals?.fee || 0),
+      contingency: Number(option?.totals?.contingency || 0),
+      total_investment: Number(option?.totals?.total || 0),
+    },
+    category_breakdown: Array.isArray(option?.breakdown)
+      ? option.breakdown.map((row: any) => ({
+          category_name: String(row?.categoryName || ''),
+          amount: Number(row?.amount || 0),
+        }))
+      : [],
+    computed_line_items: Array.isArray(option?.lineItems)
+      ? option.lineItems.map((item: any) => ({
+          id: item?.id ? String(item.id) : null,
+          category: String(item?.category || ''),
+          name: String(item?.name || ''),
+          description: item?.description ? String(item.description) : null,
+          amount: Number(item?.amount || 0),
+          vendor: item?.vendor ? String(item.vendor) : null,
+        }))
+      : [],
+  });
+
   return {
     proposal_id: proposal?.id ? String(proposal.id) : null,
-    option_id: selectedOption?.id ? String(selectedOption.id) : optionId,
+    option_id: selectedOptionId,
     event_name: computed?.eventName || proposal?.name || 'Event Proposal',
     client_name: computed?.clientName || null,
     total_investment: Number(selectedOption?.totals?.total || 0),
-    deposit_percent: Number(agreement.depositPercent || 0),
-    deposit_due_rule: String(agreement.depositDueRule || ''),
-    balance_due_rule: String(agreement.balanceDueRule || ''),
-    cancellation_window_days: Number(agreement.cancellationWindowDays || 0),
-    confidentiality_enabled: agreement.confidentialityEnabled !== false,
+    event: {
+      date: String(computed?.date || event?.eventDate || ''),
+      venue_name: String(computed?.location || event?.location || ''),
+      venue_address: String(computed?.eventSnapshot?.venueAddress || event?.venueAddress || ''),
+      city: String(computed?.eventSnapshot?.city || event?.city || ''),
+      start_time: String(computed?.eventSnapshot?.startTime || event?.startTime || ''),
+      end_time: String(computed?.eventSnapshot?.endTime || event?.endTime || ''),
+      headcount: Number(computed?.headcount || event?.headcount || 0),
+      primary_sponsor: String(computed?.eventSnapshot?.primarySponsor || event?.primarySponsor || ''),
+      co_sponsors: Array.isArray(computed?.eventSnapshot?.coSponsors)
+        ? computed.eventSnapshot.coSponsors
+        : Array.isArray(event?.coSponsors)
+        ? event.coSponsors
+        : [],
+      event_objective: String(computed?.overview?.objective || event?.eventObjective || ''),
+      success_criteria: Array.isArray(computed?.overview?.successCriteria)
+        ? computed.overview.successCriteria
+        : Array.isArray(event?.successCriteria)
+        ? event.successCriteria
+        : [],
+    },
+    pricing_assumptions: {
+      model_type: String(computed?.modelType || assumptions?.modelType || ''),
+      service_charge_percent: Number(assumptions?.serviceChargePercent || 0),
+      sales_tax_percent: Number(assumptions?.salesTaxPercent || 0),
+      tax_applies_after_service: assumptions?.taxAppliesAfterService !== false,
+      ignite_fee_percent: Number(settings?.igniteFeeRate || 0) * 100,
+      contingency_percent: Number(settings?.contingencyRate || 0) * 100,
+      turnkey_method: String(settings?.turnkeyMethod || ''),
+      target_margin_percent: Number(settings?.targetMarginPercent || 0),
+      target_price: Number(settings?.targetPrice || 0),
+      options_count: Number(assumptions?.optionsCount || computedOptions.length || 0),
+      quick_template: assumptions?.quickTemplate || null,
+      venue_preset: assumptions?.venuePreset || null,
+    },
+    agreement_terms: {
+      deposit_percent: Number(agreement.depositPercent || 0),
+      deposit_due_rule: String(agreement.depositDueRule || ''),
+      balance_due_rule: String(agreement.balanceDueRule || ''),
+      cancellation_window_days: Number(agreement.cancellationWindowDays || 0),
+      confidentiality_enabled: agreement.confidentialityEnabled !== false,
+      cost_split_notes: String(agreement.costSplitNotes || ''),
+      signer_name: String(agreement.signerName || ''),
+      signer_email: String(agreement.signerEmail || ''),
+      signer_title: String(agreement.signerTitle || ''),
+      signer_company: String(agreement.signerCompany || ''),
+    },
+    selected_option: selectedOption ? serializeComputedOption(selectedOption) : null,
+    options: computedOptions.map(serializeComputedOption),
+    selected_option_raw_line_items: selectedRawLineItems.map((item: any) => ({
+      id: item?.id ? String(item.id) : null,
+      category: String(item?.category || ''),
+      line_name: String(item?.line_name || ''),
+      description: item?.description ? String(item.description) : null,
+      qty: Number(item?.qty || 0),
+      unit_cost: Number(item?.unit_cost || 0),
+      apply_service: Boolean(item?.apply_service),
+      service_rate: Number(item?.service_rate || 0),
+      apply_tax: Boolean(item?.apply_tax),
+      tax_rate: Number(item?.tax_rate || 0),
+      tax_applies_after_service: item?.tax_applies_after_service !== false,
+      is_hidden_from_client: Boolean(item?.is_hidden_from_client),
+      metadata: item?.metadata_json && typeof item.metadata_json === 'object' ? item.metadata_json : {},
+    })),
+    proposal_sections: {
+      included_sections: computed?.included?.sections || [],
+      next_steps: computed?.nextSteps?.bullets || [],
+      visibility_rules: computed?.visibilityRules || {},
+    },
+    raw: {
+      assumptions_json: assumptions,
+      settings_json: settings,
+    },
   };
 }
 
@@ -529,7 +640,12 @@ router.post('/share/:token/approve', async (req: Request, res: Response) => {
 
     const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
     const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
-    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+    const agreementPayload = buildAgreementPayload(
+      built.computed,
+      selectedOptionId,
+      built.bundle.proposal,
+      built.bundle
+    );
 
     const dispatched = await dispatchSignatureRequest({
       proposalId: String(link.proposal_id),
@@ -1066,7 +1182,12 @@ router.post('/proposals/:id/docusign/prepare', requireIgniteTeam as any, async (
     }
     const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
     const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
-    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+    const agreementPayload = buildAgreementPayload(
+      built.computed,
+      selectedOptionId,
+      built.bundle.proposal,
+      built.bundle
+    );
 
     return res.json({
       ready: true,
@@ -1100,7 +1221,12 @@ router.post('/proposals/:id/docusign/send', requireIgniteTeam as any, async (req
     }
     const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
     const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
-    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+    const agreementPayload = buildAgreementPayload(
+      built.computed,
+      selectedOptionId,
+      built.bundle.proposal,
+      built.bundle
+    );
 
     const dispatched = await dispatchSignatureRequest({
       proposalId,
