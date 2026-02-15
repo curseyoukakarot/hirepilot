@@ -1,5 +1,5 @@
 import React from 'react';
-import { apiGet, apiPost } from '../../../lib/api';
+import { apiGet, apiPatch, apiPost } from '../../../lib/api';
 
 type ExportStepProps = {
   onBack: () => void;
@@ -47,6 +47,8 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
   const [signerCompany, setSignerCompany] = React.useState('');
   const [docusignBusy, setDocusignBusy] = React.useState(false);
   const [docusignEnvelope, setDocusignEnvelope] = React.useState<IgniteDocusignEnvelope | null>(null);
+  const [proposalStatus, setProposalStatus] = React.useState('');
+  const [finalizeBusy, setFinalizeBusy] = React.useState(false);
 
   const loadHistory = React.useCallback(async () => {
     if (!proposalId) return;
@@ -60,6 +62,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
       const allExports = Array.isArray(exportsRes?.exports) ? exportsRes.exports : [];
       setExportsHistory(allExports.filter((row: IgniteExportRow) => row.proposal_id === proposalId));
       setVersions(Array.isArray(proposalRes?.versions) ? proposalRes.versions : []);
+      setProposalStatus(String(proposalRes?.proposal?.status || ''));
       const agreement = proposalRes?.proposal?.assumptions_json?.agreement || {};
       if (agreement && typeof agreement === 'object') {
         setSignerName((prev) => prev || String(agreement.signerName || ''));
@@ -173,6 +176,21 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
       setError(String(e?.message || 'Failed to send agreement for signature.'));
     } finally {
       setDocusignBusy(false);
+    }
+  };
+
+  const markAsFinal = async () => {
+    try {
+      if (!proposalId) throw new Error('Save this proposal before marking final.');
+      if (String(proposalStatus || '').toLowerCase() === 'final') return;
+      setError(null);
+      setFinalizeBusy(true);
+      await apiPatch(`/api/ignite/proposals/${proposalId}`, { status: 'final' });
+      await loadHistory();
+    } catch (e: any) {
+      setError(String(e?.message || 'Failed to mark proposal as final.'));
+    } finally {
+      setFinalizeBusy(false);
     }
   };
 
@@ -436,9 +454,18 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
             <i className="fa-solid fa-check-circle mr-1" />
             Proposal ready for delivery
           </div>
-          <button type="button" className="rounded-lg bg-emerald-500 px-6 py-2 text-white hover:bg-emerald-400">
+          <button
+            type="button"
+            onClick={markAsFinal}
+            disabled={finalizeBusy || String(proposalStatus || '').toLowerCase() === 'final'}
+            className="rounded-lg bg-emerald-500 px-6 py-2 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
             <i className="fa-solid fa-check mr-2" />
-            Mark as Final
+            {String(proposalStatus || '').toLowerCase() === 'final'
+              ? 'Already Final'
+              : finalizeBusy
+              ? 'Marking...'
+              : 'Mark as Final'}
           </button>
         </div>
       </div>
