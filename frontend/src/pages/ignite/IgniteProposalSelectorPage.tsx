@@ -92,11 +92,19 @@ export default function IgniteProposalSelectorPage() {
   }, [clients]);
 
   const draftProposals = useMemo(
-    () => proposals.filter((proposal) => String(proposal.status || '').toLowerCase() === 'draft'),
+    () =>
+      proposals.filter((proposal) => {
+        const status = String(proposal.status || '').toLowerCase();
+        return status === 'draft';
+      }),
     [proposals]
   );
   const completedProposals = useMemo(
-    () => proposals.filter((proposal) => String(proposal.status || '').toLowerCase() !== 'draft'),
+    () =>
+      proposals.filter((proposal) => {
+        const status = String(proposal.status || '').toLowerCase();
+        return status !== 'draft' && status !== 'archived';
+      }),
     [proposals]
   );
 
