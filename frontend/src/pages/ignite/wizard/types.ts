@@ -24,8 +24,16 @@ export type IgniteWizardState = {
   clientId: string;
   eventName: string;
   location: string;
+  venueAddress: string;
+  city: string;
   eventDate: string;
+  startTime: string;
+  endTime: string;
   headcount: string;
+  primarySponsor: string;
+  coSponsors: string;
+  eventObjective: string;
+  successCriteria: string;
   modelType: IgniteModelType;
   optionsCount: 1 | 2 | 3;
   quickTemplate: string;
@@ -35,6 +43,16 @@ export type IgniteWizardState = {
   taxAfterService: boolean;
   mgmtFee: string;
   contingency: string;
+  depositPercent: string;
+  depositDueRule: string;
+  balanceDueRule: string;
+  cancellationWindowDays: string;
+  confidentialityEnabled: boolean;
+  costSplitNotes: string;
+  signerName: string;
+  signerEmail: string;
+  signerTitle: string;
+  signerCompany: string;
   turnkeyMethod: TurnkeyMethod;
   targetMargin: string;
   targetPrice: string;
@@ -97,8 +115,16 @@ export const DEFAULT_IGNITE_WIZARD_STATE: IgniteWizardState = {
   clientId: '',
   eventName: '',
   location: '',
+  venueAddress: '',
+  city: '',
   eventDate: '',
+  startTime: '',
+  endTime: '',
   headcount: '',
+  primarySponsor: '',
+  coSponsors: '',
+  eventObjective: '',
+  successCriteria: '',
   modelType: 'cost-plus',
   optionsCount: 1,
   quickTemplate: '',
@@ -108,6 +134,16 @@ export const DEFAULT_IGNITE_WIZARD_STATE: IgniteWizardState = {
   taxAfterService: true,
   mgmtFee: '20',
   contingency: '0',
+  depositPercent: '50',
+  depositDueRule: 'Due on signature',
+  balanceDueRule: 'Due 7 days before event',
+  cancellationWindowDays: '90',
+  confidentialityEnabled: true,
+  costSplitNotes: '',
+  signerName: '',
+  signerEmail: '',
+  signerTitle: '',
+  signerCompany: '',
   turnkeyMethod: 'margin',
   targetMargin: '35',
   targetPrice: '125000',

@@ -25,8 +25,34 @@ function buildProposalPayload(state: IgniteWizardState) {
     assumptions_json: {
       event: {
         location: state.location,
+        venueAddress: state.venueAddress,
+        city: state.city,
         eventDate: state.eventDate,
+        startTime: state.startTime,
+        endTime: state.endTime,
         headcount: Number(state.headcount || 0),
+        primarySponsor: state.primarySponsor || null,
+        coSponsors: state.coSponsors
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        eventObjective: state.eventObjective || null,
+        successCriteria: state.successCriteria
+          .split('\n')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      },
+      agreement: {
+        depositPercent: Number(state.depositPercent || 0),
+        depositDueRule: state.depositDueRule || null,
+        balanceDueRule: state.balanceDueRule || null,
+        cancellationWindowDays: Number(state.cancellationWindowDays || 0),
+        confidentialityEnabled: state.confidentialityEnabled,
+        costSplitNotes: state.costSplitNotes || null,
+        signerName: state.signerName || null,
+        signerEmail: state.signerEmail || null,
+        signerTitle: state.signerTitle || null,
+        signerCompany: state.signerCompany || null,
       },
       serviceChargePercent: Number(state.serviceCharge || 0),
       salesTaxPercent: Number(state.salesTax || 0),

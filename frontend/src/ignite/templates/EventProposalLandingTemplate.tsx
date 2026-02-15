@@ -7,6 +7,7 @@ type EventProposalLandingTemplateProps = {
   onDownloadPdf?: (optionId: string) => void;
   onDownloadXlsx?: (optionId: string) => void;
   onCopySummary?: (optionId: string) => void;
+  onApproveSelectedOption?: (optionId: string) => void;
 };
 
 export default function EventProposalLandingTemplate({
@@ -14,6 +15,7 @@ export default function EventProposalLandingTemplate({
   onDownloadPdf,
   onDownloadXlsx,
   onCopySummary,
+  onApproveSelectedOption,
 }: EventProposalLandingTemplateProps) {
   const recommendedOptionId = proposal.options.find((item) => item.isRecommended)?.id || proposal.options[0]?.id;
   const [selectedOptionId, setSelectedOptionId] = useState<string>(recommendedOptionId || '');
@@ -23,11 +25,12 @@ export default function EventProposalLandingTemplate({
   const modelLabel = proposal.modelType === 'turnkey' ? 'Turnkey' : 'Cost+ (Transparent)';
 
   const summaryText = useMemo(() => {
+    if (proposal.overview.objective) return proposal.overview.objective;
     if (proposal.modelType === 'turnkey') {
       return 'This turnkey proposal presents curated experience options with clear package investment framing.';
     }
     return 'This proposal outlines event options with transparent investment details and IgniteGTM program management.';
-  }, [proposal.modelType]);
+  }, [proposal.modelType, proposal.overview.objective]);
 
   if (!selectedOption) {
     return (
@@ -136,10 +139,40 @@ export default function EventProposalLandingTemplate({
               <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
                 Venue: {proposal.location}
               </span>
+              {(proposal.eventSnapshot.startTime || proposal.eventSnapshot.endTime) && (
+                <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
+                  Time: {proposal.eventSnapshot.startTime || 'TBD'} - {proposal.eventSnapshot.endTime || 'TBD'}
+                </span>
+              )}
+              {!!proposal.eventSnapshot.city && (
+                <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
+                  City: {proposal.eventSnapshot.city}
+                </span>
+              )}
+              {!!proposal.eventSnapshot.primarySponsor && (
+                <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
+                  Sponsor: {proposal.eventSnapshot.primarySponsor}
+                </span>
+              )}
+              {proposal.eventSnapshot.coSponsors.length > 0 && (
+                <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
+                  Co-Sponsors: {proposal.eventSnapshot.coSponsors.join(', ')}
+                </span>
+              )}
               <span className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
                 Model: {modelLabel}
               </span>
             </div>
+            {proposal.overview.successCriteria.length > 0 && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                <h3 className="text-sm font-semibold text-slate-100">Success Criteria</h3>
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                  {proposal.overview.successCriteria.map((line) => (
+                    <li key={line}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-4">
@@ -384,9 +417,29 @@ export default function EventProposalLandingTemplate({
                     <li key={bullet}>• {bullet}</li>
                   ))}
                 </ul>
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Agreement Terms</p>
+                  <div className="mt-2 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
+                    <div>Deposit: {proposal.agreementTerms.depositPercent}%</div>
+                    <div>Cancellation Window: {proposal.agreementTerms.cancellationWindowDays} days</div>
+                    <div className="sm:col-span-2">
+                      Deposit Due: {proposal.agreementTerms.depositDueRule || 'Per agreement'}
+                    </div>
+                    <div className="sm:col-span-2">
+                      Balance Due: {proposal.agreementTerms.balanceDueRule || 'Per agreement'}
+                    </div>
+                    {proposal.agreementTerms.costSplitNotes && (
+                      <div className="sm:col-span-2">Cost Split: {proposal.agreementTerms.costSplitNotes}</div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button className="rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(99,102,241,.25),0_0_40px_rgba(99,102,241,.15)] hover:bg-indigo-400">
+                <button
+                  type="button"
+                  onClick={() => onApproveSelectedOption?.(selectedOption.id)}
+                  className="rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(99,102,241,.25),0_0_40px_rgba(99,102,241,.15)] hover:bg-indigo-400"
+                >
                   Approve Selected Option
                 </button>
                 <button className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10">

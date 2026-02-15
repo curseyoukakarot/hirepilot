@@ -57,7 +57,29 @@ export default function BasicsStep({ state, clients, clientsLoading = false, onC
                 type="text"
                 value={state.location}
                 onChange={(e) => onChange({ location: e.target.value })}
-                placeholder="San Francisco, CA"
+                placeholder="Chase Center"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Venue Address</label>
+              <input
+                type="text"
+                value={state.venueAddress}
+                onChange={(e) => onChange({ venueAddress: e.target.value })}
+                placeholder="1 Warriors Way, San Francisco, CA"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">City</label>
+              <input
+                type="text"
+                value={state.city}
+                onChange={(e) => onChange({ city: e.target.value })}
+                placeholder="San Francisco"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -70,6 +92,27 @@ export default function BasicsStep({ state, clients, clientsLoading = false, onC
                 onChange={(e) => onChange({ eventDate: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Start Time</label>
+                <input
+                  type="time"
+                  value={state.startTime}
+                  onChange={(e) => onChange({ startTime: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">End Time</label>
+                <input
+                  type="time"
+                  value={state.endTime}
+                  onChange={(e) => onChange({ endTime: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -84,6 +127,50 @@ export default function BasicsStep({ state, clients, clientsLoading = false, onC
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               />
               <p className="mt-1 text-sm text-gray-500">Primary driver for cost calculations</p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Primary Sponsor</label>
+              <input
+                type="text"
+                value={state.primarySponsor}
+                onChange={(e) => onChange({ primarySponsor: e.target.value })}
+                placeholder="Supermicro"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Co-Sponsors (comma separated)</label>
+              <input
+                type="text"
+                value={state.coSponsors}
+                onChange={(e) => onChange({ coSponsors: e.target.value })}
+                placeholder="AMD, WEKA"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Event Objective</label>
+              <textarea
+                value={state.eventObjective}
+                onChange={(e) => onChange({ eventObjective: e.target.value })}
+                rows={3}
+                placeholder="Summarize event objective in 1-2 sentences."
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Success Criteria (one per line)</label>
+              <textarea
+                value={state.successCriteria}
+                onChange={(e) => onChange({ successCriteria: e.target.value })}
+                rows={3}
+                placeholder={'Generate qualified exec meetings\nDrive on-site engagement'}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>

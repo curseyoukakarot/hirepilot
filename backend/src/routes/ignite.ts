@@ -6,6 +6,8 @@ import { computeProposal } from '../services/ignite/computeProposal';
 import { buildComputedProposal } from '../services/ignite/buildComputedProposal';
 import { renderEventProposalPdfHtml } from '../ignite/pdf/renderEventProposalPdfHtml';
 import { generatePdfFromHtml } from '../ignite/pdf/generatePdf';
+import { getDocusignEnvelopeStatus, sendIgniteAgreementForSignature } from '../services/ignite/docusign';
+import { sendSignatureRequestToZapier } from '../services/ignite/zapier';
 
 type ApiRequest = Request & {
   user?: {
@@ -238,6 +240,192 @@ async function resolveActiveShareLinkByToken(token: string) {
   return { link, reason: null };
 }
 
+function normalizeEnvelopeStatus(status: string): string {
+  const value = String(status || '').toLowerCase();
+  if (!value) return 'sent';
+  if (['created', 'sent', 'delivered', 'completed', 'declined', 'voided', 'error'].includes(value)) {
+    return value;
+  }
+  return 'sent';
+}
+
+function pickDefaultOptionId(computed: any, explicitOptionId?: string | null): string | null {
+  if (explicitOptionId) return String(explicitOptionId);
+  const options = Array.isArray(computed?.options) ? computed.options : [];
+  const recommended = options.find((option: any) => option?.isRecommended) || options[0];
+  return recommended?.id ? String(recommended.id) : null;
+}
+
+function buildAgreementPayload(computed: any, optionId: string | null, proposal: any) {
+  const selectedOption =
+    (Array.isArray(computed?.options) ? computed.options : []).find(
+      (option: any) => String(option?.id || '') === String(optionId || '')
+    ) || (Array.isArray(computed?.options) ? computed.options[0] : null);
+  const assumptions = (proposal?.assumptions_json || {}) as Record<string, any>;
+  const agreement = (assumptions?.agreement || {}) as Record<string, any>;
+  return {
+    proposal_id: proposal?.id ? String(proposal.id) : null,
+    option_id: selectedOption?.id ? String(selectedOption.id) : optionId,
+    event_name: computed?.eventName || proposal?.name || 'Event Proposal',
+    client_name: computed?.clientName || null,
+    total_investment: Number(selectedOption?.totals?.total || 0),
+    deposit_percent: Number(agreement.depositPercent || 0),
+    deposit_due_rule: String(agreement.depositDueRule || ''),
+    balance_due_rule: String(agreement.balanceDueRule || ''),
+    cancellation_window_days: Number(agreement.cancellationWindowDays || 0),
+    confidentiality_enabled: agreement.confidentialityEnabled !== false,
+  };
+}
+
+function getSignerDetails(input: any, proposal: any, fallbackClientName: string | null) {
+  const agreement = ((proposal?.assumptions_json || {}) as Record<string, any>)?.agreement || {};
+  const signerName = String(input?.signer_name || agreement.signerName || '').trim();
+  const signerEmail = String(input?.signer_email || agreement.signerEmail || '').trim().toLowerCase();
+  const signerTitle = String(input?.signer_title || agreement.signerTitle || '').trim();
+  const signerCompany = String(
+    input?.signer_company || agreement.signerCompany || fallbackClientName || ''
+  ).trim();
+
+  if (!signerName) throw new Error('signer_name_required');
+  if (!signerEmail) throw new Error('signer_email_required');
+
+  return {
+    signerName,
+    signerEmail,
+    signerTitle,
+    signerCompany,
+  };
+}
+
+async function insertDocusignEnvelopeRecord(args: {
+  proposalId: string;
+  selectedOptionId?: string | null;
+  envelopeId: string;
+  status: string;
+  sentBy?: string | null;
+  shareLinkId?: string | null;
+  recipientName?: string | null;
+  recipientEmail?: string | null;
+  recipientTitle?: string | null;
+  agreementPayload: Record<string, any>;
+  signerPayload: Record<string, any>;
+  docusignPayload?: Record<string, any>;
+}) {
+  const status = normalizeEnvelopeStatus(args.status);
+  const nowIso = new Date().toISOString();
+  const payload = {
+    proposal_id: args.proposalId,
+    share_link_id: args.shareLinkId || null,
+    selected_option_id: args.selectedOptionId || null,
+    envelope_id: args.envelopeId,
+    status,
+    recipient_name: args.recipientName || null,
+    recipient_email: args.recipientEmail || null,
+    recipient_title: args.recipientTitle || null,
+    agreement_payload_json: args.agreementPayload || {},
+    signer_payload_json: args.signerPayload || {},
+    docusign_payload_json: args.docusignPayload || {},
+    sent_by: args.sentBy || null,
+    sent_at: status === 'sent' ? nowIso : null,
+    completed_at: status === 'completed' ? nowIso : null,
+  };
+  const { data, error } = await supabase
+    .from('ignite_docusign_envelopes')
+    .insert(payload as any)
+    .select('*')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+type DispatchSignatureArgs = {
+  proposalId: string;
+  shareLinkId?: string | null;
+  selectedOptionId: string | null;
+  computed: any;
+  agreementPayload: Record<string, any>;
+  signer: {
+    signerName: string;
+    signerEmail: string;
+    signerTitle?: string;
+    signerCompany?: string;
+  };
+};
+
+async function dispatchSignatureRequest(args: DispatchSignatureArgs): Promise<{
+  envelopeId: string;
+  status: string;
+  provider: 'zapier' | 'native';
+  providerPayload: Record<string, any>;
+}> {
+  const provider = String(process.env.IGNITE_SIGNATURE_PROVIDER || 'zapier').toLowerCase();
+  const eventName = String(args.computed?.eventName || 'Event Proposal');
+
+  if (provider === 'zapier') {
+    const idempotencyKey = `${args.proposalId}:${args.selectedOptionId || 'recommended'}:${args.signer.signerEmail}`.toLowerCase();
+    const response = await sendSignatureRequestToZapier({
+      event_type: 'ignite.signature_request.created',
+      idempotency_key: idempotencyKey,
+      proposal_id: args.proposalId,
+      share_link_id: args.shareLinkId || null,
+      selected_option_id: args.selectedOptionId || null,
+      envelope_label: eventName,
+      signer: {
+        name: args.signer.signerName,
+        email: args.signer.signerEmail,
+        title: args.signer.signerTitle || null,
+        company: args.signer.signerCompany || null,
+      },
+      agreement: args.agreementPayload,
+      metadata: {
+        source: args.shareLinkId ? 'share_approval' : 'backoffice_export',
+      },
+    });
+    const zapierRequestId = String(
+      response.data?.request_id ||
+      response.data?.id ||
+      `zapier_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    );
+    return {
+      envelopeId: zapierRequestId,
+      status: 'sent',
+      provider: 'zapier',
+      providerPayload: {
+        zapier_request_id: zapierRequestId,
+        zapier_response: response.data || {},
+      },
+    };
+  }
+
+  const html = renderEventProposalPdfHtml({ proposal: args.computed, optionId: args.selectedOptionId });
+  const pdfBuffer = await generatePdfFromHtml(html);
+  const fileName = `${eventName
+    .replace(/[^a-z0-9]+/gi, '_')
+    .toLowerCase()}_${args.selectedOptionId || 'recommended'}.pdf`;
+  const subject = `IgniteGTM Agreement: ${eventName}`;
+  const blurb = `Please review and sign the selected proposal option for ${String(
+    args.computed?.clientName || 'your event'
+  )}.`;
+  const sent = await sendIgniteAgreementForSignature({
+    pdfBytesBase64: pdfBuffer.toString('base64'),
+    fileName,
+    emailSubject: subject,
+    emailBlurb: blurb,
+    signer: {
+      name: args.signer.signerName,
+      email: args.signer.signerEmail,
+      title: args.signer.signerTitle || null,
+    },
+    clientUserId: null,
+  });
+  return {
+    envelopeId: sent.envelopeId,
+    status: 'sent',
+    provider: 'native',
+    providerPayload: {},
+  };
+}
+
 
 // Public share-link resolver (token gated, no auth)
 router.get('/share/:token', async (req: Request, res: Response) => {
@@ -320,6 +508,70 @@ router.get('/share/:token/pdf', async (req: Request, res: Response) => {
   }
 });
 
+// Public share-link approval action (sends signature request via configured provider)
+router.post('/share/:token/approve', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'token_required' });
+    const optionId = req.body?.option_id ? String(req.body.option_id) : null;
+
+    const resolved = await resolveActiveShareLinkByToken(token);
+    if (!resolved.link) {
+      if (resolved.reason === 'share_not_found') return res.status(404).json({ error: resolved.reason });
+      return res.status(410).json({ error: resolved.reason });
+    }
+    const link = resolved.link;
+
+    const built = await buildComputedPayloadForProposal(String(link.proposal_id));
+    if (!built?.computed || !built.bundle?.proposal) {
+      return res.status(404).json({ error: 'proposal_not_found' });
+    }
+
+    const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
+    const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
+    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+
+    const dispatched = await dispatchSignatureRequest({
+      proposalId: String(link.proposal_id),
+      shareLinkId: String(link.id),
+      selectedOptionId,
+      computed: built.computed,
+      agreementPayload,
+      signer,
+    });
+
+    const envelope = await insertDocusignEnvelopeRecord({
+      proposalId: String(link.proposal_id),
+      selectedOptionId,
+      envelopeId: dispatched.envelopeId,
+      status: dispatched.status,
+      sentBy: null,
+      shareLinkId: String(link.id),
+      recipientName: signer.signerName,
+      recipientEmail: signer.signerEmail,
+      recipientTitle: signer.signerTitle || null,
+      agreementPayload,
+      signerPayload: signer,
+      docusignPayload: {
+        source: 'share_approval',
+        provider: dispatched.provider,
+        ...dispatched.providerPayload,
+      },
+    });
+
+    return res.status(201).json({
+      approval: 'sent_for_signature',
+      envelope,
+    });
+  } catch (e: any) {
+    const message = String(e?.message || 'failed_to_send_for_signature');
+    if (message === 'signer_name_required' || message === 'signer_email_required') {
+      return res.status(400).json({ error: message });
+    }
+    return res.status(500).json({ error: message });
+  }
+});
+
 // Public client signup (username/password) for Ignite portal
 router.post('/client-signup', async (req: Request, res: Response) => {
   try {
@@ -388,6 +640,95 @@ router.post('/client-signup', async (req: Request, res: Response) => {
     return res.status(201).json({ user: { id: userId, email, role: canonicalRole } });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_create_ignite_client' });
+  }
+});
+
+// DocuSign Connect webhook endpoint (configure account or envelope EventNotification to call this)
+router.post('/integrations/docusign/webhook', async (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    const envelopeId = String(
+      body?.envelopeId ||
+      body?.data?.envelopeId ||
+      body?.envelopeSummary?.envelopeId ||
+      body?.envelopeStatus?.envelopeID ||
+      ''
+    ).trim();
+    const rawStatus = String(
+      body?.status ||
+      body?.data?.status ||
+      body?.envelopeSummary?.status ||
+      body?.envelopeStatus?.status ||
+      ''
+    ).trim();
+
+    if (!envelopeId) return res.status(200).json({ ok: true, ignored: 'missing_envelope_id' });
+    const normalizedStatus = normalizeEnvelopeStatus(rawStatus);
+
+    const patch: Record<string, any> = { status: normalizedStatus };
+    if (normalizedStatus === 'completed') patch.completed_at = new Date().toISOString();
+
+    await supabase
+      .from('ignite_docusign_envelopes')
+      .update(patch)
+      .eq('envelope_id', envelopeId);
+
+    return res.status(200).json({ ok: true });
+  } catch (e: any) {
+    return res.status(200).json({ ok: false, error: e?.message || 'webhook_processing_failed' });
+  }
+});
+
+// Zapier callback endpoint for signature status updates
+router.post('/integrations/zapier/signature-status', async (req: Request, res: Response) => {
+  try {
+    const configuredSecret = String(process.env.IGNITE_ZAPIER_WEBHOOK_SECRET || '').trim();
+    if (configuredSecret) {
+      const incomingSecret = String(req.headers['x-ignite-signature-secret'] || '').trim();
+      if (!incomingSecret || incomingSecret !== configuredSecret) {
+        return res.status(401).json({ error: 'unauthorized' });
+      }
+    }
+
+    const body = req.body || {};
+    const proposalId = String(body?.proposal_id || '').trim();
+    const requestId = String(body?.request_id || body?.zapier_request_id || '').trim();
+    const envelopeId = String(body?.envelope_id || body?.docusign_envelope_id || '').trim();
+    const rawStatus = String(body?.status || body?.envelope_status || '').trim();
+    const status = normalizeEnvelopeStatus(rawStatus || 'sent');
+    const completedAt = status === 'completed' ? new Date().toISOString() : null;
+
+    let query = supabase.from('ignite_docusign_envelopes').update({
+      status,
+      completed_at: completedAt,
+      updated_at: new Date().toISOString(),
+      ...(envelopeId ? { envelope_id: envelopeId } : {}),
+      ...(body && typeof body === 'object'
+        ? {
+            docusign_payload_json: {
+              ...(body?.docusign_payload_json || {}),
+              provider: 'zapier',
+              callback: body,
+              ...(requestId ? { zapier_request_id: requestId } : {}),
+            },
+          }
+        : {}),
+    } as any);
+
+    if (requestId) {
+      query = query.eq('envelope_id', requestId);
+    } else if (envelopeId) {
+      query = query.eq('envelope_id', envelopeId);
+    } else if (proposalId) {
+      query = query.eq('proposal_id', proposalId);
+    } else {
+      return res.status(400).json({ error: 'missing_identifier' });
+    }
+
+    await query;
+    return res.status(200).json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'zapier_callback_failed' });
   }
 });
 
@@ -707,6 +1048,141 @@ router.post('/proposals/:id/compute', requireIgniteTeam as any, async (req: ApiR
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_compute_proposal' });
+  }
+});
+
+// POST /ignite/proposals/:id/docusign/prepare
+router.post('/proposals/:id/docusign/prepare', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const proposalId = String(req.params.id || '');
+    const optionId = req.body?.option_id ? String(req.body.option_id) : null;
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(req.igniteContext!, proposal, res)) return;
+
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built?.computed || !built.bundle?.proposal) {
+      return res.status(404).json({ error: 'proposal_not_found' });
+    }
+    const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
+    const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
+    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+
+    return res.json({
+      ready: true,
+      proposal_id: proposalId,
+      option_id: selectedOptionId,
+      signer: signer,
+      agreement: agreementPayload,
+    });
+  } catch (e: any) {
+    const message = String(e?.message || 'failed_to_prepare_signature');
+    if (message === 'signer_name_required' || message === 'signer_email_required') {
+      return res.status(400).json({ error: message });
+    }
+    return res.status(500).json({ error: message });
+  }
+});
+
+// POST /ignite/proposals/:id/docusign/send
+router.post('/proposals/:id/docusign/send', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const proposalId = String(req.params.id || '');
+    const optionId = req.body?.option_id ? String(req.body.option_id) : null;
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(ctx, proposal, res)) return;
+
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built?.computed || !built.bundle?.proposal) {
+      return res.status(404).json({ error: 'proposal_not_found' });
+    }
+    const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
+    const signer = getSignerDetails(req.body || {}, built.bundle.proposal, built.computed.clientName || null);
+    const agreementPayload = buildAgreementPayload(built.computed, selectedOptionId, built.bundle.proposal);
+
+    const dispatched = await dispatchSignatureRequest({
+      proposalId,
+      selectedOptionId,
+      computed: built.computed,
+      agreementPayload,
+      signer,
+    });
+
+    const envelope = await insertDocusignEnvelopeRecord({
+      proposalId,
+      selectedOptionId,
+      envelopeId: dispatched.envelopeId,
+      status: dispatched.status,
+      sentBy: ctx.userId,
+      recipientName: signer.signerName,
+      recipientEmail: signer.signerEmail,
+      recipientTitle: signer.signerTitle || null,
+      agreementPayload,
+      signerPayload: signer,
+      docusignPayload: {
+        source: 'backoffice_export',
+        provider: dispatched.provider,
+        ...dispatched.providerPayload,
+      },
+    });
+
+    return res.status(201).json({ envelope });
+  } catch (e: any) {
+    const message = String(e?.message || 'failed_to_send_for_signature');
+    if (message === 'signer_name_required' || message === 'signer_email_required') {
+      return res.status(400).json({ error: message });
+    }
+    return res.status(500).json({ error: message });
+  }
+});
+
+// GET /ignite/proposals/:id/docusign/status
+router.get('/proposals/:id/docusign/status', async (req: ApiRequest, res: Response) => {
+  try {
+    const proposalId = String(req.params.id || '');
+    const proposal = await getProposalOr404(proposalId, res);
+    if (!proposal) return;
+    if (!assertProposalScopeOr403(req.igniteContext!, proposal, res)) return;
+
+    const { data, error } = await supabase
+      .from('ignite_docusign_envelopes')
+      .select('*')
+      .eq('proposal_id', proposalId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.json({ envelope: null });
+
+    let envelope = data;
+    const provider = String((data.docusign_payload_json as any)?.provider || 'native');
+    const isZapierManaged = provider === 'zapier' || String(data.envelope_id || '').startsWith('zapier_');
+    if (!isZapierManaged) {
+      try {
+        const liveStatus = await getDocusignEnvelopeStatus(String(data.envelope_id));
+        const normalized = normalizeEnvelopeStatus(liveStatus);
+        if (normalized && normalized !== data.status) {
+          const { data: updated } = await supabase
+            .from('ignite_docusign_envelopes')
+            .update({
+              status: normalized,
+              completed_at: normalized === 'completed' ? new Date().toISOString() : data.completed_at || null,
+            })
+            .eq('id', data.id)
+            .select('*')
+            .maybeSingle();
+          if (updated) envelope = updated;
+        }
+      } catch {
+        // Keep existing DB status when provider polling fails.
+      }
+    }
+
+    return res.json({ envelope });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_signature_status' });
   }
 });
 

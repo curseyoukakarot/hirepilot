@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import EventProposalLandingTemplate from '../../../ignite/templates/EventProposalLandingTemplate';
 import { fetchSharedProposal } from '../../../ignite/lib/proposalsApi';
 import { IgniteProposalComputed } from '../../../ignite/types/proposals';
+import { apiPost } from '../../../lib/api';
 
 export default function SharedProposalViewPage() {
   const { token = '' } = useParams();
@@ -49,5 +50,34 @@ export default function SharedProposalViewPage() {
     window.open(`/api/ignite/share/${token}/pdf${suffix}`, '_blank', 'noopener,noreferrer');
   };
 
-  return <EventProposalLandingTemplate proposal={proposal} onDownloadPdf={downloadPdf} />;
+  const approveSelectedOption = async (optionId: string) => {
+    const signerName = window.prompt('Signer full name');
+    if (!signerName) return;
+    const signerEmail = window.prompt('Signer email');
+    if (!signerEmail) return;
+    const signerTitle = window.prompt('Signer title (optional)') || '';
+    try {
+      await apiPost(
+        `/api/ignite/share/${token}/approve`,
+        {
+          option_id: optionId,
+          signer_name: signerName,
+          signer_email: signerEmail,
+          signer_title: signerTitle || null,
+        },
+        { requireAuth: false }
+      );
+      window.alert('Agreement sent for signature successfully via Zapier.');
+    } catch (e: any) {
+      window.alert(String(e?.message || 'Failed to send for signature.'));
+    }
+  };
+
+  return (
+    <EventProposalLandingTemplate
+      proposal={proposal}
+      onDownloadPdf={downloadPdf}
+      onApproveSelectedOption={approveSelectedOption}
+    />
+  );
 }

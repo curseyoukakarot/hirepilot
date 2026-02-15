@@ -22,6 +22,16 @@ type IgniteVersionRow = {
   created_at: string;
 };
 
+type IgniteDocusignEnvelope = {
+  id: string;
+  envelope_id: string;
+  status: string;
+  recipient_name: string | null;
+  recipient_email: string | null;
+  recipient_title: string | null;
+  created_at: string;
+};
+
 export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
   const [pdfBusy, setPdfBusy] = React.useState(false);
   const [xlsxBusy, setXlsxBusy] = React.useState(false);
@@ -31,6 +41,12 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
   const [versions, setVersions] = React.useState<IgniteVersionRow[]>([]);
   const [shareUrl, setShareUrl] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
+  const [signerName, setSignerName] = React.useState('');
+  const [signerEmail, setSignerEmail] = React.useState('');
+  const [signerTitle, setSignerTitle] = React.useState('');
+  const [signerCompany, setSignerCompany] = React.useState('');
+  const [docusignBusy, setDocusignBusy] = React.useState(false);
+  const [docusignEnvelope, setDocusignEnvelope] = React.useState<IgniteDocusignEnvelope | null>(null);
 
   const loadHistory = React.useCallback(async () => {
     if (!proposalId) return;
@@ -44,6 +60,13 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
       const allExports = Array.isArray(exportsRes?.exports) ? exportsRes.exports : [];
       setExportsHistory(allExports.filter((row: IgniteExportRow) => row.proposal_id === proposalId));
       setVersions(Array.isArray(proposalRes?.versions) ? proposalRes.versions : []);
+      const agreement = proposalRes?.proposal?.assumptions_json?.agreement || {};
+      if (agreement && typeof agreement === 'object') {
+        setSignerName((prev) => prev || String(agreement.signerName || ''));
+        setSignerEmail((prev) => prev || String(agreement.signerEmail || ''));
+        setSignerTitle((prev) => prev || String(agreement.signerTitle || ''));
+        setSignerCompany((prev) => prev || String(agreement.signerCompany || ''));
+      }
     } catch (e: any) {
       setError(String(e?.message || 'Failed to load export history'));
     } finally {
@@ -51,9 +74,20 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
     }
   }, [proposalId]);
 
+  const loadSignatureStatus = React.useCallback(async () => {
+    if (!proposalId) return;
+    try {
+      const response = await apiGet(`/api/ignite/proposals/${proposalId}/docusign/status`);
+      setDocusignEnvelope((response?.envelope as IgniteDocusignEnvelope) || null);
+    } catch {
+      // Non-blocking for export UX.
+    }
+  }, [proposalId]);
+
   React.useEffect(() => {
     void loadHistory();
-  }, [loadHistory]);
+    void loadSignatureStatus();
+  }, [loadHistory, loadSignatureStatus]);
 
   const ensureShareUrl = async () => {
     if (!proposalId) throw new Error('Save this proposal first to create share links.');
@@ -121,6 +155,27 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
     }
   };
 
+  const sendForSignature = async () => {
+    try {
+      if (!proposalId) throw new Error('Save this proposal before sending for signature.');
+      if (!signerName.trim()) throw new Error('Signer name is required.');
+      if (!signerEmail.trim()) throw new Error('Signer email is required.');
+      setError(null);
+      setDocusignBusy(true);
+      const response = await apiPost(`/api/ignite/proposals/${proposalId}/docusign/send`, {
+        signer_name: signerName.trim(),
+        signer_email: signerEmail.trim(),
+        signer_title: signerTitle.trim() || null,
+        signer_company: signerCompany.trim() || null,
+      });
+      setDocusignEnvelope((response?.envelope as IgniteDocusignEnvelope) || null);
+    } catch (e: any) {
+      setError(String(e?.message || 'Failed to send agreement for signature.'));
+    } finally {
+      setDocusignBusy(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-slate-700/70 bg-slate-950/45 shadow-lg shadow-black/20">
       <div className="border-b border-slate-700/70 p-6">
@@ -134,7 +189,7 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
             {error}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           <div className="rounded-xl border border-rose-500/35 bg-gradient-to-br from-rose-500/15 to-red-500/10 p-6 shadow-lg shadow-black/20">
             <div className="mb-4 flex items-center space-x-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/90">
@@ -247,6 +302,57 @@ export default function ExportStep({ onBack, proposalId }: ExportStepProps) {
             <div className="mt-4 rounded border border-indigo-400/25 bg-slate-950/40 p-2 text-xs text-indigo-100/80">
               <i className="fa-solid fa-shield-alt mr-1" />
               Links are read-only and tokenized for security
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-fuchsia-500/35 bg-gradient-to-br from-fuchsia-500/15 to-violet-500/10 p-6 shadow-lg shadow-black/20">
+            <div className="mb-4 flex items-center space-x-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-fuchsia-500/90">
+                <i className="fa-solid fa-signature text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-fuchsia-100">Send for Signature</h3>
+                <p className="text-sm text-fuchsia-200/85">Zapier to DocuSign workflow</p>
+              </div>
+            </div>
+            <div className="mb-4 space-y-2">
+              <input
+                value={signerName}
+                onChange={(e) => setSignerName(e.target.value)}
+                placeholder="Signer full name"
+                className="w-full rounded-lg border border-fuchsia-300/40 bg-slate-950/40 px-3 py-2 text-sm text-fuchsia-100 placeholder-fuchsia-200/50 focus:border-fuchsia-300 focus:outline-none"
+              />
+              <input
+                value={signerEmail}
+                onChange={(e) => setSignerEmail(e.target.value)}
+                placeholder="Signer email"
+                className="w-full rounded-lg border border-fuchsia-300/40 bg-slate-950/40 px-3 py-2 text-sm text-fuchsia-100 placeholder-fuchsia-200/50 focus:border-fuchsia-300 focus:outline-none"
+              />
+              <input
+                value={signerTitle}
+                onChange={(e) => setSignerTitle(e.target.value)}
+                placeholder="Signer title (optional)"
+                className="w-full rounded-lg border border-fuchsia-300/40 bg-slate-950/40 px-3 py-2 text-sm text-fuchsia-100 placeholder-fuchsia-200/50 focus:border-fuchsia-300 focus:outline-none"
+              />
+              <input
+                value={signerCompany}
+                onChange={(e) => setSignerCompany(e.target.value)}
+                placeholder="Legal entity (optional)"
+                className="w-full rounded-lg border border-fuchsia-300/40 bg-slate-950/40 px-3 py-2 text-sm text-fuchsia-100 placeholder-fuchsia-200/50 focus:border-fuchsia-300 focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={sendForSignature}
+              disabled={docusignBusy}
+              className="w-full rounded-lg bg-fuchsia-500 py-2.5 font-medium text-white hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <i className={`fa-solid ${docusignBusy ? 'fa-spinner fa-spin' : 'fa-paper-plane'} mr-2`} />
+              {docusignBusy ? 'Sending...' : 'Send via Zapier'}
+            </button>
+            <div className="mt-4 rounded border border-fuchsia-400/25 bg-slate-950/40 p-2 text-xs text-fuchsia-100/80">
+              <i className="fa-solid fa-circle-info mr-1" />
+              Status: {docusignEnvelope?.status || 'Not sent yet'}
             </div>
           </div>
         </div>

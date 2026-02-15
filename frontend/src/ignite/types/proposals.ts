@@ -41,6 +41,30 @@ export type IgniteProposalComputed = {
   location: string;
   date: string;
   headcount: number;
+  eventSnapshot: {
+    venueAddress: string;
+    city: string;
+    startTime: string;
+    endTime: string;
+    primarySponsor: string;
+    coSponsors: string[];
+  };
+  overview: {
+    objective: string;
+    successCriteria: string[];
+  };
+  agreementTerms: {
+    depositPercent: number;
+    depositDueRule: string;
+    balanceDueRule: string;
+    cancellationWindowDays: number;
+    confidentialityEnabled: boolean;
+    costSplitNotes: string;
+    signerName: string;
+    signerEmail: string;
+    signerTitle: string;
+    signerCompany: string;
+  };
   modelType: IgniteProposalComputedModelType;
   options: IgniteProposalComputedOption[];
   included: {

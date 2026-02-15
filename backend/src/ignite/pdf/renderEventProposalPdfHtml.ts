@@ -160,20 +160,48 @@ export function renderEventProposalPdfHtml(args: {
       <div class="badge">Proposal ready for review</div>
       <h1>${escapeHtml(proposal.eventName)}</h1>
       <div class="muted" style="font-size:13px;max-width:640px;">${escapeHtml(
-        selected.description || 'Event proposal prepared by IgniteGTM.'
+        proposal.overview.objective || selected.description || 'Event proposal prepared by IgniteGTM.'
       )}</div>
       <div class="pill-row">
         <div class="pill"><strong>Client:</strong> ${escapeHtml(proposal.clientName)}</div>
         <div class="pill"><strong>Headcount:</strong> ${escapeHtml(proposal.headcount)}</div>
         <div class="pill"><strong>Venue:</strong> ${escapeHtml(proposal.location)}</div>
+        <div class="pill"><strong>City:</strong> ${escapeHtml(proposal.eventSnapshot.city || 'TBD')}</div>
+        <div class="pill"><strong>Time:</strong> ${escapeHtml(proposal.eventSnapshot.startTime || 'TBD')} - ${escapeHtml(
+    proposal.eventSnapshot.endTime || 'TBD'
+  )}</div>
+        ${
+          proposal.eventSnapshot.primarySponsor
+            ? `<div class="pill"><strong>Sponsor:</strong> ${escapeHtml(proposal.eventSnapshot.primarySponsor)}</div>`
+            : ''
+        }
+        ${
+          proposal.eventSnapshot.coSponsors.length
+            ? `<div class="pill"><strong>Co-Sponsors:</strong> ${escapeHtml(
+                proposal.eventSnapshot.coSponsors.join(', ')
+              )}</div>`
+            : ''
+        }
         <div class="pill"><strong>Model:</strong> ${escapeHtml(proposal.modelType)}</div>
       </div>
       <div class="hero-grid">
         <div class="card soft">
           <h2 style="margin-top:0;">Executive Summary</h2>
           <p class="muted" style="margin:0;">${escapeHtml(
-            selected.description || 'IgniteGTM will manage planning and execution for a premium event experience.'
+            proposal.overview.objective ||
+              selected.description ||
+              'IgniteGTM will manage planning and execution for a premium event experience.'
           )}</p>
+          ${
+            proposal.overview.successCriteria.length
+              ? `<div style="margin-top:10px;">
+            <div class="kpi-title">Success Criteria</div>
+            <ul class="bullets">${proposal.overview.successCriteria
+              .map((line) => `<li>${escapeHtml(line)}</li>`)
+              .join('')}</ul>
+          </div>`
+              : ''
+          }
           <div class="section-grid">
             <div class="card">
               <div class="kpi-title">Selected Option</div>
@@ -226,6 +254,38 @@ export function renderEventProposalPdfHtml(args: {
     <section>
       <h2 style="margin-top:0;">What's Included</h2>
       <div class="section-grid">${includedCards}</div>
+      <div class="card" style="margin-top:14px;">
+        <h3 style="margin-top:0;">Agreement Terms</h3>
+        <table class="table">
+          <tbody>
+            <tr><td>Deposit Percentage</td><td class="right">${escapeHtml(proposal.agreementTerms.depositPercent)}%</td></tr>
+            <tr><td>Deposit Due</td><td class="right">${escapeHtml(
+              proposal.agreementTerms.depositDueRule || 'Per agreement'
+            )}</td></tr>
+            <tr><td>Balance Due</td><td class="right">${escapeHtml(
+              proposal.agreementTerms.balanceDueRule || 'Per agreement'
+            )}</td></tr>
+            <tr><td>Cancellation Window</td><td class="right">${escapeHtml(
+              proposal.agreementTerms.cancellationWindowDays
+            )} days</td></tr>
+            <tr><td>Confidentiality</td><td class="right">${proposal.agreementTerms.confidentialityEnabled ? 'Enabled' : 'Disabled'}</td></tr>
+            ${
+              proposal.agreementTerms.costSplitNotes
+                ? `<tr><td>Cost Split Notes</td><td class="right">${escapeHtml(
+                    proposal.agreementTerms.costSplitNotes
+                  )}</td></tr>`
+                : ''
+            }
+            ${
+              proposal.agreementTerms.signerName || proposal.agreementTerms.signerEmail
+                ? `<tr><td>Client Signer</td><td class="right">${escapeHtml(
+                    `${proposal.agreementTerms.signerName || ''} ${proposal.agreementTerms.signerTitle ? `(${proposal.agreementTerms.signerTitle})` : ''} ${proposal.agreementTerms.signerEmail ? `- ${proposal.agreementTerms.signerEmail}` : ''}`
+                  )}</td></tr>`
+                : ''
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   </main>
 </body>

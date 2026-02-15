@@ -174,6 +174,115 @@ export default function AssumptionsStep({ state, onChange, onBack, onNext }: Ass
               <p className="mt-1.5 text-xs text-gray-500">Buffer for unexpected costs (optional)</p>
             </div>
 
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <h4 className="text-sm font-semibold text-blue-900">Agreement Terms</h4>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-800">Deposit %</label>
+                  <input
+                    type="number"
+                    value={state.depositPercent}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onChange={(e) => onChange({ depositPercent: e.target.value })}
+                    className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-800">Cancellation Window (days)</label>
+                  <input
+                    type="number"
+                    value={state.cancellationWindowDays}
+                    min={0}
+                    step={1}
+                    onChange={(e) => onChange({ cancellationWindowDays: e.target.value })}
+                    className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-800">Deposit Due Rule</label>
+                  <input
+                    type="text"
+                    value={state.depositDueRule}
+                    onChange={(e) => onChange({ depositDueRule: e.target.value })}
+                    className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-800">Balance Due Rule</label>
+                  <input
+                    type="text"
+                    value={state.balanceDueRule}
+                    onChange={(e) => onChange({ balanceDueRule: e.target.value })}
+                    className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-blue-800">Cost Split Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={state.costSplitNotes}
+                    onChange={(e) => onChange({ costSplitNotes: e.target.value })}
+                    className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-center text-sm text-blue-900">
+                  <input
+                    type="checkbox"
+                    checked={state.confidentialityEnabled}
+                    onChange={(e) => onChange({ confidentialityEnabled: e.target.checked })}
+                    className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2">Include confidentiality clause</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+              <h4 className="text-sm font-semibold text-violet-900">Client Signer Defaults</h4>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-violet-800">Signer Full Name</label>
+                  <input
+                    type="text"
+                    value={state.signerName}
+                    onChange={(e) => onChange({ signerName: e.target.value })}
+                    className="w-full rounded-lg border border-violet-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-violet-800">Signer Email</label>
+                  <input
+                    type="email"
+                    value={state.signerEmail}
+                    onChange={(e) => onChange({ signerEmail: e.target.value })}
+                    className="w-full rounded-lg border border-violet-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-violet-800">Signer Title</label>
+                  <input
+                    type="text"
+                    value={state.signerTitle}
+                    onChange={(e) => onChange({ signerTitle: e.target.value })}
+                    className="w-full rounded-lg border border-violet-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-violet-800">Legal Entity / Company</label>
+                  <input
+                    type="text"
+                    value={state.signerCompany}
+                    onChange={(e) => onChange({ signerCompany: e.target.value })}
+                    className="w-full rounded-lg border border-violet-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
             {state.modelType === 'turnkey' && (
               <div>
                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">

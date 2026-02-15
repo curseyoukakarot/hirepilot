@@ -81,6 +81,9 @@ export function buildComputedProposal(args: BuildComputedProposalArgs): IgnitePr
   const perOption = asArray(computedJson.per_option);
   const settings = (proposal.settings_json || {}) as JsonMap;
   const metadata = (proposal.metadata_json || {}) as JsonMap;
+  const assumptions = (proposal.assumptions_json || {}) as JsonMap;
+  const event = (assumptions.event || {}) as JsonMap;
+  const agreement = (assumptions.agreement || {}) as JsonMap;
   const igniteFeeRate = normalizeRate(settings.igniteFeeRate ?? settings.ignite_fee_rate);
   const contingencyRate = normalizeRate(settings.contingencyRate ?? settings.contingency_rate);
 
@@ -177,10 +180,34 @@ export function buildComputedProposal(args: BuildComputedProposalArgs): IgnitePr
   return {
     proposalId: asString(proposal.id),
     clientName: asString(args.clientName || proposal.client_name || 'Client'),
-    eventName: asString(proposal.event_name || proposal.name || proposal.title || 'Event Proposal'),
-    location: asString(proposal.location || proposal.venue || ''),
-    date: asString(proposal.event_date || proposal.date || ''),
-    headcount: asNumber(proposal.headcount || proposal.attendees || 0),
+    eventName: asString(event.eventName || proposal.event_name || proposal.name || proposal.title || 'Event Proposal'),
+    location: asString(event.location || proposal.location || proposal.venue || ''),
+    date: asString(event.eventDate || proposal.event_date || proposal.date || ''),
+    headcount: asNumber(event.headcount || proposal.headcount || proposal.attendees || 0),
+    eventSnapshot: {
+      venueAddress: asString(event.venueAddress || ''),
+      city: asString(event.city || ''),
+      startTime: asString(event.startTime || ''),
+      endTime: asString(event.endTime || ''),
+      primarySponsor: asString(event.primarySponsor || ''),
+      coSponsors: asArray(event.coSponsors).map((value) => asString(value)).filter(Boolean),
+    },
+    overview: {
+      objective: asString(event.eventObjective || ''),
+      successCriteria: asArray(event.successCriteria).map((value) => asString(value)).filter(Boolean),
+    },
+    agreementTerms: {
+      depositPercent: asNumber(agreement.depositPercent, 0),
+      depositDueRule: asString(agreement.depositDueRule || ''),
+      balanceDueRule: asString(agreement.balanceDueRule || ''),
+      cancellationWindowDays: asNumber(agreement.cancellationWindowDays, 0),
+      confidentialityEnabled: agreement.confidentialityEnabled !== false,
+      costSplitNotes: asString(agreement.costSplitNotes || ''),
+      signerName: asString(agreement.signerName || ''),
+      signerEmail: asString(agreement.signerEmail || ''),
+      signerTitle: asString(agreement.signerTitle || ''),
+      signerCompany: asString(agreement.signerCompany || ''),
+    },
     modelType,
     options,
     included: {
