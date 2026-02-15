@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { apiPatch, apiPost } from '../../../lib/api';
+import { apiGet, apiPatch, apiPost } from '../../../lib/api';
 import AssumptionsStep from './AssumptionsStep';
 import BasicsStep from './BasicsStep';
 import BuildCostsStep from './BuildCostsStep';
@@ -95,6 +95,8 @@ function buildCostsSyncPayload(state: IgniteWizardState) {
 export default function IgniteCreateProposalWizard() {
   const [step, setStep] = useState<WizardStep>(1);
   const [state, setState] = useState<IgniteWizardState>(DEFAULT_IGNITE_WIZARD_STATE);
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -104,18 +106,61 @@ export default function IgniteCreateProposalWizard() {
     setState((prev) => ({ ...prev, ...patch }));
   };
 
+  const isUuid = (value: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+  const selectedClientValid = useMemo(() => {
+    if (!state.clientId) return false;
+    if (!isUuid(state.clientId)) return false;
+    return clients.some((client) => client.id === state.clientId);
+  }, [state.clientId, clients]);
+
   const stepCompletion = useMemo(() => {
     const activeRows = state.buildCosts.rowsByOption[1] || [];
     return {
-      1: !!state.clientId && !!state.eventName,
+      1: selectedClientValid && !!state.eventName,
       2: !!state.serviceCharge && !!state.salesTax,
       3: activeRows.length > 0,
       4: false,
       5: false,
     } as Record<WizardStep, boolean>;
-  }, [state]);
+  }, [state, selectedClientValid]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadClients = async () => {
+      try {
+        setClientsLoading(true);
+        const response = await apiGet('/api/ignite/clients');
+        if (cancelled) return;
+        const rows = Array.isArray(response?.clients) ? response.clients : [];
+        const mapped = rows
+          .filter((row: any) => row?.id && row?.name)
+          .map((row: any) => ({ id: String(row.id), name: String(row.name) }));
+        setClients(mapped);
+      } catch (e: any) {
+        if (!cancelled) {
+          setSaveError(String(e?.message || 'Failed to load clients.'));
+        }
+      } finally {
+        if (!cancelled) setClientsLoading(false);
+      }
+    };
+    void loadClients();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persistProposal = async (draftState: IgniteWizardState, existingProposalId?: string | null) => {
+    const clientIsValid =
+      Boolean(draftState.clientId) &&
+      isUuid(draftState.clientId) &&
+      clients.some((client) => client.id === draftState.clientId);
+    if (!clientIsValid) {
+      throw new Error('Please select a valid client from the client list.');
+    }
+
     const payload = buildProposalPayload(draftState);
     let resolvedProposalId = existingProposalId || proposalId;
     if (!resolvedProposalId) {
@@ -135,7 +180,7 @@ export default function IgniteCreateProposalWizard() {
   };
 
   useEffect(() => {
-    const hasMinimumToSave = Boolean(state.clientId);
+    const hasMinimumToSave = selectedClientValid;
     if (!hasMinimumToSave) return;
 
     const timeout = setTimeout(async () => {
@@ -152,12 +197,12 @@ export default function IgniteCreateProposalWizard() {
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [state, proposalId]);
+  }, [state, proposalId, selectedClientValid]);
 
   const onSaveDraft = async () => {
     try {
-      if (!state.clientId) {
-        setSaveError('Select a client before saving.');
+      if (!selectedClientValid) {
+        setSaveError('Select a valid client before saving.');
         return;
       }
       setIsSaving(true);
@@ -173,8 +218,8 @@ export default function IgniteCreateProposalWizard() {
 
   const onPreview = async () => {
     try {
-      if (!state.clientId) {
-        setSaveError('Select a client before previewing.');
+      if (!selectedClientValid) {
+        setSaveError('Select a valid client before previewing.');
         return;
       }
       setSaveError(null);
@@ -262,7 +307,15 @@ export default function IgniteCreateProposalWizard() {
       </div>
 
       <div className="p-8">
-        {step === 1 && <BasicsStep state={state} onChange={updateState} onNext={() => setStep(2)} />}
+        {step === 1 && (
+          <BasicsStep
+            state={state}
+            clients={clients}
+            clientsLoading={clientsLoading}
+            onChange={updateState}
+            onNext={() => setStep(2)}
+          />
+        )}
         {step === 2 && (
           <AssumptionsStep
             state={state}

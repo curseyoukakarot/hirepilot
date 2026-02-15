@@ -3,6 +3,8 @@ import type { IgniteWizardState } from './types';
 
 type BasicsStepProps = {
   state: IgniteWizardState;
+  clients: Array<{ id: string; name: string }>;
+  clientsLoading?: boolean;
   onChange: (patch: Partial<IgniteWizardState>) => void;
   onNext: () => void;
 };
@@ -13,7 +15,7 @@ const QUICK_TEMPLATES = [
   { id: 'roadshow', icon: 'fa-route', label: 'Roadshow Stop' },
 ];
 
-export default function BasicsStep({ state, onChange, onNext }: BasicsStepProps) {
+export default function BasicsStep({ state, clients, clientsLoading = false, onChange, onNext }: BasicsStepProps) {
   return (
     <div className="max-w-4xl">
       <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -26,13 +28,15 @@ export default function BasicsStep({ state, onChange, onNext }: BasicsStepProps)
               <select
                 value={state.clientId}
                 onChange={(e) => onChange({ clientId: e.target.value })}
+                disabled={clientsLoading}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select client...</option>
-                <option value="supermicro">Supermicro</option>
-                <option value="amd">AMD</option>
-                <option value="oracle">Oracle</option>
-                <option value="microsoft">Microsoft</option>
+                <option value="">{clientsLoading ? 'Loading clients...' : 'Select client...'}</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
               </select>
             </div>
 
