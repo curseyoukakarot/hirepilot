@@ -1,5 +1,5 @@
 import { sniperV1Queue } from '../../queues/redis';
-import { supabaseDb } from '../../lib/supabase';
+import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClient } from '../../lib/supabase';
 import { createJob, createTarget, countJobItems, getJob } from '../sniperV1/db';
 import { fetchSniperV1Settings } from '../sniperV1/settings';
 
@@ -27,6 +27,14 @@ export type SniperBridgePoll = {
   statuses: Array<{ jobId: string; status: string }>;
   externalRefs: Array<{ type: 'sniper_run'; id: string; meta: Record<string, any> }>;
 };
+
+function getDb() {
+  const db = (supabaseDbClient as any) || (supabaseAdmin as any) || (supabaseClient as any);
+  if (!db || typeof db.from !== 'function') {
+    throw new Error('supabase_db_client_unavailable');
+  }
+  return db;
+}
 
 function inferPlatform(url: string): string {
   try {
@@ -140,7 +148,7 @@ export async function launchSniperCapture(args: {
 
 async function readSniperDiscoveryCounts(userId: string, startedAtIso: string): Promise<{ discoveredCount: number; resultsCount: number }> {
   try {
-    const { data: runs } = await supabaseDb
+    const { data: runs } = await getDb()
       .from('sniper_runs')
       .select('id,discovered_count')
       .eq('user_id', userId)
@@ -151,7 +159,7 @@ async function readSniperDiscoveryCounts(userId: string, startedAtIso: string): 
     const discoveredCount = runRows.reduce((acc: number, row: any) => acc + Number(row?.discovered_count || 0), 0);
     const runIds = runRows.map((r: any) => String(r?.id || '')).filter(Boolean);
     if (!runIds.length) return { discoveredCount, resultsCount: 0 };
-    const { count } = await supabaseDb
+    const { count } = await getDb()
       .from('sniper_results')
       .select('id', { count: 'exact', head: true })
       .in('run_id', runIds);

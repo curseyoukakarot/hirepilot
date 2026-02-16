@@ -1,11 +1,19 @@
 import { Worker } from 'bullmq';
 import { connection } from '../queues/redis';
-import { supabaseDb } from '../lib/supabase';
+import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClient } from '../lib/supabase';
 import { buildRex2Event, publishRex2Event } from '../rex2/pubsub';
 import { launchSniperCapture, pollSniperCapture, resolveSniperTargetsFromPlan } from '../services/rex2/sniperBridge';
 
 const QUEUE = 'rex2:run';
 const MAX_PARALLEL_STEPS = Math.max(1, Number(process.env.REX2_MAX_PARALLEL_STEPS || 2));
+
+function getDb() {
+  const db = (supabaseDbClient as any) || (supabaseAdmin as any) || (supabaseClient as any);
+  if (!db || typeof db.from !== 'function') {
+    throw new Error('supabase_db_client_unavailable');
+  }
+  return db;
+}
 
 type RunStatus = 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
 type StepStatus = 'queued' | 'running' | 'success' | 'failure' | 'skipped';
@@ -44,7 +52,7 @@ function sleep(ms: number) {
 }
 
 async function getRun(runId: string) {
-  const { data, error } = await supabaseDb
+  const { data, error } = await getDb()
     .from('rex_agent_runs')
     .select('*')
     .eq('id', runId)
@@ -54,7 +62,7 @@ async function getRun(runId: string) {
 }
 
 async function updateRun(runId: string, patch: Record<string, any>) {
-  const { data, error } = await supabaseDb
+  const { data, error } = await getDb()
     .from('rex_agent_runs')
     .update({ ...patch, updated_at: new Date().toISOString() } as any)
     .eq('id', runId)

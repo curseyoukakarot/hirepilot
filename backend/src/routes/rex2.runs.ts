@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
-import { supabaseDb } from '../lib/supabase';
+import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClient } from '../lib/supabase';
 import { applyWorkspaceScope } from '../lib/workspaceScope';
 import { rex2RunQueue } from '../queues/redis';
 import { buildRex2Event, publishRex2Event, subscribeRex2Events } from '../rex2/pubsub';
@@ -24,8 +24,16 @@ router.use(requireAuth as any, activeWorkspace as any);
 
 type RunStatus = 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
 
+function getDb() {
+  const db = (supabaseDbClient as any) || (supabaseAdmin as any) || (supabaseClient as any);
+  if (!db || typeof db.from !== 'function') {
+    throw new Error('supabase_db_client_unavailable');
+  }
+  return db;
+}
+
 const scopedRuns = (req: Request) =>
-  applyWorkspaceScope(supabaseDb.from('rex_agent_runs'), {
+  applyWorkspaceScope(getDb().from('rex_agent_runs'), {
     workspaceId: (req as any).workspaceId || null,
     userId: (req as any)?.user?.id || null,
     ownerColumn: 'user_id'
