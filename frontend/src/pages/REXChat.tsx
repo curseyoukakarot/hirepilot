@@ -465,6 +465,8 @@ export default function REXChat() {
   const [activeConsoleTab, setActiveConsoleTab] = useState<'plan' | 'execution' | 'artifacts'>('plan');
   const [userCreditsRemaining, setUserCreditsRemaining] = useState<number | null>(null);
   const [rexThinking, setRexThinking] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileConsoleOpen, setMobileConsoleOpen] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -502,6 +504,21 @@ export default function REXChat() {
       reconnectTimeoutRef.current = null;
     }
     allowReconnectRef.current = false;
+  }
+
+  function closeMobilePanels() {
+    setMobileSidebarOpen(false);
+    setMobileConsoleOpen(false);
+  }
+
+  function openMobileSidebar() {
+    setMobileConsoleOpen(false);
+    setMobileSidebarOpen(true);
+  }
+
+  function openMobileConsole() {
+    setMobileSidebarOpen(false);
+    setMobileConsoleOpen(true);
   }
 
   function applyRunSnapshot(payload: any) {
@@ -1069,8 +1086,24 @@ export default function REXChat() {
   }
 
   return (
-    <div id="rex-container" className="flex h-screen overflow-hidden bg-dark-950 text-gray-100 font-sans antialiased">
-      <aside id="sidebar" className="w-[280px] bg-dark-900 border-r border-dark-800 flex flex-col">
+    <div id="rex-container" className="relative flex h-screen overflow-hidden bg-dark-950 text-gray-100 font-sans antialiased">
+      {(mobileSidebarOpen || mobileConsoleOpen) && (
+        <button
+          type="button"
+          aria-label="Close overlay"
+          className="absolute inset-0 z-20 bg-black/50 lg:hidden"
+          onClick={closeMobilePanels}
+        />
+      )}
+
+      <aside
+        id="sidebar"
+        className={`bg-dark-900 border-r border-dark-800 flex flex-col ${
+          mobileSidebarOpen
+            ? 'absolute inset-y-0 left-0 z-30 w-[280px] lg:static lg:z-auto'
+            : 'hidden'
+        } lg:flex lg:w-[280px]`}
+      >
         <div id="sidebar-header" className="p-4 border-b border-dark-800">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
@@ -1084,6 +1117,7 @@ export default function REXChat() {
           <button
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
             onClick={async () => {
+              closeMobilePanels();
               cleanupStream();
               const conv = await createConversation('New chat');
               setActiveConversationId(conv.id);
@@ -1115,7 +1149,10 @@ export default function REXChat() {
                   ? 'bg-dark-700 border-purple-500/40'
                   : 'bg-dark-800 hover:bg-dark-700 border-transparent hover:border-purple-500/30'
               }`}
-              onClick={() => setSelectedAgentId(a.id)}
+              onClick={() => {
+                setSelectedAgentId(a.id);
+                if (mobileSidebarOpen) closeMobilePanels();
+              }}
             >
               <div className="flex items-start gap-3">
                 <div className={`w-8 h-8 ${a.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -1159,7 +1196,10 @@ export default function REXChat() {
                   ? 'bg-dark-800 border-purple-500/20'
                   : 'bg-dark-800/50 hover:bg-dark-800 border-transparent'
               }`}
-              onClick={() => setActiveConversationId(c.id)}
+              onClick={() => {
+                setActiveConversationId(c.id);
+                if (mobileSidebarOpen) closeMobilePanels();
+              }}
             >
               <div className="flex items-start justify-between mb-1">
                 <h4 className="text-sm font-medium text-white truncate flex-1">{c.title}</h4>
@@ -1192,10 +1232,16 @@ export default function REXChat() {
         </div>
       </aside>
 
-      <main id="chat-panel" className="flex-1 flex flex-col bg-dark-950">
-        <header id="chat-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-6 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-white">{planJson?.goal?.title || 'REX Recruiting Console'}</h2>
+      <main id="chat-panel" className="flex-1 flex flex-col bg-dark-950 min-w-0">
+        <header id="chat-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              className="lg:hidden p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+              onClick={openMobileSidebar}
+            >
+              <i className="fa-solid fa-bars" />
+            </button>
+            <h2 className="text-base sm:text-lg font-semibold text-white truncate">{planJson?.goal?.title || 'REX Recruiting Console'}</h2>
             <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full">
               Agent Mode: {selectedAgent.name}
             </span>
@@ -1211,6 +1257,12 @@ export default function REXChat() {
             <button className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150">
               <i className="fa-solid fa-share-nodes mr-1.5" />
               Share
+            </button>
+            <button
+              className="xl:hidden p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+              onClick={openMobileConsole}
+            >
+              <i className="fa-solid fa-list-check" />
             </button>
           </div>
         </header>
@@ -1443,10 +1495,20 @@ export default function REXChat() {
         </div>
       </main>
 
-      <aside id="agent-console" className="w-[420px] bg-dark-900 border-l border-dark-800 flex flex-col">
+      <aside
+        id="agent-console"
+        className={`bg-dark-900 border-l border-dark-800 flex flex-col ${
+          mobileConsoleOpen
+            ? 'absolute inset-y-0 right-0 z-30 w-[90%] max-w-[420px] xl:static xl:z-auto'
+            : 'hidden'
+        } xl:flex xl:w-[420px]`}
+      >
         <div id="console-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-5 flex-shrink-0">
           <h2 className="text-sm font-semibold text-white">Agent Console</h2>
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150">
+          <button
+            className="p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+            onClick={closeMobilePanels}
+          >
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
