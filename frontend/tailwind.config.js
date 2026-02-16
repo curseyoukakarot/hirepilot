@@ -4,11 +4,27 @@ module.exports = {
   content: ["./index.html", "./src/**/*.{html,js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+      },
       boxShadow: {
         soft: "0 10px 30px rgba(0,0,0,.08)",
         glow: "0 0 0 6px rgba(99,102,241,.12)",
       },
       colors: {
+        dark: {
+          50: "#f8f9fa",
+          100: "#e9ecef",
+          200: "#dee2e6",
+          300: "#ced4da",
+          400: "#adb5bd",
+          500: "#6c757d",
+          600: "#495057",
+          700: "#343a40",
+          800: "#212529",
+          900: "#0d1117",
+          950: "#010409",
+        },
         hpBlue: "#0C5CF4",
         hpGray: {
           50: "#F9FAFB",
