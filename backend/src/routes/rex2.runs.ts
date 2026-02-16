@@ -6,6 +6,7 @@ import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClie
 import { applyWorkspaceScope } from '../lib/workspaceScope';
 import { rex2RunQueue } from '../queues/redis';
 import { buildRex2Event, publishRex2Event, subscribeRex2Events } from '../rex2/pubsub';
+import { estimateCreditsForPlan } from '../services/rex2/creditEstimator';
 
 const router = express.Router();
 // EventSource cannot set custom Authorization headers in browsers.
@@ -41,6 +42,10 @@ const scopedRuns = (req: Request) =>
 
 function normalizePlan(planJson: any, runContext: { conversationId: string | null; campaignId: string | null }) {
   const steps = Array.isArray(planJson?.steps) ? planJson.steps : [];
+  const estimate = estimateCreditsForPlan(planJson || {});
+  const timeMin = Math.max(5, Math.round(estimate.target_leads / 8));
+  const timeMax = Math.max(timeMin + 5, Math.round(estimate.target_leads / 4));
+  const riskLevel = estimate.target_leads > 250 ? 'medium' : 'low';
   return {
     schema_version: 'rex.plan.v1',
     plan_id: String(planJson?.plan_id || randomUUID()),
@@ -65,10 +70,33 @@ function normalizePlan(planJson: any, runContext: { conversationId: string | nul
       }
     },
     assumptions: Array.isArray(planJson?.assumptions) ? planJson.assumptions : [],
-    estimates: planJson?.estimates || {
-      credits: { min: 0, max: 0, unit: 'credits', notes: '' },
-      time: { min_minutes: 0, max_minutes: 0, notes: '' },
-      risk: { level: 'low', notes: '' }
+    estimates: {
+      credits: {
+        min: Number(planJson?.estimates?.credits?.min ?? estimate.min),
+        max: Number(planJson?.estimates?.credits?.max ?? estimate.max),
+        unit: 'credits',
+        notes: String(planJson?.estimates?.credits?.notes || 'Estimated from lead volume, enrichment depth, and tool actions.')
+      },
+      time: {
+        min_minutes: Number(planJson?.estimates?.time?.min_minutes ?? timeMin),
+        max_minutes: Number(planJson?.estimates?.time?.max_minutes ?? timeMax),
+        notes: String(planJson?.estimates?.time?.notes || 'Depends on sourcing target volume and queue throughput.')
+      },
+      risk: {
+        level: (planJson?.estimates?.risk?.level || riskLevel) as 'low' | 'medium' | 'high',
+        notes: String(planJson?.estimates?.risk?.notes || (riskLevel === 'medium'
+          ? 'Higher volume run with more external actions.'
+          : 'Low-risk run using standard sourcing/enrichment tools.'))
+      },
+      pricing_model: {
+        lead_capture: 1,
+        enrich_basic: 1,
+        enrich_enhanced: 1,
+        linkedin_action: 1 / 6,
+        apollo_action: 0.25,
+        messaging_action: 0.2
+      },
+      breakdown: estimate.breakdown
     },
     steps,
     approval: {
@@ -123,9 +151,15 @@ router.post('/runs', async (req: Request, res: Response) => {
     const plan = normalizePlan(body?.plan_json || body?.plan || {}, { conversationId, campaignId });
     const initialProgress = makeInitialProgress(plan);
     const artifacts = { schema_version: 'rex.artifacts.v1', items: [] };
+    const estimate = estimateCreditsForPlan(plan);
     const stats = {
       schema_version: 'rex.stats.v1',
-      credits: { estimated: 0, used: 0, remaining: 0, notes: '' },
+      credits: {
+        estimated: estimate.expected,
+        used: 0,
+        remaining: 0,
+        notes: `Range ${estimate.min}-${estimate.max}. Target leads ${estimate.target_leads}.`
+      },
       timing: { eta_seconds: 0, elapsed_seconds: 0 },
       counts: { profiles_found: 0, profiles_enriched: 0, leads_created: 0, messages_scheduled: 0 },
       quality: { avg_score_percent: 0, notes: '' },

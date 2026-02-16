@@ -173,6 +173,33 @@ function toDurationLabel(seconds: number) {
   return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
 }
 
+function estimateDraftPlan(prompt: string, steps: PlanStep[]) {
+  const text = `${prompt} ${(steps || []).map((s) => `${s.title} ${s.description}`).join(' ')}`.toLowerCase();
+  const countMatch = text.match(/\b(\d{1,4})\s+(?:lead|leads|candidate|candidates|profiles?)\b/);
+  const targetLeads = Math.max(10, Math.min(1000, Number(countMatch?.[1] || 50)));
+  const hasEnrich = steps.some((s) => /enrich|profile|contact|email/i.test(`${s.title} ${s.description}`));
+  const hasSource = steps.some((s) => /source|linkedin|indeed|apollo|candidate/i.test(`${s.title} ${s.description}`));
+  const hasOutreach = steps.some((s) => /outreach|message|sequence|reply/i.test(`${s.title} ${s.description}`));
+  const enhancedExplicit = /enhanced|deep enrich|advanced enrich/i.test(text);
+  const enhancedCount = hasEnrich ? Math.round(targetLeads * (enhancedExplicit ? 0.5 : 0.25)) : 0;
+
+  const leadCredits = targetLeads * 1;
+  const enrichCredits = hasEnrich ? targetLeads * 1 : 0;
+  const enhancedCredits = enhancedCount * 1;
+  const linkedinActionCredits = (hasSource ? Math.max(1, Math.ceil(targetLeads / 25) * 3) : 0) * (1 / 6);
+  const apolloActionCredits = (hasSource ? Math.max(1, Math.ceil(targetLeads / 50) * 2) : 0) * 0.25;
+  const messagingActionCredits = (hasOutreach ? Math.max(1, Math.ceil(targetLeads / 40)) : 0) * 0.2;
+
+  const expected = leadCredits + enrichCredits + enhancedCredits + linkedinActionCredits + apolloActionCredits + messagingActionCredits;
+  const min = Math.max(1, Math.round(expected * 0.85));
+  const max = Math.max(min, Math.round(expected * 1.15));
+  const timeMin = Math.max(5, Math.round(targetLeads / 8));
+  const timeMax = Math.max(timeMin + 5, Math.round(targetLeads / 4));
+  const risk = targetLeads > 250 ? 'medium' : 'low';
+
+  return { min, max, expected: Math.round(expected), timeMin, timeMax, risk };
+}
+
 function buildPlanFromText(prompt: string, reply: string, conversationId: string | null): PlanJson {
   const lines = String(reply || '')
     .split('\n')
@@ -196,6 +223,7 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
       category: DEFAULT_STEP_BLUEPRINT[idx]?.category || 'other',
       status: 'queued' as const
     }));
+  const estimate = estimateDraftPlan(prompt, steps);
 
   return {
     schema_version: 'rex.plan.v1',
@@ -222,9 +250,14 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
     },
     assumptions: [],
     estimates: {
-      credits: { min: 300, max: 600, unit: 'credits', notes: 'Estimated from step complexity and enrichment volume.' },
-      time: { min_minutes: 10, max_minutes: 20, notes: 'Depends on sourcing and enrichment throughput.' },
-      risk: { level: 'low', notes: 'Execution uses existing recruiting tools and queues.' }
+      credits: {
+        min: estimate.min,
+        max: estimate.max,
+        unit: 'credits',
+        notes: 'Low-cost model: 1 credit/lead, +1 basic enrich, +1 enhanced enrich, plus lightweight tool actions.'
+      },
+      time: { min_minutes: estimate.timeMin, max_minutes: estimate.timeMax, notes: 'Depends on sourcing target volume and queue throughput.' },
+      risk: { level: estimate.risk as 'low' | 'medium' | 'high', notes: estimate.risk === 'medium' ? 'Higher volume run detected.' : 'Low-risk standard recruiting flow.' }
     },
     steps,
     approval: {
