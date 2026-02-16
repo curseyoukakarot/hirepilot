@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createConversation, fetchMessages, listConversations, postMessage, type RexConversation } from '../lib/rexApi';
+import {
+  createConversation,
+  fetchMessages,
+  fetchRex2Agents,
+  listConversations,
+  postMessage,
+  type RexAgentProfile,
+  type RexConversation
+} from '../lib/rexApi';
 import { supabase } from '../lib/supabaseClient';
 import '../styles/rex.css';
 
@@ -8,6 +16,16 @@ type UiMessage = {
   sender: 'user' | 'rex';
   content: string;
 };
+
+type UploadedAttachment = {
+  name: string;
+  text?: string;
+  url?: string;
+  mime?: string;
+  size?: number;
+};
+
+type AgentProfile = RexAgentProfile;
 
 type ChecklistItem = {
   title: string;
@@ -296,11 +314,127 @@ function messageSuggestsExecution(content: string) {
   return /executing|running|working on|processing|in progress|workflow/i.test(String(content || ''));
 }
 
+const DEFAULT_AGENTS: AgentProfile[] = [
+  {
+    id: 'sourcing_agent',
+    name: 'Sourcing Agent',
+    subtitle: 'Personas, schedules, and Sniper sourcing',
+    status: 'active',
+    icon: 'fa-magnifying-glass',
+    iconBg: 'bg-purple-500/20',
+    iconColor: 'text-purple-400',
+    links: [
+      'https://app.thehirepilot.com/agent/advanced/personas',
+      'https://app.thehirepilot.com/agent/advanced/schedules',
+      'https://app.thehirepilot.com/sniper'
+    ],
+    capabilities: [
+      'Translate hiring goals into persona and search plans',
+      'Run linked sourcing workflows across LinkedIn, Indeed, and Sniper',
+      'Schedule recurring sourcing cadences with dependency-aware execution',
+      'Generate candidate shortlists, prioritization notes, and handoff artifacts'
+    ],
+    guides: [
+      'Start with role + geo + seniority + must-have skills',
+      'Set source mix strategy: broad (Indeed) + precision (LinkedIn)',
+      'Use minimum-results thresholds with retry/backoff policy',
+      'Publish artifacts as candidate profiles and quality summaries'
+    ],
+    recipes: [
+      'Recipe: Build 3 sourcing personas, run parallel discovery, merge by score',
+      'Recipe: Source 100 profiles, enrich top 40, deliver top 15 shortlist',
+      'Recipe: Run daily sniper capture and weekly quality refresh'
+    ],
+    instructions: [
+      'Prefer concrete filters and explicit source targets',
+      'Always include output counts and quality caveats',
+      'When blocked, propose fallback source strategy instead of stopping'
+    ]
+  },
+  {
+    id: 'sales_agent',
+    name: 'Sales Agent',
+    subtitle: 'Campaign orchestration and inbox execution',
+    status: 'active',
+    icon: 'fa-chart-line',
+    iconBg: 'bg-blue-500/20',
+    iconColor: 'text-blue-400',
+    links: [
+      'https://app.thehirepilot.com/agent/advanced/campaigns',
+      'https://app.thehirepilot.com/agent/advanced/inbox'
+    ],
+    capabilities: [
+      'Design outbound campaign plans and sequence structures',
+      'Map intent segments to message variants and CTA paths',
+      'Optimize inbox triage and response playbooks',
+      'Track campaign conversion signals and propose iteration loops'
+    ],
+    guides: [
+      'Define ICP + value hypothesis before drafting sequences',
+      'Split campaign by persona and stage-aware objection handling',
+      'Include inbox handling rules for reply categories',
+      'Summarize expected KPIs, risks, and tuning checkpoints'
+    ],
+    recipes: [
+      'Recipe: 3-touch outbound sequence with persona-specific variants',
+      'Recipe: Build campaign + inbox triage matrix + next-step actions',
+      'Recipe: Weekly campaign optimization loop from reply signals'
+    ],
+    instructions: [
+      'Keep messaging specific, measurable, and persona-aware',
+      'Show assumptions and expected conversion trade-offs',
+      'When uncertain, ask for offer positioning and audience constraints'
+    ]
+  }
+];
+
+function buildAgentOptimizedPrompt(userPrompt: string, agent: AgentProfile, attachments: UploadedAttachment[]) {
+  const capabilityLines = agent.capabilities.map((c) => `- ${c}`).join('\n');
+  const guideLines = agent.guides.map((g) => `- ${g}`).join('\n');
+  const recipeLines = agent.recipes.map((r) => `- ${r}`).join('\n');
+  const instructionLines = agent.instructions.map((i) => `- ${i}`).join('\n');
+  const links = agent.links.map((l) => `- ${l}`).join('\n');
+  const attachmentContext = attachments.length
+    ? attachments.map((a) => `- ${a.name}${a.text ? `\n${String(a.text).slice(0, 2500)}` : ''}`).join('\n')
+    : '- none';
+
+  return [
+    `[ACTIVE_AGENT] ${agent.name}`,
+    '',
+    '[CAPABILITIES]',
+    capabilityLines,
+    '',
+    '[GUIDES]',
+    guideLines,
+    '',
+    '[RECIPES]',
+    recipeLines,
+    '',
+    '[INSTRUCTIONS]',
+    instructionLines,
+    '',
+    '[PRODUCT_AREAS]',
+    links,
+    '',
+    '[ATTACHMENTS]',
+    attachmentContext,
+    '',
+    '[USER_REQUEST]',
+    userPrompt,
+    '',
+    'Respond with a practical execution plan and explicit steps tailored to the active agent.'
+  ].join('\n');
+}
+
 export default function REXChat() {
   const [userName, setUserName] = useState('Alex Chen');
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>(DEFAULT_AGENTS);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_AGENTS[0]?.id || 'sourcing_agent');
   const [conversations, setConversations] = useState<RexConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [planJson, setPlanJson] = useState<PlanJson | null>(null);
@@ -319,6 +453,7 @@ export default function REXChat() {
   const streamTokenRef = useRef<string>('');
   const streamRunIdRef = useRef<string>('');
   const messagesScrollerRef = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const planSteps = useMemo(() => {
     if (runProgress?.steps?.length) return runProgress.steps;
@@ -519,9 +654,25 @@ export default function REXChat() {
         }
       } catch {}
       await loadConversations();
+      try {
+        const remoteAgents = await fetchRex2Agents();
+        if (Array.isArray(remoteAgents) && remoteAgents.length) {
+          setAgentProfiles(remoteAgents);
+          setSelectedAgentId((prev) => (
+            remoteAgents.some((a) => a.id === prev) ? prev : remoteAgents[0].id
+          ));
+        }
+      } catch {}
     })();
     return () => cleanupStream();
   }, []);
+
+  useEffect(() => {
+    if (!agentProfiles.length) return;
+    if (!agentProfiles.some((a) => a.id === selectedAgentId)) {
+      setSelectedAgentId(agentProfiles[0].id);
+    }
+  }, [agentProfiles, selectedAgentId]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -545,16 +696,32 @@ export default function REXChat() {
 
   async function sendPlannerMessage() {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || uploadingAttachment) return;
     setSending(true);
     setInput('');
 
-    const userMsg: UiMessage = { id: makeId('m_user'), sender: 'user', content: text };
+    const userMsg: UiMessage = {
+      id: makeId('m_user'),
+      sender: 'user',
+      content: attachments.length ? `${text}\n\n[Attachments: ${attachments.map((a) => a.name).join(', ')}]` : text
+    };
     setMessages((prev) => [...prev, userMsg]);
 
     try {
       const conversationId = await ensureConversation(text);
-      await postMessage(conversationId, 'user', { text });
+      const optimizedPrompt = buildAgentOptimizedPrompt(text, selectedAgent, attachments);
+      await postMessage(conversationId, 'user', {
+        text,
+        agent_mode: selectedAgent.id,
+        optimized_prompt: optimizedPrompt,
+        attachments: attachments.map((a) => ({
+          name: a.name,
+          text: a.text || '',
+          url: a.url || null,
+          mime: a.mime || null,
+          size: a.size || null
+        }))
+      });
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const { data: { session } } = await supabase.auth.getSession();
       const { data: { user } } = await supabase.auth.getUser();
@@ -568,8 +735,13 @@ export default function REXChat() {
           conversationId,
           messages: [...messages, userMsg].map((m) => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
-            content: m.content
-          }))
+            content: m.sender === 'user' && m.id === userMsg.id ? optimizedPrompt : m.content
+          })),
+          metadata: {
+            activeAgent: selectedAgent.id,
+            activeAgentName: selectedAgent.name,
+            attachments: attachments.map((a) => ({ name: a.name, url: a.url || null }))
+          }
         })
       });
       const data = await response.json().catch(() => ({}));
@@ -578,7 +750,7 @@ export default function REXChat() {
         : (data?.reply?.content?.text || data?.error || 'I can build a recruiting run plan for that request.');
       const rexMsg: UiMessage = { id: makeId('m_rex'), sender: 'rex', content: assistantReply };
       setMessages((prev) => [...prev, rexMsg]);
-      await postMessage(conversationId, 'assistant', { text: assistantReply });
+      await postMessage(conversationId, 'assistant', { text: assistantReply, agent_mode: selectedAgent.id });
 
       setPlanJson(buildPlanFromText(text, assistantReply, conversationId));
       setActiveConsoleTab('plan');
@@ -588,6 +760,7 @@ export default function REXChat() {
       setRunArtifacts([]);
       setToolCalls([]);
       setRunStats(null);
+      setAttachments([]);
     } catch (e) {
       setMessages((prev) => [...prev, { id: makeId('m_err'), sender: 'rex', content: 'Failed to generate plan. Please try again.' }]);
     } finally {
@@ -674,6 +847,56 @@ export default function REXChat() {
     () => [...toolCalls].slice(-3).reverse(),
     [toolCalls]
   );
+  const selectedAgent = useMemo(
+    () => agentProfiles.find((agent) => agent.id === selectedAgentId) || agentProfiles[0] || DEFAULT_AGENTS[0],
+    [selectedAgentId, agentProfiles]
+  );
+
+  async function uploadAttachment(file: File) {
+    setUploadingAttachment(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/rex/uploads`, {
+        method: 'POST',
+        headers,
+        body: form
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || 'upload_failed');
+      const nextItem: UploadedAttachment = {
+        name: data?.name || file.name,
+        text: data?.text || '',
+        url: data?.url || undefined,
+        mime: data?.mime || file.type || undefined,
+        size: Number(data?.size || file.size || 0) || undefined
+      };
+      setAttachments((prev) => [...prev, nextItem]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId('m_attachment'),
+          sender: 'rex',
+          content: `Attached file: ${nextItem.name}. I will use it for the next prompt.`
+        }
+      ]);
+    } catch (e: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId('m_attachment_err'),
+          sender: 'rex',
+          content: `Attachment upload failed: ${e?.message || 'Unknown error'}`
+        }
+      ]);
+    } finally {
+      setUploadingAttachment(false);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    }
+  }
 
   function renderAssistantMessage(content: string) {
     const checklist = parseChecklistFromMessage(content);
@@ -789,31 +1012,48 @@ export default function REXChat() {
 
         <div id="saved-agents" className="px-3 py-4 border-b border-dark-800">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-3">Saved Agents</h3>
-          {[
-            { icon: 'fa-magnifying-glass', color: 'text-purple-400', bg: 'bg-purple-500/20', name: 'Talent Hunter', status: 'dot', subtitle: 'Last run: 2 hours ago' },
-            { icon: 'fa-chart-line', color: 'text-blue-400', bg: 'bg-blue-500/20', name: 'Pipeline Optimizer', status: 'dot-muted', subtitle: 'Last run: 1 day ago' },
-            { icon: 'fa-user-tie', color: 'text-emerald-400', bg: 'bg-emerald-500/20', name: 'Executive Headhunter', status: 'Running', subtitle: 'Started: 15 min ago' },
-            { icon: 'fa-envelope', color: 'text-amber-400', bg: 'bg-amber-500/20', name: 'Outreach Automator', status: 'dot-muted', subtitle: 'Last run: 3 days ago' }
-          ].map((a) => (
-            <div key={a.name} className="agent-item bg-dark-800 hover:bg-dark-700 rounded-lg p-3 mb-2 cursor-pointer transition-all duration-150 border border-transparent hover:border-purple-500/30">
+          {agentProfiles.map((a) => {
+            const selected = selectedAgentId === a.id;
+            return (
+            <div
+              key={a.id}
+              className={`agent-item rounded-lg p-3 mb-2 cursor-pointer transition-all duration-150 border ${
+                selected
+                  ? 'bg-dark-700 border-purple-500/40'
+                  : 'bg-dark-800 hover:bg-dark-700 border-transparent hover:border-purple-500/30'
+              }`}
+              onClick={() => setSelectedAgentId(a.id)}
+            >
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 ${a.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <i className={`fa-solid ${a.icon} ${a.color} text-sm`} />
+                <div className={`w-8 h-8 ${a.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                  <i className={`fa-solid ${a.icon} ${a.iconColor} text-sm`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="text-sm font-medium text-white truncate">{a.name}</h4>
-                    {a.status === 'Running' ? (
-                      <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded flex-shrink-0">Running</span>
-                    ) : (
-                      <span className={`w-2 h-2 ${a.status === 'dot' ? 'bg-green-500' : 'bg-gray-500'} rounded-full flex-shrink-0`} />
-                    )}
+                    <span className={`w-2 h-2 ${a.status === 'active' ? 'bg-green-500' : a.status === 'running' ? 'bg-purple-500' : 'bg-gray-500'} rounded-full flex-shrink-0`} />
                   </div>
                   <p className="text-xs text-gray-400">{a.subtitle}</p>
                 </div>
               </div>
             </div>
-          ))}
+          );})}
+          <div className="mt-3 bg-dark-800/60 border border-dark-700 rounded-lg p-3">
+            <p className="text-xs text-purple-300 font-semibold mb-2">Active: {selectedAgent.name}</p>
+            <p className="text-[11px] text-gray-400 mb-2">
+              REX will optimize your prompt with this agent's capabilities, recipes, and execution instructions.
+            </p>
+            <div className="space-y-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">Capabilities</p>
+                <p className="text-[11px] text-gray-300 leading-relaxed">{selectedAgent.capabilities.slice(0, 2).join(' • ')}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">Guides</p>
+                <p className="text-[11px] text-gray-300 leading-relaxed">{selectedAgent.guides.slice(0, 2).join(' • ')}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div id="conversations" className="flex-1 overflow-y-auto px-3 py-4">
@@ -855,6 +1095,9 @@ export default function REXChat() {
         <header id="chat-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-white">{planJson?.goal?.title || 'REX Recruiting Console'}</h2>
+            <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full">
+              Agent Mode: {selectedAgent.name}
+            </span>
             <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
               {runStatus === 'running' ? 'Active' : runStatus === 'success' ? 'Completed' : 'Ready'}
             </span>
@@ -981,6 +1224,26 @@ export default function REXChat() {
 
         <div id="chat-input-container" className="border-t border-dark-800 p-4 flex-shrink-0">
           <div className="max-w-4xl mx-auto">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {attachments.map((att, idx) => (
+                  <span
+                    key={`${att.name}_${idx}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-800 border border-dark-700 text-xs text-gray-200"
+                  >
+                    <i className="fa-solid fa-file-lines text-blue-400" />
+                    <span className="max-w-[220px] truncate">{att.name}</span>
+                    <button
+                      className="text-gray-500 hover:text-white"
+                      onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                      title="Remove attachment"
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="relative">
               <textarea
                 placeholder="Ask REX to find candidates, create workflows, or automate your recruiting..."
@@ -996,23 +1259,47 @@ export default function REXChat() {
                 }}
               />
               <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                <button className="p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150">
+                <button
+                  className="p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150 disabled:opacity-50"
+                  title="Attach file"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={uploadingAttachment || sending}
+                >
                   <i className="fa-solid fa-paperclip" />
                 </button>
                 <button
                   className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-60 text-white rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20"
                   onClick={sendPlannerMessage}
-                  disabled={sending || !input.trim()}
+                  disabled={sending || uploadingAttachment || !input.trim()}
                 >
                   <i className="fa-solid fa-paper-plane" />
                 </button>
               </div>
             </div>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                (async () => {
+                  for (const file of files) {
+                    await uploadAttachment(file);
+                  }
+                })();
+              }}
+            />
             <div className="flex items-center justify-between mt-3 px-1">
               <div className="flex items-center gap-4 text-xs text-gray-400">
                 <span className="flex items-center gap-1.5">
                   <i className="fa-solid fa-coins text-amber-400" />
                   <span>{Math.max(0, (runStats?.credits?.remaining ?? 1247))} credits remaining</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-circle-info text-blue-400" />
+                  <span>{uploadingAttachment ? 'Uploading attachment...' : `${attachments.length} attachment(s)`}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="fa-solid fa-bolt text-purple-400" />
@@ -1063,6 +1350,47 @@ export default function REXChat() {
         <div id="console-content" className="flex-1 overflow-y-auto p-5">
           {activeConsoleTab === 'plan' && (
             <div id="plan-view">
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-white">Agent Playbook</h3>
+                  <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">{selectedAgent.name}</span>
+                </div>
+                <div className="bg-dark-800 border border-dark-700 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Capabilities</p>
+                    <ul className="space-y-1">
+                      {selectedAgent.capabilities.map((item) => (
+                        <li key={item} className="text-xs text-gray-300">- {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Guides and Recipes</p>
+                    <ul className="space-y-1">
+                      {selectedAgent.guides.concat(selectedAgent.recipes).map((item) => (
+                        <li key={item} className="text-xs text-gray-300">- {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Operating Instructions</p>
+                    <ul className="space-y-1">
+                      {selectedAgent.instructions.map((item) => (
+                        <li key={item} className="text-xs text-gray-300">- {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Linked Product Areas</p>
+                    <ul className="space-y-1">
+                      {selectedAgent.links.map((item) => (
+                        <li key={item} className="text-xs text-blue-300 truncate">{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-white">Current Plan</h3>

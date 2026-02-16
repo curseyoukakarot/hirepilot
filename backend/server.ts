@@ -189,6 +189,7 @@ import { sniperV1Worker } from './src/workers/sniper.v1.worker';
 import jobseekerAgentRouter from './src/routes/jobseeker.agent';
 import { jobseekerAgentWorker } from './src/workers/jobseeker.agent.worker';
 import rex2RunsRouter from './src/routes/rex2.runs';
+import rex2AgentsRouter from './src/routes/rex2.agents';
 import { rex2RunWorker } from './src/workers/rex2.run.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
@@ -676,6 +677,7 @@ app.use('/api/rex/tools', rexToolsRouter);
 if (REX_RECRUITING_V2) {
   // Recruiting-only v2 run system (isolated from jobseeker agents)
   app.use('/api/rex2', rex2RunsRouter);
+  app.use('/api/rex2', rex2AgentsRouter);
   void rex2RunWorker;
 }
 // Important: Do NOT attach global auth middleware at '/api' level.

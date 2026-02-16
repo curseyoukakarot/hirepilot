@@ -19,6 +19,21 @@ export type RexMessage = {
   created_at: string;
 };
 
+export type RexAgentProfile = {
+  id: string;
+  name: string;
+  subtitle: string;
+  status: 'active' | 'running' | 'idle';
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  links: string[];
+  capabilities: string[];
+  guides: string[];
+  recipes: string[];
+  instructions: string[];
+};
+
 async function authHeaders() {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -60,6 +75,15 @@ export async function postMessage(conversationId: string, role: RexMessage['role
   });
   const data = await res.json();
   return data.message;
+}
+
+export async function fetchRex2Agents(): Promise<RexAgentProfile[]> {
+  const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/rex2/agents`, {
+    headers: await authHeaders()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || 'failed_to_load_rex2_agents');
+  return Array.isArray(data?.agents) ? data.agents : [];
 }
 
 
