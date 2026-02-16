@@ -188,6 +188,8 @@ import sniperV1Router from './src/routes/sniper.v1';
 import { sniperV1Worker } from './src/workers/sniper.v1.worker';
 import jobseekerAgentRouter from './src/routes/jobseeker.agent';
 import { jobseekerAgentWorker } from './src/workers/jobseeker.agent.worker';
+import rex2RunsRouter from './src/routes/rex2.runs';
+import { rex2RunWorker } from './src/workers/rex2.run.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
 import supportTools from './src/routes/support';
@@ -222,6 +224,7 @@ if (enableSentry && process.env.SENTRY_DSN) {
 const PORT = process.env.PORT || 8080;
 const SNIPER_V1_ENABLED = String(process.env.SNIPER_V1_ENABLED || 'false').toLowerCase() === 'true';
 const SNIPER_INTELLIGENCE_ENABLED = String(process.env.SNIPER_INTELLIGENCE_ENABLED || 'false').toLowerCase() === 'true';
+const REX_RECRUITING_V2 = String(process.env.REX_RECRUITING_V2 || 'true').toLowerCase() === 'true';
 
 // Health check route (before CORS)
 app.get('/health', (_, res) => {
@@ -670,6 +673,11 @@ app.post('/api/rex/tools', rexToolsHandler);
 app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
 // REX tools (structured)
 app.use('/api/rex/tools', rexToolsRouter);
+if (REX_RECRUITING_V2) {
+  // Recruiting-only v2 run system (isolated from jobseeker agents)
+  app.use('/api/rex2', rex2RunsRouter);
+  void rex2RunWorker;
+}
 // Important: Do NOT attach global auth middleware at '/api' level.
 // The routes within rexConversationsRouter already apply requireAuth per-route.
 // Attaching requireAuth here would unintentionally protect ALL '/api/*' routes,
