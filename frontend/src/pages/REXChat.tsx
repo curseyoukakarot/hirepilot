@@ -314,6 +314,22 @@ function messageSuggestsExecution(content: string) {
   return /executing|running|working on|processing|in progress|workflow/i.test(String(content || ''));
 }
 
+function normalizeRoleLabel(rawRole: string) {
+  const role = String(rawRole || '').trim().toLowerCase();
+  if (!role) return 'Member';
+  if (role === 'super_admin' || role === 'superadmin') return 'Super Admin';
+  if (role === 'team_admin' || role === 'teamadmin' || role === 'team_admins') return 'Team Admin';
+  if (role === 'recruitpro') return 'Recruit Pro';
+  if (role === 'admin') return 'Admin';
+  if (role === 'member' || role === 'members') return 'Member';
+  return role.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function avatarFallbackForName(name: string) {
+  const clean = String(name || '').trim() || 'User';
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(clean)}&background=random`;
+}
+
 const DEFAULT_AGENTS: AgentProfile[] = [
   {
     id: 'sourcing_agent',
@@ -428,6 +444,8 @@ function buildAgentOptimizedPrompt(userPrompt: string, agent: AgentProfile, atta
 
 export default function REXChat() {
   const [userName, setUserName] = useState('Alex Chen');
+  const [userRoleLabel, setUserRoleLabel] = useState('Member');
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string>('');
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -651,8 +669,39 @@ export default function REXChat() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const name = `${(user.user_metadata as any)?.first_name || ''} ${(user.user_metadata as any)?.last_name || ''}`.trim();
-          setUserName(name || user.email || 'Alex Chen');
+          const meta = (user.user_metadata as any) || {};
+          const appMeta = (user.app_metadata as any) || {};
+          const metaName = String(
+            meta?.full_name ||
+            meta?.name ||
+            `${meta?.first_name || ''} ${meta?.last_name || ''}`.trim() ||
+            user.email ||
+            'Alex Chen'
+          );
+          setUserName(metaName);
+          setUserAvatarUrl(String(meta?.avatar_url || meta?.picture || '').trim());
+          const roleRaw = String(appMeta?.role || meta?.role || meta?.account_type || '');
+          setUserRoleLabel(normalizeRoleLabel(roleRaw));
+
+          try {
+            const { data: dbProfile } = await supabase
+              .from('users')
+              .select('first_name,last_name,full_name,avatar_url,role,account_type')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (dbProfile) {
+              const dbName = String(
+                (dbProfile as any).full_name ||
+                `${(dbProfile as any).first_name || ''} ${(dbProfile as any).last_name || ''}`.trim() ||
+                metaName
+              ).trim();
+              if (dbName) setUserName(dbName);
+              const dbAvatar = String((dbProfile as any).avatar_url || '').trim();
+              if (dbAvatar) setUserAvatarUrl(dbAvatar);
+              const dbRoleRaw = String((dbProfile as any).role || (dbProfile as any).account_type || roleRaw);
+              if (dbRoleRaw) setUserRoleLabel(normalizeRoleLabel(dbRoleRaw));
+            }
+          } catch {}
         }
       } catch {}
       await loadConversations();
@@ -1125,10 +1174,18 @@ export default function REXChat() {
 
         <div id="sidebar-footer" className="p-3 border-t border-dark-800">
           <div className="flex items-center gap-3 p-2 hover:bg-dark-800 rounded-lg cursor-pointer transition-all duration-150">
-            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-8 h-8 rounded-full" />
+            <img
+              src={userAvatarUrl || avatarFallbackForName(userName)}
+              alt="User"
+              className="w-8 h-8 rounded-full object-cover"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                target.src = avatarFallbackForName(userName);
+              }}
+            />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{userName}</p>
-              <p className="text-xs text-gray-400">Premium Plan</p>
+              <p className="text-xs text-gray-400">{userRoleLabel}</p>
             </div>
             <i className="fa-solid fa-ellipsis-vertical text-gray-400" />
           </div>
