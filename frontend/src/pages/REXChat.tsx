@@ -9,6 +9,17 @@ type UiMessage = {
   content: string;
 };
 
+type ChecklistItem = {
+  title: string;
+  detail?: string;
+};
+
+type ParsedChecklist = {
+  heading: string;
+  intro?: string;
+  items: ChecklistItem[];
+};
+
 type PlanStep = {
   step_id: string;
   title: string;
@@ -223,6 +234,33 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
       approved_by: null
     }
   };
+}
+
+function parseChecklistFromMessage(content: string): ParsedChecklist | null {
+  const text = String(content || '').trim();
+  if (!text) return null;
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const numbered = lines.filter((line) => /^\d+[\)\.\-:]\s+/.test(line));
+  const bulleted = lines.filter((line) => /^[-*]\s+/.test(line));
+  const itemLines = (numbered.length >= 3 ? numbered : bulleted.length >= 3 ? bulleted : [])
+    .slice(0, 10);
+  if (!itemLines.length) return null;
+
+  const heading = lines.find((l) => /plan|approach|checklist|workflow/i.test(l)) || "Here's how I plan to approach this";
+  const intro = lines.find((l) => l !== heading && !/^\d+[\)\.\-:]\s+/.test(l) && !/^[-*]\s+/.test(l));
+  const items = itemLines.map((line) => {
+    const body = line.replace(/^\d+[\)\.\-:]\s+/, '').replace(/^[-*]\s+/, '').trim();
+    const [titlePart, detailPart] = body.split(/\s[-:]\s/);
+    return {
+      title: titlePart?.trim() || body,
+      detail: detailPart?.trim() || undefined
+    };
+  });
+  return { heading, intro, items };
+}
+
+function messageSuggestsExecution(content: string) {
+  return /executing|running|working on|processing|in progress|workflow/i.test(String(content || ''));
 }
 
 export default function REXChat() {
@@ -590,6 +628,96 @@ export default function REXChat() {
     0,
     planSteps.findIndex((s) => s.step_id === runProgress?.current_step_id)
   );
+  const planStepById = useMemo(() => {
+    const map = new Map<string, PlanStep>();
+    (planJson?.steps || []).forEach((s) => map.set(String(s.step_id), s));
+    return map;
+  }, [planJson]);
+  const runningStep = useMemo(
+    () => (runProgress?.steps || []).find((s) => s.status === 'running') || null,
+    [runProgress]
+  );
+  const recentToolCalls = useMemo(
+    () => [...toolCalls].slice(-3).reverse(),
+    [toolCalls]
+  );
+
+  function renderAssistantMessage(content: string) {
+    const checklist = parseChecklistFromMessage(content);
+    if (checklist) {
+      return (
+        <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl">
+          <div className="px-5 py-4 border-b border-dark-800">
+            <div className="flex items-center gap-2 mb-3">
+              <i className="fa-solid fa-brain text-purple-400" />
+              <h3 className="text-sm font-semibold text-white">{checklist.heading}</h3>
+            </div>
+            {checklist.intro && (
+              <p className="text-sm text-gray-300 leading-relaxed mb-4">{checklist.intro}</p>
+            )}
+            <div className="space-y-2.5">
+              {checklist.items.map((item, idx) => (
+                <div key={`${item.title}_${idx}`} className="flex gap-3">
+                  <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-semibold text-purple-400">{idx + 1}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-200 font-medium">{item.title}</p>
+                    {item.detail && <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (messageSuggestsExecution(content)) {
+      const stepId = runningStep?.step_id || runProgress?.current_step_id || '';
+      const stepMeta = stepId ? planStepById.get(stepId) : null;
+      const stepPercent = Math.max(0, Math.min(100, Number(runningStep?.progress?.percent || stepProgressPercent || 0)));
+      return (
+        <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-medium text-white">Executing workflow...</p>
+          </div>
+          <p className="text-sm text-gray-300 leading-relaxed mb-3">
+            {stepMeta?.title ? `Working on: ${stepMeta.title}` : content}
+          </p>
+          <div className="bg-dark-800 rounded px-3 py-2 mb-3">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-gray-400">Progress</span>
+              <span className="text-xs text-white font-semibold">{stepPercent}%</span>
+            </div>
+            <div className="w-full bg-dark-700 rounded-full h-1.5">
+              <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${stepPercent}%` }} />
+            </div>
+          </div>
+          {recentToolCalls.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {recentToolCalls.map((tc) => {
+                const isRunning = tc.status === 'running';
+                const chipCls = isRunning ? 'bg-purple-500/20 text-purple-300' : tc.status === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-dark-700 text-gray-300';
+                return (
+                  <span key={tc.toolcall_id} className={`px-2 py-1 text-[11px] rounded ${chipCls}`}>
+                    {tc.tool?.display_name || tc.tool?.tool_id || 'Tool'}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
+        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{content}</p>
+      </div>
+    );
+  }
 
   return (
     <div id="rex-container" className="flex h-screen overflow-hidden bg-dark-950 text-gray-100 font-sans antialiased">
@@ -725,9 +853,7 @@ export default function REXChat() {
                     <i className="fa-solid fa-robot text-white text-sm" />
                   </div>
                   <div className="flex-1 max-w-3xl">
-                    <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
-                      <p className="text-sm text-gray-300 leading-relaxed">{m.content}</p>
-                    </div>
+                    {renderAssistantMessage(m.content)}
                   </div>
                 </div>
               )}
