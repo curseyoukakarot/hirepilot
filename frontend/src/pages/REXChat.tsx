@@ -445,6 +445,7 @@ export default function REXChat() {
   const [runStats, setRunStats] = useState<RunStats | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [activeConsoleTab, setActiveConsoleTab] = useState<'plan' | 'execution' | 'artifacts'>('plan');
+  const [userCreditsRemaining, setUserCreditsRemaining] = useState<number | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -663,6 +664,7 @@ export default function REXChat() {
           ));
         }
       } catch {}
+      await loadUserCredits();
     })();
     return () => cleanupStream();
   }, []);
@@ -685,6 +687,19 @@ export default function REXChat() {
       behavior: 'smooth'
     });
   }, [messages, planJson, runProgress, toolCalls, runArtifacts]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadUserCredits().catch(() => {});
+    }, 60000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (runStatus === 'success' || runStatus === 'failure' || runStatus === 'cancelled') {
+      loadUserCredits().catch(() => {});
+    }
+  }, [runStatus]);
 
   async function ensureConversation(seedTitle: string) {
     if (activeConversationId) return activeConversationId;
@@ -847,10 +862,36 @@ export default function REXChat() {
     () => [...toolCalls].slice(-3).reverse(),
     [toolCalls]
   );
+  const creditsRemainingDisplay = useMemo(() => {
+    if (typeof userCreditsRemaining === 'number' && Number.isFinite(userCreditsRemaining)) {
+      return Math.max(0, Math.floor(userCreditsRemaining));
+    }
+    const runRemaining = Number(runStats?.credits?.remaining);
+    if (Number.isFinite(runRemaining)) return Math.max(0, Math.floor(runRemaining));
+    return 0;
+  }, [userCreditsRemaining, runStats]);
   const selectedAgent = useMemo(
     () => agentProfiles.find((agent) => agent.id === selectedAgentId) || agentProfiles[0] || DEFAULT_AGENTS[0],
     [selectedAgentId, agentProfiles]
   );
+
+  async function loadUserCredits() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/credits/status`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) return;
+      const data = await response.json().catch(() => ({}));
+      const remaining = Number(data?.remaining_credits);
+      if (Number.isFinite(remaining)) {
+        setUserCreditsRemaining(Math.max(0, remaining));
+      }
+    } catch {}
+  }
 
   async function uploadAttachment(file: File) {
     setUploadingAttachment(true);
@@ -1295,7 +1336,7 @@ export default function REXChat() {
               <div className="flex items-center gap-4 text-xs text-gray-400">
                 <span className="flex items-center gap-1.5">
                   <i className="fa-solid fa-coins text-amber-400" />
-                  <span>{Math.max(0, (runStats?.credits?.remaining ?? 1247))} credits remaining</span>
+                  <span>{creditsRemainingDisplay} credits remaining</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="fa-solid fa-circle-info text-blue-400" />
