@@ -446,6 +446,7 @@ export default function REXChat() {
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [activeConsoleTab, setActiveConsoleTab] = useState<'plan' | 'execution' | 'artifacts'>('plan');
   const [userCreditsRemaining, setUserCreditsRemaining] = useState<number | null>(null);
+  const [rexThinking, setRexThinking] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -713,6 +714,7 @@ export default function REXChat() {
     const text = input.trim();
     if (!text || sending || uploadingAttachment) return;
     setSending(true);
+    setRexThinking(true);
     setInput('');
 
     const userMsg: UiMessage = {
@@ -780,6 +782,7 @@ export default function REXChat() {
       setMessages((prev) => [...prev, { id: makeId('m_err'), sender: 'rex', content: 'Failed to generate plan. Please try again.' }]);
     } finally {
       setSending(false);
+      setRexThinking(false);
       await loadConversations().catch(() => {});
     }
   }
@@ -1176,6 +1179,33 @@ export default function REXChat() {
               )}
             </div>
           ))}
+
+          {rexThinking && (
+            <div className="message-group mb-8">
+              <div className="flex gap-3 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <i className="fa-solid fa-robot text-white text-sm" />
+                </div>
+                <div className="flex-1 max-w-3xl">
+                  <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm font-medium text-white">REX is working...</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                      <span>Thinking</span>
+                      <span className="inline-flex items-end gap-1">
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }} />
+                      </span>
+                      <span className="text-purple-400 animate-pulse">|</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {planJson && (
             <div className="message-group mb-8">
