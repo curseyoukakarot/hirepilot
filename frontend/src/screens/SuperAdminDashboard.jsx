@@ -236,6 +236,10 @@ export default function SuperAdminDashboard() {
                 <i className="fa-solid fa-inbox text-blue-600 text-xl mb-2"></i>
                 <span className="text-sm text-gray-200">Action Inbox</span>
               </button>
+              <button className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors col-span-2" onClick={() => navigate('/super-admin/rex-agents')}>
+                <i className="fa-solid fa-robot text-indigo-400 text-xl mb-2"></i>
+                <span className="text-sm text-gray-200">REX Agent Catalog</span>
+              </button>
               <button className="flex flex-col items-center justify-center p-4 bg-red-900/30 rounded-md hover:bg-red-900/50 transition-colors col-span-2">
                 <i className="fa-solid fa-power-off text-red-500 text-xl mb-2"></i>
                 <span className="text-sm text-gray-200">Emergency Stop</span>

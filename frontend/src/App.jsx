@@ -36,6 +36,7 @@ import AdminProxyManagement from './screens/AdminProxyManagement';
 import AdminAffiliatesManager from './pages/admin/AdminAffiliatesManager';
 import EmailAttributionController from './pages/admin/EmailAttributionController';
 import RepoGuardianPage from './pages/admin/RepoGuardianPage';
+import RexAgentsCatalogPage from './pages/admin/RexAgentsCatalogPage';
 import LeadSyncFailures from './screens/LeadSyncFailures';
 import PhantomConfig from './screens/PhantomConfig';
 import WebhookLogs from './screens/WebhookLogs';
@@ -932,6 +933,7 @@ function InnerApp() {
               <Route path="/admin/affiliates" element={<AdminAffiliatesManager />} />
               <Route path="/super-admin/affiliates" element={<RequireSuperAdmin><AdminAffiliatesManager /></RequireSuperAdmin>} />
               <Route path="/super-admin/email-attribution" element={<RequireSuperAdmin><EmailAttributionController /></RequireSuperAdmin>} />
+              <Route path="/super-admin/rex-agents" element={<RequireSuperAdmin><RexAgentsCatalogPage /></RequireSuperAdmin>} />
               <Route path="/blog" element={<BlogLandingPage />} />
               <Route path="/chromeextension" element={<ChromeExtension />} />
               <Route path="/chromeextension/privacy" element={<ChromeExtensionPrivacy />} />
