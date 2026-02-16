@@ -1,278 +1,314 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const InteractiveRexPreview: React.FC = () => {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileConsoleOpen, setMobileConsoleOpen] = useState(false);
+
+  const closeMobilePanels = () => {
+    setMobileSidebarOpen(false);
+    setMobileConsoleOpen(false);
+  };
+
+  const openMobileSidebar = () => {
+    setMobileConsoleOpen(false);
+    setMobileSidebarOpen(true);
+  };
+
+  const openMobileConsole = () => {
+    setMobileSidebarOpen(false);
+    setMobileConsoleOpen(true);
+  };
+
+  const sidebarContent = (
+    <>
+      <div id="sidebar-header" className="p-4 border-b border-dark-800">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+            <i className="fa-solid fa-robot text-white text-lg" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-white">REX</h1>
+            <p className="text-xs text-gray-400">Agent Console</p>
+          </div>
+        </div>
+        <button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2">
+          <i className="fa-solid fa-plus" />
+          New Conversation
+        </button>
+      </div>
+
+      <div id="saved-agents" className="px-3 py-4 border-b border-dark-800">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-3">Saved Agents</h3>
+        <div className="agent-item bg-dark-800 hover:bg-dark-700 rounded-lg p-3 mb-2 cursor-pointer transition-all duration-150 border border-transparent hover:border-purple-500/30">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+              <i className="fa-solid fa-magnifying-glass text-purple-400 text-sm" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-sm font-medium text-white truncate">Talent Hunter</h4>
+                <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+              </div>
+              <p className="text-xs text-gray-400">Last run: 2 hours ago</p>
+            </div>
+          </div>
+        </div>
+        <div className="agent-item bg-dark-800 hover:bg-dark-700 rounded-lg p-3 mb-2 cursor-pointer transition-all duration-150 border border-transparent hover:border-purple-500/30">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+              <i className="fa-solid fa-chart-line text-blue-400 text-sm" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-sm font-medium text-white truncate">Pipeline Optimizer</h4>
+                <span className="w-2 h-2 bg-gray-500 rounded-full flex-shrink-0" />
+              </div>
+              <p className="text-xs text-gray-400">Last run: 1 day ago</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="conversations" className="flex-1 overflow-y-auto px-3 py-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-3">Conversations</h3>
+        <div className="conversation-item bg-dark-800/50 hover:bg-dark-800 rounded-lg p-3 mb-2 cursor-pointer transition-all duration-150 border border-transparent hover:border-purple-500/20">
+          <div className="flex items-start justify-between mb-1">
+            <h4 className="text-sm font-medium text-white truncate flex-1">Find Senior React Developers</h4>
+            <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded ml-2 flex-shrink-0">Active</span>
+          </div>
+          <p className="text-xs text-gray-400">Updated 5 min ago</p>
+        </div>
+      </div>
+
+      <div id="sidebar-footer" className="p-3 border-t border-dark-800">
+        <div className="flex items-center gap-3 p-2 hover:bg-dark-800 rounded-lg cursor-pointer transition-all duration-150">
+          <img
+            src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
+            alt="User avatar"
+            className="w-8 h-8 rounded-full"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">Alex Chen</p>
+            <p className="text-xs text-gray-400">Premium Plan</p>
+          </div>
+          <i className="fa-solid fa-ellipsis-vertical text-gray-400" />
+        </div>
+      </div>
+    </>
+  );
+
+  const consoleContent = (
+    <>
+      <div id="console-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-5 flex-shrink-0">
+        <h2 className="text-sm font-semibold text-white">Agent Console</h2>
+        <button
+          className="p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+          onClick={closeMobilePanels}
+        >
+          <i className="fa-solid fa-xmark" />
+        </button>
+      </div>
+      <div id="console-tabs" className="border-b border-dark-800 flex">
+        <button className="flex-1 px-4 py-3 text-sm font-medium text-white bg-dark-800 border-b-2 border-purple-500 transition-all duration-150">
+          <i className="fa-solid fa-list-check mr-2" />
+          Plan
+        </button>
+        <button className="flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-dark-800/50 border-b-2 border-transparent transition-all duration-150">
+          <i className="fa-solid fa-bolt mr-2" />
+          Execution
+        </button>
+      </div>
+      <div id="console-content" className="flex-1 overflow-y-auto p-5">
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">Current Plan</h3>
+            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">Executing</span>
+          </div>
+          <div className="bg-dark-800 border border-dark-700 rounded-lg p-4">
+            <p className="text-xs text-gray-300 leading-relaxed mb-3">
+              Find 50 senior React developers with TypeScript and Next.js experience, open to remote work in North America.
+            </p>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="text-gray-400">Steps: <span className="text-white font-semibold">7</span></span>
+              <span className="text-gray-400">Tools: <span className="text-white font-semibold">5</span></span>
+              <span className="text-gray-400">Credits: <span className="text-white font-semibold">~450</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="console-footer" className="border-t border-dark-800 p-4 flex-shrink-0">
+        <div className="bg-dark-800 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-300">Workflow Status</span>
+            <span className="text-xs text-purple-400 font-semibold">Step 2 of 7</span>
+          </div>
+          <div className="w-full bg-dark-700 rounded-full h-1.5 mb-2">
+            <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-300 w-[29%]" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="w-full">
       <style>{`
-        /* Local styles for the interactive preview */
-        .terminal-glow{box-shadow:0 0 20px rgba(34,197,94,.3),0 0 40px rgba(34,197,94,.1)}
-        .message-fade-in{animation:fadeInUp .5s ease-out}
-        @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-        .dot-pulse{animation:dotPulse 1.5s infinite}
-        @keyframes dotPulse{0%,20%{opacity:0}50%{opacity:1}80%,100%{opacity:0}}
+        #rex-landing-preview ::-webkit-scrollbar { display: none; }
       `}</style>
-      <div className="max-w-7xl mx-auto px-6">
-        <div id="main-container" className="min-h-[560px] md:min-h-[640px] flex border border-gray-800 rounded-2xl overflow-hidden bg-gray-900">
-          {/* Sidebar */}
-          <div id="sidebar" className="hidden md:flex w-64 bg-gray-800 border-r border-gray-700 flex-col">
-            <div className="p-4 border-b border-gray-700">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                  <i className="fa-solid fa-robot text-sm" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold">HirePilot AI</h2>
-                  <p className="text-xs text-gray-400">REX Assistant</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 p-4">
-              <button className="w-full bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-left transition-colors mb-4">
-                <div className="flex items-center space-x-3">
-                  <i className="fa-solid fa-plus text-green-400" />
-                  <span className="text-sm">New Chat</span>
-                </div>
-              </button>
-              <div className="space-y-2">
-                <div className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Recent Chats</div>
-                <div className="bg-gray-700/50 rounded-lg p-3 cursor-pointer hover:bg-gray-700 transition-colors">
-                  <p className="text-sm truncate">React developers in SF</p>
-                  <p className="text-xs text-gray-400">2 hours ago</p>
-                </div>
-                <div className="rounded-lg p-3 cursor-pointer hover:bg-gray-700 transition-colors">
-                  <p className="text-sm truncate">Senior Python engineers</p>
-                  <p className="text-xs text-gray-400">Yesterday</p>
-                </div>
-                <div className="rounded-lg p-3 cursor-pointer hover:bg-gray-700 transition-colors">
-                  <p className="text-sm truncate">DevOps talent search</p>
-                  <p className="text-xs text-gray-400">3 days ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-t border-gray-700">
-              <div className="flex items-center space-x-3">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full" />
-                <div>
-                  <p className="text-sm font-medium">David</p>
-                  <p className="text-xs text-gray-400">Team Plan</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div id="rex-landing-preview" className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div
+          id="rex-container"
+          className="relative flex h-[820px] sm:h-[860px] lg:h-[900px] overflow-hidden rounded-2xl border border-dark-800 bg-dark-950 text-gray-100 font-sans antialiased"
+        >
+          {(mobileSidebarOpen || mobileConsoleOpen) && (
+            <button
+              type="button"
+              aria-label="Close overlay"
+              className="absolute inset-0 z-20 bg-black/50 lg:hidden"
+              onClick={closeMobilePanels}
+            />
+          )}
 
-          {/* Main Chat Area */}
-          <div id="chat-container" className="flex-1 flex flex-col">
-            {/* Chat Header */}
-            <div id="chat-header" className="bg-gray-800 border-b border-gray-700 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full" />
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-                    <div className="w-3 h-3 bg-green-500 rounded-full" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-semibold">HirePilot AI Assistant – REX</h1>
-                    <p className="text-sm text-gray-400">Terminal v2.1.0</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                    <i className="fa-solid fa-gear text-gray-400" />
-                  </button>
-                  <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                    <i className="fa-solid fa-ellipsis-vertical text-gray-400" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Messages */}
-            <div id="chat-messages" className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Welcome Message */}
-              <div className="message-fade-in">
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="fa-solid fa-robot text-sm" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                      <span className="text-xs text-gray-400">System initialized</span>
-                    </div>
-                    <div className="bg-gray-800 rounded-lg p-4 terminal-glow">
-                      <p className="text-gray-300 mb-3">Hey there! 👋 I'm REX, your AI recruiting assistant.</p>
-                      <p className="text-gray-300 mb-3">I can help you find, analyze, and connect with top talent across:</p>
-                      <ul className="list-disc list-inside text-gray-300 space-y-1 ml-4">
-                        <li>LinkedIn profiles & connections</li>
-                        <li>Apollo database searches</li>
-                        <li>GitHub developer insights</li>
-                        <li>Market salary analysis</li>
-                      </ul>
-                      <p className="text-green-400 font-mono mt-4">Ready to find some amazing talent? 🚀</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* User Message */}
-              <div className="message-fade-in">
-                <div className="flex items-start space-x-4 justify-end">
-                  <div className="flex-1 max-w-3xl">
-                    <div className="flex items-center space-x-2 mb-2 justify-end">
-                      <span className="text-xs text-gray-400">Just now</span>
-                      <span className="font-medium">You</span>
-                    </div>
-                    <div className="bg-blue-600 rounded-lg p-4 text-white">
-                      <p>Find me senior React developers in San Francisco.</p>
-                    </div>
-                  </div>
-                  <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" className="w-8 h-8 rounded-full flex-shrink-0" />
-                </div>
-              </div>
-
-              {/* REX Status Messages */}
-              <div className="message-fade-in">
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="fa-solid fa-robot text-sm" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                        <span className="text-gray-300 font-mono">Initiating search...</span>
-                        <div className="flex space-x-1">
-                          <span className="dot-pulse">.</span>
-                          <span className="dot-pulse" style={{animationDelay: '.2s'}}>.</span>
-                          <span className="dot-pulse" style={{animationDelay: '.4s'}}>.</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                        <span className="text-gray-300 font-mono">Querying LinkedIn + Apollo...</span>
-                        <i className="fa-solid fa-check text-green-400" />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                        <span className="text-gray-300 font-mono">Syncing insights...</span>
-                        <i className="fa-solid fa-check text-green-400" />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                        <span className="text-gray-300 font-mono">Done.</span>
-                        <i className="fa-solid fa-check text-green-400" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* REX Response */}
-              <div className="message-fade-in">
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="fa-solid fa-robot text-sm" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="font-mono text-green-400 font-semibold">$ REX</span>
-                      <span className="text-xs text-gray-400">Analysis complete</span>
-                    </div>
-                    <div className="bg-gray-800 rounded-lg p-4 terminal-glow">
-                      <p className="text-green-400 font-semibold mb-4">✅ Found 23 senior React developers in San Francisco. Here are the top 3:</p>
-                      <div className="space-y-4">
-                        {/* Developer Card 1 */}
-                        <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h3 className="font-semibold text-white">Sarah Chen</h3>
-                              <p className="text-gray-300">Senior React Developer @ Stripe</p>
-                            </div>
-                            <span className="bg-green-500 text-black px-2 py-1 rounded text-xs font-semibold">97% Match</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-gray-400">Experience:</span><span className="text-white ml-2">6 years</span></div>
-                            <div><span className="text-gray-400">Salary:</span><span className="text-white ml-2">$180k - $220k</span></div>
-                            <div><span className="text-gray-400">Skills:</span><span className="text-white ml-2">React, TypeScript, Node.js</span></div>
-                            <div><span className="text-gray-400">Location:</span><span className="text-white ml-2">SF, CA</span></div>
-                          </div>
-                          <div className="mt-3 flex space-x-2">
-                            <button className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors"><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
-                            <button className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition-colors"><i className="fa-solid fa-envelope mr-1" />Contact</button>
-                          </div>
-                        </div>
-
-                        {/* Developer Card 2 */}
-                        <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h3 className="font-semibold text-white">Marcus Rodriguez</h3>
-                              <p className="text-gray-300">Lead Frontend Engineer @ Airbnb</p>
-                            </div>
-                            <span className="bg-green-500 text-black px-2 py-1 rounded text-xs font-semibold">94% Match</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-gray-400">Experience:</span><span className="text-white ml-2">8 years</span></div>
-                            <div><span className="text-gray-400">Salary:</span><span className="text-white ml-2">$200k - $250k</span></div>
-                            <div><span className="text-gray-400">Skills:</span><span className="text-white ml-2">React, GraphQL, AWS</span></div>
-                            <div><span className="text-gray-400">Location:</span><span className="text-white ml-2">SF, CA</span></div>
-                          </div>
-                          <div className="mt-3 flex space-x-2">
-                            <button className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors"><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
-                            <button className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition-colors"><i className="fa-solid fa-envelope mr-1" />Contact</button>
-                          </div>
-                        </div>
-
-                        {/* Developer Card 3 */}
-                        <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h3 className="font-semibold text-white">Emily Park</h3>
-                              <p className="text-gray-300">Senior Software Engineer @ Meta</p>
-                            </div>
-                            <span className="bg-yellow-500 text-black px-2 py-1 rounded text-xs font-semibold">91% Match</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-gray-400">Experience:</span><span className="text-white ml-2">5 years</span></div>
-                            <div><span className="text-gray-400">Salary:</span><span className="text-white ml-2">$170k - $210k</span></div>
-                            <div><span className="text-gray-400">Skills:</span><span className="text-white ml-2">React, Redux, Python</span></div>
-                            <div><span className="text-gray-400">Location:</span><span className="text-white ml-2">SF, CA</span></div>
-                          </div>
-                          <div className="mt-3 flex space-x-2">
-                            <button className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors"><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
-                            <button className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition-colors"><i className="fa-solid fa-envelope mr-1" />Contact</button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 p-3 bg-gray-900 rounded border border-gray-600">
-                        <p className="text-sm text-gray-300"><i className="fa-solid fa-lightbulb text-yellow-400 mr-2" />Want to see more candidates or refine the search? Just let me know your specific requirements!</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Input */}
-            <div id="chat-input" className="border-t border-gray-700 p-4 bg-gray-800">
-              <div className="flex items-center space-x-4">
-                <div className="flex-1 relative">
-                  <input type="text" placeholder="Ask REX anything..." className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-colors" />
-                  <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-green-400 transition-colors">
-                    <i className="fa-solid fa-paper-plane" />
-                  </button>
-                </div>
-                <button className="bg-green-600 hover:bg-green-700 p-3 rounded-lg transition-colors">
-                  <i className="fa-solid fa-microphone" />
+          {mobileSidebarOpen && (
+            <aside className="absolute inset-y-0 left-0 z-30 w-[280px] bg-dark-900 border-r border-dark-800 flex flex-col lg:hidden">
+              <div className="p-3 border-b border-dark-800 flex items-center justify-between">
+                <span className="text-xs text-gray-400 uppercase tracking-wider">Menu</span>
+                <button className="p-2 text-gray-400 hover:text-white" onClick={closeMobilePanels}>
+                  <i className="fa-solid fa-xmark" />
                 </button>
               </div>
-              <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
-                <span>Press Enter to send, Shift + Enter for new line</span>
-                <span>REX v2.1.0 • Online</span>
+              {sidebarContent}
+            </aside>
+          )}
+
+          {mobileConsoleOpen && (
+            <aside className="absolute inset-y-0 right-0 z-30 w-[90%] max-w-[420px] bg-dark-900 border-l border-dark-800 flex flex-col xl:hidden">
+              {consoleContent}
+            </aside>
+          )}
+
+          <aside id="sidebar" className="hidden lg:flex w-[280px] bg-dark-900 border-r border-dark-800 flex-col">
+            {sidebarContent}
+          </aside>
+
+          <main id="chat-panel" className="flex-1 flex flex-col bg-dark-950 min-w-0">
+            <header id="chat-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  className="lg:hidden p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+                  onClick={openMobileSidebar}
+                >
+                  <i className="fa-solid fa-bars" />
+                </button>
+                <h2 className="text-base sm:text-lg font-semibold text-white truncate">Find Senior React Developers</h2>
+                <span className="hidden sm:inline-flex px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150">
+                  <i className="fa-solid fa-clock-rotate-left sm:mr-1.5" />
+                  <span className="hidden sm:inline">History</span>
+                </button>
+                <button
+                  className="xl:hidden p-2 text-gray-400 hover:text-white hover:bg-dark-800 rounded-lg transition-all duration-150"
+                  onClick={openMobileConsole}
+                >
+                  <i className="fa-solid fa-list-check" />
+                </button>
+              </div>
+            </header>
+
+            <div id="chat-messages" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+              <div className="message-group mb-8">
+                <div className="flex justify-end mb-4">
+                  <div className="max-w-2xl bg-purple-600 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-lg">
+                    <p className="text-sm leading-relaxed">
+                      I need to find 50 senior React developers with 5+ years experience, TypeScript skills, and experience with Next.js.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="message-group mb-8">
+                <div className="flex gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i className="fa-solid fa-robot text-white text-sm" />
+                  </div>
+                  <div className="flex-1 max-w-3xl">
+                    <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl">
+                      <div className="px-5 py-4 border-b border-dark-800">
+                        <div className="flex items-center gap-2 mb-3">
+                          <i className="fa-solid fa-brain text-purple-400" />
+                          <h3 className="text-sm font-semibold text-white">Here&apos;s how I plan to approach this</h3>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed mb-4">
+                          I&apos;ll create a comprehensive talent sourcing workflow to find qualified React developers matching your criteria.
+                        </p>
+                        <div className="space-y-2.5">
+                          {[
+                            'Source candidates from LinkedIn + Indeed',
+                            'Extract and enrich profiles',
+                            'Score against job requirements',
+                            'Store as leads in pipeline'
+                          ].map((step, idx) => (
+                            <div key={step} className="flex gap-3">
+                              <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-xs font-semibold text-purple-400">{idx + 1}</span>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-200 font-medium">{step}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="px-5 py-4 bg-dark-800/30">
+                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <i className="fa-solid fa-coins text-amber-400" />
+                            <span>Est. Credits: <span className="text-white font-semibold">~450</span></span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <i className="fa-solid fa-clock text-blue-400" />
+                            <span>Est. Time: <span className="text-white font-semibold">~15 min</span></span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20">
+                            <i className="fa-solid fa-check mr-2" />
+                            Approve Plan
+                          </button>
+                          <button className="px-4 py-2.5 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-medium text-sm transition-all duration-200 border border-dark-600">
+                            Edit Plan
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+
+            <div id="chat-input-container" className="border-t border-dark-800 p-4 flex-shrink-0">
+              <div className="max-w-4xl mx-auto">
+                <div className="relative">
+                  <textarea
+                    placeholder="Ask REX to find candidates, create workflows, or automate your recruiting..."
+                    className="w-full bg-dark-900 border border-dark-700 focus:border-purple-500 rounded-xl px-5 py-4 pr-24 text-sm text-white placeholder-gray-500 resize-none focus:outline-none transition-all duration-200 shadow-lg"
+                    rows={3}
+                  />
+                  <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                    <button className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20">
+                      <i className="fa-solid fa-paper-plane" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <aside id="agent-console" className="hidden xl:flex w-[420px] bg-dark-900 border-l border-dark-800 flex-col">
+            {consoleContent}
+          </aside>
         </div>
       </div>
     </div>
