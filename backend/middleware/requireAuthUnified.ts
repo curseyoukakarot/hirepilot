@@ -15,8 +15,16 @@ const supabase = createClient(
  */
 export async function requireAuthUnified(req: Request, res: Response, next: NextFunction) {
   try {
-    // Short-circuit if an upstream middleware (e.g., API key) already attached a user
-    if ((req as any).user?.id) return next();
+    // If upstream middleware attached a user, only short-circuit when:
+    // - it's API-key auth, or
+    // - there is no bearer/session token to re-resolve richer role/plan fields.
+    // This prevents a coarse global "authenticated" role from masking admin roles.
+    const existingUser = (req as any).user;
+    const authHeader = String(req.headers.authorization || '');
+    const hasBearer = authHeader.startsWith('Bearer ');
+    const hasSessionCookie = Boolean((req as any)?.cookies?.hp_session);
+    const isApiKeyAuth = existingUser?._auth_source === 'api_key' || existingUser?.role === 'api_key';
+    if (existingUser?.id && (isApiKeyAuth || (!hasBearer && !hasSessionCookie))) return next();
     // Allowlist: public/alternate-auth endpoints that handle their own auth (e.g., x-user-id)
     // Avoid blocking LinkedIn remote session bootstrap and streaming endpoints
     const path = String(req.path || '');
@@ -44,7 +52,6 @@ export async function requireAuthUnified(req: Request, res: Response, next: Next
 
     // Prefer explicit bearer when present
     let token: string | null = null;
-    const authHeader = String(req.headers.authorization || '');
     if (authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1] || null;
     }
