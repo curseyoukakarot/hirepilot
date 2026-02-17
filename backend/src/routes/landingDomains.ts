@@ -6,6 +6,7 @@ import crypto from 'crypto';
 
 const router = express.Router();
 const dnsPromises = dns.promises;
+const VERCEL_API_BASE = 'https://api.vercel.com';
 
 function normalizeDomain(input: string) {
   let s = String(input || '').trim().toLowerCase();
@@ -86,6 +87,136 @@ function generateVerificationToken() {
   // Node builtin, safe for CommonJS/ts-node on Railway (avoids ESM-only nanoid)
   // 18 bytes -> 24 chars base64url (roughly), good entropy and DNS-safe
   return crypto.randomBytes(18).toString('base64url');
+}
+
+type VercelDomainEnsureResult = {
+  attempted: boolean;
+  ok: boolean;
+  status: 'skipped' | 'added' | 'already_added' | 'failed';
+  reason?: string;
+  details?: any;
+};
+
+function readVercelConfig() {
+  const token = String(process.env.VERCEL_API_TOKEN || '').trim();
+  const projectId = String(process.env.VERCEL_PROJECT_ID || '').trim();
+  const teamId = String(process.env.VERCEL_TEAM_ID || '').trim();
+  const enabled = Boolean(token && projectId);
+  return { token, projectId, teamId, enabled };
+}
+
+function isAlreadyExistsPayload(payload: any): boolean {
+  const code = String(payload?.error?.code || payload?.code || '').toLowerCase();
+  const message = String(payload?.error?.message || payload?.message || '').toLowerCase();
+  return (
+    code.includes('already') ||
+    code.includes('exists') ||
+    code.includes('domain_taken') ||
+    message.includes('already') ||
+    message.includes('exists')
+  );
+}
+
+async function vercelRequest(
+  path: string,
+  init: RequestInit,
+  timeoutMs = 8000
+): Promise<{ ok: boolean; status: number; payload: any }> {
+  const cfg = readVercelConfig();
+  const url = new URL(`${VERCEL_API_BASE}${path}`);
+  if (cfg.teamId) url.searchParams.set('teamId', cfg.teamId);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url.toString(), {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        'Content-Type': 'application/json',
+        ...(init.headers || {}),
+      },
+      signal: controller.signal,
+    });
+    const payload = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, payload };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ensureDomainOnVercel(domain: string): Promise<VercelDomainEnsureResult> {
+  const cfg = readVercelConfig();
+  if (!cfg.enabled) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 'skipped',
+      reason: 'VERCEL_API_TOKEN_OR_PROJECT_ID_MISSING',
+    };
+  }
+
+  try {
+    const created = await vercelRequest(
+      `/v10/projects/${encodeURIComponent(cfg.projectId)}/domains`,
+      { method: 'POST', body: JSON.stringify({ name: domain }) }
+    );
+    if (created.ok) {
+      return { attempted: true, ok: true, status: 'added', details: created.payload };
+    }
+
+    if (created.status === 409 || isAlreadyExistsPayload(created.payload)) {
+      const existing = await vercelRequest(
+        `/v9/projects/${encodeURIComponent(cfg.projectId)}/domains/${encodeURIComponent(domain)}`,
+        { method: 'GET' }
+      );
+      if (existing.ok) {
+        return { attempted: true, ok: true, status: 'already_added', details: existing.payload };
+      }
+    }
+
+    return {
+      attempted: true,
+      ok: false,
+      status: 'failed',
+      reason: String(created?.payload?.error?.code || created?.payload?.code || `HTTP_${created.status}`),
+      details: created.payload,
+    };
+  } catch (e: any) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 'failed',
+      reason: e?.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED',
+      details: e?.message || String(e),
+    };
+  }
+}
+
+async function removeDomainFromVercel(domain: string): Promise<{ attempted: boolean; ok: boolean; status: 'skipped' | 'removed' | 'not_found' | 'failed'; reason?: string }> {
+  const cfg = readVercelConfig();
+  if (!cfg.enabled) return { attempted: false, ok: false, status: 'skipped' };
+  try {
+    const resp = await vercelRequest(
+      `/v9/projects/${encodeURIComponent(cfg.projectId)}/domains/${encodeURIComponent(domain)}`,
+      { method: 'DELETE' }
+    );
+    if (resp.ok) return { attempted: true, ok: true, status: 'removed' };
+    if (resp.status === 404) return { attempted: true, ok: true, status: 'not_found' };
+    return {
+      attempted: true,
+      ok: false,
+      status: 'failed',
+      reason: String(resp?.payload?.error?.code || resp?.payload?.code || `HTTP_${resp.status}`),
+    };
+  } catch (e: any) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 'failed',
+      reason: e?.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED',
+    };
+  }
 }
 
 // GET /api/landing-domains/resolve?host=example.com (public)
@@ -178,6 +309,7 @@ router.post('/request', requireAuthUnified as any, async (req: Request, res: Res
     const token = generateVerificationToken();
     const verificationName = buildVerificationName(domain);
     const verificationValue = token;
+    const vercel = await ensureDomainOnVercel(domain);
 
     const { data: created, error } = await supabase
       .from('landing_page_domains')
@@ -207,8 +339,9 @@ router.post('/request', requireAuthUnified as any, async (req: Request, res: Res
         value: verificationValue,
         note: 'Create this TXT record, wait for DNS to propagate, then click Verify.',
       },
+      vercel,
       recommendedRouting: {
-        note: 'Also point your domain to the Vercel project hosting app.thehirepilot.com so HTTPS works.',
+        note: 'This domain is auto-submitted to Vercel when backend env vars are configured. Also point your DNS to Vercel so HTTPS works.',
         apex: [{ type: 'A', name: '@', value: '76.76.21.21' }],
         subdomain: [{ type: 'CNAME', name: 'profile', value: 'cname.vercel-dns.com' }],
       },
@@ -268,6 +401,20 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       return res.status(400).json({ error: 'not_verified_yet', found: txt });
     }
 
+    const vercel = await ensureDomainOnVercel(domain);
+    if (vercel.attempted && !vercel.ok) {
+      await supabase
+        .from('landing_page_domains')
+        .update({ last_checked_at: new Date().toISOString(), status: 'pending' } as any)
+        .eq('id', (row as any).id)
+        .eq('user_id', userId);
+      return res.status(409).json({
+        error: 'vercel_domain_attach_failed',
+        code: 'VERCEL_DOMAIN_ATTACH_FAILED',
+        vercel,
+      });
+    }
+
     const nowIso = new Date().toISOString();
     const { data: updated, error } = await supabase
       .from('landing_page_domains')
@@ -278,7 +425,7 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       .single();
     if (error) return res.status(500).json({ error: error.message || 'verify_failed' });
 
-    return res.json({ ok: true, domain: updated });
+    return res.json({ ok: true, domain: updated, vercel });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'verify_failed' });
   }
@@ -304,6 +451,8 @@ router.delete('/:id', requireAuthUnified as any, async (req: Request, res: Respo
     if (existingErr) return res.status(500).json({ error: existingErr.message || 'lookup_failed' });
     if (!existing || (existing as any).user_id !== userId) return res.status(404).json({ error: 'not_found' });
 
+    const vercel = await removeDomainFromVercel(String((existing as any).domain || ''));
+
     const { error } = await supabase
       .from('landing_page_domains')
       .delete()
@@ -311,7 +460,7 @@ router.delete('/:id', requireAuthUnified as any, async (req: Request, res: Respo
       .eq('user_id', userId);
     if (error) return res.status(500).json({ error: error.message || 'delete_failed' });
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, vercel });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'delete_failed' });
   }

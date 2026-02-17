@@ -57,6 +57,10 @@ Also add the domain in **Vercel Project Settings → Domains** for the jobs proj
     - Custom domains will call the public resolve endpoints cross-origin.
     - This flag allows any `https://*` origin through the existing CORS gate.
   - **`DNS_VERIFY_TIMEOUT_MS`** (optional): DNS TXT lookup timeout (default `2500`)
+  - **`VERCEL_API_TOKEN`** + **`VERCEL_PROJECT_ID`** (required for auto-attach)
+    - When configured, `POST /api/landing-domains/request` and `/verify` automatically attach the domain to the Vercel project.
+  - **`VERCEL_TEAM_ID`** (optional)
+    - Needed if the Vercel project lives under a team scope.
 
 ### UX flow (Elite user)
 

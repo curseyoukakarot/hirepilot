@@ -912,7 +912,16 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
       setDomainInstructions(resp?.instructions || null);
       setDomainInput('');
       await loadDomains(lpId);
-      toast.success('Domain requested — add the TXT record, then verify.');
+      const vercelStatus = String(resp?.vercel?.status || '');
+      if (vercelStatus === 'added' || vercelStatus === 'already_added') {
+        toast.success('Domain requested and synced to Vercel — add TXT record, then verify.');
+      } else if (vercelStatus === 'skipped') {
+        toast.success('Domain requested — add TXT record, then verify. (Vercel auto-sync is not configured yet)');
+      } else if (vercelStatus === 'failed') {
+        toast.success('Domain requested — add TXT record, then verify. (Vercel sync will retry on verify)');
+      } else {
+        toast.success('Domain requested — add the TXT record, then verify.');
+      }
     } catch (e: any) {
       toast.error(e?.message || 'Failed to request domain');
     } finally {
@@ -926,11 +935,21 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
     if (!lpId) return;
     setDomainActionLoading(`verify:${domain}`);
     try {
-      await apiPost('/api/landing-domains/verify', { domain }, { requireAuth: true });
+      const resp = await apiPost('/api/landing-domains/verify', { domain }, { requireAuth: true });
       await loadDomains(lpId);
-      toast.success('Verified — domain is now active.');
+      const vercelStatus = String(resp?.vercel?.status || '');
+      if (vercelStatus === 'added' || vercelStatus === 'already_added') {
+        toast.success('Verified — domain is active and attached in Vercel.');
+      } else {
+        toast.success('Verified — domain is now active.');
+      }
     } catch (e: any) {
-      toast.error(e?.message || 'Not verified yet (DNS may still be propagating)');
+      const msg = String(e?.message || '');
+      if (msg.toLowerCase().includes('vercel_domain_attach_failed')) {
+        toast.error('TXT verified, but Vercel could not attach this domain yet. Confirm domain is not attached to another Vercel project, then retry.');
+      } else {
+        toast.error(msg || 'Not verified yet (DNS may still be propagating)');
+      }
     } finally {
       setDomainActionLoading(null);
     }
@@ -1330,7 +1349,7 @@ export default function LandingPageBuilderPage(props: LandingPageBuilderPageProp
                     </button>
                   </div>
                   <div className="text-[11px] text-slate-500 mt-2">
-                    After requesting, we’ll show a TXT record to prove ownership. Also make sure your domain points to Vercel so HTTPS works.
+                    After requesting, we’ll show a TXT record to prove ownership. We also auto-submit this domain to Vercel when backend Vercel credentials are configured.
                   </div>
                 </div>
 
