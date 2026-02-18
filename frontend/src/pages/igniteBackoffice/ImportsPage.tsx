@@ -13,6 +13,18 @@ type ImportBatch = {
   created_by?: string | null;
 };
 
+type Step = 1 | 2 | 3 | 4;
+
+type ColumnMapping = {
+  date: string;
+  description: string;
+  type: string;
+  status: string;
+  inbound: string;
+  outbound: string;
+  notes: string;
+};
+
 function formatDateTime(value?: string) {
   if (!value) return '-';
   const d = new Date(value);
@@ -36,6 +48,17 @@ export default function ImportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState<Step>(1);
+  const [previewRows, setPreviewRows] = useState<Array<Record<string, any>>>([]);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
+    date: 'date',
+    description: 'description',
+    type: 'type',
+    status: 'status',
+    inbound: 'inbound',
+    outbound: 'outbound',
+    notes: 'notes',
+  });
 
   const loadHistory = async () => {
     try {
@@ -63,6 +86,8 @@ export default function ImportsPage() {
     setSelectedFile(file || null);
     setSelectedFileName(file?.name || '');
     setUploadedBatch(null);
+    setPreviewRows([]);
+    setCurrentStep(1);
   };
 
   const uploadSelectedFile = async () => {
@@ -74,6 +99,8 @@ export default function ImportsPage() {
       formData.append('file', selectedFile);
       const response = await apiPostForm('/api/ignite/backoffice/imports/upload', formData);
       setUploadedBatch(((response as any)?.batch || null) as ImportBatch | null);
+      setPreviewRows(Array.isArray((response as any)?.preview) ? ((response as any).preview as Array<Record<string, any>>) : []);
+      setCurrentStep(2);
       await loadHistory();
     } catch (e: any) {
       setError(e?.message || 'Upload failed');
@@ -91,6 +118,8 @@ export default function ImportsPage() {
       setUploadedBatch(null);
       setSelectedFile(null);
       setSelectedFileName('');
+      setPreviewRows([]);
+      setCurrentStep(1);
       await loadHistory();
     } catch (e: any) {
       setError(e?.message || 'Commit failed');
@@ -125,6 +154,33 @@ export default function ImportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const previewColumns = React.useMemo(() => {
+    if (!previewRows.length) return [];
+    const first = previewRows[0] || {};
+    return Object.keys(first);
+  }, [previewRows]);
+
+  const stepDotClass = (step: Step) =>
+    currentStep === step
+      ? 'w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm'
+      : currentStep > step
+        ? 'w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-semibold text-sm'
+        : 'w-10 h-10 bg-gray-700 text-gray-400 rounded-full flex items-center justify-center font-semibold text-sm';
+
+  const stepLabelClass = (step: Step) =>
+    currentStep === step ? 'text-xs font-medium text-primary mt-2' : 'text-xs font-medium text-gray-400 mt-2';
+
+  const validationSummary = React.useMemo(() => {
+    const total = previewRows.length;
+    const missingDate = previewRows.filter((row) => !String(row[columnMapping.date] || '').trim()).length;
+    const missingDescription = previewRows.filter((row) => !String(row[columnMapping.description] || '').trim()).length;
+    return {
+      total,
+      valid: Math.max(0, total - missingDate - missingDescription),
+      warnings: missingDate + missingDescription,
+    };
+  }, [previewRows, columnMapping.date, columnMapping.description]);
+
   return (
     <IgniteBackofficeLayout>
       <div className="ignite-backoffice-scrollbar-hide bg-gray-900 font-sans min-h-screen">
@@ -152,64 +208,206 @@ export default function ImportsPage() {
             <div id="stepper" className="mb-8">
               <div className="flex items-center justify-between max-w-4xl mx-auto">
                 <div className="flex flex-col items-center flex-1">
-                  <div className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">1</div>
-                  <span className="text-xs font-medium text-primary mt-2">Upload File</span>
+                  <div className={stepDotClass(1)}>1</div>
+                  <span className={stepLabelClass(1)}>Upload File</span>
                 </div>
                 <div className="flex-1 h-0.5 bg-gray-700 mx-4 -mt-6" />
                 <div className="flex flex-col items-center flex-1">
-                  <div className="w-10 h-10 bg-gray-700 text-gray-400 rounded-full flex items-center justify-center font-semibold text-sm">2</div>
-                  <span className="text-xs font-medium text-gray-400 mt-2">Map Columns</span>
+                  <div className={stepDotClass(2)}>2</div>
+                  <span className={stepLabelClass(2)}>Map Columns</span>
                 </div>
                 <div className="flex-1 h-0.5 bg-gray-700 mx-4 -mt-6" />
                 <div className="flex flex-col items-center flex-1">
-                  <div className="w-10 h-10 bg-gray-700 text-gray-400 rounded-full flex items-center justify-center font-semibold text-sm">3</div>
-                  <span className="text-xs font-medium text-gray-400 mt-2">Validation</span>
+                  <div className={stepDotClass(3)}>3</div>
+                  <span className={stepLabelClass(3)}>Validation</span>
                 </div>
                 <div className="flex-1 h-0.5 bg-gray-700 mx-4 -mt-6" />
                 <div className="flex flex-col items-center flex-1">
-                  <div className="w-10 h-10 bg-gray-700 text-gray-400 rounded-full flex items-center justify-center font-semibold text-sm">4</div>
-                  <span className="text-xs font-medium text-gray-400 mt-2">Summary</span>
+                  <div className={stepDotClass(4)}>4</div>
+                  <span className={stepLabelClass(4)}>Summary</span>
                 </div>
               </div>
             </div>
 
-            <div id="step-1-upload" className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 max-w-4xl mx-auto">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-white">Upload Your Ledger File</h2>
-                <p className="text-sm text-gray-400 mt-1">Drag and drop your file or click to browse</p>
-              </div>
-              {error ? <p className="text-center text-xs text-red-400 mb-4">{error}</p> : null}
-
-              <div
-                id="dropzone"
-                onClick={onDropzoneClick}
-                className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center hover:border-primary transition cursor-pointer bg-gray-900"
-              >
-                <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-                    <i className="fa-solid fa-cloud-arrow-up text-primary text-2xl" />
-                  </div>
-                  <p className="text-base font-medium text-white mb-1">Drop your file here</p>
-                  <p className="text-sm text-gray-400 mb-4">or click to browse from your computer</p>
-                  <p className="text-xs text-gray-500">Supports XLSX and CSV files up to 10MB</p>
-                  {selectedFileName ? <p className="text-xs text-primary mt-3">Selected: {selectedFileName}</p> : null}
+            {currentStep === 1 ? (
+              <div id="step-1-upload" className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 max-w-4xl mx-auto">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-bold text-white">Upload Your Ledger File</h2>
+                  <p className="text-sm text-gray-400 mt-1">Drag and drop your file or click to browse</p>
                 </div>
-              </div>
+                {error ? <p className="text-center text-xs text-red-400 mb-4">{error}</p> : null}
 
-              <input ref={fileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFileChange} />
-
-              <div className="flex justify-end mt-6">
-                <button
-                  type="button"
-                  onClick={() => void (uploadedBatch ? commitUploadedBatch() : uploadSelectedFile())}
-                  disabled={!selectedFileName || saving}
-                  className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                <div
+                  id="dropzone"
+                  onClick={onDropzoneClick}
+                  className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center hover:border-primary transition cursor-pointer bg-gray-900"
                 >
-                  {uploadedBatch ? 'Commit Import' : 'Continue'}
-                  <i className="fa-solid fa-arrow-right ml-2" />
-                </button>
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                      <i className="fa-solid fa-cloud-arrow-up text-primary text-2xl" />
+                    </div>
+                    <p className="text-base font-medium text-white mb-1">Drop your file here</p>
+                    <p className="text-sm text-gray-400 mb-4">or click to browse from your computer</p>
+                    <p className="text-xs text-gray-500">Supports XLSX and CSV files up to 10MB</p>
+                    {selectedFileName ? <p className="text-xs text-primary mt-3">Selected: {selectedFileName}</p> : null}
+                  </div>
+                </div>
+
+                <input ref={fileInputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFileChange} />
+
+                <div className="flex justify-end mt-6">
+                  <button
+                    type="button"
+                    onClick={() => void uploadSelectedFile()}
+                    disabled={!selectedFileName || saving}
+                    className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Continue
+                    <i className="fa-solid fa-arrow-right ml-2" />
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {currentStep === 2 ? (
+              <div id="step-2-map" className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 max-w-4xl mx-auto">
+                <h2 className="text-xl font-bold text-white">Map Columns</h2>
+                <p className="text-sm text-gray-400 mt-1">Confirm how your file columns map to Ignite ledger fields.</p>
+                {error ? <p className="text-xs text-red-400 mt-3">{error}</p> : null}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                  {[
+                    { key: 'date', label: 'Date' },
+                    { key: 'description', label: 'Description' },
+                    { key: 'type', label: 'Type' },
+                    { key: 'status', label: 'Status' },
+                    { key: 'inbound', label: 'Inbound Amount' },
+                    { key: 'outbound', label: 'Outbound Amount' },
+                    { key: 'notes', label: 'Notes' },
+                  ].map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-sm text-gray-300 mb-2">{field.label}</label>
+                      <select
+                        value={columnMapping[field.key as keyof ColumnMapping]}
+                        onChange={(e) =>
+                          setColumnMapping((prev) => ({ ...prev, [field.key]: e.target.value }))
+                        }
+                        className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                      >
+                        {previewColumns.map((column) => (
+                          <option key={column} value={column}>
+                            {column}
+                          </option>
+                        ))}
+                        {!previewColumns.length ? <option value="">No columns found</option> : null}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="px-4 py-2 text-sm font-medium text-gray-200 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {currentStep === 3 ? (
+              <div id="step-3-validation" className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 max-w-4xl mx-auto">
+                <h2 className="text-xl font-bold text-white">Validation</h2>
+                <p className="text-sm text-gray-400 mt-1">Preview quick import checks before summary.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+                    <p className="text-xs text-gray-400">Rows Scanned</p>
+                    <p className="text-2xl font-bold text-white">{validationSummary.total.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-green-900/20 border border-green-800 rounded-lg p-4">
+                    <p className="text-xs text-green-300">Valid Rows</p>
+                    <p className="text-2xl font-bold text-green-300">{validationSummary.valid.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-4">
+                    <p className="text-xs text-yellow-300">Warnings</p>
+                    <p className="text-2xl font-bold text-yellow-300">{validationSummary.warnings.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-gray-900 border border-gray-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-300">
+                    Validation is MVP-level. Required fields are `date` and `description`. You can proceed and review results in history.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="px-4 py-2 text-sm font-medium text-gray-200 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(4)}
+                    className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {currentStep === 4 ? (
+              <div id="step-4-summary" className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-8 max-w-4xl mx-auto">
+                <h2 className="text-xl font-bold text-white">Summary</h2>
+                <p className="text-sm text-gray-400 mt-1">Confirm and commit your import batch.</p>
+
+                <div className="mt-6 bg-gray-900 border border-gray-700 rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-gray-300">
+                    <span className="text-gray-400">File:</span> {selectedFileName || uploadedBatch?.filename || '-'}
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="text-gray-400">Batch ID:</span> {uploadedBatch?.id || '-'}
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="text-gray-400">Rows staged:</span>{' '}
+                    {uploadedBatch?.rows_total?.toLocaleString() || previewRows.length.toLocaleString()}
+                  </p>
+                </div>
+
+                {error ? <p className="text-xs text-red-400 mt-4">{error}</p> : null}
+
+                <div className="flex items-center justify-between mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="px-4 py-2 text-sm font-medium text-gray-200 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void commitUploadedBatch()}
+                    disabled={!uploadedBatch?.id || saving}
+                    className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Committing...' : 'Commit Import'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div id="import-history-section" className="px-8 py-6">
