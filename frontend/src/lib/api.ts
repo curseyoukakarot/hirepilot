@@ -63,7 +63,8 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
 
   // Prepare headers
   const headers = new Headers(fetchOptions.headers);
-  if (!headers.has('Content-Type')) {
+  const isFormDataBody = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+  if (!headers.has('Content-Type') && !isFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
   if (userId) headers.set('x-user-id', userId);
@@ -97,6 +98,9 @@ export const apiGet = (endpoint: string, options?: ApiOptions) =>
 
 export const apiPost = (endpoint: string, data?: any, options?: ApiOptions) =>
   api(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) });
+
+export const apiPostForm = (endpoint: string, formData: FormData, options?: ApiOptions) =>
+  api(endpoint, { ...options, method: 'POST', body: formData });
 
 export const apiPut = (endpoint: string, data?: any, options?: ApiOptions) =>
   api(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) });

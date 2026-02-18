@@ -16,6 +16,12 @@ import IgniteClientPortalPage from './client/IgniteClientPortalPage';
 import ClientProposalViewPage from './client/ClientProposalViewPage';
 import SharedProposalViewPage from './client/SharedProposalViewPage';
 import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
+import DashboardPage from '../igniteBackoffice/DashboardPage';
+import LedgerPage from '../igniteBackoffice/LedgerPage';
+import AllocationsPage from '../igniteBackoffice/AllocationsPage';
+import AccountsPage from '../igniteBackoffice/AccountsPage';
+import ImportsPage from '../igniteBackoffice/ImportsPage';
+import BackofficeLoginPage from '../igniteBackoffice/BackofficeLoginPage';
 
 type IgniteRoutesProps = {
   role?: string | null;
@@ -32,19 +38,28 @@ function getIgnitePageFlavor(pathname: string): string {
   if (pathname.startsWith('/ignite/rate-cards')) return 'ignite-page-rate-cards';
   if (pathname.startsWith('/ignite/clients')) return 'ignite-page-clients';
   if (pathname.startsWith('/ignite/exports')) return 'ignite-page-exports';
+  if (pathname.startsWith('/ignite/backoffice')) return 'ignite-page-backoffice';
   if (pathname.startsWith('/ignite/proposals')) return 'ignite-page-proposals';
   return 'ignite-page-default';
+}
+
+function normalizeHost(value: any): string {
+  return String(value || '').trim().toLowerCase();
 }
 
 export default function IgniteRoutes({ role }: IgniteRoutesProps) {
   const location = useLocation();
   const pageFlavorClass = getIgnitePageFlavor(location.pathname);
+  const hostname = typeof window !== 'undefined' ? normalizeHost(window.location.hostname) : '';
+  const backofficeHost = normalizeHost((import.meta as any)?.env?.VITE_IGNITE_BACKOFFICE_HOSTNAME || 'backoffice.ignitegtm.com');
+  const backofficeHostTypo = normalizeHost((import.meta as any)?.env?.VITE_IGNITE_BACKOFFCE_HOSTNAME || 'backoffce.ignitegtm.com');
+  const isBackofficeHost = hostname === backofficeHost || hostname === backofficeHostTypo;
 
   return (
     <div className={`ignite-theme ${pageFlavorClass}`}>
       <Routes>
-        <Route path="/login" element={<IgniteClientLoginPage />} />
-        <Route path="/signup" element={<IgniteClientSignupPage />} />
+        <Route path="/login" element={isBackofficeHost ? <BackofficeLoginPage /> : <IgniteClientLoginPage />} />
+        {!isBackofficeHost ? <Route path="/signup" element={<IgniteClientSignupPage />} /> : null}
         <Route path="/share/:token" element={<SharedProposalViewPage />} />
         <Route
           path="/proposals/:proposalId"
@@ -67,6 +82,71 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
           element={
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <BackofficeProposalPreviewPage />
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/backoffice"
+          element={
+            <RequireIgniteAccess
+              role={role}
+              allowedRoles={['ignite_backoffice', 'ignite_admin', 'ignite_team']}
+              loginPath="/login"
+              deniedMessage="Your account does not have Ignite Backoffice access. Ask a super admin to grant the ignite_backoffice role."
+            >
+              <DashboardPage />
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/backoffice/ledger"
+          element={
+            <RequireIgniteAccess
+              role={role}
+              allowedRoles={['ignite_backoffice', 'ignite_admin', 'ignite_team']}
+              loginPath="/login"
+              deniedMessage="Your account does not have Ignite Backoffice access. Ask a super admin to grant the ignite_backoffice role."
+            >
+              <LedgerPage />
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/backoffice/allocations"
+          element={
+            <RequireIgniteAccess
+              role={role}
+              allowedRoles={['ignite_backoffice', 'ignite_admin', 'ignite_team']}
+              loginPath="/login"
+              deniedMessage="Your account does not have Ignite Backoffice access. Ask a super admin to grant the ignite_backoffice role."
+            >
+              <AllocationsPage />
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/backoffice/accounts"
+          element={
+            <RequireIgniteAccess
+              role={role}
+              allowedRoles={['ignite_backoffice', 'ignite_admin', 'ignite_team']}
+              loginPath="/login"
+              deniedMessage="Your account does not have Ignite Backoffice access. Ask a super admin to grant the ignite_backoffice role."
+            >
+              <AccountsPage />
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/backoffice/imports"
+          element={
+            <RequireIgniteAccess
+              role={role}
+              allowedRoles={['ignite_backoffice', 'ignite_admin', 'ignite_team']}
+              loginPath="/login"
+              deniedMessage="Your account does not have Ignite Backoffice access. Ask a super admin to grant the ignite_backoffice role."
+            >
+              <ImportsPage />
             </RequireIgniteAccess>
           }
         />
@@ -155,7 +235,13 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
           element={
             <RequireIgniteAccess role={role}>
               <Navigate
-                to={String(role || '').toLowerCase().replace(/[\s-]/g, '_') === 'ignite_client' ? '/ignite/client' : '/ignite/proposals'}
+                to={
+                  isBackofficeHost
+                    ? '/ignite/backoffice'
+                    : String(role || '').toLowerCase().replace(/[\s-]/g, '_') === 'ignite_client'
+                      ? '/ignite/client'
+                      : '/ignite/proposals'
+                }
                 replace
               />
             </RequireIgniteAccess>
@@ -166,7 +252,13 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
           element={
             <RequireIgniteAccess role={role}>
               <Navigate
-                to={String(role || '').toLowerCase().replace(/[\s-]/g, '_') === 'ignite_client' ? '/ignite/client' : '/ignite/proposals'}
+                to={
+                  isBackofficeHost
+                    ? '/ignite/backoffice'
+                    : String(role || '').toLowerCase().replace(/[\s-]/g, '_') === 'ignite_client'
+                      ? '/ignite/client'
+                      : '/ignite/proposals'
+                }
                 replace
               />
             </RequireIgniteAccess>

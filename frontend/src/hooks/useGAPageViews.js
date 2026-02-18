@@ -12,6 +12,12 @@ export default function useGAPageViews() {
   const igniteHostname =
     (typeof import.meta !== "undefined" && import.meta?.env?.VITE_IGNITE_HOSTNAME) ||
     "clients.ignitegtm.com";
+  const igniteBackofficeHostname =
+    (typeof import.meta !== "undefined" && import.meta?.env?.VITE_IGNITE_BACKOFFICE_HOSTNAME) ||
+    "backoffice.ignitegtm.com";
+  const igniteBackoffceHostname =
+    (typeof import.meta !== "undefined" && import.meta?.env?.VITE_IGNITE_BACKOFFCE_HOSTNAME) ||
+    "backoffce.ignitegtm.com";
 
   /**
    * Convert blog/article slugs like `flow-of-hirepilot` or `PipelineBestPractices` to
@@ -84,7 +90,9 @@ export default function useGAPageViews() {
   useEffect(() => {
     const path = location.pathname;
     const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-    const isIgniteHost = hostname === igniteHostname;
+    const isIgniteHost =
+      hostname === igniteHostname || hostname === igniteBackofficeHostname || hostname === igniteBackoffceHostname;
+    const isIgniteBackofficeHost = hostname === igniteBackofficeHostname || hostname === igniteBackoffceHostname;
     const isIgniteRoute =
       path === "/login" ||
       path === "/signup" ||
@@ -113,8 +121,13 @@ export default function useGAPageViews() {
     // Override title style for Ignite pages on Ignite host.
     if (isIgniteHost && isIgniteRoute) {
       const igniteTitleMap = {
-        "/login": "Log In | IgniteGTM",
+        "/login": isIgniteBackofficeHost ? "Backoffice Login | IgniteGTM" : "Log In | IgniteGTM",
         "/signup": "Sign Up | IgniteGTM",
+        "/ignite/backoffice": "Backoffice Dashboard | IgniteGTM",
+        "/ignite/backoffice/ledger": "Backoffice Ledger | IgniteGTM",
+        "/ignite/backoffice/allocations": "Backoffice Allocations | IgniteGTM",
+        "/ignite/backoffice/accounts": "Backoffice Accounts | IgniteGTM",
+        "/ignite/backoffice/imports": "Backoffice Imports | IgniteGTM",
         "/ignite/client": "Client Portal | IgniteGTM",
         "/ignite/proposals/new": "Create Proposal | IgniteGTM",
         "/ignite/proposals": "Proposals | IgniteGTM",

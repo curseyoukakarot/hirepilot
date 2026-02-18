@@ -359,8 +359,13 @@ function InnerApp() {
   const mode = useAppMode();
   const location = useLocation();
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const igniteHostname = String(import.meta.env.VITE_IGNITE_HOSTNAME || 'clients.ignitegtm.com').toLowerCase();
-  const isIgniteHost = String(hostname || '').toLowerCase() === igniteHostname;
+  const normalizedHostname = String(hostname || '').toLowerCase();
+  const igniteHosts = new Set([
+    String(import.meta.env.VITE_IGNITE_HOSTNAME || 'clients.ignitegtm.com').toLowerCase(),
+    String(import.meta.env.VITE_IGNITE_BACKOFFICE_HOSTNAME || 'backoffice.ignitegtm.com').toLowerCase(),
+    String(import.meta.env.VITE_IGNITE_BACKOFFCE_HOSTNAME || 'backoffce.ignitegtm.com').toLowerCase(),
+  ]);
+  const isIgniteHost = igniteHosts.has(normalizedHostname);
   const [role, setRole] = useState(null);
 
   // Supabase may redirect magic links back to Site URL (often `https://thehirepilot.com/#...`).

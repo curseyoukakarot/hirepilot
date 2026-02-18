@@ -994,6 +994,7 @@ export default function AdminUserManagement() {
                 <option value="ignite_admin">Ignite Admin</option>
                 <option value="ignite_team">Ignite Team</option>
                 <option value="ignite_client">Ignite Client</option>
+                <option value="ignite_backoffice">Ignite Backoffice</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setShowInvite(false)}>Cancel</button>
@@ -1026,6 +1027,7 @@ export default function AdminUserManagement() {
                 <option value="ignite_admin">Ignite Admin</option>
                 <option value="ignite_team">Ignite Team</option>
                 <option value="ignite_client">Ignite Client</option>
+                <option value="ignite_backoffice">Ignite Backoffice</option>
               </select>
               <div className="flex gap-2 justify-end">
                 <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700" onClick={() => setEditUser(null)}>Cancel</button>

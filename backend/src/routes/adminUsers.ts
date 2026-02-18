@@ -308,7 +308,7 @@ function normalizeRoleValue(value: any): string {
   return String(value || '').toLowerCase().replace(/[\s-]+/g, '_');
 }
 
-const IGNITE_ROLES = new Set(['ignite_admin', 'ignite_team', 'ignite_client']);
+const IGNITE_ROLES = new Set(['ignite_admin', 'ignite_team', 'ignite_client', 'ignite_backoffice']);
 
 async function syncIgniteMembership(params: {
   userId: string;
