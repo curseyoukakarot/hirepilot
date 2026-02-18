@@ -22,11 +22,25 @@ function resolveApiBase() {
 }
 
 async function fetchJson(url: string) {
-  const res = await fetch(url, {
+  const reqInit: RequestInit = {
     method: 'GET',
     // Avoid leaking any cookies cross-origin from a custom domain
     credentials: 'omit',
-  });
+    // Prevent stale browser/cache revalidation responses (304 without body).
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
+    },
+  };
+
+  let res = await fetch(url, reqInit);
+  // Defensive fallback: if an intermediary still returns 304, retry with cache-busting URL.
+  if (res.status === 304) {
+    const sep = url.includes('?') ? '&' : '?';
+    res = await fetch(`${url}${sep}_ts=${Date.now()}`, reqInit);
+  }
+
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = json?.error || json?.message || `${res.status} ${res.statusText}`;
