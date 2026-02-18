@@ -48,10 +48,13 @@ function toNumber(value: any, fallback = 0): number {
 function toCents(value: any): number {
   if (value === null || value === undefined || value === '') return 0;
   if (typeof value === 'number') return Math.round(value * 100);
-  const cleaned = String(value).replace(/[$,\s]/g, '');
+  const raw = String(value).trim();
+  const isWrappedNegative = raw.startsWith('(') && raw.endsWith(')');
+  const cleaned = raw.replace(/[(),$\s]/g, '');
   const parsed = Number(cleaned);
   if (!Number.isFinite(parsed)) return 0;
-  return Math.round(parsed * 100);
+  const signed = isWrappedNegative ? -Math.abs(parsed) : parsed;
+  return Math.round(signed * 100);
 }
 
 function computeRiskLevel(valueCents: number, safe: number, warning: number): 'safe' | 'warning' | 'danger' {
@@ -70,6 +73,16 @@ function normalizeLedgerStatus(value: any): string {
   const normalized = normalizeRole(value);
   if (['sent', 'past_due', 'paid', 'hold', 'na'].includes(normalized)) return normalized;
   return 'na';
+}
+
+function getMappedRowValue(source: Record<string, any>, mappingKey: string | null | undefined, fallbackKeys: string[]) {
+  if (mappingKey && Object.prototype.hasOwnProperty.call(source, mappingKey)) {
+    return source[mappingKey];
+  }
+  for (const key of fallbackKeys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+  }
+  return undefined;
 }
 
 function compareLedgerOrder(a: LedgerRow, b: LedgerRow): number {
@@ -819,6 +832,7 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
   try {
     const batchId = String(req.params.batchId || '');
     const defaultAccountId = req.body?.default_account_id ? String(req.body.default_account_id) : null;
+    const mapping = (req.body?.column_mapping || {}) as Record<string, string>;
 
     const [{ data: batch, error: batchError }, { data: rows, error: rowsError }] = await Promise.all([
       supabase.from('ignite_import_batches').select('*').eq('id', batchId).maybeSingle(),
@@ -861,17 +875,34 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
 
     const rowsToInsert = (rows || []).map((item: any) => {
       const source = (item.source_row_json || {}) as Record<string, any>;
-      const inbound = toCents(source.inbound ?? source.in ?? source.amount_in ?? 0);
-      const outbound = toCents(source.outbound ?? source.out ?? source.amount_out ?? 0);
+      const dateValue = getMappedRowValue(source, mapping.date, ['date', 'transaction_date']);
+      const descriptionValue = getMappedRowValue(source, mapping.description, ['description', 'memo', 'vendor']);
+      const typeValue = getMappedRowValue(source, mapping.type, ['type']);
+      const statusValue = getMappedRowValue(source, mapping.status, ['status']);
+      const inboundValue = getMappedRowValue(source, mapping.inbound, ['inbound', 'in', 'amount_in']);
+      const outboundValue = getMappedRowValue(source, mapping.outbound, ['outbound', 'out', 'amount_out']);
+      const accountValue = getMappedRowValue(source, mapping.account_id, ['account_id', 'account']);
+      const eventValue = getMappedRowValue(source, mapping.event_allocation_id, ['event_allocation_id', 'event']);
+      const notesValue = getMappedRowValue(source, mapping.notes, ['notes']);
+
+      const inbound = toCents(inboundValue ?? 0);
+      const outbound = toCents(outboundValue ?? 0);
+      const accountToken = String(accountValue || '').trim().toLowerCase();
+      const mappedAccount =
+        accounts.find((row: any) => String(row.id) === accountToken) ||
+        accounts.find((row: any) => String(row.name || '').trim().toLowerCase() === accountToken) ||
+        accounts.find((row: any) => normalizeRole(row.type) === normalizeRole(accountToken));
+
       return {
-        date: String(source.date || source.transaction_date || new Date().toISOString().slice(0, 10)).slice(0, 10),
-        description: String(source.description || source.memo || source.vendor || 'Imported transaction'),
-        type: normalizeLedgerType(source.type || 'adjustment'),
-        status: normalizeLedgerStatus(source.status || 'na'),
-        account_id: String(source.account_id || accountId),
+        date: String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 10),
+        description: String(descriptionValue || 'Imported transaction'),
+        type: normalizeLedgerType(typeValue || 'adjustment'),
+        status: normalizeLedgerStatus(statusValue || 'na'),
+        account_id: String(mappedAccount?.id || accountId),
         inbound_cents: inbound,
         outbound_cents: outbound,
-        notes: source.notes ? String(source.notes) : null,
+        event_allocation_id: eventValue ? String(eventValue) : null,
+        notes: notesValue ? String(notesValue) : null,
         created_by: req.user?.id ? String(req.user.id) : null,
       };
     });

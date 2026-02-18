@@ -20,6 +20,8 @@ type ColumnMapping = {
   description: string;
   type: string;
   status: string;
+  account_id: string;
+  event_allocation_id: string;
   inbound: string;
   outbound: string;
   notes: string;
@@ -55,6 +57,8 @@ export default function ImportsPage() {
     description: 'description',
     type: 'type',
     status: 'status',
+    account_id: 'account',
+    event_allocation_id: 'event',
     inbound: 'inbound',
     outbound: 'outbound',
     notes: 'notes',
@@ -114,7 +118,9 @@ export default function ImportsPage() {
     try {
       setSaving(true);
       setError(null);
-      await apiPost(`/api/ignite/backoffice/imports/${uploadedBatch.id}/commit`, {});
+      await apiPost(`/api/ignite/backoffice/imports/${uploadedBatch.id}/commit`, {
+        column_mapping: columnMapping,
+      });
       setUploadedBatch(null);
       setSelectedFile(null);
       setSelectedFileName('');
@@ -281,6 +287,8 @@ export default function ImportsPage() {
                     { key: 'description', label: 'Description' },
                     { key: 'type', label: 'Type' },
                     { key: 'status', label: 'Status' },
+                    { key: 'account_id', label: 'Account' },
+                    { key: 'event_allocation_id', label: 'Event' },
                     { key: 'inbound', label: 'Inbound Amount' },
                     { key: 'outbound', label: 'Outbound Amount' },
                     { key: 'notes', label: 'Notes' },
