@@ -76,6 +76,7 @@ function normalizeLedgerStatus(value: any): string {
 }
 
 function getMappedRowValue(source: Record<string, any>, mappingKey: string | null | undefined, fallbackKeys: string[]) {
+  if (mappingKey === '') return undefined;
   if (mappingKey && Object.prototype.hasOwnProperty.call(source, mappingKey)) {
     return source[mappingKey];
   }

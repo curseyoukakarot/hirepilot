@@ -302,6 +302,7 @@ export default function ImportsPage() {
                         }
                         className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm"
                       >
+                        <option value="">Leave blank</option>
                         {previewColumns.map((column) => (
                           <option key={column} value={column}>
                             {column}
