@@ -70,9 +70,14 @@ function normalizeLedgerType(value: any): string {
 }
 
 function normalizeLedgerStatus(value: any): string {
-  const normalized = normalizeRole(value);
-  if (['sent', 'past_due', 'paid', 'hold', 'na'].includes(normalized)) return normalized;
-  return 'na';
+  const raw = String(value ?? '').trim();
+  if (!raw) return 'na';
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/^_+|_+$/g, '');
+  return normalized || 'na';
 }
 
 function normalizeImportDate(value: any): string | null {

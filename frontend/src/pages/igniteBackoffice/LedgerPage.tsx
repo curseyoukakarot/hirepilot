@@ -28,6 +28,8 @@ type LedgerRow = {
   running_balance_cents: number;
 };
 
+const DEFAULT_LEDGER_STATUSES = ['paid', 'sent', 'past_due', 'hold', 'na'];
+
 function formatMoney(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((cents || 0) / 100);
 }
@@ -51,6 +53,15 @@ function statusBadgeClass(status: string) {
   if (normalized === 'hold') return 'inline-flex px-2 py-1 rounded-full text-xs font-medium bg-red-900/50 text-red-300';
   if (normalized === 'sent') return 'inline-flex px-2 py-1 rounded-full text-xs font-medium bg-blue-900/50 text-blue-300';
   return 'inline-flex px-2 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300';
+}
+
+function statusLabel(status: string) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'na') return 'N/A';
+  return normalized
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function typeBadgeClass(type: string) {
@@ -98,6 +109,19 @@ export default function LedgerPage() {
   const allocationMap = useMemo(() => {
     return new Map(allocations.map((row) => [row.id, row]));
   }, [allocations]);
+
+  const statusOptions = useMemo(() => {
+    const values = new Set<string>(DEFAULT_LEDGER_STATUSES);
+    rows.forEach((row) => {
+      const normalized = String(row.status || '').trim().toLowerCase();
+      if (normalized) values.add(normalized);
+    });
+    const fromFilter = String(status || '').trim().toLowerCase();
+    if (fromFilter && fromFilter !== 'all') values.add(fromFilter);
+    const fromForm = String(formStatus || '').trim().toLowerCase();
+    if (fromForm) values.add(fromForm);
+    return Array.from(values);
+  }, [rows, status, formStatus]);
 
   const loadReferenceData = async () => {
     const [accountsRes, allocationsRes] = await Promise.all([
@@ -277,6 +301,50 @@ export default function LedgerPage() {
     }
   };
 
+  const normalizeStatusValue = (value: string) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+      .replace(/^_+|_+$/g, '') || 'na';
+
+  const updateRowStatus = async (rowId: string, nextStatus: string) => {
+    const normalized = normalizeStatusValue(nextStatus);
+    try {
+      setError(null);
+      await apiPatch(`/api/ignite/backoffice/ledger/${rowId}`, { status: normalized });
+      await loadLedger();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update status');
+    }
+  };
+
+  const promptCustomStatus = (initialValue = '') => {
+    const value = window.prompt('Enter custom status', initialValue);
+    if (value === null) return '';
+    return value;
+  };
+
+  const handleTableStatusChange = async (rowId: string, value: string) => {
+    if (value === '__custom__') {
+      const custom = promptCustomStatus();
+      if (!custom) return;
+      await updateRowStatus(rowId, custom);
+      return;
+    }
+    await updateRowStatus(rowId, value);
+  };
+
+  const handleFormStatusChange = (value: string) => {
+    if (value === '__custom__') {
+      const custom = promptCustomStatus(formStatus);
+      if (!custom) return;
+      setFormStatus(normalizeStatusValue(custom));
+      return;
+    }
+    setFormStatus(normalizeStatusValue(value));
+  };
+
   const allSelected = rows.length > 0 && selectedRowIds.size === rows.length;
 
   useEffect(() => {
@@ -350,11 +418,11 @@ export default function LedgerPage() {
                 className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
               >
                 <option value="all">All</option>
-                <option value="paid">Paid</option>
-                <option value="sent">Sent</option>
-                <option value="past_due">Past Due</option>
-                <option value="hold">Hold</option>
-                <option value="na">N/A</option>
+                {statusOptions.map((statusOption) => (
+                  <option key={statusOption} value={statusOption}>
+                    {statusLabel(statusOption)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -526,7 +594,22 @@ export default function LedgerPage() {
                           <td className="p-4 text-right text-green-400 font-medium">{row.inbound_cents ? formatMoney(row.inbound_cents) : '-'}</td>
                           <td className="p-4 text-right text-red-400 font-medium">{row.outbound_cents ? formatMoney(row.outbound_cents) : '-'}</td>
                           <td className="p-4">
-                            <span className={statusBadgeClass(row.status)}>{String(row.status || 'na').replace('_', ' ')}</span>
+                            <div className={`${statusBadgeClass(row.status)} pr-1`}>
+                              <select
+                                value={String(row.status || 'na').toLowerCase()}
+                                onChange={(e) => void handleTableStatusChange(row.id, e.target.value)}
+                                className="bg-transparent text-inherit text-xs font-medium outline-none cursor-pointer"
+                              >
+                                {statusOptions.map((statusOption) => (
+                                  <option key={statusOption} value={statusOption} className="bg-slate-800 text-white">
+                                    {statusLabel(statusOption)}
+                                  </option>
+                                ))}
+                                <option value="__custom__" className="bg-slate-800 text-white">
+                                  + Custom...
+                                </option>
+                              </select>
+                            </div>
                           </td>
                           <td className="p-4 text-sm text-slate-400">{event?.event_name || '-'}</td>
                           <td className={`p-4 text-right font-semibold ${balanceClass(row.running_balance_cents)}`}>
@@ -682,14 +765,15 @@ export default function LedgerPage() {
                       <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
                       <select
                         value={formStatus}
-                        onChange={(e) => setFormStatus(e.target.value)}
+                        onChange={(e) => handleFormStatusChange(e.target.value)}
                         className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
                       >
-                        <option value="paid">Paid</option>
-                        <option value="na">Pending</option>
-                        <option value="sent">Sent</option>
-                        <option value="past_due">Past Due</option>
-                        <option value="hold">Hold</option>
+                        {statusOptions.map((statusOption) => (
+                          <option key={statusOption} value={statusOption}>
+                            {statusLabel(statusOption)}
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Custom...</option>
                       </select>
                     </div>
                     <div>
