@@ -706,9 +706,15 @@ router.patch('/accounts/:id', async (req: ApiRequest, res: Response) => {
     if (Object.prototype.hasOwnProperty.call(body, 'name')) patch.name = String(body.name || '');
     if (Object.prototype.hasOwnProperty.call(body, 'type')) patch.type = normalizeRole(body.type);
     if (Object.prototype.hasOwnProperty.call(body, 'currency')) patch.currency = String(body.currency || 'USD').toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(body, 'notes')) patch.notes = body.notes ? String(body.notes) : null;
+    if (Object.prototype.hasOwnProperty.call(body, 'last_synced_at')) {
+      patch.last_synced_at = body.last_synced_at ? new Date(String(body.last_synced_at)).toISOString() : new Date().toISOString();
+    }
     if (Object.prototype.hasOwnProperty.call(body, 'current_balance_cents')) {
       patch.current_balance_cents = toNumber(body.current_balance_cents, 0);
-      patch.last_synced_at = new Date().toISOString();
+      if (!Object.prototype.hasOwnProperty.call(body, 'last_synced_at')) {
+        patch.last_synced_at = new Date().toISOString();
+      }
     }
 
     const { data, error } = await supabase
@@ -736,6 +742,7 @@ router.post('/accounts/sync', async (req: ApiRequest, res: Response) => {
       currency: String(entry?.currency || 'USD').toUpperCase(),
       last_synced_at: entry?.last_synced_at ? new Date(String(entry.last_synced_at)).toISOString() : new Date().toISOString(),
       sync_source: normalizeRole(entry?.sync_source || 'zapier'),
+      notes: entry?.notes ? String(entry.notes) : null,
     }));
     const { error } = await supabase.from('ignite_accounts').upsert(upserts as any, {
       onConflict: 'type,name',
@@ -824,8 +831,31 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
 
     const accountsRes = await supabase.from('ignite_accounts').select('*').order('created_at', { ascending: true });
     if (accountsRes.error) return res.status(500).json({ error: accountsRes.error.message });
-    const accounts = accountsRes.data || [];
-    const operating = accounts.find((row: any) => normalizeRole(row.type) === 'operating') || accounts[0];
+    let accounts = accountsRes.data || [];
+    let operating = accounts.find((row: any) => normalizeRole(row.type) === 'operating') || accounts[0];
+
+    // First-time setup safety: if no accounts exist yet, provision a default operating account
+    // so imports can proceed without requiring a separate account bootstrap step.
+    if (!operating) {
+      const { data: insertedAccount, error: insertAccountError } = await supabase
+        .from('ignite_accounts')
+        .insert({
+          name: 'Operating Account',
+          type: 'operating',
+          current_balance_cents: 0,
+          currency: 'USD',
+          sync_source: 'manual',
+          last_synced_at: new Date().toISOString(),
+        } as any)
+        .select('*')
+        .maybeSingle();
+      if (insertAccountError) return res.status(500).json({ error: insertAccountError.message });
+      if (insertedAccount) {
+        accounts = [insertedAccount as any, ...accounts];
+        operating = insertedAccount as any;
+      }
+    }
+
     const accountId = defaultAccountId || operating?.id;
     if (!accountId) return res.status(400).json({ error: 'no_account_available_for_import' });
 

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import IgniteBackofficeLayout from './components/IgniteBackofficeLayout';
 import './igniteBackoffice.css';
-import { apiGet, apiPatch } from '../../lib/api';
+import { apiGet, apiPatch, apiPost } from '../../lib/api';
 
 type AccountState = {
   id: string | null;
@@ -133,6 +133,7 @@ export default function AccountsPage() {
         current_balance_cents: number;
         sync_source?: string;
         last_synced_at?: string | null;
+        notes?: string | null;
       }>;
 
       const next = { ...initialAccounts };
@@ -144,6 +145,7 @@ export default function AccountsPage() {
           id: row.id,
           name: row.name || next[key].name,
           balance: storedCentsToBalance(key, Number(row.current_balance_cents || 0)),
+          notes: row.notes ? String(row.notes) : next[key].notes,
           source: syncSourceLabel(row.sync_source),
           lastUpdated: row.last_synced_at ? formatDateTime(row.last_synced_at) : next[key].lastUpdated,
         };
@@ -209,6 +211,22 @@ export default function AccountsPage() {
         if (accountId) {
           await apiPatch(`/api/ignite/backoffice/accounts/${accountId}`, {
             current_balance_cents: balanceToStoredCents(editingKey, updatedBalance),
+            notes: modalNotes,
+            last_synced_at: modalDatetime ? new Date(modalDatetime).toISOString() : new Date().toISOString(),
+          });
+        } else {
+          await apiPost('/api/ignite/backoffice/accounts/sync', {
+            accounts: [
+              {
+                type: editingKey,
+                name: accounts[editingKey].name,
+                current_balance_cents: balanceToStoredCents(editingKey, updatedBalance),
+                currency: 'USD',
+                sync_source: 'manual',
+                last_synced_at: modalDatetime ? new Date(modalDatetime).toISOString() : new Date().toISOString(),
+                notes: modalNotes,
+              },
+            ],
           });
         }
         setAccounts((prev) => ({
@@ -221,6 +239,7 @@ export default function AccountsPage() {
             source: syncSourceLabel('manual'),
           },
         }));
+        await loadAccounts();
         closeEditModal();
       } catch (e: any) {
         setError(e?.message || 'Failed to update account');
