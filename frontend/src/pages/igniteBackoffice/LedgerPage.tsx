@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import IgniteBackofficeLayout from './components/IgniteBackofficeLayout';
 import './igniteBackoffice.css';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 
 type AccountRow = {
   id: string;
@@ -64,11 +64,15 @@ function typeBadgeClass(type: string) {
 
 export default function LedgerPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
   const [rows, setRows] = useState<LedgerRow[]>([]);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const [rowActionMenuId, setRowActionMenuId] = useState<string | null>(null);
 
   const [dateFrom, setDateFrom] = useState('');
   const [status, setStatus] = useState('all');
@@ -160,17 +164,128 @@ export default function LedgerPage() {
       notes: formNotes || null,
     };
     try {
-      await apiPost('/api/ignite/backoffice/ledger', payload);
+      if (editingRowId) {
+        await apiPatch(`/api/ignite/backoffice/ledger/${editingRowId}`, payload);
+      } else {
+        await apiPost('/api/ignite/backoffice/ledger', payload);
+      }
       setIsModalOpen(false);
+      setEditingRowId(null);
       setFormAmount('');
       setFormDescription('');
       setFormEventId('');
       setFormNotes('');
       await loadLedger();
     } catch (e: any) {
-      setError(e?.message || 'Failed to create transaction');
+      setError(e?.message || (editingRowId ? 'Failed to update transaction' : 'Failed to create transaction'));
     }
   };
+
+  const openAddModal = () => {
+    setEditingRowId(null);
+    setFormDate('');
+    setFormType('invoice');
+    setFormDescription('');
+    setFormDirection('in');
+    setFormAmount('');
+    setFormStatus('paid');
+    setFormEventId('');
+    setFormNotes('');
+    if (!formAccountId && accounts.length > 0) setFormAccountId(accounts[0].id);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (row: LedgerRow) => {
+    setEditingRowId(row.id);
+    setFormDate(row.date);
+    setFormType(row.type || 'adjustment');
+    setFormDescription(row.description || '');
+    setFormAccountId(row.account_id || (accounts[0]?.id || ''));
+    const inbound = Number(row.inbound_cents || 0);
+    const outbound = Number(row.outbound_cents || 0);
+    const useOutbound = outbound > 0 && inbound === 0;
+    setFormDirection(useOutbound ? 'out' : 'in');
+    setFormAmount(String(((useOutbound ? outbound : inbound) || 0) / 100));
+    setFormStatus(row.status || 'na');
+    setFormEventId(row.event_allocation_id || '');
+    setFormNotes('');
+    setIsModalOpen(true);
+  };
+
+  const duplicateRow = async (row: LedgerRow) => {
+    try {
+      setError(null);
+      await apiPost('/api/ignite/backoffice/ledger', {
+        date: row.date,
+        description: `${row.description} (Copy)`,
+        type: row.type,
+        status: row.status,
+        account_id: row.account_id,
+        inbound_cents: Number(row.inbound_cents || 0),
+        outbound_cents: Number(row.outbound_cents || 0),
+        event_allocation_id: row.event_allocation_id || null,
+      });
+      await loadLedger();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to duplicate transaction');
+    }
+  };
+
+  const deleteRow = async (rowId: string) => {
+    try {
+      setError(null);
+      await apiDelete(`/api/ignite/backoffice/ledger/${rowId}`);
+      setSelectedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+      await loadLedger();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete transaction');
+    }
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowIds(new Set(rows.map((row) => row.id)));
+    } else {
+      setSelectedRowIds(new Set());
+    }
+  };
+
+  const toggleRowSelection = (rowId: string, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(rowId);
+      else next.delete(rowId);
+      return next;
+    });
+  };
+
+  const bulkDeleteSelected = async () => {
+    const ids = Array.from(selectedRowIds);
+    if (!ids.length) return;
+    try {
+      setError(null);
+      await Promise.all(ids.map((id) => apiDelete(`/api/ignite/backoffice/ledger/${id}`)));
+      setSelectedRowIds(new Set());
+      setBulkMenuOpen(false);
+      await loadLedger();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to bulk delete transactions');
+    }
+  };
+
+  const allSelected = rows.length > 0 && selectedRowIds.size === rows.length;
+
+  useEffect(() => {
+    setSelectedRowIds((prev) => {
+      const validIds = new Set(rows.map((row) => row.id));
+      const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      return next;
+    });
+  }, [rows]);
 
   if (loading) {
     return (
@@ -193,7 +308,7 @@ export default function LedgerPage() {
             <div id="header-actions" className="flex items-center gap-4">
               <button
                 type="button"
-                onClick={() => setIsModalOpen(true)}
+                onClick={openAddModal}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
               >
                 <i className="fa-solid fa-plus text-sm" />
@@ -320,29 +435,46 @@ export default function LedgerPage() {
 
         <div id="main-ledger" className="mx-8 mt-6 mb-8">
           <div className="glass-card rounded-xl overflow-hidden">
-            <div id="bulk-actions" className="border-b border-slate-700/50 px-6 py-3 bg-slate-800/30 hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">3 items selected</span>
-                <div className="flex gap-2">
-                  <button type="button" className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
-                    Mark as Paid
-                  </button>
-                  <button type="button" className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm">
-                    Update Status
-                  </button>
-                  <button type="button" className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm">
-                    Change Account
-                  </button>
+            {selectedRowIds.size > 0 ? (
+              <div id="bulk-actions" className="border-b border-slate-700/50 px-6 py-3 bg-slate-800/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">{selectedRowIds.size} item(s) selected</span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setBulkMenuOpen((prev) => !prev)}
+                      className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2"
+                    >
+                      Bulk Actions
+                      <i className="fa-solid fa-chevron-down text-xs" />
+                    </button>
+                    {bulkMenuOpen ? (
+                      <div className="absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-20">
+                        <button
+                          type="button"
+                          onClick={() => void bulkDeleteSelected()}
+                          className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-lg"
+                        >
+                          Delete Selected
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
 
             <div id="table-container" className="overflow-x-auto">
               <table className="w-full">
                 <thead id="table-header" className="bg-slate-800/50 sticky top-0">
                   <tr className="border-b border-slate-700/50">
                     <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wide">
-                      <input type="checkbox" className="rounded border-slate-600" />
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                        className="rounded border-slate-600"
+                      />
                     </th>
                     <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Date</th>
                     <th className="text-left p-4 text-xs font-medium text-slate-400 uppercase tracking-wide">Description</th>
@@ -376,7 +508,12 @@ export default function LedgerPage() {
                       return (
                         <tr key={row.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
                           <td className="p-4">
-                            <input type="checkbox" className="rounded border-slate-600" />
+                            <input
+                              type="checkbox"
+                              checked={selectedRowIds.has(row.id)}
+                              onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
+                              className="rounded border-slate-600"
+                            />
                           </td>
                           <td className="p-4 text-sm text-slate-300">{formatDay(row.date)}</td>
                           <td className="p-4 text-sm text-white">{row.description}</td>
@@ -396,9 +533,49 @@ export default function LedgerPage() {
                             {formatMoney(row.running_balance_cents)}
                           </td>
                           <td className="p-4 text-center">
-                            <button type="button" className="text-slate-400 hover:text-white">
-                              <i className="fa-solid fa-ellipsis-vertical" />
-                            </button>
+                            <div className="relative inline-block">
+                              <button
+                                type="button"
+                                onClick={() => setRowActionMenuId((prev) => (prev === row.id ? null : row.id))}
+                                className="text-slate-400 hover:text-white"
+                              >
+                                <i className="fa-solid fa-ellipsis-vertical" />
+                              </button>
+                              {rowActionMenuId === row.id ? (
+                                <div className="absolute right-0 mt-1 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-20">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRowActionMenuId(null);
+                                      openEditModal(row);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 rounded-t-lg"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRowActionMenuId(null);
+                                      void duplicateRow(row);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                                  >
+                                    Duplicate
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRowActionMenuId(null);
+                                      void deleteRow(row.id);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-b-lg"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -419,7 +596,7 @@ export default function LedgerPage() {
             <div className="flex items-center justify-center min-h-screen p-4">
               <div className="glass-card rounded-xl w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-white">Add Transaction</h2>
+                  <h2 className="text-xl font-semibold text-white">{editingRowId ? 'Edit Transaction' : 'Add Transaction'}</h2>
                   <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
                     <i className="fa-solid fa-times" />
                   </button>
@@ -547,11 +724,14 @@ export default function LedgerPage() {
                       type="submit"
                       className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
                     >
-                      Add Transaction
+                      {editingRowId ? 'Save Changes' : 'Add Transaction'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsModalOpen(false)}
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setEditingRowId(null);
+                      }}
                       className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
                     >
                       Cancel
