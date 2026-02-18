@@ -132,6 +132,25 @@ export default function PublicLandingPage(props: Props) {
     return `${base}\n${injection}`;
   }, [html, props.whiteLabel]);
 
+  const extractedTitle = useMemo(() => {
+    const source = String(html || '');
+    if (!source) return '';
+    const match = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (!match) return '';
+    return String(match[1] || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, [html]);
+
+  useEffect(() => {
+    const previous = document.title;
+    const fallback = slug ? `Landing • ${slug}` : 'Landing';
+    document.title = extractedTitle || fallback;
+    return () => {
+      document.title = previous;
+    };
+  }, [extractedTitle, slug]);
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center bg-[#020617] text-slate-200">
