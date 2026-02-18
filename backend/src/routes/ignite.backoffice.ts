@@ -950,8 +950,10 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
       const eventValue = getMappedRowValue(source, mapping.event_allocation_id, ['event_allocation_id', 'event']);
       const notesValue = getMappedRowValue(source, mapping.notes, ['notes']);
 
-      const inbound = toCents(inboundValue ?? 0);
-      const outbound = toCents(outboundValue ?? 0);
+      // Store both inbound/outbound as positive cents; net is derived as inbound - outbound.
+      // CSVs often represent deductions as negative values (e.g. -2000), so normalize here.
+      const inbound = Math.abs(toCents(inboundValue ?? 0));
+      const outbound = Math.abs(toCents(outboundValue ?? 0));
       const normalizedDate = normalizeImportDate(dateValue) || new Date().toISOString().slice(0, 10);
       const accountToken = String(accountValue || '').trim().toLowerCase();
       const mappedAccount =
