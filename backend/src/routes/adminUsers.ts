@@ -308,7 +308,9 @@ function normalizeRoleValue(value: any): string {
   return String(value || '').toLowerCase().replace(/[\s-]+/g, '_');
 }
 
-const IGNITE_ROLES = new Set(['ignite_admin', 'ignite_team', 'ignite_client', 'ignite_backoffice']);
+// ignite_client_users currently stores client-portal memberships only.
+// Keep backoffice-only role out of this table to avoid role check constraint violations.
+const IGNITE_MEMBERSHIP_ROLES = new Set(['ignite_admin', 'ignite_team', 'ignite_client']);
 
 async function syncIgniteMembership(params: {
   userId: string;
@@ -324,9 +326,9 @@ async function syncIgniteMembership(params: {
     .from('ignite_client_users')
     .delete()
     .eq('user_id', params.userId)
-    .in('role', Array.from(IGNITE_ROLES) as any);
+    .in('role', Array.from(IGNITE_MEMBERSHIP_ROLES) as any);
 
-  if (!IGNITE_ROLES.has(normalizedRole)) return;
+  if (!IGNITE_MEMBERSHIP_ROLES.has(normalizedRole)) return;
 
   const clientId =
     normalizedRole === 'ignite_client' && params.igniteClientId
