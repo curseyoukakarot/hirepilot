@@ -1,5 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { supabase } from '../../../lib/supabaseClient';
 
 type IgniteBackofficeLayoutProps = {
   children: React.ReactNode;
@@ -17,6 +18,16 @@ const navItems = [
 ];
 
 export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLayoutProps) {
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
+
   return (
     <div id="app-container" className="flex h-screen overflow-hidden bg-dark-900 text-gray-100 font-sans">
       <aside id="sidebar" className="w-64 bg-dark-800 border-r border-gray-800 flex flex-col">
@@ -53,6 +64,14 @@ export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLay
               <p className="text-xs text-gray-500">admin@ignitegtm.com</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            className="mt-2 w-full rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-dark-700 hover:text-white transition"
+          >
+            <i className="fa-solid fa-arrow-right-from-bracket mr-2" />
+            Sign out
+          </button>
         </div>
       </aside>
 
