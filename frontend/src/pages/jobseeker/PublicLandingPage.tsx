@@ -28,10 +28,6 @@ async function fetchJson(url: string) {
     credentials: 'omit',
     // Prevent stale browser/cache revalidation responses (304 without body).
     cache: 'no-store',
-    headers: {
-      'Cache-Control': 'no-cache, no-store, max-age=0',
-      Pragma: 'no-cache',
-    },
   };
 
   let res = await fetch(url, reqInit);
