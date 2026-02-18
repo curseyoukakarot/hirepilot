@@ -225,10 +225,11 @@ router.get('/resolve', async (req: Request, res: Response) => {
     const host = normalizeHostHeader(String(req.query.host || ''));
     if (!host) return res.status(400).json({ error: 'host_required' });
 
+    const lookupHosts = host.startsWith('www.') ? [host, host.slice(4)] : [host];
     const { data, error } = await supabase
       .from('landing_page_domains')
       .select('domain,status,landing_page_id')
-      .eq('domain', host)
+      .in('domain', lookupHosts)
       .eq('status', 'active')
       .limit(1)
       .maybeSingle();

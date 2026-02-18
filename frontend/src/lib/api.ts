@@ -16,9 +16,14 @@ function resolveApiBase() {
   let base = (import.meta.env.VITE_BACKEND_URL || '').trim();
   if (!base) {
     try {
-      const host = window.location.host;
-      if (host.endsWith('thehirepilot.com')) base = 'https://api.thehirepilot.com';
-      else base = 'http://localhost:8080';
+      const host = String(window.location.hostname || '').toLowerCase();
+      const isLocal =
+        host === 'localhost' ||
+        host.endsWith('.localhost') ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0';
+      // On any non-local host (including custom white-label domains), default to production API.
+      base = isLocal ? 'http://localhost:8080' : 'https://api.thehirepilot.com';
     } catch {
       base = '';
     }
