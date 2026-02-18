@@ -119,26 +119,13 @@ export default function PublicLandingPage(props: Props) {
     if (!base) return '';
     if (!props.whiteLabel) return base;
 
-    // White-label mode: hide obvious HirePilot branding if the default template is used.
-    // We keep this best-effort and non-destructive.
+    // White-label mode: hide default template badge only.
+    // Avoid broad text-node scanning here; it can accidentally hide the whole body.
     const injection = `
 <style>
   .hp-badge { display: none !important; }
 </style>
-<script>
-  (function(){
-    try {
-      var nodes = document.querySelectorAll('*');
-      for (var i=0;i<nodes.length;i++){
-        var el = nodes[i];
-        if (!el || !el.textContent) continue;
-        if (el.textContent.includes('Powered by HirePilot')) {
-          el.style.display = 'none';
-        }
-      }
-    } catch(e){}
-  })();
-</script>`;
+`;
 
     // If the HTML already has a closing </body>, inject before it; otherwise append.
     if (base.includes('</body>')) return base.replace('</body>', `${injection}</body>`);
