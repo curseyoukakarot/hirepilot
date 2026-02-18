@@ -75,6 +75,70 @@ function normalizeLedgerStatus(value: any): string {
   return 'na';
 }
 
+function normalizeImportDate(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const monthMap: Record<string, number> = {
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
+    may: 5,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12,
+  };
+
+  // Supports "Jan2", "Jan 2", "Jan-2", "Jan2 2026", "January 2, 2026"
+  const shortMonthPattern = /^([A-Za-z]{3,9})[\s\-]*([0-9]{1,2})(?:[,\s\-]+([0-9]{4}))?$/;
+  const shortMonthMatch = raw.match(shortMonthPattern);
+  if (shortMonthMatch) {
+    const monthKey = String(shortMonthMatch[1] || '').toLowerCase();
+    const month = monthMap[monthKey];
+    const day = Number(shortMonthMatch[2]);
+    const year = shortMonthMatch[3] ? Number(shortMonthMatch[3]) : new Date().getUTCFullYear();
+    if (month && day >= 1 && day <= 31 && Number.isFinite(year)) {
+      const iso = new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
+      return iso;
+    }
+  }
+
+  // Excel date serial values (days since 1899-12-30)
+  if (/^\d+(\.\d+)?$/.test(raw)) {
+    const serial = Number(raw);
+    if (Number.isFinite(serial) && serial > 1 && serial < 100000) {
+      const epoch = Date.UTC(1899, 11, 30);
+      const ms = epoch + Math.round(serial) * 24 * 60 * 60 * 1000;
+      return new Date(ms).toISOString().slice(0, 10);
+    }
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+
+  return null;
+}
+
 function getMappedRowValue(source: Record<string, any>, mappingKey: string | null | undefined, fallbackKeys: string[]) {
   if (mappingKey === '') return undefined;
   if (mappingKey && Object.prototype.hasOwnProperty.call(source, mappingKey)) {
@@ -888,6 +952,7 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
 
       const inbound = toCents(inboundValue ?? 0);
       const outbound = toCents(outboundValue ?? 0);
+      const normalizedDate = normalizeImportDate(dateValue) || new Date().toISOString().slice(0, 10);
       const accountToken = String(accountValue || '').trim().toLowerCase();
       const mappedAccount =
         accounts.find((row: any) => String(row.id) === accountToken) ||
@@ -895,7 +960,7 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
         accounts.find((row: any) => normalizeRole(row.type) === normalizeRole(accountToken));
 
       return {
-        date: String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 10),
+        date: normalizedDate,
         description: String(descriptionValue || 'Imported transaction'),
         type: normalizeLedgerType(typeValue || 'adjustment'),
         status: normalizeLedgerStatus(statusValue || 'na'),
