@@ -610,6 +610,93 @@ router.get('/accounts', async (_req: ApiRequest, res: Response) => {
   }
 });
 
+router.get('/settings', async (_req: ApiRequest, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('ignite_settings')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data) return res.json({ settings: data });
+
+    const fallback = {
+      safe_threshold_cents: 5000000,
+      warning_threshold_cents: 1000000,
+      danger_threshold_cents: 900000,
+      use_net_cash: true,
+    };
+    const { data: inserted, error: insertError } = await supabase
+      .from('ignite_settings')
+      .insert(fallback as any)
+      .select('*')
+      .maybeSingle();
+    if (insertError) return res.status(500).json({ error: insertError.message });
+    return res.json({ settings: inserted || fallback });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_load_settings' });
+  }
+});
+
+router.patch('/settings', async (req: ApiRequest, res: Response) => {
+  try {
+    const body = req.body || {};
+    const patch: Record<string, any> = {};
+    if (Object.prototype.hasOwnProperty.call(body, 'safe_threshold_cents')) {
+      patch.safe_threshold_cents = toNumber(body.safe_threshold_cents, 5000000);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'warning_threshold_cents')) {
+      patch.warning_threshold_cents = toNumber(body.warning_threshold_cents, 1000000);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'danger_threshold_cents')) {
+      patch.danger_threshold_cents = toNumber(body.danger_threshold_cents, 900000);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'use_net_cash')) {
+      patch.use_net_cash = Boolean(body.use_net_cash);
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: 'no_settings_to_update' });
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from('ignite_settings')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingError) return res.status(500).json({ error: existingError.message });
+
+    if (!existing?.id) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('ignite_settings')
+        .insert({
+          safe_threshold_cents: toNumber(patch.safe_threshold_cents, 5000000),
+          warning_threshold_cents: toNumber(patch.warning_threshold_cents, 1000000),
+          danger_threshold_cents: toNumber(patch.danger_threshold_cents, 900000),
+          use_net_cash: Object.prototype.hasOwnProperty.call(patch, 'use_net_cash') ? Boolean(patch.use_net_cash) : true,
+        } as any)
+        .select('*')
+        .maybeSingle();
+      if (insertError) return res.status(500).json({ error: insertError.message });
+      return res.json({ settings: inserted });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('ignite_settings')
+      .update(patch as any)
+      .eq('id', String(existing.id))
+      .select('*')
+      .maybeSingle();
+    if (updateError) return res.status(500).json({ error: updateError.message });
+    return res.json({ settings: updated });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_update_settings' });
+  }
+});
+
 router.patch('/accounts/:id', async (req: ApiRequest, res: Response) => {
   try {
     const body = req.body || {};

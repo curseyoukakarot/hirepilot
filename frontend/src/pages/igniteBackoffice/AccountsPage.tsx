@@ -14,29 +14,37 @@ type AccountState = {
 
 type AccountKey = 'operating' | 'savings' | 'credit';
 
+type SettingsState = {
+  safeThresholdDollars: number;
+  warningThresholdDollars: number;
+  dangerThresholdDollars: number;
+  useNetCash: boolean;
+  dangerIncludesNegative: boolean;
+};
+
 const initialAccounts: Record<AccountKey, AccountState> = {
   operating: {
     id: null,
     name: 'Operating Account',
-    balance: 45230,
-    notes: 'Primary business checking',
-    lastUpdated: 'Dec 18, 2024 at 2:30 PM',
+    balance: 0,
+    notes: '',
+    lastUpdated: '-',
     source: 'Manual',
   },
   savings: {
     id: null,
     name: 'Savings Account',
-    balance: 128500,
-    notes: 'Emergency reserve fund',
-    lastUpdated: 'Dec 18, 2024 at 1:15 PM',
+    balance: 0,
+    notes: '',
+    lastUpdated: '-',
     source: 'Manual',
   },
   credit: {
     id: null,
     name: 'Credit Card Float',
-    balance: -8420,
-    notes: 'Business credit card',
-    lastUpdated: 'Dec 18, 2024 at 12:45 PM',
+    balance: 0,
+    notes: '',
+    lastUpdated: '-',
     source: 'Manual',
   },
 };
@@ -76,6 +84,22 @@ function syncSourceLabel(source?: string) {
   return 'Manual';
 }
 
+function centsToDollars(value: number): number {
+  return Math.round(Number(value || 0)) / 100;
+}
+
+function dollarsToCents(value: number): number {
+  return Math.round(Number(value || 0) * 100);
+}
+
+function riskTag(valueCents: number, settings: SettingsState): 'safe' | 'warning' | 'danger' {
+  const safe = dollarsToCents(settings.safeThresholdDollars);
+  const warning = dollarsToCents(settings.warningThresholdDollars);
+  if (valueCents >= safe) return 'safe';
+  if (valueCents >= warning) return 'warning';
+  return 'danger';
+}
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Record<AccountKey, AccountState>>(initialAccounts);
   const [editingKey, setEditingKey] = useState<AccountKey | null>(null);
@@ -84,13 +108,25 @@ export default function AccountsPage() {
   const [modalNotes, setModalNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<SettingsState>({
+    safeThresholdDollars: 50000,
+    warningThresholdDollars: 10000,
+    dangerThresholdDollars: 9000,
+    useNetCash: true,
+    dangerIncludesNegative: true,
+  });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const loadAccounts = async () => {
     try {
       setError(null);
       setLoading(true);
-      const response = await apiGet('/api/ignite/backoffice/accounts');
-      const list = ((response as any)?.accounts || []) as Array<{
+      const [accountsResponse, settingsResponse] = await Promise.all([
+        apiGet('/api/ignite/backoffice/accounts'),
+        apiGet('/api/ignite/backoffice/settings'),
+      ]);
+      const list = ((accountsResponse as any)?.accounts || []) as Array<{
         id: string;
         name: string;
         type: AccountKey;
@@ -113,6 +149,24 @@ export default function AccountsPage() {
         };
       }
       setAccounts(next);
+
+      const loadedSettings = (settingsResponse as any)?.settings as
+        | {
+            safe_threshold_cents?: number;
+            warning_threshold_cents?: number;
+            danger_threshold_cents?: number;
+            use_net_cash?: boolean;
+          }
+        | undefined;
+      if (loadedSettings) {
+        setSettings({
+          safeThresholdDollars: centsToDollars(Number(loadedSettings.safe_threshold_cents ?? 5000000)),
+          warningThresholdDollars: centsToDollars(Number(loadedSettings.warning_threshold_cents ?? 1000000)),
+          dangerThresholdDollars: centsToDollars(Number(loadedSettings.danger_threshold_cents ?? 900000)),
+          useNetCash: Boolean(loadedSettings.use_net_cash ?? true),
+          dangerIncludesNegative: true,
+        });
+      }
     } catch (e: any) {
       setError(e?.message || 'Failed to load accounts');
     } finally {
@@ -174,6 +228,38 @@ export default function AccountsPage() {
     };
     void persist();
   };
+
+  const saveSettings = async () => {
+    try {
+      setSettingsSaving(true);
+      setSettingsSaved(false);
+      setError(null);
+      await apiPatch('/api/ignite/backoffice/settings', {
+        safe_threshold_cents: dollarsToCents(settings.safeThresholdDollars),
+        warning_threshold_cents: dollarsToCents(settings.warningThresholdDollars),
+        danger_threshold_cents: dollarsToCents(settings.dangerThresholdDollars),
+        use_net_cash: settings.useNetCash,
+      });
+      setSettingsSaved(true);
+      window.setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save settings');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const operatingCents = Math.round(accounts.operating.balance * 100);
+  const savingsCents = Math.round(accounts.savings.balance * 100);
+  const creditCents = Math.round(accounts.credit.balance * 100);
+  const currentMetricCents = settings.useNetCash ? operatingCents + savingsCents + creditCents : operatingCents;
+  const currentRisk = riskTag(currentMetricCents, settings);
+  const previewRowClass =
+    currentRisk === 'safe'
+      ? 'flex items-center justify-between p-3 bg-green-500/10 border border-green-500/30 rounded-lg'
+      : currentRisk === 'warning'
+        ? 'flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg'
+        : 'flex items-center justify-between p-3 bg-red-500/10 border border-red-500/30 rounded-lg';
 
   if (loading) {
     return (
@@ -304,7 +390,14 @@ export default function AccountsPage() {
                         <label className="block text-sm font-medium text-gray-300 mb-2">Safe Threshold (Green)</label>
                         <div className="flex items-center">
                           <span className="text-gray-500 mr-2">Above $</span>
-                          <input type="number" defaultValue="25000" className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                          <input
+                            type="number"
+                            value={settings.safeThresholdDollars}
+                            onChange={(e) =>
+                              setSettings((prev) => ({ ...prev, safeThresholdDollars: Number(e.target.value || 0) }))
+                            }
+                            className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                         </div>
                       </div>
 
@@ -312,9 +405,23 @@ export default function AccountsPage() {
                         <label className="block text-sm font-medium text-gray-300 mb-2">Warning Threshold (Amber)</label>
                         <div className="flex items-center">
                           <span className="text-gray-500 mr-2">$</span>
-                          <input type="number" defaultValue="10000" className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                          <input
+                            type="number"
+                            value={settings.warningThresholdDollars}
+                            onChange={(e) =>
+                              setSettings((prev) => ({ ...prev, warningThresholdDollars: Number(e.target.value || 0) }))
+                            }
+                            className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                           <span className="text-gray-500 mx-2">to $</span>
-                          <input type="number" defaultValue="25000" className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                          <input
+                            type="number"
+                            value={settings.safeThresholdDollars}
+                            onChange={(e) =>
+                              setSettings((prev) => ({ ...prev, safeThresholdDollars: Number(e.target.value || 0) }))
+                            }
+                            className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                         </div>
                       </div>
 
@@ -322,24 +429,52 @@ export default function AccountsPage() {
                         <label className="block text-sm font-medium text-gray-300 mb-2">Danger Threshold (Red)</label>
                         <div className="flex items-center">
                           <span className="text-gray-500 mr-2">Below $</span>
-                          <input type="number" defaultValue="10000" className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                          <input
+                            type="number"
+                            value={settings.dangerThresholdDollars}
+                            onChange={(e) =>
+                              setSettings((prev) => ({ ...prev, dangerThresholdDollars: Number(e.target.value || 0) }))
+                            }
+                            className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 w-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                         </div>
                       </div>
 
                       <div className="border-t border-gray-800 pt-4 space-y-3">
                         <label className="flex items-center">
-                          <input type="checkbox" defaultChecked className="rounded border-gray-700 bg-gray-800 text-blue-600 focus:ring-blue-500" />
+                          <input
+                            type="checkbox"
+                            checked={settings.dangerIncludesNegative}
+                            onChange={(e) =>
+                              setSettings((prev) => ({ ...prev, dangerIncludesNegative: e.target.checked }))
+                            }
+                            className="rounded border-gray-700 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                          />
                           <span className="ml-2 text-sm text-gray-300">Danger includes negative balances</span>
                         </label>
 
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-2">Calculation Method</p>
                           <label className="flex items-center mb-2">
-                            <input type="radio" name="calculation" value="operating" className="text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500" />
+                            <input
+                              type="radio"
+                              name="calculation"
+                              value="operating"
+                              checked={!settings.useNetCash}
+                              onChange={() => setSettings((prev) => ({ ...prev, useNetCash: false }))}
+                              className="text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500"
+                            />
                             <span className="ml-2 text-sm text-gray-300">Use Operating Account only</span>
                           </label>
                           <label className="flex items-center">
-                            <input type="radio" name="calculation" value="net" defaultChecked className="text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500" />
+                            <input
+                              type="radio"
+                              name="calculation"
+                              value="net"
+                              checked={settings.useNetCash}
+                              onChange={() => setSettings((prev) => ({ ...prev, useNetCash: true }))}
+                              className="text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500"
+                            />
                             <span className="ml-2 text-sm text-gray-300">Net Cash (Operating + Savings - Credit Card)</span>
                           </label>
                         </div>
@@ -350,16 +485,30 @@ export default function AccountsPage() {
                   <div id="threshold-preview">
                     <h3 className="font-medium text-white mb-4">Preview</h3>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                        <span className="text-sm text-gray-300">$165,310 Net Cash</span>
-                        <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-medium rounded">Safe</span>
+                      <div className={previewRowClass}>
+                        <span className="text-sm text-gray-300">
+                          {formatMoney(currentMetricCents / 100)} {settings.useNetCash ? 'Net Cash' : 'Operating Cash'}
+                        </span>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded ${
+                            currentRisk === 'safe'
+                              ? 'bg-green-500/20 text-green-400'
+                              : currentRisk === 'warning'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-red-500/20 text-red-400'
+                          }`}
+                        >
+                          {currentRisk.charAt(0).toUpperCase() + currentRisk.slice(1)}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                        <span className="text-sm text-gray-300">$18,500 Net Cash</span>
+                        <span className="text-sm text-gray-300">
+                          Warning range starts at {formatMoney(settings.warningThresholdDollars)}
+                        </span>
                         <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-medium rounded">Warning</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                        <span className="text-sm text-gray-300">$7,200 Net Cash</span>
+                        <span className="text-sm text-gray-300">Danger below {formatMoney(settings.dangerThresholdDollars)}</span>
                         <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded">Danger</span>
                       </div>
                     </div>
@@ -367,8 +516,13 @@ export default function AccountsPage() {
                 </div>
 
                 <div className="mt-6 flex justify-end">
-                  <button type="button" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-500 transition-colors">
-                    Save Settings
+                  <button
+                    type="button"
+                    onClick={() => void saveSettings()}
+                    disabled={settingsSaving}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-500 transition-colors disabled:opacity-60"
+                  >
+                    {settingsSaving ? 'Saving...' : settingsSaved ? 'Saved' : 'Save Settings'}
                   </button>
                 </div>
               </div>
