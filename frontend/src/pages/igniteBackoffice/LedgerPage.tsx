@@ -26,6 +26,7 @@ type LedgerRow = {
   status: string;
   event_allocation_id: string | null;
   running_balance_cents: number;
+  sort_order?: number | null;
 };
 
 const DEFAULT_LEDGER_STATUSES = ['paid', 'sent', 'past_due', 'hold', 'na'];
@@ -84,6 +85,9 @@ export default function LedgerPage() {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [rowActionMenuId, setRowActionMenuId] = useState<string | null>(null);
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const [dateFrom, setDateFrom] = useState('');
   const [status, setStatus] = useState('all');
@@ -299,6 +303,60 @@ export default function LedgerPage() {
     } catch (e: any) {
       setError(e?.message || 'Failed to bulk delete transactions');
     }
+  };
+
+  const persistRowOrder = async (orderedRows: LedgerRow[]) => {
+    try {
+      setReordering(true);
+      setError(null);
+      await Promise.all(
+        orderedRows.map((row, idx) =>
+          apiPatch(`/api/ignite/backoffice/ledger/${row.id}`, {
+            sort_order: idx + 1,
+          }),
+        ),
+      );
+      await loadLedger();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to reorder ledger rows');
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const moveSelectedRows = async (direction: 'up' | 'down') => {
+    const selected = new Set(selectedRowIds);
+    if (!selected.size) return;
+    const nextRows = [...rows];
+    if (direction === 'up') {
+      for (let i = 1; i < nextRows.length; i += 1) {
+        if (selected.has(nextRows[i].id) && !selected.has(nextRows[i - 1].id)) {
+          [nextRows[i - 1], nextRows[i]] = [nextRows[i], nextRows[i - 1]];
+        }
+      }
+    } else {
+      for (let i = nextRows.length - 2; i >= 0; i -= 1) {
+        if (selected.has(nextRows[i].id) && !selected.has(nextRows[i + 1].id)) {
+          [nextRows[i], nextRows[i + 1]] = [nextRows[i + 1], nextRows[i]];
+        }
+      }
+    }
+    setRows(nextRows);
+    await persistRowOrder(nextRows);
+  };
+
+  const handleRowDrop = async (targetRowId: string) => {
+    if (!draggedRowId || draggedRowId === targetRowId) return;
+    const from = rows.findIndex((row) => row.id === draggedRowId);
+    const to = rows.findIndex((row) => row.id === targetRowId);
+    if (from < 0 || to < 0) return;
+    const nextRows = [...rows];
+    const [moved] = nextRows.splice(from, 1);
+    nextRows.splice(to, 0, moved);
+    setRows(nextRows);
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+    await persistRowOrder(nextRows);
   };
 
   const normalizeStatusValue = (value: string) =>
@@ -520,8 +578,24 @@ export default function LedgerPage() {
                       <div className="absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-20">
                         <button
                           type="button"
+                          onClick={() => void moveSelectedRows('up')}
+                          disabled={reordering}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                        >
+                          Move Selected Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void moveSelectedRows('down')}
+                          disabled={reordering}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                        >
+                          Move Selected Down
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => void bulkDeleteSelected()}
-                          className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-lg"
+                          className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-b-lg"
                         >
                           Delete Selected
                         </button>
@@ -574,14 +648,43 @@ export default function LedgerPage() {
                           ? 'inline-flex px-2 py-1 rounded-full text-xs font-medium bg-orange-900/50 text-orange-300 border border-orange-700/50'
                           : 'inline-flex px-2 py-1 rounded-full text-xs font-medium bg-green-900/50 text-green-300 border border-green-700/50';
                       return (
-                        <tr key={row.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors">
+                        <tr
+                          key={row.id}
+                          draggable
+                          onDragStart={() => setDraggedRowId(row.id)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverRowId(row.id);
+                          }}
+                          onDragLeave={() => setDragOverRowId((prev) => (prev === row.id ? null : prev))}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            void handleRowDrop(row.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedRowId(null);
+                            setDragOverRowId(null);
+                          }}
+                          className={`border-b border-slate-700/30 hover:bg-slate-800/30 transition-colors ${
+                            dragOverRowId === row.id ? 'bg-blue-900/20' : ''
+                          }`}
+                        >
                           <td className="p-4">
-                            <input
-                              type="checkbox"
-                              checked={selectedRowIds.has(row.id)}
-                              onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
-                              className="rounded border-slate-600"
-                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing"
+                                title="Drag to reorder"
+                              >
+                                <i className="fa-solid fa-grip-vertical" />
+                              </button>
+                              <input
+                                type="checkbox"
+                                checked={selectedRowIds.has(row.id)}
+                                onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
+                                className="rounded border-slate-600"
+                              />
+                            </div>
                           </td>
                           <td className="p-4 text-sm text-slate-300">{formatDay(row.date)}</td>
                           <td className="p-4 text-sm text-white">{row.description}</td>
