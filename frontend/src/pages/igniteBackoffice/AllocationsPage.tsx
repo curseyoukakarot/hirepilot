@@ -274,9 +274,9 @@ export default function AllocationsPage() {
 
           <div
             id="allocations-table"
-            className="bg-slate-900/60 backdrop-blur-sm rounded-xl border border-slate-700/50 shadow-lg overflow-hidden"
+            className="bg-slate-900/60 backdrop-blur-sm rounded-xl border border-slate-700/50 shadow-lg overflow-visible"
           >
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-visible rounded-xl">
               <table className="w-full">
                 <thead className="bg-slate-800/50">
                   <tr>
@@ -328,7 +328,7 @@ export default function AllocationsPage() {
                             {String(row.risk_level).charAt(0).toUpperCase() + String(row.risk_level).slice(1)}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 relative">
                           <div className="relative inline-block">
                             <button
                               type="button"
@@ -341,7 +341,7 @@ export default function AllocationsPage() {
                               <i className="fas fa-ellipsis-h" />
                             </button>
                             {actionMenuId === row.id ? (
-                              <div className="absolute right-0 mt-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-30">
+                              <div className="absolute right-0 mt-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
                                 <button
                                   type="button"
                                   onClick={(e) => {
