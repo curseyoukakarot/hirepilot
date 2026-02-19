@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import IgniteBackofficeLayout from './components/IgniteBackofficeLayout';
 import './igniteBackoffice.css';
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
@@ -49,7 +49,7 @@ function riskClass(risk: string) {
 
 export default function AllocationsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [actionMenu, setActionMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAllocationId, setEditingAllocationId] = useState<string | null>(null);
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
@@ -66,6 +66,10 @@ export default function AllocationsPage() {
   const selected = useMemo(
     () => allocations.find((row) => row.id === selectedId) || null,
     [allocations, selectedId]
+  );
+  const actionMenuRow = useMemo(
+    () => allocations.find((row) => row.id === actionMenu?.id) || null,
+    [allocations, actionMenu]
   );
 
   const updateSelectedDraft = (patch: Partial<AllocationRow>) => {
@@ -90,6 +94,25 @@ export default function AllocationsPage() {
     void loadAllocations();
   }, []);
 
+  useEffect(() => {
+    if (!actionMenu) return;
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-allocation-action-menu="true"]')) return;
+      if (target.closest('[data-allocation-action-trigger="true"]')) return;
+      setActionMenu(null);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionMenu(null);
+    };
+    window.addEventListener('mousedown', handleGlobalClick);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('mousedown', handleGlobalClick);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [actionMenu]);
+
   const openDrawerFor = (id: string) => {
     setSelectedId(id);
     setIsDrawerOpen(true);
@@ -103,7 +126,7 @@ export default function AllocationsPage() {
     setEditAmountOwed(String(centsToDollars(row.forecast_costs_remaining_cents)));
     setEditExpectedMargin(String(centsToDollars(row.expected_margin_cents)));
     setIsEditModalOpen(true);
-    setActionMenuId(null);
+    setActionMenu(null);
   };
 
   const closeEditModal = () => {
@@ -171,7 +194,7 @@ export default function AllocationsPage() {
         held_amount_cents: row.held_amount_cents,
         auto_hold_mode: row.auto_hold_mode,
       });
-      setActionMenuId(null);
+      setActionMenu(null);
       await loadAllocations();
     } catch (e: any) {
       setError(e?.message || 'Failed to duplicate allocation');
@@ -186,7 +209,7 @@ export default function AllocationsPage() {
         setSelectedId(null);
         setIsDrawerOpen(false);
       }
-      setActionMenuId(null);
+      setActionMenu(null);
       await loadAllocations();
     } catch (e: any) {
       setError(e?.message || 'Failed to delete allocation');
@@ -334,47 +357,21 @@ export default function AllocationsPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActionMenuId((prev) => (prev === row.id ? null : row.id));
+                                const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                const menuWidth = 144;
+                                const menuHeight = 120;
+                                const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+                                let top = rect.bottom + 8;
+                                if (top + menuHeight > window.innerHeight - 8) {
+                                  top = Math.max(8, rect.top - menuHeight - 8);
+                                }
+                                setActionMenu((prev) => (prev?.id === row.id ? null : { id: row.id, x: left, y: top }));
                               }}
+                              data-allocation-action-trigger="true"
                               className="text-gray-500 hover:text-gray-300"
                             >
                               <i className="fas fa-ellipsis-h" />
                             </button>
-                            {actionMenuId === row.id ? (
-                              <div className="absolute right-0 bottom-full mb-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditModal(row);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 rounded-t-lg"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void duplicateAllocation(row);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
-                                >
-                                  Duplicate
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!window.confirm('Delete this allocation?')) return;
-                                    void deleteAllocation(row.id);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-b-lg"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -385,6 +382,39 @@ export default function AllocationsPage() {
             </div>
           </div>
         </main>
+
+        {actionMenu && actionMenuRow ? (
+          <div
+            data-allocation-action-menu="true"
+            className="fixed w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-[70]"
+            style={{ left: `${actionMenu.x}px`, top: `${actionMenu.y}px` }}
+          >
+            <button
+              type="button"
+              onClick={() => openEditModal(actionMenuRow)}
+              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 rounded-t-lg"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => void duplicateAllocation(actionMenuRow)}
+              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm('Delete this allocation?')) return;
+                void deleteAllocation(actionMenuRow.id);
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-b-lg"
+            >
+              Delete
+            </button>
+          </div>
+        ) : null}
 
         {isDrawerOpen && (
           <div id="allocation-drawer" className="fixed inset-0 z-50">
