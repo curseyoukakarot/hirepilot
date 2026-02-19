@@ -50,6 +50,11 @@ export default function AllocationsPage() {
     [allocations, selectedId]
   );
 
+  const updateSelectedDraft = (patch: Partial<AllocationRow>) => {
+    if (!selectedId) return;
+    setAllocations((prev) => prev.map((row) => (row.id === selectedId ? { ...row, ...patch } : row)));
+  };
+
   const loadAllocations = async () => {
     try {
       setError(null);
@@ -211,8 +216,7 @@ export default function AllocationsPage() {
                     allocations.map((row) => (
                       <tr key={row.id} className="hover:bg-blue-900/20 cursor-pointer" onClick={() => openDrawerFor(row.id)}>
                         <td className="px-6 py-4">
-                          <div className="font-semibold text-white">{row.event_name}</div>
-                          <div className="text-sm text-gray-500">Corporate Event</div>
+                          <div className="font-semibold text-white">{row.event_name || 'Untitled Event'}</div>
                         </td>
                         <td className="px-6 py-4 text-gray-400">{row.client_name}</td>
                         <td className="px-6 py-4 text-gray-300">{formatDate(row.event_date)}</td>
@@ -255,14 +259,32 @@ export default function AllocationsPage() {
             <div className="absolute right-0 top-0 h-full w-1/2 bg-slate-900 shadow-2xl">
               <div className="p-6 border-b border-slate-700">
                 <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">{selected?.event_name || 'Allocation'}</h2>
+                  <h2 className="text-xl font-bold text-white">Allocation Details</h2>
                   <button type="button" onClick={() => setIsDrawerOpen(false)} className="text-gray-500 hover:text-gray-300">
                     <i className="fas fa-times" />
                   </button>
                 </div>
-              <p className="text-gray-400 mt-1">
-                {selected?.client_name || 'Client'} • {formatDate(selected?.event_date)}
-              </p>
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Event Name</label>
+                    <input
+                      value={selected?.event_name || ''}
+                      onChange={(e) => updateSelectedDraft({ event_name: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm"
+                      placeholder="Event name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Client Name</label>
+                    <input
+                      value={selected?.client_name || ''}
+                      onChange={(e) => updateSelectedDraft({ client_name: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm"
+                      placeholder="Client name"
+                    />
+                  </div>
+                </div>
+                <p className="text-gray-400 mt-2 text-sm">Event date: {formatDate(selected?.event_date)}</p>
               </div>
 
               <div className="p-6 overflow-y-auto h-full pb-20">
@@ -363,6 +385,8 @@ export default function AllocationsPage() {
                         const changed = allocations.find((row) => row.id === selected.id);
                         if (!changed) return;
                         void saveSelectedAllocation({
+                          event_name: changed.event_name,
+                          client_name: changed.client_name,
                           held_amount_cents: changed.held_amount_cents,
                           auto_hold_mode: changed.auto_hold_mode,
                         });
@@ -376,38 +400,29 @@ export default function AllocationsPage() {
 
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-200 mb-4">Forecast</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-amber-900/30 rounded-lg">
-                      <div>
-                        <div className="font-medium text-gray-200">Catering Final Payment</div>
-                        <div className="text-sm text-gray-500">Due Aug 10, 2024</div>
-                      </div>
-                      <div className="text-amber-400 font-semibold">$18,000</div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-amber-900/30 rounded-lg">
-                      <div>
-                        <div className="font-medium text-gray-200">AV Equipment</div>
-                        <div className="text-sm text-gray-500">Due Aug 12, 2024</div>
-                      </div>
-                      <div className="text-amber-400 font-semibold">$8,500</div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-amber-900/30 rounded-lg">
-                      <div>
-                        <div className="font-medium text-gray-200">Security Services</div>
-                        <div className="text-sm text-gray-500">Due Aug 15, 2024</div>
-                      </div>
-                      <div className="text-amber-400 font-semibold">$5,500</div>
-                    </div>
+                  <div className="p-4 rounded-lg border border-slate-700 bg-slate-800/50">
+                    <p className="text-sm text-gray-300">
+                      Remaining forecast costs: <span className="font-semibold text-amber-300">{formatMoney(selected?.forecast_costs_remaining_cents || 0)}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">No mocked forecast line items are shown. Link real ledger items to track details.</p>
                   </div>
                 </div>
 
-                <div className="bg-green-900/20 border border-green-800/50 p-4 rounded-lg">
+                <div
+                  className={`p-4 rounded-lg ${
+                    selected?.risk_level === 'safe'
+                      ? 'bg-green-900/20 border border-green-800/50'
+                      : selected?.risk_level === 'warning'
+                        ? 'bg-yellow-900/20 border border-yellow-800/50'
+                        : 'bg-red-900/20 border border-red-800/50'
+                  }`}
+                >
                   <div className="flex items-center">
                     <i className="fas fa-check-circle text-green-400 mr-2" />
-                    <span className="text-green-300 font-medium">Low Risk</span>
+                    <span className="text-green-300 font-medium">{String(selected?.risk_level || 'safe').toUpperCase()} RISK</span>
                   </div>
                   <p className="text-sm text-gray-400 mt-1">
-                    Operating cash will remain above safe threshold throughout event timeline.
+                    Free cash contribution: {formatMoney(selected?.free_cash_contribution_cents || 0)}.
                   </p>
                 </div>
               </div>
