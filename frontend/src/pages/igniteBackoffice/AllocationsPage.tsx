@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import IgniteBackofficeLayout from './components/IgniteBackofficeLayout';
 import './igniteBackoffice.css';
-import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 
 type AllocationRow = {
   id: string;
@@ -24,6 +24,16 @@ function formatMoney(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format((cents || 0) / 100);
 }
 
+function centsToDollars(cents: number) {
+  return Number(((cents || 0) / 100).toFixed(2));
+}
+
+function dollarsToCents(value: string) {
+  const parsed = Number(value || 0);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.round(parsed * 100);
+}
+
 function formatDate(value?: string | null) {
   if (!value) return 'N/A';
   const d = new Date(value);
@@ -39,11 +49,19 @@ function riskClass(risk: string) {
 
 export default function AllocationsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAllocationId, setEditingAllocationId] = useState<string | null>(null);
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linkLedgerIds, setLinkLedgerIds] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editEventName, setEditEventName] = useState('');
+  const [editAmountPaid, setEditAmountPaid] = useState('');
+  const [editAmountOwed, setEditAmountOwed] = useState('');
+  const [editExpectedMargin, setEditExpectedMargin] = useState('');
 
   const selected = useMemo(
     () => allocations.find((row) => row.id === selectedId) || null,
@@ -77,6 +95,22 @@ export default function AllocationsPage() {
     setIsDrawerOpen(true);
   };
 
+  const openEditModal = (row: AllocationRow) => {
+    setEditingAllocationId(row.id);
+    setEditClientName(row.client_name || '');
+    setEditEventName(row.event_name || '');
+    setEditAmountPaid(String(centsToDollars(row.costs_paid_to_date_cents)));
+    setEditAmountOwed(String(centsToDollars(row.forecast_costs_remaining_cents)));
+    setEditExpectedMargin(String(centsToDollars(row.expected_margin_cents)));
+    setIsEditModalOpen(true);
+    setActionMenuId(null);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingAllocationId(null);
+  };
+
   const createAllocation = async () => {
     const eventName = window.prompt('Event name');
     if (!eventName) return;
@@ -101,6 +135,61 @@ export default function AllocationsPage() {
       await loadAllocations();
     } catch (e: any) {
       setError(e?.message || 'Failed to update allocation');
+    }
+  };
+
+  const saveEditedAllocation = async () => {
+    if (!editingAllocationId) return;
+    try {
+      setError(null);
+      await apiPatch(`/api/ignite/backoffice/allocations/${editingAllocationId}`, {
+        client_name: editClientName,
+        event_name: editEventName,
+        costs_paid_to_date_cents: dollarsToCents(editAmountPaid),
+        forecast_costs_remaining_cents: dollarsToCents(editAmountOwed),
+        expected_margin_cents: dollarsToCents(editExpectedMargin),
+      });
+      await loadAllocations();
+      closeEditModal();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update allocation');
+    }
+  };
+
+  const duplicateAllocation = async (row: AllocationRow) => {
+    try {
+      setError(null);
+      await apiPost('/api/ignite/backoffice/allocations', {
+        client_name: row.client_name,
+        event_name: `${row.event_name} (Copy)`,
+        event_date: row.event_date,
+        status: row.status,
+        funding_received_cents: row.funding_received_cents,
+        costs_paid_to_date_cents: row.costs_paid_to_date_cents,
+        forecast_costs_remaining_cents: row.forecast_costs_remaining_cents,
+        expected_margin_cents: row.expected_margin_cents,
+        held_amount_cents: row.held_amount_cents,
+        auto_hold_mode: row.auto_hold_mode,
+      });
+      setActionMenuId(null);
+      await loadAllocations();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to duplicate allocation');
+    }
+  };
+
+  const deleteAllocation = async (id: string) => {
+    try {
+      setError(null);
+      await apiDelete(`/api/ignite/backoffice/allocations/${id}`);
+      if (selectedId === id) {
+        setSelectedId(null);
+        setIsDrawerOpen(false);
+      }
+      setActionMenuId(null);
+      await loadAllocations();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete allocation');
     }
   };
 
@@ -240,9 +329,53 @@ export default function AllocationsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <button type="button" className="text-gray-500 hover:text-gray-300">
-                            <i className="fas fa-ellipsis-h" />
-                          </button>
+                          <div className="relative inline-block">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionMenuId((prev) => (prev === row.id ? null : row.id));
+                              }}
+                              className="text-gray-500 hover:text-gray-300"
+                            >
+                              <i className="fas fa-ellipsis-h" />
+                            </button>
+                            {actionMenuId === row.id ? (
+                              <div className="absolute right-0 mt-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-30">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(row);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 rounded-t-lg"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void duplicateAllocation(row);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                                >
+                                  Duplicate
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm('Delete this allocation?')) return;
+                                    void deleteAllocation(row.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-700 rounded-b-lg"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -429,6 +562,97 @@ export default function AllocationsPage() {
             </div>
           </div>
         )}
+
+        {isEditModalOpen ? (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={closeEditModal}>
+            <div className="flex items-center justify-center min-h-screen p-4">
+              <div className="glass-card rounded-xl w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-white">Edit Allocation</h2>
+                  <button type="button" onClick={closeEditModal} className="text-slate-400 hover:text-white">
+                    <i className="fa-solid fa-times" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Client Name</label>
+                      <input
+                        value={editClientName}
+                        onChange={(e) => setEditClientName(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        placeholder="Client name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Event Name</label>
+                      <input
+                        value={editEventName}
+                        onChange={(e) => setEditEventName(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        placeholder="Event name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Amount Paid</label>
+                      <input
+                        value={editAmountPaid}
+                        onChange={(e) => setEditAmountPaid(e.target.value)}
+                        type="number"
+                        step="0.01"
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Amount Owed</label>
+                      <input
+                        value={editAmountOwed}
+                        onChange={(e) => setEditAmountOwed(e.target.value)}
+                        type="number"
+                        step="0.01"
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Expected Margin</label>
+                      <input
+                        value={editExpectedMargin}
+                        onChange={(e) => setEditExpectedMargin(e.target.value)}
+                        type="number"
+                        step="0.01"
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => void saveEditedAllocation()}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </IgniteBackofficeLayout>
   );
