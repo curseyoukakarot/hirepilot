@@ -534,7 +534,13 @@ export default function AllocationsPage() {
                         onChange={(e) =>
                           setAllocations((prev) =>
                             prev.map((row) =>
-                              row.id === selected?.id ? { ...row, held_amount_cents: Math.round(Number(e.target.value) * 100) } : row
+                              row.id === selected?.id
+                                ? {
+                                    ...row,
+                                    held_amount_cents: Math.round(Number(e.target.value) * 100),
+                                    auto_hold_mode: false,
+                                  }
+                                : row
                             )
                           )
                         }
@@ -550,13 +556,46 @@ export default function AllocationsPage() {
                         <span>$50,000</span>
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">Projected Allocation (manual)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={((selected?.held_amount_cents || 0) / 100).toFixed(2)}
+                        onChange={(e) =>
+                          setAllocations((prev) =>
+                            prev.map((row) =>
+                              row.id === selected?.id
+                                ? {
+                                    ...row,
+                                    held_amount_cents: Math.round(Number(e.target.value || 0) * 100),
+                                    auto_hold_mode: false,
+                                  }
+                                : row
+                            )
+                          )
+                        }
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
                     <div className="flex items-center">
                       <input
                         type="checkbox"
                         checked={Boolean(selected?.auto_hold_mode)}
                         onChange={(e) =>
                           setAllocations((prev) =>
-                            prev.map((row) => (row.id === selected?.id ? { ...row, auto_hold_mode: e.target.checked } : row))
+                            prev.map((row) =>
+                              row.id === selected?.id
+                                ? {
+                                    ...row,
+                                    auto_hold_mode: e.target.checked,
+                                    held_amount_cents: e.target.checked
+                                      ? row.forecast_costs_remaining_cents
+                                      : row.held_amount_cents,
+                                  }
+                                : row
+                            )
                           )
                         }
                         className="h-4 w-4 text-blue-400 rounded"
