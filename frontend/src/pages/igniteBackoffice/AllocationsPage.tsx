@@ -122,7 +122,7 @@ export default function AllocationsPage() {
     setEditingAllocationId(row.id);
     setEditClientName(row.client_name || '');
     setEditEventName(row.event_name || '');
-    setEditAmountPaid(String(centsToDollars(row.costs_paid_to_date_cents)));
+    setEditAmountPaid(String(centsToDollars(row.funding_received_cents)));
     setEditAmountOwed(String(centsToDollars(row.forecast_costs_remaining_cents)));
     setEditExpectedMargin(String(centsToDollars(row.expected_margin_cents)));
     setIsEditModalOpen(true);
@@ -168,7 +168,7 @@ export default function AllocationsPage() {
       await apiPatch(`/api/ignite/backoffice/allocations/${editingAllocationId}`, {
         client_name: editClientName,
         event_name: editEventName,
-        costs_paid_to_date_cents: dollarsToCents(editAmountPaid),
+        funding_received_cents: dollarsToCents(editAmountPaid),
         forecast_costs_remaining_cents: dollarsToCents(editAmountOwed),
         expected_margin_cents: dollarsToCents(editExpectedMargin),
       });
