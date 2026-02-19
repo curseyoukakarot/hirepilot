@@ -201,6 +201,17 @@ async function getClientName(clientId: string): Promise<string | null> {
   return data?.name ? String(data.name) : null;
 }
 
+async function getClientDetails(clientId: string): Promise<Record<string, any> | null> {
+  if (!clientId) return null;
+  const { data, error } = await supabase
+    .from('ignite_clients')
+    .select('*')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data || null) as Record<string, any> | null;
+}
+
 async function buildComputedPayloadForProposal(proposalId: string) {
   const bundle = await loadProposalBundle(proposalId);
   if (!bundle?.proposal) return null;
@@ -231,6 +242,18 @@ function readProposalLastStep(proposal: any): number {
   const value = Number(workflow?.lastStep || 1);
   if (!Number.isFinite(value)) return 1;
   return Math.min(5, Math.max(1, Math.floor(value)));
+}
+
+function isProposalInvoiceReadyStatus(value: any): boolean {
+  const status = String(value || '').toLowerCase().trim();
+  return ['shared', 'final', 'sent', 'approved', 'completed'].includes(status);
+}
+
+function getZapierSecretFromRequest(req: Request): string {
+  const headerSecret = String(req.headers['x-ignite-signature-secret'] || '').trim();
+  const querySecret =
+    typeof req.query?.secret === 'string' ? String(req.query.secret).trim() : '';
+  return headerSecret || querySecret;
 }
 
 async function resolveActiveShareLinkByToken(token: string) {
@@ -808,6 +831,99 @@ router.post('/integrations/docusign/webhook', async (req: Request, res: Response
     return res.status(200).json({ ok: true });
   } catch (e: any) {
     return res.status(200).json({ ok: false, error: e?.message || 'webhook_processing_failed' });
+  }
+});
+
+// Public Zapier polling endpoint for invoice-ready finalized proposals
+router.get('/integrations/zapier/proposals/:proposalId/invoice-poll', async (req: Request, res: Response) => {
+  try {
+    const configuredSecret = String(process.env.IGNITE_ZAPIER_WEBHOOK_SECRET || '').trim();
+    if (configuredSecret) {
+      const incomingSecret = getZapierSecretFromRequest(req);
+      if (!incomingSecret || incomingSecret !== configuredSecret) {
+        return res.status(401).json({ error: 'unauthorized' });
+      }
+    }
+
+    const proposalId = String(req.params.proposalId || '').trim();
+    if (!proposalId) return res.status(400).json({ error: 'proposal_id_required' });
+    const optionId = req.query.option_id ? String(req.query.option_id) : null;
+
+    const built = await buildComputedPayloadForProposal(proposalId);
+    if (!built?.bundle?.proposal || !built?.computed) {
+      return res.status(404).json({ error: 'proposal_not_found' });
+    }
+    const proposal = built.bundle.proposal;
+    const proposalStatus = String(proposal?.status || '').toLowerCase();
+    if (!isProposalInvoiceReadyStatus(proposalStatus)) {
+      return res.status(409).json({
+        error: 'proposal_not_invoice_ready',
+        proposal_status: proposalStatus || 'unknown',
+      });
+    }
+
+    const selectedOptionId = pickDefaultOptionId(built.computed, optionId);
+    const agreementPayload = buildAgreementPayload(
+      built.computed,
+      selectedOptionId,
+      proposal,
+      built.bundle
+    );
+    const client = await getClientDetails(String(proposal?.client_id || ''));
+    const clientMeta = (client?.metadata_json || {}) as Record<string, any>;
+    const selectedOption =
+      (Array.isArray(built.computed?.options) ? built.computed.options : []).find(
+        (row: any) => String(row?.id || '') === String(selectedOptionId || '')
+      ) || (Array.isArray(built.computed?.options) ? built.computed.options[0] : null);
+    const totalInvestment = Number(selectedOption?.totals?.total || 0);
+    const depositPercent = Number(agreementPayload?.agreement_terms?.deposit_percent || 0);
+    const depositAmount = Number(((totalInvestment * depositPercent) / 100).toFixed(2));
+    const balanceAmount = Number((totalInvestment - depositAmount).toFixed(2));
+
+    return res.json({
+      event_type: 'ignite.invoice_poll.ready',
+      proposal_id: proposalId,
+      proposal_status: proposalStatus,
+      invoice_ready: true,
+      polled_at: new Date().toISOString(),
+      client: {
+        id: client?.id ? String(client.id) : null,
+        name: client?.name ? String(client.name) : built.computed.clientName || null,
+        legal_name: client?.legal_name ? String(client.legal_name) : null,
+        external_ref: client?.external_ref ? String(client.external_ref) : null,
+        contact_name: clientMeta?.contact_name || null,
+        contact_email: clientMeta?.contact_email || null,
+        contact_phone: clientMeta?.contact_phone || null,
+        website: clientMeta?.website || null,
+        billing_address: clientMeta?.billing_address || null,
+        tax_id: clientMeta?.tax_id || null,
+      },
+      invoice: {
+        invoice_label: built.computed?.eventName || proposal?.name || 'Ignite Proposal',
+        currency: String(proposal?.currency || 'USD'),
+        option_id: selectedOptionId,
+        option_name: selectedOption?.name ? String(selectedOption.name) : null,
+        subtotal: Number(selectedOption?.totals?.subtotal || 0),
+        ignite_fee: Number(selectedOption?.totals?.fee || 0),
+        contingency: Number(selectedOption?.totals?.contingency || 0),
+        total_investment: totalInvestment,
+        deposit_percent: depositPercent,
+        deposit_amount: depositAmount,
+        balance_amount: balanceAmount,
+        deposit_due_rule: String(agreementPayload?.agreement_terms?.deposit_due_rule || ''),
+        balance_due_rule: String(agreementPayload?.agreement_terms?.balance_due_rule || ''),
+        cancellation_window_days: Number(
+          agreementPayload?.agreement_terms?.cancellation_window_days || 0
+        ),
+        confidentiality_enabled:
+          agreementPayload?.agreement_terms?.confidentiality_enabled !== false,
+        cost_split_notes: String(agreementPayload?.agreement_terms?.cost_split_notes || ''),
+      },
+      proposal_for_invoice: agreementPayload,
+      computed: built.computed,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_poll_invoice_payload' });
   }
 });
 
@@ -1869,13 +1985,14 @@ router.patch('/clients/:clientId', requireIgniteTeam as any, async (req: ApiRequ
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) patch[key] = body[key];
     }
-    let query = supabase
+    const updateQuery = supabase
       .from('ignite_clients')
       .update(patch)
-      .eq('id', clientId)
-      .select('*');
-    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
-    const { data, error } = await query.maybeSingle();
+      .eq('id', clientId);
+    const scopedUpdateQuery = ctx.workspaceId
+      ? updateQuery.eq('workspace_id', ctx.workspaceId)
+      : updateQuery;
+    const { data, error } = await scopedUpdateQuery.select('*').maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: 'client_not_found' });
     return res.json({ client: data });
@@ -1921,16 +2038,17 @@ router.delete('/clients/:clientId', requireIgniteTeam as any, async (req: ApiReq
   try {
     const ctx = req.igniteContext!;
     const clientId = String(req.params.clientId || '');
-    let query = supabase
+    const updateQuery = supabase
       .from('ignite_clients')
       .update({
         status: 'inactive',
         updated_at: new Date().toISOString(),
       } as any)
-      .eq('id', clientId)
-      .select('*');
-    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
-    const { data, error } = await query.maybeSingle();
+      .eq('id', clientId);
+    const scopedUpdateQuery = ctx.workspaceId
+      ? updateQuery.eq('workspace_id', ctx.workspaceId)
+      : updateQuery;
+    const { data, error } = await scopedUpdateQuery.select('*').maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: 'client_not_found' });
     return res.json({ client: data });
