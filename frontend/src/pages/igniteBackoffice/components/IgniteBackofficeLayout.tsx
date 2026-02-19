@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
 
 type IgniteBackofficeLayoutProps = {
   children: React.ReactNode;
+};
+
+type SidebarUser = {
+  name: string;
+  email: string;
+  avatarUrl: string | null;
 };
 
 const navBaseClass =
@@ -19,6 +25,44 @@ const navItems = [
 
 export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLayoutProps) {
   const navigate = useNavigate();
+  const [sidebarUser, setSidebarUser] = useState<SidebarUser>({
+    name: 'Ignite User',
+    email: '',
+    avatarUrl: null,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
+      if (!user || !isMounted) return;
+
+      const meta = (user.user_metadata || {}) as Record<string, any>;
+      const fullName = String(meta.full_name || meta.name || '').trim();
+      const first = String(meta.first_name || meta.firstName || '').trim();
+      const last = String(meta.last_name || meta.lastName || '').trim();
+      const fallbackName = [first, last].filter(Boolean).join(' ').trim();
+      const displayName = fullName || fallbackName || String(user.email || 'Ignite User');
+
+      setSidebarUser({
+        name: displayName,
+        email: String(user.email || ''),
+        avatarUrl: String(meta.avatar_url || meta.picture || '').trim() || null,
+      });
+    };
+    void loadUser();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const userInitials = useMemo(() => {
+    const source = sidebarUser.name || sidebarUser.email || 'IU';
+    const parts = source.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+    return (parts[0] || 'IU').slice(0, 2).toUpperCase();
+  }, [sidebarUser.email, sidebarUser.name]);
 
   const handleSignOut = async () => {
     try {
@@ -54,14 +98,16 @@ export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLay
 
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 px-4 py-3">
-            <img
-              src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg"
-              className="w-10 h-10 rounded-full"
-              alt="Admin User"
-            />
+            {sidebarUser.avatarUrl ? (
+              <img src={sidebarUser.avatarUrl} className="w-10 h-10 rounded-full object-cover" alt={sidebarUser.name || 'User'} />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center text-xs font-semibold">
+                {userInitials}
+              </div>
+            )}
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Admin User</p>
-              <p className="text-xs text-gray-500">admin@ignitegtm.com</p>
+              <p className="text-sm font-medium text-white truncate">{sidebarUser.name}</p>
+              <p className="text-xs text-gray-500 truncate">{sidebarUser.email || 'No email'}</p>
             </div>
           </div>
           <button
