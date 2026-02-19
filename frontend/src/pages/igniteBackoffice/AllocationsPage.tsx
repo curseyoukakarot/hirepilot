@@ -37,6 +37,10 @@ function dollarsToCents(value: string) {
   return Math.round(parsed * 100);
 }
 
+function formatCentsAsInput(cents: number) {
+  return String(centsToDollars(cents));
+}
+
 function formatDate(value?: string | null) {
   if (!value) return 'N/A';
   const d = new Date(value);
@@ -126,7 +130,7 @@ export default function AllocationsPage() {
     setEditClientName(row.client_name || '');
     setEditEventName(row.event_name || '');
     setEditAmountPaid(String(centsToDollars(row.funding_received_cents)));
-    setEditAmountOwed(String(centsToDollars(row.forecast_costs_remaining_cents)));
+    setEditAmountOwed(formatCentsAsInput((row.funding_received_cents || 0) - (row.expected_margin_cents || 0)));
     setEditExpectedMargin(String(centsToDollars(row.expected_margin_cents)));
     setIsEditModalOpen(true);
     setActionMenu(null);
@@ -136,6 +140,14 @@ export default function AllocationsPage() {
     setIsEditModalOpen(false);
     setEditingAllocationId(null);
   };
+
+  useEffect(() => {
+    if (!isEditModalOpen) return;
+    const fundingCents = dollarsToCents(editAmountPaid);
+    const marginCents = dollarsToCents(editExpectedMargin);
+    if (fundingCents === null || marginCents === null) return;
+    setEditAmountOwed(formatCentsAsInput(fundingCents - marginCents));
+  }, [editAmountPaid, editExpectedMargin, isEditModalOpen]);
 
   const createAllocation = async () => {
     const eventName = window.prompt('Event name');
@@ -167,12 +179,12 @@ export default function AllocationsPage() {
   const saveEditedAllocation = async () => {
     if (!editingAllocationId) return;
     const fundingCents = dollarsToCents(editAmountPaid);
-    const owedCents = dollarsToCents(editAmountOwed);
     const marginCents = dollarsToCents(editExpectedMargin);
-    if (fundingCents === null || owedCents === null || marginCents === null) {
+    if (fundingCents === null || marginCents === null) {
       setError('Enter valid numeric amounts (example: 60000 or 60,000).');
       return;
     }
+    const owedCents = fundingCents - marginCents;
     try {
       setError(null);
       await apiPatch(`/api/ignite/backoffice/allocations/${editingAllocationId}`, {
@@ -652,10 +664,8 @@ export default function AllocationsPage() {
                       <label className="block text-sm font-medium text-slate-300 mb-2">Amount Owed</label>
                       <input
                         value={editAmountOwed}
-                        onChange={(e) => setEditAmountOwed(e.target.value)}
-                        type="number"
-                        step="0.01"
-                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                        readOnly
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 cursor-not-allowed"
                         placeholder="0.00"
                       />
                     </div>
