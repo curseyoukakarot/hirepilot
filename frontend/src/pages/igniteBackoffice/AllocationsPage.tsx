@@ -341,7 +341,7 @@ export default function AllocationsPage() {
                               <i className="fas fa-ellipsis-h" />
                             </button>
                             {actionMenuId === row.id ? (
-                              <div className="absolute right-0 mt-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
+                              <div className="absolute right-0 bottom-full mb-2 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
                                 <button
                                   type="button"
                                   onClick={(e) => {
