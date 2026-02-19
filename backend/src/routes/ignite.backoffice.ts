@@ -156,12 +156,12 @@ function getMappedRowValue(source: Record<string, any>, mappingKey: string | nul
 }
 
 function compareLedgerOrder(a: LedgerRow, b: LedgerRow): number {
-  const byDate = String(a.date).localeCompare(String(b.date));
-  if (byDate !== 0) return byDate;
   const aSortNull = a.sort_order === null || a.sort_order === undefined;
   const bSortNull = b.sort_order === null || b.sort_order === undefined;
   if (aSortNull !== bSortNull) return aSortNull ? 1 : -1;
   if (!aSortNull && !bSortNull && a.sort_order !== b.sort_order) return (a.sort_order as number) - (b.sort_order as number);
+  const byDate = String(a.date).localeCompare(String(b.date));
+  if (byDate !== 0) return byDate;
   return String(a.created_at).localeCompare(String(b.created_at));
 }
 
@@ -242,8 +242,8 @@ async function fetchLedgerRows(filters: {
   let query = supabase
     .from('ignite_ledger_transactions')
     .select('*')
-    .order('date', { ascending: true })
     .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('date', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (filters.dateFrom) query = query.gte('date', filters.dateFrom);
@@ -323,8 +323,8 @@ router.get('/dashboard', async (_req: ApiRequest, res: Response) => {
       supabase
         .from('ignite_ledger_transactions')
         .select('*')
-        .order('date', { ascending: true })
         .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('date', { ascending: true })
         .order('created_at', { ascending: true }),
       supabase
         .from('ignite_event_allocations')
