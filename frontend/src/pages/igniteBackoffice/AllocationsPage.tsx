@@ -29,8 +29,11 @@ function centsToDollars(cents: number) {
 }
 
 function dollarsToCents(value: string) {
-  const parsed = Number(value || 0);
-  if (!Number.isFinite(parsed)) return 0;
+  const raw = String(value ?? '').trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/[$,\s]/g, '');
+  const parsed = Number(cleaned);
+  if (!Number.isFinite(parsed)) return null;
   return Math.round(parsed * 100);
 }
 
@@ -163,14 +166,21 @@ export default function AllocationsPage() {
 
   const saveEditedAllocation = async () => {
     if (!editingAllocationId) return;
+    const fundingCents = dollarsToCents(editAmountPaid);
+    const owedCents = dollarsToCents(editAmountOwed);
+    const marginCents = dollarsToCents(editExpectedMargin);
+    if (fundingCents === null || owedCents === null || marginCents === null) {
+      setError('Enter valid numeric amounts (example: 60000 or 60,000).');
+      return;
+    }
     try {
       setError(null);
       await apiPatch(`/api/ignite/backoffice/allocations/${editingAllocationId}`, {
         client_name: editClientName,
         event_name: editEventName,
-        funding_received_cents: dollarsToCents(editAmountPaid),
-        forecast_costs_remaining_cents: dollarsToCents(editAmountOwed),
-        expected_margin_cents: dollarsToCents(editExpectedMargin),
+        funding_received_cents: fundingCents,
+        forecast_costs_remaining_cents: owedCents,
+        expected_margin_cents: marginCents,
       });
       await loadAllocations();
       closeEditModal();
