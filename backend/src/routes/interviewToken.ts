@@ -20,7 +20,8 @@ const REALTIME_INSTRUCTIONS =
   ].join(' ');
 const COACH_MODEL = process.env.INTERVIEW_COACH_MODEL || 'gpt-5.2';
 const COACH_MODEL_FALLBACKS = ['gpt-5.2', 'gpt-5', 'gpt-4o', 'gpt-4o-mini'];
-const REALTIME_MODEL_FALLBACKS = ['gpt-5.2-realtime-preview', 'gpt-4o-realtime-preview'];
+const SUPPORTED_REALTIME_MODELS = ['gpt-4o-realtime-preview'];
+const REALTIME_MODEL_FALLBACKS = ['gpt-4o-realtime-preview'];
 const SESSION_IDEMPOTENCY_TTL_MS = 2 * 60 * 1000;
 
 const sessionCreateSchema = z.object({
@@ -318,7 +319,20 @@ router.post('/token', requireAuthUnified as any, async (req, res) => {
       .filter(Boolean)
       .join('\n');
 
-    const modelCandidates = pickModel(REALTIME_MODEL, REALTIME_MODEL_FALLBACKS);
+    const configuredRealtimeModel = String(REALTIME_MODEL || '').trim();
+    const normalizedPrimaryRealtimeModel = SUPPORTED_REALTIME_MODELS.includes(configuredRealtimeModel)
+      ? configuredRealtimeModel
+      : SUPPORTED_REALTIME_MODELS[0];
+    if (configuredRealtimeModel && configuredRealtimeModel !== normalizedPrimaryRealtimeModel) {
+      structuredLog('interview_model_config_unsupported', {
+        configured_model: configuredRealtimeModel,
+        fallback_model: normalizedPrimaryRealtimeModel,
+      });
+    }
+    const modelCandidates = pickModel(normalizedPrimaryRealtimeModel, [
+      ...REALTIME_MODEL_FALLBACKS,
+      ...SUPPORTED_REALTIME_MODELS,
+    ]);
     let response: any = null;
     let payload: any = null;
     let selectedModel: string | null = null;
