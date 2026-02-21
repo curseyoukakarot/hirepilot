@@ -193,6 +193,7 @@ import rex2AgentsRouter from './src/routes/rex2.agents';
 import { rex2RunWorker } from './src/workers/rex2.run.worker';
 // MCP Support Agent routes
 import agentTokenRoute from './src/routes/agentToken';
+import interviewTokenRoute from './src/routes/interviewToken';
 import supportTools from './src/routes/support';
 import externalInvoiceRouter from './src/routes/externalInvoice';
 import dashboardsAnalyticsRouter from './src/routes/dashboards.analytics';
@@ -691,6 +692,7 @@ if (REX_RECRUITING_V2) {
 app.use('/api', rexConversationsRouter);
 // Public: issue short-lived JWT for Agent Builder setup
 app.use('/api', agentTokenRoute);
+app.use('/api/interview', interviewTokenRoute);
 // Protected: MCP tool endpoints (token verified inside support router)
 // MCP SSE endpoint for Agent Builder (mount BEFORE token-protected router)
 // Ensure raw body is available to MCP messages endpoint so SDK can parse JSON-RPC itself
