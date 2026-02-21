@@ -11,6 +11,7 @@ import {
   FaUpload,
   FaWandMagicSparkles,
   FaRocket,
+  FaMicrophoneLines,
 } from 'react-icons/fa6';
 
 export default function PrepPage() {
@@ -20,6 +21,12 @@ export default function PrepPage() {
     const prompt =
       "REX, will you take a look at my resume and analyze it? Give me feedback on the format, keywords, and anything I should optimize. Then grade it out of 100. If I haven't attached a resume yet, ask me to upload it.";
     navigate(`/prep/rex-chat?prefill=${encodeURIComponent(prompt)}`);
+  };
+
+  const goToInterviewHelperFromPrep = () => {
+    const prepContext =
+      'Use my prep center context. Prioritize concise STAR answers, stronger metrics, and tougher follow-up questions that simulate a real interview panel.';
+    navigate(`/interview-helper?rexContext=${encodeURIComponent(prepContext)}`);
   };
   return (
     <div id="prep-page" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 text-slate-100">
@@ -64,6 +71,13 @@ export default function PrepPage() {
         >
           <FaComments />
           <span>REX Job Prep Chat</span>
+        </Link>
+        <Link
+          to="/interview-helper"
+          className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-sky-500 hover:text-sky-100 hover:bg-slate-900 transition"
+        >
+          <FaMicrophoneLines />
+          <span>Interview Helper</span>
         </Link>
       </div>
 
@@ -276,6 +290,58 @@ export default function PrepPage() {
               <FaRocket />
               <span>Open Job Seeker Agent</span>
             </Link>
+          </div>
+
+          <div
+            id="interview-helper-card"
+            className="relative overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-sky-500/20">
+                  <FaMicrophoneLines className="text-sky-400 text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Interview Helper</h3>
+                  <p className="text-sm text-slate-400">Live voice interview practice with REX</p>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-2 py-1 text-xs font-medium text-sky-300">
+                <FaWandMagicSparkles />
+                <span>Recommended</span>
+              </div>
+            </div>
+
+            <p className="text-slate-300 mb-4">
+              Run realistic mock interviews, get coaching, and track progress session-by-session with prep packs.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="text-center p-2 rounded bg-slate-800/30">
+                <div className="text-xs font-medium text-white">Mode</div>
+                <div className="text-xs text-slate-400">Voice + coaching</div>
+              </div>
+              <div className="text-center p-2 rounded bg-slate-800/30">
+                <div className="text-xs font-medium text-white">Output</div>
+                <div className="text-xs text-slate-400">Prep packs</div>
+              </div>
+            </div>
+
+            <Link
+              to="/interview-helper"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-3 text-sm font-medium text-white hover:bg-sky-600 transition"
+            >
+              <FaMicrophoneLines />
+              <span>Open Interview Helper</span>
+            </Link>
+            <button
+              type="button"
+              onClick={goToInterviewHelperFromPrep}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm font-medium text-slate-200 hover:border-sky-500 transition"
+            >
+              <FaWandMagicSparkles />
+              <span>Open with Prep Context</span>
+            </button>
           </div>
         </div>
       </div>

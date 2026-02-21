@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE =
@@ -26,6 +26,7 @@ function formatDate(input: string) {
 
 export default function InterviewHelperHubPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
   const [rexContext, setRexContext] = useState('');
@@ -49,12 +50,19 @@ export default function InterviewHelperHubPage() {
 
   useEffect(() => {
     try {
+      const params = new URLSearchParams(location.search);
+      const fromQuery = (params.get('rexContext') || '').trim();
+      if (fromQuery) {
+        setRexContext(fromQuery);
+        localStorage.setItem('interview_helper_rex_context', fromQuery);
+        return;
+      }
       const saved = localStorage.getItem('interview_helper_rex_context') || '';
       if (saved) setRexContext(saved);
     } catch {
       // no-op
     }
-  }, []);
+  }, [location.search]);
 
   const analytics = useMemo(() => {
     const completed = sessions.filter((session) => session.status === 'completed');
