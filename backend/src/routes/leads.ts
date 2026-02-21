@@ -2071,9 +2071,24 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       team_id: teamContext.teamId,
       role: teamContext.role || (req as ApiRequest).user?.role || null
     };
-    const workspaceOwnerId = String(
-      (req as any).workspaceId || userRow.team_id || userId
-    );
+    const workspaceId = String((req as any).workspaceId || '').trim();
+    let workspaceOwnerId = '';
+    if (workspaceId) {
+      const { data: ownerMembership, error: ownerMembershipError } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .eq('role', 'owner')
+        .eq('status', 'active')
+        .maybeSingle();
+      if (ownerMembershipError) {
+        console.warn('[GET /api/leads] Failed to resolve workspace owner:', ownerMembershipError);
+      }
+      workspaceOwnerId = String((ownerMembership as any)?.user_id || '');
+    }
+    if (!workspaceOwnerId) {
+      workspaceOwnerId = String(userRow.team_id || userId);
+    }
 
     let teamSharing = DEFAULT_TEAM_SETTINGS;
     if (userRow.team_id) {
