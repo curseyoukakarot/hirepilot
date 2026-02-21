@@ -283,7 +283,9 @@ export default function JobSeekerRoutes() {
             path="/interview-helper/prep/:id"
             element={
               <JobSeekerProtected>
-                <InterviewPrepPackPage />
+                <JobSeekerAppShell>
+                  <InterviewPrepPackPage />
+                </JobSeekerAppShell>
               </JobSeekerProtected>
             }
           />
