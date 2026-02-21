@@ -31,6 +31,10 @@ export default function InterviewHelperHubPage() {
   const [sessionTitle, setSessionTitle] = useState('Senior Product Manager');
   const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
   const [rexContext, setRexContext] = useState('');
+  const [interviewType, setInterviewType] = useState('');
+  const [roleTrack, setRoleTrack] = useState('Individual Contributor');
+  const [companyName, setCompanyName] = useState('');
+  const [interviewStages, setInterviewStages] = useState('');
   const [includeContextInInterview, setIncludeContextInInterview] = useState(true);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeStatus, setResumeStatus] = useState('');
@@ -70,6 +74,14 @@ export default function InterviewHelperHubPage() {
       if (saved) setRexContext(saved);
       const savedTitle = localStorage.getItem('interview_helper_session_title') || '';
       if (savedTitle) setSessionTitle(savedTitle);
+      const savedInterviewType = localStorage.getItem('interview_helper_setup_interview_type') || '';
+      if (savedInterviewType) setInterviewType(savedInterviewType);
+      const savedRoleTrack = localStorage.getItem('interview_helper_setup_role_track') || '';
+      if (savedRoleTrack) setRoleTrack(savedRoleTrack);
+      const savedCompanyName = localStorage.getItem('interview_helper_setup_company_name') || '';
+      if (savedCompanyName) setCompanyName(savedCompanyName);
+      const savedInterviewStages = localStorage.getItem('interview_helper_setup_interview_stages') || '';
+      if (savedInterviewStages) setInterviewStages(savedInterviewStages);
       const includeContextRaw = localStorage.getItem('interview_helper_include_context');
       if (includeContextRaw != null) setIncludeContextInInterview(includeContextRaw === '1');
     } catch {
@@ -101,10 +113,23 @@ export default function InterviewHelperHubPage() {
     const normalizedTitle = sessionTitle.trim() || 'Interview Practice Session';
     params.set('sessionTitle', normalizedTitle);
     params.set('includeContext', includeContextInInterview ? '1' : '0');
+    const setupLines = [
+      interviewType.trim() ? `Interview type: ${interviewType.trim()}` : '',
+      roleTrack.trim() ? `Role track: ${roleTrack.trim()}` : '',
+      companyName.trim() ? `Company name: ${companyName.trim()}` : '',
+      interviewStages.trim() ? `Known interview stages: ${interviewStages.trim()}` : '',
+    ].filter(Boolean);
+    if (setupLines.length > 0) {
+      setupLines.push(
+        'Use this setup to ask targeted, role-relevant questions and adapt follow-ups to likely interview rounds.'
+      );
+    }
+    const setupContext = setupLines.length > 0 ? `Interview setup:\n${setupLines.join('\n')}` : '';
     const trimmedContext = rexContext.trim();
-    if (trimmedContext && includeContextInInterview) {
+    const combinedContext = [setupContext, trimmedContext].filter(Boolean).join('\n\n').slice(0, 4000);
+    if (combinedContext && includeContextInInterview) {
       try {
-        localStorage.setItem('interview_helper_rex_context', trimmedContext);
+        localStorage.setItem('interview_helper_rex_context', combinedContext);
       } catch {
         // no-op
       }
@@ -118,6 +143,10 @@ export default function InterviewHelperHubPage() {
     try {
       localStorage.setItem('interview_helper_session_title', normalizedTitle);
       localStorage.setItem('interview_helper_include_context', includeContextInInterview ? '1' : '0');
+      localStorage.setItem('interview_helper_setup_interview_type', interviewType);
+      localStorage.setItem('interview_helper_setup_role_track', roleTrack);
+      localStorage.setItem('interview_helper_setup_company_name', companyName);
+      localStorage.setItem('interview_helper_setup_interview_stages', interviewStages);
     } catch {
       // no-op
     }
@@ -263,6 +292,46 @@ export default function InterviewHelperHubPage() {
               maxLength={160}
               className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 mb-3"
             />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">What type of interview are you taking?</label>
+                <input
+                  value={interviewType}
+                  onChange={(e) => setInterviewType(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  placeholder="Behavioral, Technical, Product case, Panel..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">IC or Management?</label>
+                <select
+                  value={roleTrack}
+                  onChange={(e) => setRoleTrack(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                >
+                  <option>Individual Contributor</option>
+                  <option>Management</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Company name</label>
+                <input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  placeholder="e.g., Stripe"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">What do you know about the stages?</label>
+                <input
+                  value={interviewStages}
+                  onChange={(e) => setInterviewStages(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  placeholder="Recruiter screen, HM round, panel, case study..."
+                />
+              </div>
+            </div>
             <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Additional REX Interview Context</label>
             <textarea
               value={rexContext}
