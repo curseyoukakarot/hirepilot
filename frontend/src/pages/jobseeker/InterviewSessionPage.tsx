@@ -36,6 +36,9 @@ export default function InterviewSessionPage() {
   const [prepPackId, setPrepPackId] = useState<string | null>(null);
   const [isInvalidRouteId, setIsInvalidRouteId] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionRoleTitle, setSessionRoleTitle] = useState('Interview Practice Session');
+  const [sessionCompany, setSessionCompany] = useState<string | null>(null);
+  const [sessionLevel, setSessionLevel] = useState('senior');
   const [linkedPrepPackSummary, setLinkedPrepPackSummary] = useState<{ id: string; score: number; roleTitle: string } | null>(null);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
@@ -52,14 +55,12 @@ export default function InterviewSessionPage() {
   const activeRexTurnIdRef = useRef<string | null>(null);
   const turnsRef = useRef<TranscriptTurn[]>(turns);
   const sessionIdRef = useRef<string | null>(null);
+  const accessTokenRef = useRef<string>('');
   const initializedRef = useRef(false);
   const currentQuestionIndexRef = useRef(1);
 
   const makeTurnId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const roleTitle = 'Senior Product Manager';
-  const company = 'Spotify';
-  const level = 'senior';
   const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
   useEffect(() => {
@@ -68,6 +69,19 @@ export default function InterviewSessionPage() {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  const withAuthHeaders = async (base: Record<string, string> = {}) => {
+    let token = accessTokenRef.current;
+    if (!token) {
+      const auth = await supabase.auth.getSession().catch(() => null);
+      token = auth?.data?.session?.access_token || '';
+      if (token) accessTokenRef.current = token;
+    }
+    return {
+      ...base,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   const persistTurn = async (payload: {
     turn_index: number;
@@ -78,9 +92,10 @@ export default function InterviewSessionPage() {
   }) => {
     const activeSessionId = sessionIdRef.current;
     if (!activeSessionId) return;
+    const headers = await withAuthHeaders({ 'Content-Type': 'application/json' });
     await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(activeSessionId)}/turns`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'include',
       body: JSON.stringify(payload),
     }).catch(() => undefined);
@@ -103,8 +118,11 @@ export default function InterviewSessionPage() {
         setLoadError('Please sign in to continue this interview session.');
         return;
       }
+      accessTokenRef.current = auth.data.session.access_token || '';
       setSessionId(routeId);
+      const sessionHeaders = await withAuthHeaders();
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
+        headers: sessionHeaders,
         credentials: 'include',
       }).catch(() => null);
       if (!response?.ok) {
@@ -112,10 +130,16 @@ export default function InterviewSessionPage() {
         return;
       }
       const payload = await response.json().catch(() => null);
+      const loadedSession = payload?.session || {};
+      setSessionRoleTitle(String(loadedSession?.role_title || 'Interview Practice Session'));
+      setSessionCompany(loadedSession?.company ? String(loadedSession.company) : null);
+      setSessionLevel(String(loadedSession?.level || 'senior'));
       const linkedPrepPackId = String(payload?.session?.prep_pack_id || '').trim();
       if (linkedPrepPackId) {
         setPrepPackId(linkedPrepPackId);
+        const prepHeaders = await withAuthHeaders();
         const prepResponse = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/prep/${encodeURIComponent(linkedPrepPackId)}`, {
+          headers: prepHeaders,
           credentials: 'include',
         }).catch(() => null);
         const prepPayload = prepResponse?.ok ? await prepResponse.json().catch(() => null) : null;
@@ -161,14 +185,15 @@ export default function InterviewSessionPage() {
     try {
       const activeSessionId = sessionIdRef.current;
       if (!activeSessionId) return;
+      const headers = await withAuthHeaders({ 'Content-Type': 'application/json' });
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/${encodeURIComponent(activeSessionId)}/coach`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
-          role_title: roleTitle,
-          company,
-          level,
+          role_title: sessionRoleTitle,
+          company: sessionCompany || 'Target Company',
+          level: sessionLevel,
           mode: 'supportive',
           question: lastQuestion.text,
           answer,
@@ -350,10 +375,12 @@ export default function InterviewSessionPage() {
       return;
     }
     try {
+      const headers = await withAuthHeaders();
       const response = await fetch(
         `${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(activeSessionId)}/finalize`,
         {
           method: 'POST',
+          headers,
           credentials: 'include',
         }
       );
@@ -475,7 +502,12 @@ export default function InterviewSessionPage() {
         </div>
         <div className="hidden md:flex flex-col items-center justify-center flex-2 px-4 min-w-0">
           <h1 className="text-sm font-medium text-gray-200 tracking-wide truncate max-w-full">
-            Senior Product Manager <span className="text-gray-600 mx-2">•</span> <span className="text-gray-400">Spotify</span>
+            {sessionRoleTitle}
+            {sessionCompany ? (
+              <>
+                <span className="text-gray-600 mx-2">•</span> <span className="text-gray-400">{sessionCompany}</span>
+              </>
+            ) : null}
           </h1>
         </div>
         <div className="flex items-center justify-end space-x-3 md:space-x-6 flex-1">

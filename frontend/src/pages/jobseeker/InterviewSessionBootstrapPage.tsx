@@ -56,7 +56,17 @@ export default function InterviewSessionBootstrapPage() {
       setIsCreating(true);
       const params = new URLSearchParams(location.search);
       const prepPackId = params.get('prepPackId') || '';
-      const rexContext = (params.get('rexContext') || '').trim();
+      const sessionTitle = (
+        params.get('sessionTitle') ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('interview_helper_session_title') : '') ||
+        'Interview Practice Session'
+      ).trim();
+      const includeContext = params.get('includeContext') !== '0';
+      const rexContext = (
+        params.get('rexContext') ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('interview_helper_rex_context') : '') ||
+        ''
+      ).trim();
       const sessionResult = await supabase.auth.getSession().catch(() => null);
       const accessToken = sessionResult?.data?.session?.access_token || '';
       const idempotencyKey = getIdempotencyKey(prepPackId);
@@ -69,12 +79,12 @@ export default function InterviewSessionBootstrapPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          role_title: 'Senior Product Manager',
-          company: 'Spotify',
+          role_title: sessionTitle || 'Interview Practice Session',
+          company: null,
           level: 'senior',
           mode: 'supportive',
           prep_pack_id: prepPackId || null,
-          rex_context_instructions: rexContext || null,
+          rex_context_instructions: includeContext ? rexContext || null : null,
         }),
       }).catch(() => null);
       if (!response?.ok) {
@@ -105,7 +115,8 @@ export default function InterviewSessionBootstrapPage() {
       }).catch(() => undefined);
 
       sessionStorage.removeItem(storageKey);
-      navigate(`/interview-helper/session/${sessionId}${location.search || ''}`, { replace: true });
+      const debugSuffix = params.get('debug') === '1' ? '?debug=1' : '';
+      navigate(`/interview-helper/session/${sessionId}${debugSuffix}`, { replace: true });
     };
     void boot();
   }, [location.search, navigate]);

@@ -31,6 +31,11 @@ const sessionCreateSchema = z.object({
   prep_pack_id: z.string().uuid().nullable().optional(),
   rex_context_instructions: z.string().max(4000).nullable().optional(),
 });
+const sessionUpdateSchema = z
+  .object({
+    role_title: z.string().min(1).max(160).optional(),
+  })
+  .refine((value) => typeof value.role_title === 'string', { message: 'No updatable fields provided' });
 
 const turnUpsertSchema = z.object({
   turn_index: z.number().int().min(1),
@@ -291,16 +296,27 @@ router.post('/token', requireAuthUnified as any, async (req, res) => {
 
     const requestedSessionId = String(req.query.session_id || '').trim();
     let additionalContext = '';
+    let sessionRoleTitle = '';
+    let sessionCompany = '';
     if (requestedSessionId && isUuid(requestedSessionId)) {
       const userId = String((req as any)?.user?.id || '');
       if (userId) {
         const ownedSession = await getOwnedSession(userId, requestedSessionId);
         additionalContext = String(ownedSession?.metadata?.rex_context_instructions || '').trim();
+        sessionRoleTitle = String(ownedSession?.role_title || '').trim();
+        sessionCompany = String(ownedSession?.company || '').trim();
       }
     }
-    const effectiveInstructions = additionalContext
-      ? `${REALTIME_INSTRUCTIONS}\nAdditional interview context from the user: ${additionalContext}`
-      : REALTIME_INSTRUCTIONS;
+    const sessionContextPrefix = sessionRoleTitle
+      ? `Interview target role: ${sessionRoleTitle}${sessionCompany ? ` at ${sessionCompany}` : ''}.`
+      : '';
+    const effectiveInstructions = [
+      REALTIME_INSTRUCTIONS,
+      sessionContextPrefix,
+      additionalContext ? `Additional interview context from the user: ${additionalContext}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     const modelCandidates = pickModel(REALTIME_MODEL, REALTIME_MODEL_FALLBACKS);
     let response: any = null;
@@ -509,6 +525,53 @@ router.get('/sessions/:id', requireAuthUnified as any, async (req, res) => {
     return res.json({ session, turns: turns || [] });
   } catch (e: any) {
     return res.status(500).json({ error: 'Failed to load session', detail: e?.message });
+  }
+});
+
+router.patch('/sessions/:id', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const sessionId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const parsed = sessionUpdateSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid session payload', detail: parsed.error.flatten() });
+    }
+    const nextRoleTitle = String(parsed.data.role_title || '').trim();
+    const { data, error } = await supabaseAdmin
+      .from('interview_sessions')
+      .update({ role_title: nextRoleTitle })
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+    if (error) return res.status(500).json({ error: 'Failed to update session', detail: error.message });
+    return res.json({ session: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to update session', detail: e?.message });
+  }
+});
+
+router.delete('/sessions/:id', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const sessionId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const { error } = await supabaseAdmin
+      .from('interview_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
+    if (error) return res.status(500).json({ error: 'Failed to delete session', detail: error.message });
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to delete session', detail: e?.message });
   }
 });
 

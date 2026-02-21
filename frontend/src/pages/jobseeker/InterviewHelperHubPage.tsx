@@ -28,10 +28,13 @@ export default function InterviewHelperHubPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [sessionTitle, setSessionTitle] = useState('Senior Product Manager');
   const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
   const [rexContext, setRexContext] = useState('');
+  const [includeContextInInterview, setIncludeContextInInterview] = useState(true);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeStatus, setResumeStatus] = useState('');
+  const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadSessions = async () => {
@@ -65,6 +68,10 @@ export default function InterviewHelperHubPage() {
       }
       const saved = localStorage.getItem('interview_helper_rex_context') || '';
       if (saved) setRexContext(saved);
+      const savedTitle = localStorage.getItem('interview_helper_session_title') || '';
+      if (savedTitle) setSessionTitle(savedTitle);
+      const includeContextRaw = localStorage.getItem('interview_helper_include_context');
+      if (includeContextRaw != null) setIncludeContextInInterview(includeContextRaw === '1');
     } catch {
       // no-op
     }
@@ -91,9 +98,11 @@ export default function InterviewHelperHubPage() {
   const startNewSession = () => {
     const params = new URLSearchParams();
     if (selectedPrepPackId) params.set('prepPackId', selectedPrepPackId);
+    const normalizedTitle = sessionTitle.trim() || 'Interview Practice Session';
+    params.set('sessionTitle', normalizedTitle);
+    params.set('includeContext', includeContextInInterview ? '1' : '0');
     const trimmedContext = rexContext.trim();
-    if (trimmedContext) {
-      params.set('rexContext', trimmedContext);
+    if (trimmedContext && includeContextInInterview) {
       try {
         localStorage.setItem('interview_helper_rex_context', trimmedContext);
       } catch {
@@ -105,6 +114,12 @@ export default function InterviewHelperHubPage() {
       } catch {
         // no-op
       }
+    }
+    try {
+      localStorage.setItem('interview_helper_session_title', normalizedTitle);
+      localStorage.setItem('interview_helper_include_context', includeContextInInterview ? '1' : '0');
+    } catch {
+      // no-op
     }
     navigate(`/interview-helper/session/new${params.toString() ? `?${params.toString()}` : ''}`);
   };
@@ -160,6 +175,40 @@ export default function InterviewHelperHubPage() {
       if (event.target) event.target.value = '';
       void loadSessions();
     }
+  };
+  const handleEditSession = async (session: SessionRow) => {
+    const nextTitle = window.prompt('Rename session', session.role_title || '')?.trim();
+    if (!nextTitle || nextTitle === session.role_title) return;
+    const sessionResult = await supabase.auth.getSession().catch(() => null);
+    const accessToken = sessionResult?.data?.session?.access_token || '';
+    const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(session.id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ role_title: nextTitle }),
+    }).catch(() => null);
+    if (!response?.ok) return;
+    setOpenMenuSessionId(null);
+    await loadSessions();
+  };
+  const handleDeleteSession = async (session: SessionRow) => {
+    const confirmed = window.confirm(`Delete session "${session.role_title}"? This cannot be undone.`);
+    if (!confirmed) return;
+    const sessionResult = await supabase.auth.getSession().catch(() => null);
+    const accessToken = sessionResult?.data?.session?.access_token || '';
+    const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(session.id)}`, {
+      method: 'DELETE',
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      credentials: 'include',
+    }).catch(() => null);
+    if (!response?.ok) return;
+    setOpenMenuSessionId(null);
+    await loadSessions();
   };
 
   return (
@@ -219,6 +268,14 @@ export default function InterviewHelperHubPage() {
             </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-3">
+            <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Session Title</label>
+            <input
+              value={sessionTitle}
+              onChange={(e) => setSessionTitle(e.target.value)}
+              placeholder="Name this interview session"
+              maxLength={160}
+              className="w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 mb-3"
+            />
             <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Additional REX Interview Context</label>
             <textarea
               value={rexContext}
@@ -228,6 +285,15 @@ export default function InterviewHelperHubPage() {
               className="w-full min-h-[92px] rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
             <div className="text-right text-xs text-gray-500 mt-1">{rexContext.length}/4000</div>
+            <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={includeContextInInterview}
+                onChange={(e) => setIncludeContextInInterview(e.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-black/40"
+              />
+              <span>Add context to interview</span>
+            </label>
             {resumeStatus ? <div className="text-xs text-blue-300 mt-2">{resumeStatus}</div> : null}
           </div>
           <div className="grid md:grid-cols-2 gap-3">
@@ -298,9 +364,41 @@ export default function InterviewHelperHubPage() {
               return (
                 <div
                   key={session.id}
-                  className="card-hover glow-on-hover bg-[#111827] border border-white/5 rounded-xl p-5 cursor-pointer"
+                  className="card-hover glow-on-hover relative bg-[#111827] border border-white/5 rounded-xl p-5 cursor-pointer"
                   onClick={() => navigate(`/interview-helper/session/${session.id}`)}
                 >
+                  <button
+                    type="button"
+                    className="absolute top-3 right-3 h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuSessionId((prev) => (prev === session.id ? null : session.id));
+                    }}
+                    aria-label="Session actions"
+                  >
+                    <i className="fa-solid fa-ellipsis-vertical"></i>
+                  </button>
+                  {openMenuSessionId === session.id ? (
+                    <div
+                      className="absolute top-12 right-3 z-20 min-w-[120px] rounded-lg border border-white/10 bg-[#0f172a] shadow-xl"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-white/10"
+                        onClick={() => void handleEditSession(session)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-white/10"
+                        onClick={() => void handleDeleteSession(session)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-base font-semibold text-white mb-1 truncate">{session.role_title}</h3>
