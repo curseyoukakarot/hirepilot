@@ -11,18 +11,24 @@ export async function getLeads(campaignId = null) {
     if (!session) throw new Error('Not authenticated');
 
     // Build URL with optional campaign filter
-    let url = `${API_BASE_URL}/api/leads`;
+    const params = new URLSearchParams();
     if (campaignId && campaignId !== 'all') {
-      url += `?campaignId=${encodeURIComponent(campaignId)}`;
+      params.set('campaignId', campaignId);
     }
+    // Prevent browser/proxy 304 responses with empty body from collapsing into [].
+    params.set('_ts', Date.now().toString());
+    const url = `${API_BASE_URL}/api/leads?${params.toString()}`;
 
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+        'Authorization': `Bearer ${session.access_token}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
-      credentials: 'include'
+      credentials: 'include',
+      cache: 'no-store'
     });
 
     if (!res.ok) {
