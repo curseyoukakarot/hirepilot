@@ -22,10 +22,7 @@ export async function getLeads(campaignId = null) {
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+        'Authorization': `Bearer ${session.access_token}`
       },
       credentials: 'include',
       cache: 'no-store'
