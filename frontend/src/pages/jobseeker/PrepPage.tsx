@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FaBriefcase,
@@ -16,6 +16,10 @@ import {
 
 export default function PrepPage() {
   const navigate = useNavigate();
+  const [interviewType, setInterviewType] = useState('Behavioral + Product');
+  const [roleTrack, setRoleTrack] = useState('Individual Contributor');
+  const [companyName, setCompanyName] = useState('');
+  const [interviewStages, setInterviewStages] = useState('');
 
   const goToRexAnalyze = () => {
     const prompt =
@@ -27,6 +31,25 @@ export default function PrepPage() {
     const prepContext =
       'Use my prep center context. Prioritize concise STAR answers, stronger metrics, and tougher follow-up questions that simulate a real interview panel.';
     navigate(`/interview-helper?rexContext=${encodeURIComponent(prepContext)}`);
+  };
+
+  const openInterviewHelperWithSetup = () => {
+    const lines = [
+      `Interview type: ${interviewType}`,
+      `Role track: ${roleTrack}`,
+      `Company name: ${companyName.trim() || 'Not provided'}`,
+      `Known interview stages: ${interviewStages.trim() || 'Not provided'}`,
+      'Use this setup to ask targeted, role-relevant questions and adapt follow-ups to likely interview rounds.',
+    ];
+    const setupContext = lines.join('\n');
+    try {
+      localStorage.setItem('interview_helper_rex_context', setupContext);
+      localStorage.setItem('interview_helper_session_title', `${interviewType} Interview Prep`);
+      localStorage.setItem('interview_helper_include_context', '1');
+    } catch {
+      // no-op
+    }
+    navigate('/interview-helper');
   };
   return (
     <div id="prep-page" className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 text-slate-100">
@@ -79,6 +102,63 @@ export default function PrepPage() {
           <FaMicrophoneLines />
           <span>Interview Helper</span>
         </Link>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Interview Setup (REX Prep)</h2>
+            <p className="text-sm text-slate-400">Answer these so REX can ask better, role-specific questions.</p>
+          </div>
+          <button
+            type="button"
+            onClick={openInterviewHelperWithSetup}
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition"
+          >
+            <FaMicrophoneLines />
+            <span>Apply & Open Interview Helper</span>
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">What type of interview are you taking?</label>
+            <input
+              value={interviewType}
+              onChange={(e) => setInterviewType(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
+              placeholder="Behavioral, Technical, Product case, Panel, etc."
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">IC or Management?</label>
+            <select
+              value={roleTrack}
+              onChange={(e) => setRoleTrack(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
+            >
+              <option>Individual Contributor</option>
+              <option>Management</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">Company name</label>
+            <input
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
+              placeholder="e.g., Stripe"
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-slate-400 mb-2">What do you know about the stages?</label>
+            <input
+              value={interviewStages}
+              onChange={(e) => setInterviewStages(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
+              placeholder="Recruiter screen, HM round, panel, case study..."
+            />
+          </div>
+        </div>
       </div>
 
       {/* Main Cards Grid */}

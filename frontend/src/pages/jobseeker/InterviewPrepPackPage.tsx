@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE =
   import.meta.env.VITE_BACKEND_URL ||
@@ -29,20 +30,58 @@ type PrepPackPayload = {
 
 export default function InterviewPrepPackPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<PrepPackPayload | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       if (!id) return;
+      setLoadError(null);
+      const auth = await supabase.auth.getSession().catch(() => null);
+      const accessToken = auth?.data?.session?.access_token || '';
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/prep/${encodeURIComponent(id)}`, {
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: 'include',
       }).catch(() => null);
-      if (!response?.ok) return;
+      if (!response) {
+        setLoadError('Network interrupted while loading prep pack. Please refresh.');
+        return;
+      }
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setLoadError('Please sign in again to view this prep pack.');
+          return;
+        }
+        if (response.status === 404) {
+          setLoadError('Prep pack not found or unavailable.');
+          return;
+        }
+        setLoadError('Unable to load prep pack right now.');
+        return;
+      }
       const payload = await response.json().catch(() => null);
       if (payload) setData(payload as PrepPackPayload);
     };
     void load();
   }, [id]);
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#0b0f14] text-gray-300 p-8 flex flex-col items-center justify-center gap-3">
+        <div>{loadError}</div>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => navigate('/interview-helper')}
+        >
+          Back to Interview Helper
+        </button>
+      </div>
+    );
+  }
 
   if (!data) {
     return <div className="min-h-screen bg-[#0b0f14] text-gray-300 p-8">Loading prep pack...</div>;

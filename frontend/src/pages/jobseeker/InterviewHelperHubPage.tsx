@@ -210,6 +210,15 @@ export default function InterviewHelperHubPage() {
     setOpenMenuSessionId(null);
     await loadSessions();
   };
+  const handleClearInterviewContext = () => {
+    setRexContext('');
+    setResumeStatus('');
+    try {
+      localStorage.removeItem('interview_helper_rex_context');
+    } catch {
+      // no-op
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0F14] text-[#e5e5e5] font-['Inter',sans-serif]">
@@ -219,28 +228,6 @@ export default function InterviewHelperHubPage() {
         .glow-on-hover:hover { box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); }
         .metric-card { background: linear-gradient(135deg, rgba(17, 24, 39, 0.6) 0%, rgba(17, 24, 39, 0.4) 100%); backdrop-filter: blur(10px); }
       `}</style>
-      <header id="header" className="h-16 border-b border-white/5 bg-[#0B0F14]/95 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <a href="#" className="text-xl font-semibold text-white tracking-tight">HirePilot</a>
-            <nav className="hidden md:flex items-center space-x-6">
-              <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Dashboard</a>
-              <a href="#" className="text-sm text-blue-400 font-medium">Interview Helper</a>
-              <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Resume</a>
-              <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Jobs</a>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">
-              <i className="fa-regular fa-bell text-lg"></i>
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden">
-              <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="User" className="w-full h-full object-cover" />
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <section id="hero-section" className="mb-12 md:mb-16">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
@@ -284,7 +271,17 @@ export default function InterviewHelperHubPage() {
               maxLength={4000}
               className="w-full min-h-[92px] rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
-            <div className="text-right text-xs text-gray-500 mt-1">{rexContext.length}/4000</div>
+            <div className="mt-1 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleClearInterviewContext}
+                disabled={!rexContext}
+                className="text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear context
+              </button>
+              <div className="text-xs text-gray-500">{rexContext.length}/4000</div>
+            </div>
             <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-300">
               <input
                 type="checkbox"
