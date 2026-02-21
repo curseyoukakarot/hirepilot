@@ -29,6 +29,7 @@ const sessionCreateSchema = z.object({
   level: z.string().nullable().optional(),
   mode: z.enum(['supportive', 'strict']).default('supportive'),
   prep_pack_id: z.string().uuid().nullable().optional(),
+  rex_context_instructions: z.string().max(700).nullable().optional(),
 });
 
 const turnUpsertSchema = z.object({
@@ -282,11 +283,24 @@ function computePrepPack(turns: any[]) {
   };
 }
 
-router.post('/token', requireAuthUnified as any, async (_req, res) => {
+router.post('/token', requireAuthUnified as any, async (req, res) => {
   try {
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
     }
+
+    const requestedSessionId = String(req.query.session_id || '').trim();
+    let additionalContext = '';
+    if (requestedSessionId && isUuid(requestedSessionId)) {
+      const userId = String((req as any)?.user?.id || '');
+      if (userId) {
+        const ownedSession = await getOwnedSession(userId, requestedSessionId);
+        additionalContext = String(ownedSession?.metadata?.rex_context_instructions || '').trim();
+      }
+    }
+    const effectiveInstructions = additionalContext
+      ? `${REALTIME_INSTRUCTIONS}\nAdditional interview context from the user: ${additionalContext}`
+      : REALTIME_INSTRUCTIONS;
 
     const modelCandidates = pickModel(REALTIME_MODEL, REALTIME_MODEL_FALLBACKS);
     let response: any = null;
@@ -302,7 +316,7 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
         body: JSON.stringify({
           model,
           voice: REALTIME_VOICE,
-          instructions: REALTIME_INSTRUCTIONS,
+          instructions: effectiveInstructions,
           modalities: ['audio', 'text'],
           input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
           turn_detection: { type: 'server_vad' },
@@ -316,8 +330,8 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
             primary_model: REALTIME_MODEL,
             fallback_model: model,
             reason: 'model_unavailable',
-            session_id: null,
-            user_id: String((_req as any)?.user?.id || ''),
+            session_id: requestedSessionId || null,
+            user_id: String((req as any)?.user?.id || ''),
           });
         }
         break;
@@ -335,7 +349,7 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
         detail: 'No supported realtime model available',
       });
     }
-    debugLog(_req, 'realtime model selected', { model: selectedModel });
+    debugLog(req, 'realtime model selected', { model: selectedModel });
 
     const token = payload?.client_secret?.value;
     const expiresAt =
@@ -409,6 +423,9 @@ router.post('/sessions', requireAuthUnified as any, async (req, res) => {
         mode: parsed.data.mode,
         status: 'in_progress',
         prep_pack_id: prepPackId,
+        metadata: parsed.data.rex_context_instructions
+          ? { rex_context_instructions: parsed.data.rex_context_instructions }
+          : {},
       })
       .select('id')
       .single();

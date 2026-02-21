@@ -191,6 +191,7 @@ export default function InterviewSessionPage() {
   };
 
   const voiceSession = useVoiceSession({
+    sessionId,
     onUserSpeechStart: () => transition('USER_SPEECH_START'),
     onUserSpeechEnd: () => transition('USER_SPEECH_END'),
     onRexThinkStart: () => transition('REX_THINK_START'),

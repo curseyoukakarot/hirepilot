@@ -11,6 +11,7 @@ type VoiceSessionOptions = {
   onUserTranscriptFinal?: (text: string) => void;
   onRexTranscriptPartial?: (text: string) => void;
   onRexTranscriptFinal?: (text: string) => void;
+  sessionId?: string | null;
 };
 
 const API_BASE =
@@ -164,7 +165,9 @@ export function useVoiceSession(options: VoiceSessionOptions = {}) {
     setIsConnecting(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/token`, {
+      const tokenUrl = new URL(`${API_BASE.replace(/\/$/, '')}/api/interview/token`);
+      if (options.sessionId) tokenUrl.searchParams.set('session_id', options.sessionId);
+      const response = await fetch(tokenUrl.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -249,7 +252,7 @@ export function useVoiceSession(options: VoiceSessionOptions = {}) {
     } finally {
       setIsConnecting(false);
     }
-  }, [disconnect, ensureRemoteAudio, handleRealtimeEvent]);
+  }, [disconnect, ensureRemoteAudio, handleRealtimeEvent, options.sessionId]);
 
   return {
     connected,

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE =
   import.meta.env.VITE_BACKEND_URL ||
@@ -27,19 +28,32 @@ export default function InterviewHelperHubPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
+  const [rexContext, setRexContext] = useState('');
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadSessions = async () => {
+    const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
+      credentials: 'include',
+    }).catch(() => null);
+    if (!response?.ok) return;
+    const payload = await response.json().catch(() => null);
+    if (Array.isArray(payload?.sessions)) {
+      setSessions(payload.sessions as SessionRow[]);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
-        credentials: 'include',
-      }).catch(() => null);
-      if (!response?.ok) return;
-      const payload = await response.json().catch(() => null);
-      if (Array.isArray(payload?.sessions)) {
-        setSessions(payload.sessions as SessionRow[]);
-      }
-    };
-    void load();
+    void loadSessions();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('interview_helper_rex_context') || '';
+      if (saved) setRexContext(saved);
+    } catch {
+      // no-op
+    }
   }, []);
 
   const analytics = useMemo(() => {
@@ -60,6 +74,61 @@ export default function InterviewHelperHubPage() {
     [sessions]
   );
   const latestPrepPack = prepPackSessions[0]?.prep_pack_id || '';
+  const startNewSession = () => {
+    const params = new URLSearchParams();
+    if (selectedPrepPackId) params.set('prepPackId', selectedPrepPackId);
+    const trimmedContext = rexContext.trim();
+    if (trimmedContext) {
+      params.set('rexContext', trimmedContext);
+      try {
+        localStorage.setItem('interview_helper_rex_context', trimmedContext);
+      } catch {
+        // no-op
+      }
+    } else {
+      try {
+        localStorage.removeItem('interview_helper_rex_context');
+      } catch {
+        // no-op
+      }
+    }
+    navigate(`/interview-helper/session/new${params.toString() ? `?${params.toString()}` : ''}`);
+  };
+  const handleUploadResumeClick = () => {
+    fileInputRef.current?.click();
+  };
+  const handleResumeFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingResume(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      const form = new FormData();
+      form.append('resume', file);
+      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/jobs/resume-drafts`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: form,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.draft?.id) {
+        navigate('/prep/resume/wizard');
+        return;
+      }
+      navigate(`/prep/resume/builder?draftId=${encodeURIComponent(String(payload.draft.id))}`);
+    } catch {
+      navigate('/prep/resume/wizard');
+    } finally {
+      setUploadingResume(false);
+      if (event.target) event.target.value = '';
+      void loadSessions();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0F14] text-[#e5e5e5] font-['Inter',sans-serif]">
@@ -101,22 +170,32 @@ export default function InterviewHelperHubPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-900/40 flex items-center justify-center gap-2"
-                onClick={() =>
-                  navigate(
-                    `/interview-helper/session/new${
-                      selectedPrepPackId ? `?prepPackId=${encodeURIComponent(selectedPrepPackId)}` : ''
-                    }`
-                  )
-                }
+                onClick={startNewSession}
               >
                 <i className="fa-solid fa-plus"></i>
                 <span>Start New Session</span>
               </button>
-              <button className="px-6 py-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl font-medium transition-all border border-white/10 flex items-center justify-center gap-2">
+              <button
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl font-medium transition-all border border-white/10 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={handleUploadResumeClick}
+                disabled={uploadingResume}
+              >
                 <i className="fa-solid fa-file-arrow-up"></i>
-                <span>Upload Resume</span>
+                <span>{uploadingResume ? 'Uploading Resume...' : 'Upload Resume'}</span>
               </button>
+              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeFileSelected} />
             </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 mb-3">
+            <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Additional REX Interview Context</label>
+            <textarea
+              value={rexContext}
+              onChange={(e) => setRexContext(e.target.value)}
+              placeholder="Example: Focus on PM leadership at fintech scale, ask stricter follow-ups on metrics and stakeholder influence."
+              maxLength={700}
+              className="w-full min-h-[92px] rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <div className="text-right text-xs text-gray-500 mt-1">{rexContext.length}/700</div>
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             <select

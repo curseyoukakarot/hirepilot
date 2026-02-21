@@ -56,6 +56,7 @@ export default function InterviewSessionBootstrapPage() {
       setIsCreating(true);
       const params = new URLSearchParams(location.search);
       const prepPackId = params.get('prepPackId') || '';
+      const rexContext = (params.get('rexContext') || '').trim();
       await supabase.auth.getSession().catch(() => null);
       const idempotencyKey = getIdempotencyKey(prepPackId);
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
@@ -68,6 +69,7 @@ export default function InterviewSessionBootstrapPage() {
           level: 'senior',
           mode: 'supportive',
           prep_pack_id: prepPackId || null,
+          rex_context_instructions: rexContext || null,
         }),
       }).catch(() => null);
       if (!response?.ok) {
