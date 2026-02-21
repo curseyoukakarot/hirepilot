@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { openai } from '../ai/openaiClient';
 import requireAuthUnified from '../../middleware/requireAuthUnified';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { isModelAvailabilityError, pickModel } from '../lib/modelFallback';
 
 const router = Router();
 
@@ -18,9 +17,7 @@ const REALTIME_INSTRUCTIONS =
     'After each user answer, provide concise coaching and ask one follow-up.',
     'Keep responses clear, professional, and encouraging.',
   ].join(' ');
-const COACH_MODEL = process.env.INTERVIEW_COACH_MODEL || 'gpt-5.2';
-const COACH_MODEL_FALLBACKS = ['gpt-5.2', 'gpt-5', 'gpt-4o', 'gpt-4o-mini'];
-const REALTIME_MODEL_FALLBACKS = ['gpt-5.2-realtime-preview', 'gpt-4o-realtime-preview'];
+const COACH_MODEL = process.env.INTERVIEW_COACH_MODEL || 'gpt-4o-mini';
 
 const sessionCreateSchema = z.object({
   role_title: z.string().min(1),
@@ -112,24 +109,6 @@ Rules:
 Return JSON only.`;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function avg(values: number[]) {
-  if (!values.length) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function shouldDebugLog(req: any) {
-  return req?.query?.debug === '1' || process.env.INTERVIEW_DEBUG === 'true';
-}
-
-function debugLog(req: any, message: string, extra: Record<string, unknown> = {}) {
-  if (!shouldDebugLog(req)) return;
-  console.info(`[interview.debug] ${message}`, extra);
-}
-
 async function getOwnedSession(userId: string, sessionId: string) {
   const { data, error } = await supabaseAdmin
     .from('interview_sessions')
@@ -147,25 +126,30 @@ function computePrepPack(turns: any[]) {
     .map((turn) => turn.coaching)
     .filter((coaching) => coaching && typeof coaching === 'object');
   const scoreKeys = ['clarity', 'structure', 'specificity', 'relevance', 'confidence'] as const;
-  const perDimensionScores = scoreKeys.reduce(
+  const scoreTotals: Record<(typeof scoreKeys)[number], number> = {
+    clarity: 0,
+    structure: 0,
+    specificity: 0,
+    relevance: 0,
+    confidence: 0,
+  };
+  let scoredCount = 0;
+  coachPayloads.forEach((payload) => {
+    if (!payload?.score) return;
+    scoredCount += 1;
+    scoreKeys.forEach((key) => {
+      scoreTotals[key] += Number(payload.score?.[key] || 0);
+    });
+  });
+  const averagedScore = scoreKeys.reduce(
     (acc, key) => {
-      const values = coachPayloads
-        .map((payload) => Number(payload?.score?.[key]))
-        .filter((value) => Number.isFinite(value))
-        .map((value) => clamp(value, 1, 5));
-      const dimensionAvg = avg(values);
-      acc[key] = Number((dimensionAvg == null ? 1 : clamp(dimensionAvg, 1, 5)).toFixed(2));
+      acc[key] = scoredCount ? Number((scoreTotals[key] / scoredCount).toFixed(2)) : 0;
       return acc;
     },
     {} as Record<(typeof scoreKeys)[number], number>
   );
-  const totalAvg5 = Number(
-    (
-      scoreKeys.reduce((sum, key) => sum + perDimensionScores[key], 0) /
-      scoreKeys.length
-    ).toFixed(4)
-  );
-  const overall10 = Number(clamp(((totalAvg5 - 1) / 4) * 10, 0, 10).toFixed(1));
+  const overall5 = scoreKeys.reduce((sum, key) => sum + averagedScore[key], 0) / scoreKeys.length || 0;
+  const overall10 = Number((overall5 * 2).toFixed(1));
 
   const strengthMap = new Map<string, number>();
   const focusMap = new Map<string, number>();
@@ -199,9 +183,6 @@ function computePrepPack(turns: any[]) {
         answer: turn.answer_text || '',
         improved: turn?.coaching?.improved_version?.answer || '',
         score_sum: sum,
-        evidence_quotes: Array.isArray(turn?.coaching?.evidence_quotes)
-          ? turn.coaching.evidence_quotes.slice(0, 2)
-          : [],
       };
     })
     .filter((row) => row.answer)
@@ -218,18 +199,10 @@ function computePrepPack(turns: any[]) {
     { day: 7, task: 'Run full mock session and compare scores vs previous run.' },
   ];
 
-  const evidenceQuotes = coachPayloads
-    .flatMap((payload) => (Array.isArray(payload?.evidence_quotes) ? payload.evidence_quotes : []))
-    .map((quote) => String(quote || '').trim())
-    .filter(Boolean)
-    .slice(0, 2);
-
   return {
     overall_score: {
       out_of_10: overall10,
-      dimensions: perDimensionScores,
-      total_avg_5: Number(totalAvg5.toFixed(2)),
-      evidence_quotes: evidenceQuotes,
+      dimensions: averagedScore,
     },
     strengths,
     focus_areas: focusAreas,
@@ -237,8 +210,8 @@ function computePrepPack(turns: any[]) {
     practice_plan: practicePlan,
     modalSummary: {
       scoreOutOf10: overall10,
-      topStrength: strengths[0]?.title || 'Clear communication',
-      focusArea: focusAreas[0]?.title || 'Add specificity and metrics',
+      topStrength: strengths[0]?.title || 'Structured thinking',
+      focusArea: focusAreas[0]?.title || 'Answer specificity',
     },
   };
 }
@@ -249,46 +222,29 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
       return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
     }
 
-    const modelCandidates = pickModel(REALTIME_MODEL, REALTIME_MODEL_FALLBACKS);
-    let response: any = null;
-    let payload: any = null;
-    let selectedModel: string | null = null;
-    for (const model of modelCandidates) {
-      response = await fetch('https://api.openai.com/v1/realtime/sessions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          voice: REALTIME_VOICE,
-          instructions: REALTIME_INSTRUCTIONS,
-          modalities: ['audio', 'text'],
-          input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
-          turn_detection: { type: 'server_vad' },
-        }),
-      });
-      payload = await response.json().catch(() => ({} as any));
-      if (response.ok) {
-        selectedModel = model;
-        break;
-      }
-      if (!isModelAvailabilityError(payload, response.status)) {
-        return res.status(response.status).json({
-          error: 'Failed to create realtime session',
-          detail: payload?.error?.message || 'Unknown realtime token error',
-        });
-      }
-    }
-    if (!response?.ok || !selectedModel) {
-      return res.status(502).json({
-        error: 'Failed to create realtime session',
-        detail: 'No supported realtime model available',
-      });
-    }
-    debugLog(_req, 'realtime model selected', { model: selectedModel });
+    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: REALTIME_MODEL,
+        voice: REALTIME_VOICE,
+        instructions: REALTIME_INSTRUCTIONS,
+        modalities: ['audio', 'text'],
+        input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
+        turn_detection: { type: 'server_vad' },
+      }),
+    });
 
+    const payload = await response.json().catch(() => ({} as any));
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: 'Failed to create realtime session',
+        detail: payload?.error?.message || 'Unknown realtime token error',
+      });
+    }
     const token = payload?.client_secret?.value;
     const expiresAt =
       payload?.client_secret?.expires_at != null
@@ -301,7 +257,7 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
     return res.json({
       token,
       expires_at: expiresAt,
-      model: payload?.model || selectedModel,
+      model: payload?.model || REALTIME_MODEL,
       voice: payload?.voice || REALTIME_VOICE,
     });
   } catch (e: any) {
@@ -348,25 +304,7 @@ router.get('/sessions', requireAuthUnified as any, async (req, res) => {
       .eq('user_id', userId)
       .order('started_at', { ascending: false });
     if (error) return res.status(500).json({ error: 'Failed to list sessions', detail: error.message });
-    const sessionIds = (data || []).map((session) => session.id);
-    let scoresBySession: Record<string, number> = {};
-    if (sessionIds.length) {
-      const { data: packs } = await supabaseAdmin
-        .from('interview_prep_packs')
-        .select('session_id, overall_score')
-        .in('session_id', sessionIds);
-      scoresBySession = (packs || []).reduce((acc: Record<string, number>, row: any) => {
-        const outOf10 = Number(row?.overall_score?.out_of_10);
-        if (Number.isFinite(outOf10)) acc[String(row.session_id)] = outOf10;
-        return acc;
-      }, {});
-    }
-    return res.json({
-      sessions: (data || []).map((session) => ({
-        ...session,
-        score_out_of_10: scoresBySession[session.id] ?? null,
-      })),
-    });
+    return res.json({ sessions: data || [] });
   } catch (e: any) {
     return res.status(500).json({ error: 'Failed to list sessions', detail: e?.message });
   }
@@ -520,34 +458,19 @@ router.post('/:sessionId/coach', requireAuthUnified as any, async (req, res) => 
     }
 
     const prompt = buildCoachPrompt(parsed.data);
-    const coachModelCandidates = pickModel(COACH_MODEL, COACH_MODEL_FALLBACKS);
-    let completion: any = null;
-    let selectedCoachModel = '';
-    for (const candidate of coachModelCandidates) {
-      try {
-        completion = await openai.chat.completions.create({
-          model: candidate,
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Return only valid JSON. No markdown or prose. No keys outside the required schema.',
-            },
-            { role: 'user', content: prompt },
-          ],
-        });
-        selectedCoachModel = candidate;
-        break;
-      } catch (modelErr: any) {
-        if (!isModelAvailabilityError(modelErr)) throw modelErr;
-      }
-    }
-    if (!completion || !selectedCoachModel) {
-      return res.status(502).json({ error: 'No supported coaching model available' });
-    }
-    debugLog(req, 'coach model selected', { model: selectedCoachModel });
+    const completion = await openai.chat.completions.create({
+      model: COACH_MODEL,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Return only valid JSON. No markdown or prose. No keys outside the required schema.',
+        },
+        { role: 'user', content: prompt },
+      ],
+    });
 
     let content = completion.choices?.[0]?.message?.content || '{}';
     let raw: any = null;
@@ -555,7 +478,7 @@ router.post('/:sessionId/coach', requireAuthUnified as any, async (req, res) => 
       raw = JSON.parse(content);
     } catch {
       const retry = await openai.chat.completions.create({
-        model: selectedCoachModel,
+        model: COACH_MODEL,
         temperature: 0,
         response_format: { type: 'json_object' },
         messages: [

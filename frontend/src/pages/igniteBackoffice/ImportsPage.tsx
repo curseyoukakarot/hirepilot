@@ -190,7 +190,7 @@ export default function ImportsPage() {
   return (
     <IgniteBackofficeLayout>
       <div className="ignite-backoffice-scrollbar-hide bg-gray-900 font-sans min-h-screen">
-        <div id="imports-content">
+        <main id="main-content" className="flex-1 overflow-y-auto">
           <header id="header" className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
             <div className="px-8 py-6">
               <div className="flex items-center justify-between">
@@ -489,7 +489,7 @@ export default function ImportsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     </IgniteBackofficeLayout>
   );
