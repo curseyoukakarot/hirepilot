@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 type VoiceSessionOptions = {
   onUserSpeechStart?: () => void;
@@ -167,9 +168,14 @@ export function useVoiceSession(options: VoiceSessionOptions = {}) {
     try {
       const tokenUrl = new URL(`${API_BASE.replace(/\/$/, '')}/api/interview/token`);
       if (options.sessionId) tokenUrl.searchParams.set('session_id', options.sessionId);
+      const auth = await supabase.auth.getSession().catch(() => null);
+      const accessToken = auth?.data?.session?.access_token || '';
       const response = await fetch(tokenUrl.toString(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: 'include',
       });
       if (!response.ok) {

@@ -6,6 +6,13 @@ type VoiceStageProps = {
   mode: 'idle' | 'user' | 'rex';
   intensity: number;
   onMicClick: () => void;
+  onMicHoldStart?: () => void;
+  onMicHoldEnd?: () => void;
+  talkMode: 'hands_free' | 'push_to_talk';
+  onTalkModeChange: (mode: 'hands_free' | 'push_to_talk') => void;
+  micMuted: boolean;
+  onToggleMute: () => void;
+  onKeyboardInput: () => void;
   micBusy?: boolean;
   debugState?: string;
   showDebug?: boolean;
@@ -16,6 +23,13 @@ export default function VoiceStage({
   mode,
   intensity,
   onMicClick,
+  onMicHoldStart,
+  onMicHoldEnd,
+  talkMode,
+  onTalkModeChange,
+  micMuted,
+  onToggleMute,
+  onKeyboardInput,
   micBusy = false,
   debugState = '',
   showDebug = false,
@@ -47,6 +61,11 @@ export default function VoiceStage({
           <button
             className="w-20 h-20 rounded-full bg-white text-black border border-white/80 flex items-center justify-center shadow-[0_0_55px_rgba(255,255,255,0.35)] hover:scale-105 transition-all duration-300 z-20 relative"
             onClick={onMicClick}
+            onMouseDown={() => talkMode === 'push_to_talk' && onMicHoldStart?.()}
+            onMouseUp={() => talkMode === 'push_to_talk' && onMicHoldEnd?.()}
+            onMouseLeave={() => talkMode === 'push_to_talk' && onMicHoldEnd?.()}
+            onTouchStart={() => talkMode === 'push_to_talk' && onMicHoldStart?.()}
+            onTouchEnd={() => talkMode === 'push_to_talk' && onMicHoldEnd?.()}
             disabled={micBusy}
           >
             <i className="fa-solid fa-microphone text-2xl"></i>
@@ -56,19 +75,33 @@ export default function VoiceStage({
         </div>
 
         <div className="flex items-center bg-gray-900/50 p-1 rounded-full border border-white/5">
-          <button className="px-4 py-1.5 rounded-full bg-gray-800 text-white text-xs font-medium shadow-sm transition-all">
+          <button
+            className={`px-4 py-1.5 rounded-full text-xs font-medium shadow-sm transition-all ${
+              talkMode === 'hands_free' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+            onClick={() => onTalkModeChange('hands_free')}
+          >
             Hands-Free
           </button>
-          <button className="px-4 py-1.5 rounded-full text-gray-500 hover:text-gray-300 text-xs font-medium transition-all">
+          <button
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+              talkMode === 'push_to_talk' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+            onClick={() => onTalkModeChange('push_to_talk')}
+          >
             Push-to-Talk
           </button>
         </div>
 
         <div className="flex items-center space-x-8 pt-4">
-          <button className="text-gray-600 hover:text-white transition-colors" title="Mute Microphone">
-            <i className="fa-solid fa-microphone-slash text-lg"></i>
+          <button
+            className={`transition-colors ${micMuted ? 'text-red-300 hover:text-red-200' : 'text-gray-600 hover:text-white'}`}
+            title={micMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+            onClick={onToggleMute}
+          >
+            <i className={`text-lg ${micMuted ? 'fa-solid fa-microphone-slash' : 'fa-solid fa-microphone'}`}></i>
           </button>
-          <button className="text-gray-600 hover:text-white transition-colors" title="Keyboard Input">
+          <button className="text-gray-600 hover:text-white transition-colors" title="Keyboard Input" onClick={onKeyboardInput}>
             <i className="fa-regular fa-keyboard text-lg"></i>
           </button>
         </div>

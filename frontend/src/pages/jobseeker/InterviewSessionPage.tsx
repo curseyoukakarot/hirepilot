@@ -40,6 +40,8 @@ export default function InterviewSessionPage() {
   const [sessionCompany, setSessionCompany] = useState<string | null>(null);
   const [sessionLevel, setSessionLevel] = useState('senior');
   const [linkedPrepPackSummary, setLinkedPrepPackSummary] = useState<{ id: string; score: number; roleTitle: string } | null>(null);
+  const [talkMode, setTalkMode] = useState<'hands_free' | 'push_to_talk'>('hands_free');
+  const [micMuted, setMicMuted] = useState(false);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
       id: 'seed-rex-1',
@@ -69,6 +71,22 @@ export default function InterviewSessionPage() {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  const setLocalMicEnabled = (enabled: boolean) => {
+    if (!userStream) return;
+    userStream.getAudioTracks().forEach((track) => {
+      track.enabled = enabled;
+    });
+  };
+
+  useEffect(() => {
+    if (!userStream) return;
+    if (talkMode === 'push_to_talk') {
+      setLocalMicEnabled(false);
+      return;
+    }
+    setLocalMicEnabled(!micMuted);
+  }, [micMuted, talkMode, userStream]);
 
   const withAuthHeaders = async (base: Record<string, string> = {}) => {
     let token = accessTokenRef.current;
@@ -396,7 +414,48 @@ export default function InterviewSessionPage() {
         await voiceSession.connect(grantedStream);
         transition('START_SESSION');
       }
+      if (talkMode === 'push_to_talk') {
+        setLocalMicEnabled(false);
+      } else {
+        setLocalMicEnabled(!micMuted);
+      }
     } catch {}
+  };
+
+  const handleMicHoldStart = () => {
+    if (talkMode !== 'push_to_talk' || micMuted) return;
+    setLocalMicEnabled(true);
+  };
+
+  const handleMicHoldEnd = () => {
+    if (talkMode !== 'push_to_talk') return;
+    setLocalMicEnabled(false);
+  };
+
+  const handleTalkModeChange = (mode: 'hands_free' | 'push_to_talk') => {
+    setTalkMode(mode);
+  };
+
+  const handleToggleMute = () => {
+    setMicMuted((prev) => {
+      const next = !prev;
+      if (talkMode === 'hands_free') {
+        setLocalMicEnabled(!next);
+      } else {
+        setLocalMicEnabled(false);
+      }
+      return next;
+    });
+  };
+
+  const handleKeyboardInput = () => {
+    const typedAnswer = window.prompt('Type your interview answer:')?.trim() || '';
+    if (!typedAnswer) return;
+    const turnId = makeTurnId();
+    const turnIndex = currentQuestionIndexRef.current;
+    setTurns((prev) => [...prev, { id: turnId, speaker: 'user', text: typedAnswer, timestamp: nowLabel(), partial: false, turnIndex }]);
+    void persistTurn({ turn_index: turnIndex, speaker: 'user', answer_text: typedAnswer });
+    void generateCoaching(typedAnswer, turnIndex);
   };
 
   const handleFinalize = async () => {
@@ -580,6 +639,13 @@ export default function InterviewSessionPage() {
           mode={orbMode}
           intensity={orbIntensity}
           onMicClick={handleMicClick}
+          onMicHoldStart={handleMicHoldStart}
+          onMicHoldEnd={handleMicHoldEnd}
+          talkMode={talkMode}
+          onTalkModeChange={handleTalkModeChange}
+          micMuted={micMuted}
+          onToggleMute={handleToggleMute}
+          onKeyboardInput={handleKeyboardInput}
           micBusy={isRequesting || voiceSession.isConnecting}
           debugState={currentState}
           showDebug={false}
