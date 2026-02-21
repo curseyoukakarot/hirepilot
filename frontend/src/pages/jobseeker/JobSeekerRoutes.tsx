@@ -255,7 +255,9 @@ export default function JobSeekerRoutes() {
             path="/interview-helper"
             element={
               <JobSeekerProtected>
-                <InterviewHelperHubPage />
+                <JobSeekerAppShell>
+                  <InterviewHelperHubPage />
+                </JobSeekerAppShell>
               </JobSeekerProtected>
             }
           />
