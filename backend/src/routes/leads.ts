@@ -2086,8 +2086,21 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       }
       workspaceOwnerId = String((ownerMembership as any)?.user_id || '');
     }
+    if (!workspaceOwnerId && userRow.team_id) {
+      const { data: teamAdminRow, error: teamAdminError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('team_id', userRow.team_id)
+        .in('role', ['admin', 'team_admin', 'team_admins', 'super_admin', 'superadmin'] as any)
+        .limit(1)
+        .maybeSingle();
+      if (teamAdminError) {
+        console.warn('[GET /api/leads] Failed to resolve team admin owner:', teamAdminError);
+      }
+      workspaceOwnerId = String((teamAdminRow as any)?.id || '');
+    }
     if (!workspaceOwnerId) {
-      workspaceOwnerId = String(userRow.team_id || userId);
+      workspaceOwnerId = String(userId);
     }
 
     let teamSharing = DEFAULT_TEAM_SETTINGS;
@@ -2108,6 +2121,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     let teamUserIds: string[] = [];
     if (userRow.team_id) {
       try {
+        const teamUserIdSet = new Set<string>();
         const { data: teamUsers, error: teamUsersError } = await supabase
           .from('users')
           .select('id')
@@ -2115,7 +2129,24 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         if (teamUsersError) {
           console.warn('[GET /api/leads] Failed to fetch team users:', teamUsersError);
         }
-        teamUserIds = (teamUsers || []).map((u: any) => u.id).filter(Boolean);
+        (teamUsers || []).forEach((u: any) => {
+          const id = String(u?.id || '').trim();
+          if (id) teamUserIdSet.add(id);
+        });
+
+        // Some environments rely on team_members and have incomplete users.team_id.
+        const { data: teamMembers, error: teamMembersError } = await supabase
+          .from('team_members')
+          .select('user_id')
+          .eq('team_id', userRow.team_id);
+        if (teamMembersError && (teamMembersError as any)?.code !== '42P01') {
+          console.warn('[GET /api/leads] Failed to fetch team members:', teamMembersError);
+        }
+        (teamMembers || []).forEach((m: any) => {
+          const id = String(m?.user_id || '').trim();
+          if (id) teamUserIdSet.add(id);
+        });
+        teamUserIds = Array.from(teamUserIdSet);
       } catch (teamUsersError) {
         console.warn('[GET /api/leads] Failed to fetch team users (exception):', teamUsersError);
       }
