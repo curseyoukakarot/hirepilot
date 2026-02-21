@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import TranscriptPanel, { type TranscriptTurn } from '../../components/interview/TranscriptPanel';
+import TranscriptPanel, { type CoachingCard, type TranscriptTurn } from '../../components/interview/TranscriptPanel';
 import VoiceStage from '../../components/interview/VoiceStage';
 import { useInterviewSessionMachine } from '../../hooks/useInterviewSessionMachine';
 import { useUserMedia } from '../../hooks/useUserMedia';
@@ -15,12 +15,19 @@ function statusLabelFromState(state: string) {
   return 'REX is listening...';
 }
 
+const API_BASE =
+  import.meta.env.VITE_BACKEND_URL ||
+  (typeof window !== 'undefined' && window.location.host.endsWith('thehirepilot.com')
+    ? 'https://api.thehirepilot.com'
+    : 'http://localhost:8080');
+
 export default function InterviewSessionPage() {
   const { id } = useParams();
   const location = useLocation();
   const debugEnabled = useMemo(() => new URLSearchParams(location.search).get('debug') === '1', [location.search]);
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [pulseIntensity, setPulseIntensity] = useState<number | null>(null);
+  const [coaching, setCoaching] = useState<CoachingCard | null>(null);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
       id: 'seed-rex-1',
@@ -36,6 +43,34 @@ export default function InterviewSessionPage() {
 
   const makeTurnId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const roleTitle = 'Senior Product Manager';
+  const company = 'Spotify';
+  const level = 'senior';
+
+  const generateCoaching = async (answer: string) => {
+    const lastQuestion = [...turns].reverse().find((turn) => turn.speaker === 'rex' && !turn.partial);
+    if (!lastQuestion || !answer.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/${encodeURIComponent(id || 'test')}/coach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          role_title: roleTitle,
+          company,
+          level,
+          mode: 'supportive',
+          question: lastQuestion.text,
+          answer,
+        }),
+      });
+      if (!response.ok) return;
+      const payload = await response.json().catch(() => null);
+      if (payload?.coaching) setCoaching(payload.coaching as CoachingCard);
+    } catch {
+      // No-op: coaching is additive.
+    }
+  };
 
   const voiceSession = useVoiceSession({
     onUserSpeechStart: () => transition('USER_SPEECH_START'),
@@ -61,11 +96,13 @@ export default function InterviewSessionPage() {
       if (!activeUserTurnIdRef.current) {
         const id = makeTurnId();
         setTurns((prev) => [...prev, { id, speaker: 'user', text, timestamp: nowLabel(), partial: false }]);
+        void generateCoaching(text);
         return;
       }
       const turnId = activeUserTurnIdRef.current;
       setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel() } : turn)));
       activeUserTurnIdRef.current = null;
+      void generateCoaching(text);
     },
     onRexTranscriptPartial: (text) => {
       if (!text) return;
@@ -285,7 +322,12 @@ export default function InterviewSessionPage() {
           debugState={currentState}
           showDebug={false}
         />
-        <TranscriptPanel turns={turns} currentQuestion={Math.max(1, turns.filter((t) => t.speaker === 'rex').length)} totalQuestions={8} />
+        <TranscriptPanel
+          turns={turns}
+          currentQuestion={Math.max(1, turns.filter((t) => t.speaker === 'rex').length)}
+          totalQuestions={8}
+          coaching={coaching}
+        />
       </main>
 
       <div

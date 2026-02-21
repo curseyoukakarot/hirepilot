@@ -8,13 +8,29 @@ export type TranscriptTurn = {
   partial?: boolean;
 };
 
+export type CoachingCard = {
+  strength: { title: string; detail: string };
+  opportunity: { title: string; detail: string };
+  improved_version: { answer: string; bullets: string[] };
+  tags: string[];
+  score: {
+    clarity: number;
+    structure: number;
+    specificity: number;
+    relevance: number;
+    confidence: number;
+  };
+  evidence_quotes: string[];
+};
+
 type TranscriptPanelProps = {
   turns: TranscriptTurn[];
   currentQuestion: number;
   totalQuestions: number;
+  coaching?: CoachingCard | null;
 };
 
-function TranscriptPanel({ turns, currentQuestion, totalQuestions }: TranscriptPanelProps) {
+function TranscriptPanel({ turns, currentQuestion, totalQuestions, coaching }: TranscriptPanelProps) {
   return (
     <section
       id="transcript-panel"
@@ -74,6 +90,46 @@ function TranscriptPanel({ turns, currentQuestion, totalQuestions }: TranscriptP
         )}
         {!turns.length ? (
           <div className="text-xs text-gray-500">Waiting for transcript...</div>
+        ) : null}
+        {coaching ? (
+          <div className="relative group">
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500/20 to-transparent"></div>
+            <div className="ml-8 mt-2">
+              <div className="glass-panel p-4 rounded-xl border-l-2 border-l-blue-500 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_25px_rgba(59,130,246,0.1)] transition-all duration-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <i className="fa-solid fa-lightbulb text-yellow-500 text-xs"></i>
+                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Instant Feedback</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5 w-4 h-4 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-check text-[8px] text-green-400"></i>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      <span className="text-gray-200 font-medium">{coaching.strength.title}:</span> {coaching.strength.detail}
+                    </p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5 w-4 h-4 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-arrow-trend-up text-[8px] text-orange-400"></i>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      <span className="text-gray-200 font-medium">{coaching.opportunity.title}:</span>{' '}
+                      {coaching.opportunity.detail}
+                    </p>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    <div className="flex items-center text-xs text-blue-400 font-medium">
+                      <i className="fa-solid fa-wand-magic-sparkles mr-2"></i> See Improved Version
+                    </div>
+                    <p className="text-xs text-gray-300 mt-2 leading-relaxed">{coaching.improved_version.answer}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
 
