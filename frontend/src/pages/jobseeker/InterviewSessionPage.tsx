@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import TranscriptPanel from '../../components/interview/TranscriptPanel';
 import VoiceStage from '../../components/interview/VoiceStage';
 import { useInterviewSessionMachine } from '../../hooks/useInterviewSessionMachine';
@@ -17,9 +17,12 @@ function statusLabelFromState(state: string) {
 
 export default function InterviewSessionPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const debugEnabled = useMemo(() => new URLSearchParams(location.search).get('debug') === '1', [location.search]);
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
+  const [pulseIntensity, setPulseIntensity] = useState<number | null>(null);
   const { currentState, transition } = useInterviewSessionMachine('IDLE');
-  const { stream: userStream, request, isRequesting } = useUserMedia();
+  const { stream: userStream, request, isRequesting, micStatus } = useUserMedia();
   const voiceSession = useVoiceSession({
     onRexThinkStart: () => transition('REX_THINK_START'),
     onRexThinkEnd: () => transition('REX_THINK_END'),
@@ -28,18 +31,53 @@ export default function InterviewSessionPage() {
   });
   const userAnalyzer = useAudioAnalyzer(userStream, { fftSize: 256, autoStart: true });
   const rexAnalyzer = useAudioAnalyzer(voiceSession.rexStream, { fftSize: 256, autoStart: true });
+  const silenceTimerRef = useRef<number | null>(null);
+  const testPulseRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (userStream) transition('START_SESSION');
   }, [transition, userStream]);
 
+  useEffect(() => {
+    if (currentState === 'REX_SPEAKING' || currentState === 'REX_THINKING') return;
+    if (userAnalyzer.intensity > 0.11) {
+      transition('USER_SPEECH_START');
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      return;
+    }
+    if (currentState === 'USER_SPEAKING' && !silenceTimerRef.current) {
+      silenceTimerRef.current = window.setTimeout(() => {
+        transition('USER_SPEECH_END');
+        silenceTimerRef.current = null;
+      }, 220);
+    }
+  }, [currentState, transition, userAnalyzer.intensity]);
+
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
+      if (testPulseRafRef.current) cancelAnimationFrame(testPulseRafRef.current);
+    };
+  }, []);
+
   const orbMode = useMemo<'idle' | 'user' | 'rex'>(() => {
+    if (pulseIntensity !== null) return 'user';
     if (currentState === 'USER_SPEAKING') return 'user';
     if (currentState === 'REX_SPEAKING') return 'rex';
     return 'idle';
-  }, [currentState]);
+  }, [currentState, pulseIntensity]);
 
-  const orbIntensity = orbMode === 'user' ? userAnalyzer.intensity : orbMode === 'rex' ? rexAnalyzer.intensity : 0;
+  const orbIntensity =
+    pulseIntensity !== null
+      ? pulseIntensity
+      : orbMode === 'user'
+        ? userAnalyzer.intensity
+        : orbMode === 'rex'
+          ? rexAnalyzer.intensity
+          : 0;
 
   const handleMicClick = async () => {
     try {
@@ -51,6 +89,25 @@ export default function InterviewSessionPage() {
         voiceSession.triggerStubRexSpeech();
       }
     } catch {}
+  };
+
+  const runTestPulse = () => {
+    if (!debugEnabled) return;
+    if (testPulseRafRef.current) cancelAnimationFrame(testPulseRafRef.current);
+    const duration = 1200;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const next = t <= 0.5 ? t * 2 : (1 - t) * 2;
+      setPulseIntensity(next);
+      if (t < 1) {
+        testPulseRafRef.current = requestAnimationFrame(tick);
+      } else {
+        setPulseIntensity(null);
+        testPulseRafRef.current = null;
+      }
+    };
+    testPulseRafRef.current = requestAnimationFrame(tick);
   };
 
   return (
@@ -180,6 +237,22 @@ export default function InterviewSessionPage() {
         </div>
       </div>
       <div className="hidden" data-session-id={id || ''}></div>
+      {debugEnabled ? (
+        <div className="fixed left-4 top-20 z-[60] rounded-lg border border-white/15 bg-black/65 px-3 py-2 text-xs text-gray-100 font-mono pointer-events-none">
+          <div>state: {currentState}</div>
+          <div>userIntensity: {userAnalyzer.intensity.toFixed(2)}</div>
+          <div>rexIntensity: {rexAnalyzer.intensity.toFixed(2)}</div>
+          <div>mic: {micStatus}</div>
+          <div>hz: {userAnalyzer.updateRate.toFixed(0)}</div>
+          <button
+            type="button"
+            onClick={runTestPulse}
+            className="mt-2 pointer-events-auto rounded border border-white/25 px-2 py-1 text-[11px] text-white hover:bg-white/10"
+          >
+            Test Pulse
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
