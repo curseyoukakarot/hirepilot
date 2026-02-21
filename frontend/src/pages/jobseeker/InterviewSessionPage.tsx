@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import TranscriptPanel, { type CoachingCard, type TranscriptTurn } from '../../components/interview/TranscriptPanel';
 import VoiceStage from '../../components/interview/VoiceStage';
 import { useInterviewSessionMachine } from '../../hooks/useInterviewSessionMachine';
@@ -24,34 +24,137 @@ const API_BASE =
 export default function InterviewSessionPage() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const debugEnabled = useMemo(() => new URLSearchParams(location.search).get('debug') === '1', [location.search]);
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [pulseIntensity, setPulseIntensity] = useState<number | null>(null);
   const [coaching, setCoaching] = useState<CoachingCard | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [modalSummary, setModalSummary] = useState<{ scoreOutOf10: number; topStrength: string; focusArea: string } | null>(null);
+  const [prepPackId, setPrepPackId] = useState<string | null>(null);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
       id: 'seed-rex-1',
       speaker: 'rex',
       text: "Let's start with a classic product question. Tell me about a time you had to make a difficult prioritization decision where stakeholders were conflicted. How did you handle it?",
       timestamp: 'Now',
+      turnIndex: 1,
     },
   ]);
   const { currentState, transition } = useInterviewSessionMachine('IDLE');
   const { stream: userStream, request, isRequesting, micStatus } = useUserMedia();
   const activeUserTurnIdRef = useRef<string | null>(null);
   const activeRexTurnIdRef = useRef<string | null>(null);
+  const turnsRef = useRef<TranscriptTurn[]>(turns);
+  const sessionIdRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
+  const currentQuestionIndexRef = useRef(1);
 
   const makeTurnId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const roleTitle = 'Senior Product Manager';
   const company = 'Spotify';
   const level = 'senior';
+  const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-  const generateCoaching = async (answer: string) => {
-    const lastQuestion = [...turns].reverse().find((turn) => turn.speaker === 'rex' && !turn.partial);
+  useEffect(() => {
+    turnsRef.current = turns;
+  }, [turns]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  const persistTurn = async (payload: {
+    turn_index: number;
+    speaker: 'rex' | 'user';
+    question_text?: string;
+    answer_text?: string;
+    coaching?: any;
+  }) => {
+    const activeSessionId = sessionIdRef.current;
+    if (!activeSessionId) return;
+    await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(activeSessionId)}/turns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    }).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const boot = async () => {
+      const routeId = String(id || '');
+      if (routeId && isUuid(routeId)) {
+        setSessionId(routeId);
+        const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
+          credentials: 'include',
+        }).catch(() => null);
+        if (!response?.ok) return;
+        const payload = await response.json().catch(() => null);
+        const dbTurns = Array.isArray(payload?.turns) ? payload.turns : [];
+        const hydrated: TranscriptTurn[] = dbTurns
+          .map((row: any) => {
+            const text = row.speaker === 'rex' ? row.question_text : row.answer_text;
+            if (!text) return null;
+            return {
+              id: row.id,
+              speaker: row.speaker,
+              text,
+              timestamp: nowLabel(),
+              partial: false,
+              turnIndex: row.turn_index,
+            } as TranscriptTurn;
+          })
+          .filter(Boolean);
+        if (hydrated.length) {
+          setTurns(hydrated);
+          currentQuestionIndexRef.current = Math.max(
+            1,
+            ...hydrated.filter((turn) => turn.speaker === 'rex').map((turn) => turn.turnIndex || 1)
+          );
+        }
+        const latestCoach = [...dbTurns].reverse().find((row: any) => row.speaker === 'user' && row.coaching);
+        if (latestCoach?.coaching) setCoaching(latestCoach.coaching as CoachingCard);
+        return;
+      }
+
+      const createResponse = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          role_title: roleTitle,
+          company,
+          level,
+          mode: 'supportive',
+        }),
+      }).catch(() => null);
+      if (!createResponse?.ok) return;
+      const created = await createResponse.json().catch(() => null);
+      const createdSessionId = created?.sessionId ? String(created.sessionId) : null;
+      if (!createdSessionId) return;
+      sessionIdRef.current = createdSessionId;
+      setSessionId(createdSessionId);
+      navigate(`/interview-helper/session/${createdSessionId}${location.search || ''}`, { replace: true });
+      await persistTurn({
+        turn_index: 1,
+        speaker: 'rex',
+        question_text:
+          "Let's start with a classic product question. Tell me about a time you had to make a difficult prioritization decision where stakeholders were conflicted. How did you handle it?",
+      });
+    };
+    void boot();
+  }, [company, id, level, location.search, navigate, roleTitle]);
+
+  const generateCoaching = async (answer: string, turnIndex: number) => {
+    const lastQuestion = [...turnsRef.current].reverse().find((turn) => turn.speaker === 'rex' && !turn.partial);
     if (!lastQuestion || !answer.trim()) return;
     try {
-      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/${encodeURIComponent(id || 'test')}/coach`, {
+      const activeSessionId = sessionIdRef.current;
+      if (!activeSessionId) return;
+      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/${encodeURIComponent(activeSessionId)}/coach`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -66,7 +169,15 @@ export default function InterviewSessionPage() {
       });
       if (!response.ok) return;
       const payload = await response.json().catch(() => null);
-      if (payload?.coaching) setCoaching(payload.coaching as CoachingCard);
+      if (payload?.coaching) {
+        setCoaching(payload.coaching as CoachingCard);
+        await persistTurn({
+          turn_index: turnIndex,
+          speaker: 'user',
+          answer_text: answer,
+          coaching: payload.coaching,
+        });
+      }
     } catch {
       // No-op: coaching is additive.
     }
@@ -82,9 +193,10 @@ export default function InterviewSessionPage() {
     onUserTranscriptPartial: (text) => {
       if (!text) return;
       if (!activeUserTurnIdRef.current) {
-        const id = makeTurnId();
-        activeUserTurnIdRef.current = id;
-        setTurns((prev) => [...prev, { id, speaker: 'user', text, timestamp: 'Now', partial: true }]);
+        const turnId = makeTurnId();
+        activeUserTurnIdRef.current = turnId;
+        const turnIndex = currentQuestionIndexRef.current;
+        setTurns((prev) => [...prev, { id: turnId, speaker: 'user', text, timestamp: 'Now', partial: true, turnIndex }]);
         return;
       }
       setTurns((prev) =>
@@ -94,22 +206,30 @@ export default function InterviewSessionPage() {
     onUserTranscriptFinal: (text) => {
       if (!text) return;
       if (!activeUserTurnIdRef.current) {
-        const id = makeTurnId();
-        setTurns((prev) => [...prev, { id, speaker: 'user', text, timestamp: nowLabel(), partial: false }]);
-        void generateCoaching(text);
+        const turnId = makeTurnId();
+        const turnIndex = currentQuestionIndexRef.current;
+        setTurns((prev) => [...prev, { id: turnId, speaker: 'user', text, timestamp: nowLabel(), partial: false, turnIndex }]);
+        void persistTurn({ turn_index: turnIndex, speaker: 'user', answer_text: text });
+        void generateCoaching(text, turnIndex);
         return;
       }
       const turnId = activeUserTurnIdRef.current;
-      setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel() } : turn)));
+      const finalizedTurn = turnsRef.current.find((turn) => turn.id === turnId);
+      const turnIndex = finalizedTurn?.turnIndex || currentQuestionIndexRef.current;
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel(), turnIndex } : turn))
+      );
       activeUserTurnIdRef.current = null;
-      void generateCoaching(text);
+      void persistTurn({ turn_index: turnIndex, speaker: 'user', answer_text: text });
+      void generateCoaching(text, turnIndex);
     },
     onRexTranscriptPartial: (text) => {
       if (!text) return;
       if (!activeRexTurnIdRef.current) {
-        const id = makeTurnId();
-        activeRexTurnIdRef.current = id;
-        setTurns((prev) => [...prev, { id, speaker: 'rex', text, timestamp: 'Now', partial: true }]);
+        const turnId = makeTurnId();
+        activeRexTurnIdRef.current = turnId;
+        const nextTurnIndex = currentQuestionIndexRef.current + 1;
+        setTurns((prev) => [...prev, { id: turnId, speaker: 'rex', text, timestamp: 'Now', partial: true, turnIndex: nextTurnIndex }]);
         return;
       }
       setTurns((prev) =>
@@ -119,13 +239,22 @@ export default function InterviewSessionPage() {
     onRexTranscriptFinal: (text) => {
       if (!text) return;
       if (!activeRexTurnIdRef.current) {
-        const id = makeTurnId();
-        setTurns((prev) => [...prev, { id, speaker: 'rex', text, timestamp: nowLabel(), partial: false }]);
+        const turnId = makeTurnId();
+        const turnIndex = currentQuestionIndexRef.current + 1;
+        setTurns((prev) => [...prev, { id: turnId, speaker: 'rex', text, timestamp: nowLabel(), partial: false, turnIndex }]);
+        currentQuestionIndexRef.current = turnIndex;
+        void persistTurn({ turn_index: turnIndex, speaker: 'rex', question_text: text });
         return;
       }
       const turnId = activeRexTurnIdRef.current;
-      setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel() } : turn)));
+      const existing = turnsRef.current.find((turn) => turn.id === turnId);
+      const turnIndex = existing?.turnIndex || currentQuestionIndexRef.current + 1;
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel(), turnIndex } : turn))
+      );
       activeRexTurnIdRef.current = null;
+      currentQuestionIndexRef.current = turnIndex;
+      void persistTurn({ turn_index: turnIndex, speaker: 'rex', question_text: text });
     },
   });
   const userAnalyzer = useAudioAnalyzer(userStream, { fftSize: 256, autoStart: true });
@@ -204,6 +333,32 @@ export default function InterviewSessionPage() {
         transition('START_SESSION');
       }
     } catch {}
+  };
+
+  const handleFinalize = async () => {
+    const activeSessionId = sessionIdRef.current;
+    if (!activeSessionId) {
+      setShowEndSessionModal(true);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(activeSessionId)}/finalize`,
+        {
+          method: 'POST',
+          credentials: 'include',
+        }
+      );
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload) {
+        setPrepPackId(payload.prepPackId || null);
+        setModalSummary(payload.modalSummary || null);
+      }
+    } catch {
+      // no-op
+    } finally {
+      setShowEndSessionModal(true);
+    }
   };
 
   const runTestPulse = () => {
@@ -304,7 +459,7 @@ export default function InterviewSessionPage() {
           <button
             id="end-session-trigger"
             className="text-gray-500 hover:text-red-400 transition-colors p-2 rounded-full hover:bg-red-500/10 group flex items-center gap-2 shrink-0"
-            onClick={() => setShowEndSessionModal(true)}
+            onClick={handleFinalize}
           >
             <span className="text-xs hidden sm:inline-block font-medium">End Session</span>
             <i className="fa-solid fa-xmark text-sm"></i>
@@ -341,7 +496,27 @@ export default function InterviewSessionPage() {
             <p className="text-gray-400 text-sm">Great session! Here&apos;s your performance summary.</p>
           </div>
           <div className="space-y-3">
-            <button className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors">
+            <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between border border-white/5">
+              <span className="text-gray-300 text-sm font-medium">Overall Score</span>
+              <span className="text-2xl font-bold text-blue-400">
+                {modalSummary?.scoreOutOf10?.toFixed?.(1) || '0.0'}
+                <span className="text-sm text-gray-500 font-normal">/10</span>
+              </span>
+            </div>
+            <div className="bg-white/5 rounded-xl p-4 border border-white/5 text-sm text-gray-300">
+              <div>
+                <span className="text-gray-500">Top strength:</span> {modalSummary?.topStrength || 'Structured thinking'}
+              </div>
+              <div className="mt-1">
+                <span className="text-gray-500">Focus area:</span> {modalSummary?.focusArea || 'Answer specificity'}
+              </div>
+            </div>
+            <button
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors"
+              onClick={() => {
+                if (prepPackId) navigate(`/interview-helper/prep/${prepPackId}`);
+              }}
+            >
               View Full Prep Pack
             </button>
             <button

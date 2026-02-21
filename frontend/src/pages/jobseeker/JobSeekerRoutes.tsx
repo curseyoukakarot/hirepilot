@@ -11,6 +11,7 @@ import ResumeTemplatesPage from './ResumeTemplatesPage';
 import LandingThemesPage from './LandingThemesPage';
 import JobPrepChatPage from './JobPrepChatPage';
 import InterviewSessionPage from './InterviewSessionPage';
+import InterviewPrepPackPage from './InterviewPrepPackPage';
 import ResumeWizardPage from './ResumeWizardPage';
 import OnboardingPage from './OnboardingPage';
 import JobSeekerLandingPage from './JobSeekerLandingPage';
@@ -252,6 +253,14 @@ export default function JobSeekerRoutes() {
             element={
               <JobSeekerProtected>
                 <InterviewSessionPage />
+              </JobSeekerProtected>
+            }
+          />
+          <Route
+            path="/interview-helper/prep/:id"
+            element={
+              <JobSeekerProtected>
+                <InterviewPrepPackPage />
               </JobSeekerProtected>
             }
           />

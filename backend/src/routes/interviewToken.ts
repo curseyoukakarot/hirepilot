@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { openai } from '../ai/openaiClient';
+import requireAuthUnified from '../../middleware/requireAuthUnified';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 const router = Router();
 
@@ -16,6 +18,21 @@ const REALTIME_INSTRUCTIONS =
     'Keep responses clear, professional, and encouraging.',
   ].join(' ');
 const COACH_MODEL = process.env.INTERVIEW_COACH_MODEL || 'gpt-4o-mini';
+
+const sessionCreateSchema = z.object({
+  role_title: z.string().min(1),
+  company: z.string().nullable().optional(),
+  level: z.string().nullable().optional(),
+  mode: z.enum(['supportive', 'strict']).default('supportive'),
+});
+
+const turnUpsertSchema = z.object({
+  turn_index: z.number().int().min(1),
+  speaker: z.enum(['rex', 'user']),
+  question_text: z.string().nullable().optional(),
+  answer_text: z.string().nullable().optional(),
+  coaching: z.record(z.any()).nullable().optional(),
+});
 
 const coachRequestSchema = z.object({
   role_title: z.string().default('Interview Candidate'),
@@ -92,7 +109,114 @@ Rules:
 Return JSON only.`;
 }
 
-router.post('/token', async (_req, res) => {
+async function getOwnedSession(userId: string, sessionId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('interview_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function computePrepPack(turns: any[]) {
+  const userTurns = turns.filter((turn) => turn.speaker === 'user');
+  const coachPayloads = userTurns
+    .map((turn) => turn.coaching)
+    .filter((coaching) => coaching && typeof coaching === 'object');
+  const scoreKeys = ['clarity', 'structure', 'specificity', 'relevance', 'confidence'] as const;
+  const scoreTotals: Record<(typeof scoreKeys)[number], number> = {
+    clarity: 0,
+    structure: 0,
+    specificity: 0,
+    relevance: 0,
+    confidence: 0,
+  };
+  let scoredCount = 0;
+  coachPayloads.forEach((payload) => {
+    if (!payload?.score) return;
+    scoredCount += 1;
+    scoreKeys.forEach((key) => {
+      scoreTotals[key] += Number(payload.score?.[key] || 0);
+    });
+  });
+  const averagedScore = scoreKeys.reduce(
+    (acc, key) => {
+      acc[key] = scoredCount ? Number((scoreTotals[key] / scoredCount).toFixed(2)) : 0;
+      return acc;
+    },
+    {} as Record<(typeof scoreKeys)[number], number>
+  );
+  const overall5 = scoreKeys.reduce((sum, key) => sum + averagedScore[key], 0) / scoreKeys.length || 0;
+  const overall10 = Number((overall5 * 2).toFixed(1));
+
+  const strengthMap = new Map<string, number>();
+  const focusMap = new Map<string, number>();
+  coachPayloads.forEach((payload) => {
+    const strengthTitle = String(payload?.strength?.title || '').trim();
+    if (strengthTitle) strengthMap.set(strengthTitle, (strengthMap.get(strengthTitle) || 0) + 1);
+    const opportunityTitle = String(payload?.opportunity?.title || '').trim();
+    if (opportunityTitle) focusMap.set(opportunityTitle, (focusMap.get(opportunityTitle) || 0) + 1);
+    const tags = Array.isArray(payload?.tags) ? payload.tags : [];
+    tags.forEach((tag: string) => {
+      const normalized = String(tag || '').trim();
+      if (!normalized) return;
+      strengthMap.set(normalized, (strengthMap.get(normalized) || 0) + 0.5);
+      focusMap.set(normalized, (focusMap.get(normalized) || 0) + 0.5);
+    });
+  });
+  const strengths = [...strengthMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label]) => ({ title: label }));
+  const focusAreas = [...focusMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([label]) => ({ title: label }));
+
+  const rankedAnswers = userTurns
+    .map((turn) => {
+      const score = turn?.coaching?.score || {};
+      const sum = scoreKeys.reduce((s, key) => s + Number(score[key] || 0), 0);
+      return {
+        answer: turn.answer_text || '',
+        improved: turn?.coaching?.improved_version?.answer || '',
+        score_sum: sum,
+      };
+    })
+    .filter((row) => row.answer)
+    .sort((a, b) => b.score_sum - a.score_sum)
+    .slice(0, 3);
+
+  const practicePlan = [
+    { day: 1, task: 'Rewrite one weak answer using STAR with quantified impact.' },
+    { day: 2, task: 'Practice concise opening hooks for top 3 interview questions.' },
+    { day: 3, task: 'Record and review one behavioral answer focused on ownership.' },
+    { day: 4, task: 'Add one tradeoff decision example with clear outcome metrics.' },
+    { day: 5, task: 'Simulate strict-mode follow-up questions and tighten responses.' },
+    { day: 6, task: 'Refine confidence and clarity in delivery with timed responses.' },
+    { day: 7, task: 'Run full mock session and compare scores vs previous run.' },
+  ];
+
+  return {
+    overall_score: {
+      out_of_10: overall10,
+      dimensions: averagedScore,
+    },
+    strengths,
+    focus_areas: focusAreas,
+    best_answers: rankedAnswers,
+    practice_plan: practicePlan,
+    modalSummary: {
+      scoreOutOf10: overall10,
+      topStrength: strengths[0]?.title || 'Structured thinking',
+      focusArea: focusAreas[0]?.title || 'Answer specificity',
+    },
+  };
+}
+
+router.post('/token', requireAuthUnified as any, async (_req, res) => {
   try {
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
@@ -141,8 +265,190 @@ router.post('/token', async (_req, res) => {
   }
 });
 
-router.post('/:sessionId/coach', async (req, res) => {
+router.post('/sessions', requireAuthUnified as any, async (req, res) => {
   try {
+    const userId = String((req as any)?.user?.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const parsed = sessionCreateSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid session payload', detail: parsed.error.flatten() });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('interview_sessions')
+      .insert({
+        user_id: userId,
+        role_title: parsed.data.role_title,
+        company: parsed.data.company || null,
+        level: parsed.data.level || null,
+        mode: parsed.data.mode,
+        status: 'in_progress',
+      })
+      .select('id')
+      .single();
+    if (error || !data?.id) {
+      return res.status(500).json({ error: 'Failed to create session', detail: error?.message });
+    }
+    return res.json({ sessionId: data.id });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to create session', detail: e?.message });
+  }
+});
+
+router.get('/sessions', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { data, error } = await supabaseAdmin
+      .from('interview_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false });
+    if (error) return res.status(500).json({ error: 'Failed to list sessions', detail: error.message });
+    return res.json({ sessions: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to list sessions', detail: e?.message });
+  }
+});
+
+router.get('/sessions/:id', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const sessionId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const { data: turns, error: turnsError } = await supabaseAdmin
+      .from('interview_turns')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('turn_index', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (turnsError) {
+      return res.status(500).json({ error: 'Failed to load turns', detail: turnsError.message });
+    }
+    return res.json({ session, turns: turns || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to load session', detail: e?.message });
+  }
+});
+
+router.post('/sessions/:id/turns', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const sessionId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const parsed = turnUpsertSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid turn payload', detail: parsed.error.flatten() });
+    }
+    const payload = parsed.data;
+    const { data, error } = await supabaseAdmin
+      .from('interview_turns')
+      .upsert(
+        {
+          session_id: sessionId,
+          turn_index: payload.turn_index,
+          speaker: payload.speaker,
+          question_text: payload.question_text || null,
+          answer_text: payload.answer_text || null,
+          coaching: payload.coaching || null,
+        },
+        { onConflict: 'session_id,turn_index,speaker' }
+      )
+      .select('*')
+      .single();
+    if (error) return res.status(500).json({ error: 'Failed to persist turn', detail: error.message });
+    return res.json({ turn: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to persist turn', detail: e?.message });
+  }
+});
+
+router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const sessionId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const { data: turns, error: turnsError } = await supabaseAdmin
+      .from('interview_turns')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('turn_index', { ascending: true });
+    if (turnsError) return res.status(500).json({ error: 'Failed to load turns', detail: turnsError.message });
+    const pack = computePrepPack(turns || []);
+    const { data: prepPack, error: prepError } = await supabaseAdmin
+      .from('interview_prep_packs')
+      .upsert(
+        {
+          session_id: sessionId,
+          overall_score: pack.overall_score,
+          strengths: pack.strengths,
+          focus_areas: pack.focus_areas,
+          best_answers: pack.best_answers,
+          practice_plan: pack.practice_plan,
+        },
+        { onConflict: 'session_id' }
+      )
+      .select('id')
+      .single();
+    if (prepError || !prepPack?.id) {
+      return res.status(500).json({ error: 'Failed to persist prep pack', detail: prepError?.message });
+    }
+    const { error: updateError } = await supabaseAdmin
+      .from('interview_sessions')
+      .update({ status: 'completed', ended_at: new Date().toISOString() })
+      .eq('id', sessionId)
+      .eq('user_id', userId);
+    if (updateError) {
+      return res.status(500).json({ error: 'Failed to finalize session', detail: updateError.message });
+    }
+    return res.json({
+      prepPackId: prepPack.id,
+      modalSummary: pack.modalSummary,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Finalize failed', detail: e?.message });
+  }
+});
+
+router.get('/prep/:id', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    const prepPackId = String(req.params.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { data, error } = await supabaseAdmin
+      .from('interview_prep_packs')
+      .select('*, interview_sessions(*)')
+      .eq('id', prepPackId)
+      .single();
+    if (error || !data) {
+      return res.status(404).json({ error: 'Prep pack not found' });
+    }
+    const session = (data as any).interview_sessions;
+    if (!session || String(session.user_id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    return res.json({
+      prepPack: data,
+      session,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to load prep pack', detail: e?.message });
+  }
+});
+
+router.post('/:sessionId/coach', requireAuthUnified as any, async (req, res) => {
+  try {
+    const userId = String((req as any)?.user?.id || '');
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const sessionId = String(req.params.sessionId || '');
+    const session = await getOwnedSession(userId, sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
     }

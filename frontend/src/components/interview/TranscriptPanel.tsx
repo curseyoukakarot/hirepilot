@@ -6,6 +6,7 @@ export type TranscriptTurn = {
   text: string;
   timestamp: string;
   partial?: boolean;
+  turnIndex?: number;
 };
 
 export type CoachingCard = {
