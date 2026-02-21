@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import TranscriptPanel from '../../components/interview/TranscriptPanel';
+import TranscriptPanel, { type TranscriptTurn } from '../../components/interview/TranscriptPanel';
 import VoiceStage from '../../components/interview/VoiceStage';
 import { useInterviewSessionMachine } from '../../hooks/useInterviewSessionMachine';
 import { useUserMedia } from '../../hooks/useUserMedia';
@@ -21,13 +21,75 @@ export default function InterviewSessionPage() {
   const debugEnabled = useMemo(() => new URLSearchParams(location.search).get('debug') === '1', [location.search]);
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [pulseIntensity, setPulseIntensity] = useState<number | null>(null);
+  const [turns, setTurns] = useState<TranscriptTurn[]>([
+    {
+      id: 'seed-rex-1',
+      speaker: 'rex',
+      text: "Let's start with a classic product question. Tell me about a time you had to make a difficult prioritization decision where stakeholders were conflicted. How did you handle it?",
+      timestamp: 'Now',
+    },
+  ]);
   const { currentState, transition } = useInterviewSessionMachine('IDLE');
   const { stream: userStream, request, isRequesting, micStatus } = useUserMedia();
+  const activeUserTurnIdRef = useRef<string | null>(null);
+  const activeRexTurnIdRef = useRef<string | null>(null);
+
+  const makeTurnId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const voiceSession = useVoiceSession({
+    onUserSpeechStart: () => transition('USER_SPEECH_START'),
+    onUserSpeechEnd: () => transition('USER_SPEECH_END'),
     onRexThinkStart: () => transition('REX_THINK_START'),
     onRexThinkEnd: () => transition('REX_THINK_END'),
     onRexAudioStart: () => transition('REX_SPEECH_START'),
     onRexAudioEnd: () => transition('REX_SPEECH_END'),
+    onUserTranscriptPartial: (text) => {
+      if (!text) return;
+      if (!activeUserTurnIdRef.current) {
+        const id = makeTurnId();
+        activeUserTurnIdRef.current = id;
+        setTurns((prev) => [...prev, { id, speaker: 'user', text, timestamp: 'Now', partial: true }]);
+        return;
+      }
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === activeUserTurnIdRef.current ? { ...turn, text, partial: true, timestamp: 'Now' } : turn))
+      );
+    },
+    onUserTranscriptFinal: (text) => {
+      if (!text) return;
+      if (!activeUserTurnIdRef.current) {
+        const id = makeTurnId();
+        setTurns((prev) => [...prev, { id, speaker: 'user', text, timestamp: nowLabel(), partial: false }]);
+        return;
+      }
+      const turnId = activeUserTurnIdRef.current;
+      setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel() } : turn)));
+      activeUserTurnIdRef.current = null;
+    },
+    onRexTranscriptPartial: (text) => {
+      if (!text) return;
+      if (!activeRexTurnIdRef.current) {
+        const id = makeTurnId();
+        activeRexTurnIdRef.current = id;
+        setTurns((prev) => [...prev, { id, speaker: 'rex', text, timestamp: 'Now', partial: true }]);
+        return;
+      }
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === activeRexTurnIdRef.current ? { ...turn, text, partial: true, timestamp: 'Now' } : turn))
+      );
+    },
+    onRexTranscriptFinal: (text) => {
+      if (!text) return;
+      if (!activeRexTurnIdRef.current) {
+        const id = makeTurnId();
+        setTurns((prev) => [...prev, { id, speaker: 'rex', text, timestamp: nowLabel(), partial: false }]);
+        return;
+      }
+      const turnId = activeRexTurnIdRef.current;
+      setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, text, partial: false, timestamp: nowLabel() } : turn)));
+      activeRexTurnIdRef.current = null;
+    },
   });
   const userAnalyzer = useAudioAnalyzer(userStream, { fftSize: 256, autoStart: true });
   const rexAnalyzer = useAudioAnalyzer(voiceSession.rexStream, { fftSize: 256, autoStart: true });
@@ -101,10 +163,8 @@ export default function InterviewSessionPage() {
       const grantedStream = userStream || (await request());
       await userAnalyzer.start(grantedStream);
       if (!voiceSession.connected && !voiceSession.isConnecting) {
-        await voiceSession.connect();
+        await voiceSession.connect(grantedStream);
         transition('START_SESSION');
-      } else {
-        voiceSession.triggerStubRexSpeech();
       }
     } catch {}
   };
@@ -225,7 +285,7 @@ export default function InterviewSessionPage() {
           debugState={currentState}
           showDebug={false}
         />
-        <TranscriptPanel />
+        <TranscriptPanel turns={turns} currentQuestion={Math.max(1, turns.filter((t) => t.speaker === 'rex').length)} totalQuestions={8} />
       </main>
 
       <div
