@@ -10,7 +10,11 @@ const API_BASE =
 type PrepPackPayload = {
   prepPack: {
     id: string;
-    overall_score: any;
+    overall_score: {
+      out_of_10?: number;
+      dimensions?: Record<string, number>;
+      evidence_quotes?: string[];
+    };
     strengths: any[];
     focus_areas: any[];
     best_answers: any[];
@@ -46,6 +50,9 @@ export default function InterviewPrepPackPage() {
 
   const score = Number(data.prepPack.overall_score?.out_of_10 || 0);
   const dimensions = data.prepPack.overall_score?.dimensions || {};
+  const evidenceQuotes = Array.isArray(data.prepPack.overall_score?.evidence_quotes)
+    ? data.prepPack.overall_score.evidence_quotes
+    : [];
 
   return (
     <div className="min-h-screen bg-[#0b0f14] text-gray-200 p-6 md:p-10">
@@ -70,6 +77,16 @@ export default function InterviewPrepPackPage() {
                 </div>
               ))}
             </div>
+            {evidenceQuotes.length ? (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Evidence Quotes</div>
+                <div className="space-y-1 text-xs text-gray-300">
+                  {evidenceQuotes.slice(0, 2).map((quote, idx) => (
+                    <div key={`${quote}-${idx}`}>&ldquo;{quote}&rdquo;</div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="glass-panel rounded-2xl p-6 border border-white/10">
             <h2 className="text-sm uppercase tracking-wider text-gray-500 mb-3">Strengths</h2>

@@ -23,7 +23,10 @@ try {
   }
 } catch {}
 
-installDevMessagePerf();
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  const debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1'
+  if (debugEnabled) installDevMessagePerf()
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

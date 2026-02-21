@@ -6,6 +6,7 @@ import { useInterviewSessionMachine } from '../../hooks/useInterviewSessionMachi
 import { useUserMedia } from '../../hooks/useUserMedia';
 import { useAudioAnalyzer } from '../../hooks/useAudioAnalyzer';
 import { useVoiceSession } from '../../hooks/useVoiceSession';
+import { INTERVIEW_SEED_QUESTION } from '../../constants/interview';
 
 function statusLabelFromState(state: string) {
   if (state === 'USER_LISTENING') return 'REX is listening...';
@@ -32,11 +33,12 @@ export default function InterviewSessionPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [modalSummary, setModalSummary] = useState<{ scoreOutOf10: number; topStrength: string; focusArea: string } | null>(null);
   const [prepPackId, setPrepPackId] = useState<string | null>(null);
+  const [isInvalidRouteId, setIsInvalidRouteId] = useState(false);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
       id: 'seed-rex-1',
       speaker: 'rex',
-      text: "Let's start with a classic product question. Tell me about a time you had to make a difficult prioritization decision where stakeholders were conflicted. How did you handle it?",
+      text: INTERVIEW_SEED_QUESTION,
       timestamp: 'Now',
       turnIndex: 1,
     },
@@ -85,68 +87,45 @@ export default function InterviewSessionPage() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     const boot = async () => {
-      const routeId = String(id || '');
-      if (routeId && isUuid(routeId)) {
-        setSessionId(routeId);
-        const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
-          credentials: 'include',
-        }).catch(() => null);
-        if (!response?.ok) return;
-        const payload = await response.json().catch(() => null);
-        const dbTurns = Array.isArray(payload?.turns) ? payload.turns : [];
-        const hydrated: TranscriptTurn[] = dbTurns
-          .map((row: any) => {
-            const text = row.speaker === 'rex' ? row.question_text : row.answer_text;
-            if (!text) return null;
-            return {
-              id: row.id,
-              speaker: row.speaker,
-              text,
-              timestamp: nowLabel(),
-              partial: false,
-              turnIndex: row.turn_index,
-            } as TranscriptTurn;
-          })
-          .filter(Boolean);
-        if (hydrated.length) {
-          setTurns(hydrated);
-          currentQuestionIndexRef.current = Math.max(
-            1,
-            ...hydrated.filter((turn) => turn.speaker === 'rex').map((turn) => turn.turnIndex || 1)
-          );
-        }
-        const latestCoach = [...dbTurns].reverse().find((row: any) => row.speaker === 'user' && row.coaching);
-        if (latestCoach?.coaching) setCoaching(latestCoach.coaching as CoachingCard);
+      const routeId = String(id || '').trim();
+      if (!routeId || !isUuid(routeId)) {
+        setIsInvalidRouteId(true);
         return;
       }
-
-      const createResponse = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      setIsInvalidRouteId(false);
+      setSessionId(routeId);
+      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
         credentials: 'include',
-        body: JSON.stringify({
-          role_title: roleTitle,
-          company,
-          level,
-          mode: 'supportive',
-        }),
       }).catch(() => null);
-      if (!createResponse?.ok) return;
-      const created = await createResponse.json().catch(() => null);
-      const createdSessionId = created?.sessionId ? String(created.sessionId) : null;
-      if (!createdSessionId) return;
-      sessionIdRef.current = createdSessionId;
-      setSessionId(createdSessionId);
-      navigate(`/interview-helper/session/${createdSessionId}${location.search || ''}`, { replace: true });
-      await persistTurn({
-        turn_index: 1,
-        speaker: 'rex',
-        question_text:
-          "Let's start with a classic product question. Tell me about a time you had to make a difficult prioritization decision where stakeholders were conflicted. How did you handle it?",
-      });
+      if (!response?.ok) return;
+      const payload = await response.json().catch(() => null);
+      const dbTurns = Array.isArray(payload?.turns) ? payload.turns : [];
+      const hydrated: TranscriptTurn[] = dbTurns
+        .map((row: any) => {
+          const text = row.speaker === 'rex' ? row.question_text : row.answer_text;
+          if (!text) return null;
+          return {
+            id: row.id,
+            speaker: row.speaker,
+            text,
+            timestamp: nowLabel(),
+            partial: false,
+            turnIndex: row.turn_index,
+          } as TranscriptTurn;
+        })
+        .filter(Boolean);
+      if (hydrated.length) {
+        setTurns(hydrated);
+        currentQuestionIndexRef.current = Math.max(
+          1,
+          ...hydrated.filter((turn) => turn.speaker === 'rex').map((turn) => turn.turnIndex || 1)
+        );
+      }
+      const latestCoach = [...dbTurns].reverse().find((row: any) => row.speaker === 'user' && row.coaching);
+      if (latestCoach?.coaching) setCoaching(latestCoach.coaching as CoachingCard);
     };
     void boot();
-  }, [company, id, level, location.search, navigate, roleTitle]);
+  }, [id]);
 
   const generateCoaching = async (answer: string, turnIndex: number) => {
     const lastQuestion = [...turnsRef.current].reverse().find((turn) => turn.speaker === 'rex' && !turn.partial);
@@ -379,6 +358,14 @@ export default function InterviewSessionPage() {
     };
     testPulseRafRef.current = requestAnimationFrame(tick);
   };
+
+  if (isInvalidRouteId) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#0b0f14] text-gray-300">
+        Invalid session link. Start a new interview session.
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#0b0f14] text-gray-200">
