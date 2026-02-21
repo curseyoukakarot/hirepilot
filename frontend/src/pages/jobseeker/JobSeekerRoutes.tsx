@@ -148,13 +148,14 @@ function JobSeekerProtected({ children }: { children: React.ReactNode }) {
   }
 
   const roleLower = String(userRole || '').toLowerCase();
-  const isJobSeekerRole = roleLower.startsWith('job_seeker_');
+  const allowedJobSeekerRoles = new Set(['job_seeker_free', 'job_seeker_pro', 'job_seeker_elite']);
+  const isJobSeekerRole = allowedJobSeekerRoles.has(roleLower);
   if (!isJobSeekerRole) {
     // If role is not a job seeker, keep user on local login with message
     const from = `${location.pathname}${location.search}`;
     return <Navigate to="/login" replace state={{ from }} />;
   }
-  const isFree = roleLower === 'free' || roleLower === 'job_seeker_free';
+  const isFree = roleLower === 'job_seeker_free';
   const path = location.pathname;
   const isRexChat = path.startsWith('/prep/rex-chat') || path.startsWith('/prep/rexchat');
   if (isFree) {
