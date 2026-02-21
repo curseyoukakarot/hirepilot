@@ -2077,7 +2077,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
       let visibleCampaignIds: string[] = [];
       try {
-        const { data: campaigns, error: campaignsError } = await scopedNoOwner(req, 'campaigns')
+        // jobs.thehirepilot.com is owner/campaign scoped (not workspace scoped).
+        const { data: campaigns, error: campaignsError } = await supabase
+          .from('campaigns')
           .select('id')
           .in('user_id', targetUserIds);
         if (campaignsError) {
@@ -2090,7 +2092,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         console.warn('[GET /api/leads jobs] Campaign scope lookup failed:', campaignError);
       }
 
-      let jobsQuery = scopedNoOwner(req, 'leads').select('*');
+      // Important: bypass workspace scope for jobs app to avoid strict workspace
+      // enforcement filtering legacy leads with null workspace_id.
+      let jobsQuery = supabase.from('leads').select('*');
 
       if (campaignId && campaignId !== 'all') {
         jobsQuery = jobsQuery.eq('campaign_id', campaignId);
