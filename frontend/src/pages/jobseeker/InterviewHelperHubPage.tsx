@@ -31,10 +31,16 @@ export default function InterviewHelperHubPage() {
   const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
   const [rexContext, setRexContext] = useState('');
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [resumeStatus, setResumeStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadSessions = async () => {
+    const sessionResult = await supabase.auth.getSession().catch(() => null);
+    const accessToken = sessionResult?.data?.session?.access_token || '';
     const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       credentials: 'include',
     }).catch(() => null);
     if (!response?.ok) return;
@@ -109,6 +115,7 @@ export default function InterviewHelperHubPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadingResume(true);
+    setResumeStatus('');
     try {
       const {
         data: { session },
@@ -116,21 +123,38 @@ export default function InterviewHelperHubPage() {
       const headers: Record<string, string> = {};
       if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
       const form = new FormData();
-      form.append('resume', file);
-      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/jobs/resume-drafts`, {
+      form.append('file', file);
+      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/rex/uploads`, {
         method: 'POST',
         headers,
         credentials: 'include',
         body: form,
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.draft?.id) {
-        navigate('/prep/resume/wizard');
+      if (!response.ok || !payload?.ok) {
+        setResumeStatus('Upload failed. Please try again.');
         return;
       }
-      navigate(`/prep/resume/builder?draftId=${encodeURIComponent(String(payload.draft.id))}`);
+      const uploadedName = String(payload?.name || file.name || 'resume');
+      const extracted = String(payload?.text || '').trim();
+      const excerpt = extracted
+        ? extracted.replace(/\s+/g, ' ').slice(0, 2600)
+        : `Resume file "${uploadedName}" uploaded. Ask targeted questions based on this candidate's likely experience.`;
+      const resumeContextBlock = `Candidate resume (${uploadedName}) context:\n${excerpt}`;
+      setRexContext((prev) => {
+        const base = prev.trim();
+        const merged = base ? `${base}\n\n${resumeContextBlock}` : resumeContextBlock;
+        const capped = merged.slice(0, 4000);
+        try {
+          localStorage.setItem('interview_helper_rex_context', capped);
+        } catch {
+          // no-op
+        }
+        return capped;
+      });
+      setResumeStatus(`Uploaded ${uploadedName}. REX now has resume context for this session.`);
     } catch {
-      navigate('/prep/resume/wizard');
+      setResumeStatus('Upload failed. Please try again.');
     } finally {
       setUploadingResume(false);
       if (event.target) event.target.value = '';
@@ -200,10 +224,11 @@ export default function InterviewHelperHubPage() {
               value={rexContext}
               onChange={(e) => setRexContext(e.target.value)}
               placeholder="Example: Focus on PM leadership at fintech scale, ask stricter follow-ups on metrics and stakeholder influence."
-              maxLength={700}
+              maxLength={4000}
               className="w-full min-h-[92px] rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
-            <div className="text-right text-xs text-gray-500 mt-1">{rexContext.length}/700</div>
+            <div className="text-right text-xs text-gray-500 mt-1">{rexContext.length}/4000</div>
+            {resumeStatus ? <div className="text-xs text-blue-300 mt-2">{resumeStatus}</div> : null}
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             <select

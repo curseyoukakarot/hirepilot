@@ -29,7 +29,7 @@ const sessionCreateSchema = z.object({
   level: z.string().nullable().optional(),
   mode: z.enum(['supportive', 'strict']).default('supportive'),
   prep_pack_id: z.string().uuid().nullable().optional(),
-  rex_context_instructions: z.string().max(700).nullable().optional(),
+  rex_context_instructions: z.string().max(4000).nullable().optional(),
 });
 
 const turnUpsertSchema = z.object({

@@ -57,11 +57,16 @@ export default function InterviewSessionBootstrapPage() {
       const params = new URLSearchParams(location.search);
       const prepPackId = params.get('prepPackId') || '';
       const rexContext = (params.get('rexContext') || '').trim();
-      await supabase.auth.getSession().catch(() => null);
+      const sessionResult = await supabase.auth.getSession().catch(() => null);
+      const accessToken = sessionResult?.data?.session?.access_token || '';
       const idempotencyKey = getIdempotencyKey(prepPackId);
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({
           role_title: 'Senior Product Manager',
@@ -87,7 +92,10 @@ export default function InterviewSessionBootstrapPage() {
 
       await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(sessionId)}/turns`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({
           turn_index: 1,

@@ -309,6 +309,11 @@ const corsOptions: any = {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Authorization',
+    'authorization',
+    'Idempotency-Key',
+    'idempotency-key',
+    'X-Idempotency-Key',
+    'x-idempotency-key',
     'x-api-key',
     'x-workspace-id',
     'Content-Type',
