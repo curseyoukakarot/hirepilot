@@ -54,7 +54,62 @@ export default function InterviewSessionPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[#050505] text-gray-200">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#0b0f14] text-gray-200">
+      <style>{`
+        .glass-panel {
+          background: rgba(20, 20, 20, 0.6);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .orb-container {
+          position: relative;
+          width: 300px;
+          height: 300px;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 30% 30%,
+            rgba(82, 135, 255, 0.58),
+            rgba(124, 58, 237, 0.24) 60%,
+            rgba(0, 0, 0, 0) 70%
+          );
+          box-shadow: 0 0 95px rgba(59, 130, 246, 0.35);
+        }
+        .orb-core {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(125, 175, 255, 0.4) 0%, rgba(37, 99, 235, 0.12) 50%, transparent 80%);
+          filter: blur(20px);
+        }
+        .waveform-bar {
+          width: 4px;
+          background: rgba(255, 255, 255, 0.75);
+          border-radius: 99px;
+          animation: wave 1.2s ease-in-out infinite;
+        }
+        @keyframes wave {
+          0%, 100% { height: 10%; }
+          50% { height: 100%; }
+        }
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); opacity: 0.86; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+        .animate-breathe {
+          animation: breathe 6s ease-in-out infinite;
+        }
+        .transcript-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .transcript-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .transcript-scroll::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.18);
+          border-radius: 20px;
+        }
+      `}</style>
       <header id="header" className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#050505] z-50">
         <div className="flex items-center flex-1 min-w-0">
           <span className="text-xs uppercase tracking-widest text-gray-500 font-medium truncate">

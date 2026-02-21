@@ -23,7 +23,7 @@ export default function VoiceStage({
   return (
     <section
       id="voice-stage"
-      className="w-full lg:w-[60%] h-full flex flex-col items-center justify-center relative bg-gradient-to-b from-[#050505] to-[#0a0a0a]"
+      className="w-full lg:w-[60%] h-full flex flex-col items-center justify-center relative bg-gradient-to-b from-[#0b0f14] to-[#111827]"
     >
       <div className="absolute top-8">
         <div className="flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 backdrop-blur-sm">
@@ -39,13 +39,13 @@ export default function VoiceStage({
 
       <div className="text-center space-y-2 mb-12">
         <p className="text-2xl font-light text-white tracking-tight">{statusText}</p>
-        <p className="text-sm text-gray-500">Speak naturally, take your time.</p>
+        <p className="text-sm text-gray-400">Speak naturally, take your time.</p>
       </div>
 
       <div className="absolute bottom-12 w-full flex flex-col items-center space-y-8">
         <div className="relative group">
           <button
-            className="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 transition-all duration-300 z-20 relative"
+            className="w-20 h-20 rounded-full bg-white text-black border border-white/80 flex items-center justify-center shadow-[0_0_55px_rgba(255,255,255,0.35)] hover:scale-105 transition-all duration-300 z-20 relative"
             onClick={onMicClick}
             disabled={micBusy}
           >
