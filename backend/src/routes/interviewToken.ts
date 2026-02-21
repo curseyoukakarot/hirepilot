@@ -146,6 +146,11 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
+function isAdminRole(role: string) {
+  const normalized = String(role || '').toLowerCase();
+  return normalized.includes('admin');
+}
+
 async function getOwnedSession(userId: string, sessionId: string) {
   const { data, error } = await supabaseAdmin
     .from('interview_sessions')
@@ -528,12 +533,23 @@ router.post('/sessions/:id/turns', requireAuthUnified as any, async (req, res) =
 router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res) => {
   try {
     const userId = String((req as any)?.user?.id || '');
+    const role = String((req as any)?.user?.role || '');
     const sessionId = String(req.params.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
     const session = await getOwnedSession(userId, sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    const allowOverwrite = req.query.allow_overwrite === '1' || req.body?.allow_overwrite === true;
+    const overwriteRequested = req.query.allow_overwrite === '1' || req.body?.allow_overwrite === true;
+    const allowOverwrite = overwriteRequested && isAdminRole(role);
+    if (overwriteRequested && !allowOverwrite) {
+      structuredLog('scoring_write_attempt', {
+        session_id: sessionId,
+        prior_score_state: session.status === 'completed' ? 'finalized' : 'none',
+        new_score_state: 'recompute_rejected_non_admin',
+        allowed: false,
+      });
+      return res.status(403).json({ error: 'Only admin users can overwrite finalized scores' });
+    }
 
     const { data: existingPrep } = await supabaseAdmin
       .from('interview_prep_packs')
@@ -541,11 +557,6 @@ router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res
       .eq('session_id', sessionId)
       .maybeSingle();
     if (existingPrep && !allowOverwrite) {
-      await supabaseAdmin
-        .from('interview_sessions')
-        .update({ prep_pack_id: existingPrep.id })
-        .eq('id', sessionId)
-        .eq('user_id', userId);
       structuredLog('scoring_write_attempt', {
         session_id: sessionId,
         prior_score_state: 'finalized',
@@ -577,6 +588,7 @@ router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res
       const recreateResult = await supabaseAdmin
         .from('interview_prep_packs')
         .insert({
+          id: existingPrep.id,
           session_id: sessionId,
           overall_score: pack.overall_score,
           strengths: pack.strengths,
@@ -613,13 +625,15 @@ router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res
       new_score_state: 'finalized',
       allowed: true,
     });
-    const { error: updateError } = await supabaseAdmin
-      .from('interview_sessions')
-      .update({ status: 'completed', ended_at: new Date().toISOString(), prep_pack_id: prepPack.id })
-      .eq('id', sessionId)
-      .eq('user_id', userId);
-    if (updateError) {
-      return res.status(500).json({ error: 'Failed to finalize session', detail: updateError.message });
+    if (session.status !== 'completed') {
+      const { error: updateError } = await supabaseAdmin
+        .from('interview_sessions')
+        .update({ status: 'completed', ended_at: new Date().toISOString(), prep_pack_id: prepPack.id })
+        .eq('id', sessionId)
+        .eq('user_id', userId);
+      if (updateError) {
+        return res.status(500).json({ error: 'Failed to finalize session', detail: updateError.message });
+      }
     }
     return res.json({
       prepPackId: prepPack.id,
