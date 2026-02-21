@@ -121,8 +121,8 @@ export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLay
         </div>
       </aside>
 
-      <main id="main-content" className="flex-1 overflow-y-auto bg-dark-900">
-        {children}
+      <main id="main-content" className="flex-1 overflow-y-auto bg-[#0B0F14]">
+        <div className="min-h-full">{children}</div>
       </main>
     </div>
   );
