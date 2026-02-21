@@ -83,6 +83,22 @@ export default function InterviewSessionPage() {
     };
   };
 
+  const fetchWithRetry = async (input: string, init: RequestInit, attempts = 3) => {
+    let lastResponse: Response | null = null;
+    for (let i = 0; i < attempts; i += 1) {
+      const response = await fetch(input, init).catch(() => null);
+      if (response) {
+        lastResponse = response;
+        if (response.ok) return response;
+        if ([400, 401, 403, 404].includes(response.status)) return response;
+      }
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 350 * (i + 1)));
+      }
+    }
+    return lastResponse;
+  };
+
   const persistTurn = async (payload: {
     turn_index: number;
     speaker: 'rex' | 'user';
@@ -121,12 +137,27 @@ export default function InterviewSessionPage() {
       accessTokenRef.current = auth.data.session.access_token || '';
       setSessionId(routeId);
       const sessionHeaders = await withAuthHeaders();
-      const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
-        headers: sessionHeaders,
-        credentials: 'include',
-      }).catch(() => null);
-      if (!response?.ok) {
-        setLoadError('This interview session is unavailable or you do not have access.');
+      const response = await fetchWithRetry(
+        `${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`,
+        {
+          headers: sessionHeaders,
+          credentials: 'include',
+        }
+      );
+      if (!response) {
+        setLoadError('Network connection interrupted. Please reconnect and refresh.');
+        return;
+      }
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setLoadError('Please sign in again to continue this interview session.');
+          return;
+        }
+        if (response.status === 404) {
+          setLoadError('This interview session is unavailable or you do not have access.');
+          return;
+        }
+        setLoadError('Unable to load session right now. Please try again.');
         return;
       }
       const payload = await response.json().catch(() => null);
