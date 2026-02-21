@@ -7,6 +7,7 @@ import { useUserMedia } from '../../hooks/useUserMedia';
 import { useAudioAnalyzer } from '../../hooks/useAudioAnalyzer';
 import { useVoiceSession } from '../../hooks/useVoiceSession';
 import { INTERVIEW_SEED_QUESTION } from '../../constants/interview';
+import { supabase } from '../../lib/supabaseClient';
 
 function statusLabelFromState(state: string) {
   if (state === 'USER_LISTENING') return 'REX is listening...';
@@ -34,6 +35,8 @@ export default function InterviewSessionPage() {
   const [modalSummary, setModalSummary] = useState<{ scoreOutOf10: number; topStrength: string; focusArea: string } | null>(null);
   const [prepPackId, setPrepPackId] = useState<string | null>(null);
   const [isInvalidRouteId, setIsInvalidRouteId] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [linkedPrepPackSummary, setLinkedPrepPackSummary] = useState<{ id: string; score: number; roleTitle: string } | null>(null);
   const [turns, setTurns] = useState<TranscriptTurn[]>([
     {
       id: 'seed-rex-1',
@@ -90,15 +93,40 @@ export default function InterviewSessionPage() {
       const routeId = String(id || '').trim();
       if (!routeId || !isUuid(routeId)) {
         setIsInvalidRouteId(true);
+        navigate('/interview-helper', { replace: true });
         return;
       }
       setIsInvalidRouteId(false);
+      setLoadError(null);
+      const auth = await supabase.auth.getSession().catch(() => null);
+      if (!auth?.data?.session) {
+        setLoadError('Please sign in to continue this interview session.');
+        return;
+      }
       setSessionId(routeId);
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/sessions/${encodeURIComponent(routeId)}`, {
         credentials: 'include',
       }).catch(() => null);
-      if (!response?.ok) return;
+      if (!response?.ok) {
+        setLoadError('This interview session is unavailable or you do not have access.');
+        return;
+      }
       const payload = await response.json().catch(() => null);
+      const linkedPrepPackId = String(payload?.session?.prep_pack_id || '').trim();
+      if (linkedPrepPackId) {
+        setPrepPackId(linkedPrepPackId);
+        const prepResponse = await fetch(`${API_BASE.replace(/\/$/, '')}/api/interview/prep/${encodeURIComponent(linkedPrepPackId)}`, {
+          credentials: 'include',
+        }).catch(() => null);
+        const prepPayload = prepResponse?.ok ? await prepResponse.json().catch(() => null) : null;
+        if (prepPayload?.prepPack?.id) {
+          setLinkedPrepPackSummary({
+            id: prepPayload.prepPack.id,
+            score: Number(prepPayload.prepPack?.overall_score?.out_of_10 || 0),
+            roleTitle: String(prepPayload?.session?.role_title || 'Interview Prep'),
+          });
+        }
+      }
       const dbTurns = Array.isArray(payload?.turns) ? payload.turns : [];
       const hydrated: TranscriptTurn[] = dbTurns
         .map((row: any) => {
@@ -125,7 +153,7 @@ export default function InterviewSessionPage() {
       if (latestCoach?.coaching) setCoaching(latestCoach.coaching as CoachingCard);
     };
     void boot();
-  }, [id]);
+  }, [id, navigate]);
 
   const generateCoaching = async (answer: string, turnIndex: number) => {
     const lastQuestion = [...turnsRef.current].reverse().find((turn) => turn.speaker === 'rex' && !turn.partial);
@@ -366,6 +394,20 @@ export default function InterviewSessionPage() {
       </div>
     );
   }
+  if (loadError) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#0b0f14] text-gray-300 gap-3">
+        <div>{loadError}</div>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => navigate('/interview-helper')}
+        >
+          Back to Interview Helper
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#0b0f14] text-gray-200">
@@ -453,6 +495,20 @@ export default function InterviewSessionPage() {
           </button>
         </div>
       </header>
+      {linkedPrepPackSummary ? (
+        <div className="mx-6 mt-3 rounded-lg border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-xs text-blue-100 flex items-center justify-between">
+          <span>
+            Linked prep pack: {linkedPrepPackSummary.roleTitle} ({linkedPrepPackSummary.score.toFixed(1)}/10)
+          </span>
+          <button
+            type="button"
+            className="text-blue-300 hover:text-blue-200"
+            onClick={() => navigate(`/interview-helper/prep/${linkedPrepPackSummary.id}`)}
+          >
+            Open Prep Pack
+          </button>
+        </div>
+      ) : null}
 
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         <VoiceStage

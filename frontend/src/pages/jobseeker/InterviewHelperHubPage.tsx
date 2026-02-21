@@ -14,6 +14,7 @@ type SessionRow = {
   started_at: string;
   status: 'in_progress' | 'completed';
   score_out_of_10?: number | null;
+  prep_pack_id?: string | null;
 };
 
 function formatDate(input: string) {
@@ -25,6 +26,7 @@ function formatDate(input: string) {
 export default function InterviewHelperHubPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [selectedPrepPackId, setSelectedPrepPackId] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -53,6 +55,11 @@ export default function InterviewHelperHubPage() {
       improved: 'Conciseness',
     };
   }, [sessions]);
+  const prepPackSessions = useMemo(
+    () => sessions.filter((session) => session.prep_pack_id).slice(0, 10),
+    [sessions]
+  );
+  const latestPrepPack = prepPackSessions[0]?.prep_pack_id || '';
 
   return (
     <div className="min-h-screen bg-[#0B0F14] text-[#e5e5e5] font-['Inter',sans-serif]">
@@ -94,7 +101,13 @@ export default function InterviewHelperHubPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-900/40 flex items-center justify-center gap-2"
-                onClick={() => navigate('/interview-helper/session/new')}
+                onClick={() =>
+                  navigate(
+                    `/interview-helper/session/new${
+                      selectedPrepPackId ? `?prepPackId=${encodeURIComponent(selectedPrepPackId)}` : ''
+                    }`
+                  )
+                }
               >
                 <i className="fa-solid fa-plus"></i>
                 <span>Start New Session</span>
@@ -104,6 +117,28 @@ export default function InterviewHelperHubPage() {
                 <span>Upload Resume</span>
               </button>
             </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <select
+              value={selectedPrepPackId}
+              onChange={(e) => setSelectedPrepPackId(e.target.value)}
+              className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-200"
+            >
+              <option value="">Start without prep pack</option>
+              {prepPackSessions.map((session) => (
+                <option key={`${session.id}-${session.prep_pack_id}`} value={String(session.prep_pack_id)}>
+                  {session.role_title} • {session.company || 'Unknown company'} • {formatDate(session.started_at)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!latestPrepPack}
+              onClick={() => latestPrepPack && navigate(`/interview-helper/prep/${latestPrepPack}`)}
+              className="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue Last Prep Pack
+            </button>
           </div>
         </section>
 

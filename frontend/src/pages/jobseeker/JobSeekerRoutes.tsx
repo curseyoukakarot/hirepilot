@@ -259,6 +259,10 @@ export default function JobSeekerRoutes() {
             }
           />
           <Route
+            path="/interview-helper/session"
+            element={<Navigate to="/interview-helper" replace />}
+          />
+          <Route
             path="/interview-helper/session/new"
             element={
               <JobSeekerProtected>

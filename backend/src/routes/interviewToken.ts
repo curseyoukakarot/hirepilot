@@ -21,12 +21,14 @@ const REALTIME_INSTRUCTIONS =
 const COACH_MODEL = process.env.INTERVIEW_COACH_MODEL || 'gpt-5.2';
 const COACH_MODEL_FALLBACKS = ['gpt-5.2', 'gpt-5', 'gpt-4o', 'gpt-4o-mini'];
 const REALTIME_MODEL_FALLBACKS = ['gpt-5.2-realtime-preview', 'gpt-4o-realtime-preview'];
+const SESSION_IDEMPOTENCY_TTL_MS = 2 * 60 * 1000;
 
 const sessionCreateSchema = z.object({
   role_title: z.string().min(1),
   company: z.string().nullable().optional(),
   level: z.string().nullable().optional(),
   mode: z.enum(['supportive', 'strict']).default('supportive'),
+  prep_pack_id: z.string().uuid().nullable().optional(),
 });
 
 const turnUpsertSchema = z.object({
@@ -130,6 +132,20 @@ function debugLog(req: any, message: string, extra: Record<string, unknown> = {}
   console.info(`[interview.debug] ${message}`, extra);
 }
 
+function structuredLog(event: string, payload: Record<string, unknown>) {
+  console.info(
+    JSON.stringify({
+      event,
+      at: new Date().toISOString(),
+      ...payload,
+    })
+  );
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
+
 async function getOwnedSession(userId: string, sessionId: string) {
   const { data, error } = await supabaseAdmin
     .from('interview_sessions')
@@ -139,6 +155,17 @@ async function getOwnedSession(userId: string, sessionId: string) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
+}
+
+function modalSummaryFromPrep(prepPack: any) {
+  const outOf10 = Number(prepPack?.overall_score?.out_of_10 || 0);
+  const topStrength = String(prepPack?.strengths?.[0]?.title || '').trim() || 'Clear communication';
+  const focusArea = String(prepPack?.focus_areas?.[0]?.title || '').trim() || 'Add specificity and metrics';
+  return {
+    scoreOutOf10: Number.isFinite(outOf10) ? Number(outOf10.toFixed(1)) : 0,
+    topStrength,
+    focusArea,
+  };
 }
 
 function computePrepPack(turns: any[]) {
@@ -223,6 +250,9 @@ function computePrepPack(turns: any[]) {
     .map((quote) => String(quote || '').trim())
     .filter(Boolean)
     .slice(0, 2);
+  const evidenceFailures = coachPayloads.filter(
+    (payload) => !Array.isArray(payload?.evidence_quotes) || payload.evidence_quotes.length === 0
+  ).length;
 
   return {
     overall_score: {
@@ -239,6 +269,10 @@ function computePrepPack(turns: any[]) {
       scoreOutOf10: overall10,
       topStrength: strengths[0]?.title || 'Clear communication',
       focusArea: focusAreas[0]?.title || 'Add specificity and metrics',
+    },
+    evidence_extract_status: {
+      count: evidenceQuotes.length,
+      failures: evidenceFailures,
     },
   };
 }
@@ -272,6 +306,15 @@ router.post('/token', requireAuthUnified as any, async (_req, res) => {
       payload = await response.json().catch(() => ({} as any));
       if (response.ok) {
         selectedModel = model;
+        if (model !== REALTIME_MODEL) {
+          structuredLog('interview_model_fallback', {
+            primary_model: REALTIME_MODEL,
+            fallback_model: model,
+            reason: 'model_unavailable',
+            session_id: null,
+            user_id: String((_req as any)?.user?.id || ''),
+          });
+        }
         break;
       }
       if (!isModelAvailabilityError(payload, response.status)) {
@@ -317,6 +360,40 @@ router.post('/sessions', requireAuthUnified as any, async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid session payload', detail: parsed.error.flatten() });
     }
+    const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+    if (idempotencyKey) {
+      const cutoff = new Date(Date.now() - SESSION_IDEMPOTENCY_TTL_MS).toISOString();
+      const { data: existing } = await supabaseAdmin
+        .from('interview_helper_idempotency')
+        .select('session_id, created_at')
+        .eq('user_id', userId)
+        .eq('idempotency_key', idempotencyKey)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing?.session_id) {
+        return res.json({ sessionId: existing.session_id, reused: true });
+      }
+    }
+
+    let prepPackId: string | null = parsed.data.prep_pack_id || null;
+    if (prepPackId) {
+      const { data: prepPack } = await supabaseAdmin
+        .from('interview_prep_packs')
+        .select('id, session_id')
+        .eq('id', prepPackId)
+        .single();
+      const sourceSessionId = String((prepPack as any)?.session_id || '');
+      const { data: sourceSession } = sourceSessionId
+        ? await supabaseAdmin.from('interview_sessions').select('user_id').eq('id', sourceSessionId).maybeSingle()
+        : { data: null as any };
+      const ownerId = String((sourceSession as any)?.user_id || '');
+      if (!prepPack || !sourceSession || ownerId !== userId) {
+        prepPackId = null;
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('interview_sessions')
       .insert({
@@ -326,12 +403,24 @@ router.post('/sessions', requireAuthUnified as any, async (req, res) => {
         level: parsed.data.level || null,
         mode: parsed.data.mode,
         status: 'in_progress',
+        prep_pack_id: prepPackId,
       })
       .select('id')
       .single();
     if (error || !data?.id) {
       return res.status(500).json({ error: 'Failed to create session', detail: error?.message });
     }
+    if (idempotencyKey) {
+      await supabaseAdmin.from('interview_helper_idempotency').upsert(
+        {
+          user_id: userId,
+          idempotency_key: idempotencyKey,
+          session_id: data.id,
+        },
+        { onConflict: 'user_id,idempotency_key' }
+      );
+    }
+    structuredLog('interview_session_created', { session_id: data.id, user_id: userId });
     return res.json({ sessionId: data.id });
   } catch (e: any) {
     return res.status(500).json({ error: 'Failed to create session', detail: e?.message });
@@ -377,8 +466,15 @@ router.get('/sessions/:id', requireAuthUnified as any, async (req, res) => {
     const userId = String((req as any)?.user?.id || '');
     const sessionId = String(req.params.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(sessionId)) {
+      structuredLog('session_load_failed', { session_id: sessionId, reason: 'invalid_uuid' });
+      return res.status(400).json({ error: 'Invalid session id' });
+    }
     const session = await getOwnedSession(userId, sessionId);
-    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (!session) {
+      structuredLog('session_load_failed', { session_id: sessionId, reason: 'not_found_or_forbidden' });
+      return res.status(404).json({ error: 'Session not found' });
+    }
     const { data: turns, error: turnsError } = await supabaseAdmin
       .from('interview_turns')
       .select('*')
@@ -399,6 +495,7 @@ router.post('/sessions/:id/turns', requireAuthUnified as any, async (req, res) =
     const userId = String((req as any)?.user?.id || '');
     const sessionId = String(req.params.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
     const session = await getOwnedSession(userId, sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const parsed = turnUpsertSchema.safeParse(req.body || {});
@@ -433,8 +530,33 @@ router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res
     const userId = String((req as any)?.user?.id || '');
     const sessionId = String(req.params.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
     const session = await getOwnedSession(userId, sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
+    const allowOverwrite = req.query.allow_overwrite === '1' || req.body?.allow_overwrite === true;
+
+    const { data: existingPrep } = await supabaseAdmin
+      .from('interview_prep_packs')
+      .select('*')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    if (existingPrep && !allowOverwrite) {
+      await supabaseAdmin
+        .from('interview_sessions')
+        .update({ prep_pack_id: existingPrep.id })
+        .eq('id', sessionId)
+        .eq('user_id', userId);
+      structuredLog('scoring_write_attempt', {
+        session_id: sessionId,
+        prior_score_state: 'finalized',
+        new_score_state: 'recompute_blocked',
+        allowed: false,
+      });
+      return res.json({
+        prepPackId: existingPrep.id,
+        modalSummary: modalSummaryFromPrep(existingPrep),
+      });
+    }
 
     const { data: turns, error: turnsError } = await supabaseAdmin
       .from('interview_turns')
@@ -443,27 +565,57 @@ router.post('/sessions/:id/finalize', requireAuthUnified as any, async (req, res
       .order('turn_index', { ascending: true });
     if (turnsError) return res.status(500).json({ error: 'Failed to load turns', detail: turnsError.message });
     const pack = computePrepPack(turns || []);
-    const { data: prepPack, error: prepError } = await supabaseAdmin
-      .from('interview_prep_packs')
-      .upsert(
-        {
+    structuredLog('evidence_extract_status', {
+      session_id: sessionId,
+      count: pack.evidence_extract_status.count,
+      failures: pack.evidence_extract_status.failures,
+    });
+    let prepPack: { id: string } | null = null;
+    let prepError: any = null;
+    if (existingPrep && allowOverwrite) {
+      await supabaseAdmin.from('interview_prep_packs').delete().eq('id', existingPrep.id);
+      const recreateResult = await supabaseAdmin
+        .from('interview_prep_packs')
+        .insert({
           session_id: sessionId,
           overall_score: pack.overall_score,
           strengths: pack.strengths,
           focus_areas: pack.focus_areas,
           best_answers: pack.best_answers,
           practice_plan: pack.practice_plan,
-        },
-        { onConflict: 'session_id' }
-      )
-      .select('id')
-      .single();
+        })
+        .select('id')
+        .single();
+      prepPack = recreateResult.data;
+      prepError = recreateResult.error;
+    } else {
+      const insertResult = await supabaseAdmin
+        .from('interview_prep_packs')
+        .insert({
+          session_id: sessionId,
+          overall_score: pack.overall_score,
+          strengths: pack.strengths,
+          focus_areas: pack.focus_areas,
+          best_answers: pack.best_answers,
+          practice_plan: pack.practice_plan,
+        })
+        .select('id')
+        .single();
+      prepPack = insertResult.data;
+      prepError = insertResult.error;
+    }
     if (prepError || !prepPack?.id) {
       return res.status(500).json({ error: 'Failed to persist prep pack', detail: prepError?.message });
     }
+    structuredLog('scoring_write_attempt', {
+      session_id: sessionId,
+      prior_score_state: existingPrep ? 'finalized' : 'none',
+      new_score_state: 'finalized',
+      allowed: true,
+    });
     const { error: updateError } = await supabaseAdmin
       .from('interview_sessions')
-      .update({ status: 'completed', ended_at: new Date().toISOString() })
+      .update({ status: 'completed', ended_at: new Date().toISOString(), prep_pack_id: prepPack.id })
       .eq('id', sessionId)
       .eq('user_id', userId);
     if (updateError) {
@@ -483,6 +635,7 @@ router.get('/prep/:id', requireAuthUnified as any, async (req, res) => {
     const userId = String((req as any)?.user?.id || '');
     const prepPackId = String(req.params.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isUuid(prepPackId)) return res.status(400).json({ error: 'Invalid prep pack id' });
     const { data, error } = await supabaseAdmin
       .from('interview_prep_packs')
       .select('*, interview_sessions(*)')
@@ -509,6 +662,7 @@ router.post('/:sessionId/coach', requireAuthUnified as any, async (req, res) => 
     const userId = String((req as any)?.user?.id || '');
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const sessionId = String(req.params.sessionId || '');
+    if (!isUuid(sessionId)) return res.status(400).json({ error: 'Invalid session id' });
     const session = await getOwnedSession(userId, sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     if (!OPENAI_API_KEY) {
@@ -539,6 +693,15 @@ router.post('/:sessionId/coach', requireAuthUnified as any, async (req, res) => 
           ],
         });
         selectedCoachModel = candidate;
+        if (candidate !== COACH_MODEL) {
+          structuredLog('interview_model_fallback', {
+            primary_model: COACH_MODEL,
+            fallback_model: candidate,
+            reason: 'model_unavailable',
+            session_id: sessionId,
+            user_id: userId,
+          });
+        }
         break;
       } catch (modelErr: any) {
         if (!isModelAvailabilityError(modelErr)) throw modelErr;
