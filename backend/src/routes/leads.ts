@@ -2075,12 +2075,33 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
           ? Array.from(new Set(scope.targetUserIds.filter(Boolean)))
           : [userId];
 
-      let jobsQuery = scopedNoOwner(req, 'leads')
-        .select('*')
-        .in('user_id', targetUserIds);
+      let visibleCampaignIds: string[] = [];
+      try {
+        const { data: campaigns, error: campaignsError } = await scopedNoOwner(req, 'campaigns')
+          .select('id')
+          .in('user_id', targetUserIds);
+        if (campaignsError) {
+          console.warn('[GET /api/leads jobs] Failed to fetch visible campaigns:', campaignsError);
+        }
+        visibleCampaignIds = Array.from(
+          new Set((campaigns || []).map((c: any) => String(c?.id || '').trim()).filter(Boolean))
+        );
+      } catch (campaignError) {
+        console.warn('[GET /api/leads jobs] Campaign scope lookup failed:', campaignError);
+      }
+
+      let jobsQuery = scopedNoOwner(req, 'leads').select('*');
 
       if (campaignId && campaignId !== 'all') {
         jobsQuery = jobsQuery.eq('campaign_id', campaignId);
+      } else if (targetUserIds.length > 0 && visibleCampaignIds.length > 0) {
+        jobsQuery = jobsQuery.or(
+          `user_id.in.(${targetUserIds.join(',')}),campaign_id.in.(${visibleCampaignIds.join(',')})`
+        );
+      } else if (visibleCampaignIds.length > 0) {
+        jobsQuery = jobsQuery.in('campaign_id', visibleCampaignIds);
+      } else {
+        jobsQuery = jobsQuery.in('user_id', targetUserIds);
       }
       if (runId) {
         jobsQuery = jobsQuery.eq('scheduler_run_id', runId);
