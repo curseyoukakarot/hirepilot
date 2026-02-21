@@ -28,6 +28,7 @@ import { LinkedInRemoteActionType } from '../services/brightdataBrowser';
 import { getSystemSettingBoolean } from '../utils/systemSettings';
 import { getUserTeamContextDb } from '../lib/userTeamContext';
 import { sendGtmStrategyAccessEmail } from '../lib/emails/gtmStrategyAccessEmail';
+import { resolveAnalyticsScope } from '../../lib/analyticsScope';
 
 const router = express.Router();
 router.use(requireAuth as any, activeWorkspace as any);
@@ -2064,6 +2065,48 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get campaign filter from query params
     const campaignId = req.query.campaignId as string;
     const runId = (req.query.run_id || req.query.scheduler_run_id) as string | undefined;
+    const requestContext = `${String(req.headers.origin || '')} ${String(req.headers.referer || '')} ${String(req.headers.host || '')}`.toLowerCase();
+    const isJobsAppRequest = requestContext.includes('jobs.thehirepilot.com');
+
+    if (isJobsAppRequest) {
+      const scope = await resolveAnalyticsScope(userId);
+      const targetUserIds =
+        scope.allowed && Array.isArray(scope.targetUserIds) && scope.targetUserIds.length > 0
+          ? Array.from(new Set(scope.targetUserIds.filter(Boolean)))
+          : [userId];
+
+      let jobsQuery = scopedNoOwner(req, 'leads')
+        .select('*')
+        .in('user_id', targetUserIds);
+
+      if (campaignId && campaignId !== 'all') {
+        jobsQuery = jobsQuery.eq('campaign_id', campaignId);
+      }
+      if (runId) {
+        jobsQuery = jobsQuery.eq('scheduler_run_id', runId);
+      }
+
+      const { data: jobsLeads, error: jobsError } = await jobsQuery.order('created_at', { ascending: false });
+      if (jobsError) {
+        res.status(500).json({ error: jobsError.message });
+        return;
+      }
+
+      const decorated = (jobsLeads || []).map((lead: any) => {
+        const sharedFromTeamMate = !!lead.user_id && lead.user_id !== userId;
+        return {
+          ...lead,
+          shared_from_team_member: sharedFromTeamMate,
+          shared_can_edit: false,
+          can_edit: lead.user_id === userId
+        };
+      });
+
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.removeHeader('ETag');
+      res.json(decorated);
+      return;
+    }
 
     // Get user's team_id and role for team sharing (supports legacy + new membership).
     const teamContext = await getUserTeamContextDb(userId);
