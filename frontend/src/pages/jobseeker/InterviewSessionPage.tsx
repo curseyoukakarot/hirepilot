@@ -31,7 +31,8 @@ export default function InterviewSessionPage() {
   });
   const userAnalyzer = useAudioAnalyzer(userStream, { fftSize: 256, autoStart: true });
   const rexAnalyzer = useAudioAnalyzer(voiceSession.rexStream, { fftSize: 256, autoStart: true });
-  const silenceTimerRef = useRef<number | null>(null);
+  const enterSpeakingTimerRef = useRef<number | null>(null);
+  const exitSpeakingTimerRef = useRef<number | null>(null);
   const testPulseRafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -41,25 +42,40 @@ export default function InterviewSessionPage() {
   useEffect(() => {
     if (!userAnalyzer.isActive) return;
     if (currentState === 'REX_SPEAKING' || currentState === 'REX_THINKING') return;
-    if (userAnalyzer.intensity > 0.11) {
-      transition('USER_SPEECH_START');
-      if (silenceTimerRef.current) {
-        window.clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
+    if (currentState !== 'USER_SPEAKING') {
+      if (userAnalyzer.intensity >= 0.1 && !enterSpeakingTimerRef.current) {
+        enterSpeakingTimerRef.current = window.setTimeout(() => {
+          transition('USER_SPEECH_START');
+          enterSpeakingTimerRef.current = null;
+        }, 120);
+      }
+      if (userAnalyzer.intensity < 0.1 && enterSpeakingTimerRef.current) {
+        window.clearTimeout(enterSpeakingTimerRef.current);
+        enterSpeakingTimerRef.current = null;
+      }
+      if (exitSpeakingTimerRef.current) {
+        window.clearTimeout(exitSpeakingTimerRef.current);
+        exitSpeakingTimerRef.current = null;
       }
       return;
     }
-    if (currentState === 'USER_SPEAKING' && !silenceTimerRef.current) {
-      silenceTimerRef.current = window.setTimeout(() => {
+
+    if (userAnalyzer.intensity <= 0.06 && !exitSpeakingTimerRef.current) {
+      exitSpeakingTimerRef.current = window.setTimeout(() => {
         transition('USER_SPEECH_END');
-        silenceTimerRef.current = null;
-      }, 220);
+        exitSpeakingTimerRef.current = null;
+      }, 250);
+    }
+    if (userAnalyzer.intensity > 0.06 && exitSpeakingTimerRef.current) {
+      window.clearTimeout(exitSpeakingTimerRef.current);
+      exitSpeakingTimerRef.current = null;
     }
   }, [currentState, transition, userAnalyzer.intensity, userAnalyzer.isActive]);
 
   useEffect(() => {
     return () => {
-      if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
+      if (enterSpeakingTimerRef.current) window.clearTimeout(enterSpeakingTimerRef.current);
+      if (exitSpeakingTimerRef.current) window.clearTimeout(exitSpeakingTimerRef.current);
       if (testPulseRafRef.current) cancelAnimationFrame(testPulseRafRef.current);
     };
   }, []);
@@ -247,6 +263,11 @@ export default function InterviewSessionPage() {
           <div>mic: {micStatus}</div>
           <div>analyzerActive: {String(userAnalyzer.isActive)}</div>
           <div>hz: {userAnalyzer.updateRate.toFixed(0)}</div>
+          <div>noiseFloor: {userAnalyzer.noiseFloor.toFixed(3)}</div>
+          <div>gain: {userAnalyzer.gain.toFixed(2)}</div>
+          <div>shaped: {userAnalyzer.shapedIntensity.toFixed(2)}</div>
+          <div>smoothed: {userAnalyzer.smoothedIntensity.toFixed(2)}</div>
+          <div>speakingDetected: {String(userAnalyzer.speakingDetected)}</div>
           <button
             type="button"
             onClick={runTestPulse}

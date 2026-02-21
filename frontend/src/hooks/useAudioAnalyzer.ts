@@ -8,6 +8,11 @@ type Options = {
   gain?: number;
   targetFps?: number;
   deltaThreshold?: number;
+  compressionK?: number;
+  gamma?: number;
+  attack?: number;
+  release?: number;
+  calibrationMs?: number;
 };
 
 export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {}) {
@@ -15,14 +20,24 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
   const fftSize = opts.fftSize ?? 256;
   const autoStart = opts.autoStart ?? true;
   const noiseFloor = opts.noiseFloor ?? 0.03;
-  const gain = opts.gain ?? 1.6;
+  const gain = opts.gain ?? 1.8;
   const targetFps = opts.targetFps ?? 30;
   const deltaThreshold = opts.deltaThreshold ?? 0.01;
+  const compressionK = opts.compressionK ?? 2.6;
+  const gamma = opts.gamma ?? 0.75;
+  const attack = opts.attack ?? 0.22;
+  const release = opts.release ?? 0.1;
+  const calibrationMs = opts.calibrationMs ?? 1000;
 
   const [intensity, setIntensity] = useState(0);
   const [raw, setRaw] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [updateRate, setUpdateRate] = useState(0);
+  const [liveNoiseFloor, setLiveNoiseFloor] = useState(noiseFloor);
+  const [liveGain, setLiveGain] = useState(gain);
+  const [shapedIntensity, setShapedIntensity] = useState(0);
+  const [smoothedIntensity, setSmoothedIntensity] = useState(0);
+  const [speakingDetected, setSpeakingDetected] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -38,6 +53,27 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
   const streamRef = useRef<MediaStream | null>(stream);
   const isRunningRef = useRef(false);
   const isConnectedRef = useRef(false);
+  const calibrationStartRef = useRef<number | null>(null);
+  const isCalibratedRef = useRef(false);
+  const baselineSamplesRef = useRef<number[]>([]);
+  const noiseFloorRef = useRef(noiseFloor);
+  const gainRef = useRef(gain);
+  const expectedSpeechRef = useRef(0.18);
+  const shapedRef = useRef(0);
+  const speakingRef = useRef(false);
+  const aboveStartRef = useRef<number | null>(null);
+  const belowStartRef = useRef<number | null>(null);
+
+  const clamp = useCallback((value: number, min: number, max: number) => {
+    return Math.min(max, Math.max(min, value));
+  }, []);
+
+  const percentile = useCallback((values: number[], p: number) => {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const idx = clamp(Math.floor((sorted.length - 1) * p), 0, sorted.length - 1);
+    return sorted[idx];
+  }, [clamp]);
 
   useEffect(() => {
     streamRef.current = stream;
@@ -70,9 +106,24 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
     setUpdateRate(0);
     setIntensity(0);
     setRaw(0);
+    setLiveNoiseFloor(noiseFloor);
+    setLiveGain(gain);
+    setShapedIntensity(0);
+    setSmoothedIntensity(0);
+    setSpeakingDetected(false);
     smoothedRef.current = 0;
     lastPublishedRef.current = 0;
-  }, []);
+    shapedRef.current = 0;
+    speakingRef.current = false;
+    aboveStartRef.current = null;
+    belowStartRef.current = null;
+    baselineSamplesRef.current = [];
+    calibrationStartRef.current = null;
+    isCalibratedRef.current = false;
+    noiseFloorRef.current = noiseFloor;
+    gainRef.current = gain;
+    expectedSpeechRef.current = 0.18;
+  }, [gain, noiseFloor]);
 
   const loop = useCallback(
     (now: number) => {
@@ -88,10 +139,60 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
       }
       const avg = sum / data.length;
       const normalized = avg / 255;
-      const gated = Math.max(0, normalized - noiseFloor) / (1 - noiseFloor);
-      const boosted = Math.min(1, gated * gain);
-      const smoothed = smoothedRef.current * (1 - smoothingFactor) + boosted * smoothingFactor;
+
+      if (calibrationStartRef.current && !isCalibratedRef.current) {
+        const elapsedCalibration = now - calibrationStartRef.current;
+        if (elapsedCalibration <= calibrationMs) {
+          baselineSamplesRef.current.push(normalized);
+        } else {
+          const baselineP90 = Math.max(0.02, percentile(baselineSamplesRef.current, 0.9));
+          noiseFloorRef.current = clamp(baselineP90 * 1.15, 0.02, 0.08);
+          isCalibratedRef.current = true;
+        }
+      }
+
+      if (normalized > noiseFloorRef.current + 0.02) {
+        expectedSpeechRef.current = expectedSpeechRef.current * 0.94 + normalized * 0.06;
+      }
+      const adaptiveGain = clamp(0.6 / Math.max(0.12, expectedSpeechRef.current), 1.2, 3.0);
+      gainRef.current = gainRef.current * 0.95 + adaptiveGain * 0.05;
+
+      const x = clamp((normalized - noiseFloorRef.current) * gainRef.current, 0, 1);
+      let shaped = 1 - Math.exp(-compressionK * x);
+      shaped = Math.pow(shaped, gamma);
+      shaped = clamp(shaped, 0, 1);
+      shapedRef.current = shaped;
+
+      let smoothed = smoothedRef.current;
+      if (shaped > smoothed) {
+        smoothed = smoothed + (shaped - smoothed) * attack;
+      } else {
+        smoothed = smoothed + (shaped - smoothed) * release;
+      }
+      smoothed = smoothedRef.current * (1 - smoothingFactor) + smoothed * smoothingFactor;
       smoothedRef.current = smoothed;
+
+      if (!speakingRef.current) {
+        if (smoothed >= 0.1) {
+          if (!aboveStartRef.current) aboveStartRef.current = now;
+          if (now - aboveStartRef.current >= 120) {
+            speakingRef.current = true;
+            aboveStartRef.current = null;
+            belowStartRef.current = null;
+          }
+        } else {
+          aboveStartRef.current = null;
+        }
+      } else if (smoothed <= 0.06) {
+        if (!belowStartRef.current) belowStartRef.current = now;
+        if (now - belowStartRef.current >= 250) {
+          speakingRef.current = false;
+          belowStartRef.current = null;
+          aboveStartRef.current = null;
+        }
+      } else {
+        belowStartRef.current = null;
+      }
 
       const minFrameMs = 1000 / targetFps;
       const shouldPublish =
@@ -101,6 +202,11 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
       if (shouldPublish) {
         setRaw(avg);
         setIntensity(smoothed);
+        setSmoothedIntensity(smoothed);
+        setShapedIntensity(shapedRef.current);
+        setLiveNoiseFloor(noiseFloorRef.current);
+        setLiveGain(gainRef.current);
+        setSpeakingDetected(speakingRef.current);
         lastUpdateRef.current = now;
         lastPublishedRef.current = smoothed;
         if (!updateWindowStartRef.current) updateWindowStartRef.current = now;
@@ -115,7 +221,18 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
 
       rafRef.current = requestAnimationFrame(loop);
     },
-    [deltaThreshold, gain, noiseFloor, smoothingFactor, targetFps]
+    [
+      attack,
+      calibrationMs,
+      clamp,
+      compressionK,
+      deltaThreshold,
+      gamma,
+      percentile,
+      release,
+      smoothingFactor,
+      targetFps,
+    ]
   );
 
   const start = useCallback(async (streamOverride?: MediaStream | null) => {
@@ -145,11 +262,20 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
     analyserRef.current = analyser;
     sinkGainRef.current = sinkGain;
     dataRef.current = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+    calibrationStartRef.current = performance.now();
+    baselineSamplesRef.current = [];
+    isCalibratedRef.current = false;
+    noiseFloorRef.current = noiseFloor;
+    gainRef.current = gain;
+    expectedSpeechRef.current = 0.18;
+    speakingRef.current = false;
+    aboveStartRef.current = null;
+    belowStartRef.current = null;
     isConnectedRef.current = true;
     isRunningRef.current = true;
     setIsActive(true);
     rafRef.current = requestAnimationFrame(loop);
-  }, [fftSize, loop]);
+  }, [fftSize, gain, loop, noiseFloor]);
 
   useEffect(() => {
     if (!stream || !autoStart) return;
@@ -159,5 +285,17 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
     };
   }, [autoStart, start, stop, stream]);
 
-  return { intensity, raw, isActive: isActive && isConnectedRef.current && isRunningRef.current, updateRate, start, stop };
+  return {
+    intensity,
+    raw,
+    isActive: isActive && isConnectedRef.current && isRunningRef.current,
+    updateRate,
+    noiseFloor: liveNoiseFloor,
+    gain: liveGain,
+    shapedIntensity,
+    smoothedIntensity,
+    speakingDetected,
+    start,
+    stop,
+  };
 }
