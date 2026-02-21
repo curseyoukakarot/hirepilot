@@ -27,20 +27,24 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const sinkGainRef = useRef<GainNode | null>(null);
   const rafRef = useRef<number | null>(null);
-  const dataRef = useRef<Uint8Array | null>(null);
+  const dataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const smoothedRef = useRef(0);
   const lastUpdateRef = useRef(0);
   const lastPublishedRef = useRef(0);
   const updateCountRef = useRef(0);
   const updateWindowStartRef = useRef(0);
   const streamRef = useRef<MediaStream | null>(stream);
+  const isRunningRef = useRef(false);
+  const isConnectedRef = useRef(false);
 
   useEffect(() => {
     streamRef.current = stream;
   }, [stream]);
 
   const stop = useCallback(() => {
+    isRunningRef.current = false;
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -53,10 +57,15 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
       analyserRef.current.disconnect();
       analyserRef.current = null;
     }
+    if (sinkGainRef.current) {
+      sinkGainRef.current.disconnect();
+      sinkGainRef.current = null;
+    }
     if (audioContextRef.current) {
       void audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    isConnectedRef.current = false;
     setIsActive(false);
     setUpdateRate(0);
     setIntensity(0);
@@ -67,6 +76,7 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
 
   const loop = useCallback(
     (now: number) => {
+      if (!isRunningRef.current) return;
       const analyser = analyserRef.current;
       const data = dataRef.current;
       if (!analyser || !data) return;
@@ -108,24 +118,38 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
     [deltaThreshold, gain, noiseFloor, smoothingFactor, targetFps]
   );
 
-  const start = useCallback(async () => {
-    const inputStream = streamRef.current;
-    if (!inputStream || isActive) return;
+  const start = useCallback(async (streamOverride?: MediaStream | null) => {
+    const inputStream = streamOverride ?? streamRef.current;
+    if (!inputStream || isRunningRef.current) return;
 
-    const context = new AudioContext();
+    let context = audioContextRef.current;
+    if (!context || context.state === 'closed') {
+      context = new AudioContext();
+      audioContextRef.current = context;
+    }
+    if (context.state === 'suspended') {
+      await context.resume();
+    }
+
     const source = context.createMediaStreamSource(inputStream);
     const analyser = context.createAnalyser();
+    const sinkGain = context.createGain();
+    sinkGain.gain.value = 0;
     analyser.fftSize = fftSize;
     analyser.smoothingTimeConstant = 0.75;
     source.connect(analyser);
+    analyser.connect(sinkGain);
+    sinkGain.connect(context.destination);
 
-    audioContextRef.current = context;
     sourceRef.current = source;
     analyserRef.current = analyser;
-    dataRef.current = new Uint8Array(analyser.frequencyBinCount);
+    sinkGainRef.current = sinkGain;
+    dataRef.current = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+    isConnectedRef.current = true;
+    isRunningRef.current = true;
     setIsActive(true);
     rafRef.current = requestAnimationFrame(loop);
-  }, [fftSize, isActive, loop]);
+  }, [fftSize, loop]);
 
   useEffect(() => {
     if (!stream || !autoStart) return;
@@ -135,5 +159,5 @@ export function useAudioAnalyzer(stream: MediaStream | null, opts: Options = {})
     };
   }, [autoStart, start, stop, stream]);
 
-  return { intensity, raw, isActive, updateRate, start, stop };
+  return { intensity, raw, isActive: isActive && isConnectedRef.current && isRunningRef.current, updateRate, start, stop };
 }

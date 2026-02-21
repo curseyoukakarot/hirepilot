@@ -5,6 +5,7 @@ import App from './App'
 import './index.css'
 import './styles/ignite-theme.css'
 import './utils/fontAwesome'
+import { installDevMessagePerf } from './utils/devMessagePerf'
 
 // 👇 Force supabaseClient.js to initialize
 import './lib/supabaseClient'
@@ -21,6 +22,8 @@ try {
     console.log('[Monitoring] Sentry (frontend) enabled')
   }
 } catch {}
+
+installDevMessagePerf();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -39,6 +39,7 @@ export default function InterviewSessionPage() {
   }, [transition, userStream]);
 
   useEffect(() => {
+    if (!userAnalyzer.isActive) return;
     if (currentState === 'REX_SPEAKING' || currentState === 'REX_THINKING') return;
     if (userAnalyzer.intensity > 0.11) {
       transition('USER_SPEECH_START');
@@ -54,7 +55,7 @@ export default function InterviewSessionPage() {
         silenceTimerRef.current = null;
       }, 220);
     }
-  }, [currentState, transition, userAnalyzer.intensity]);
+  }, [currentState, transition, userAnalyzer.intensity, userAnalyzer.isActive]);
 
   useEffect(() => {
     return () => {
@@ -81,7 +82,8 @@ export default function InterviewSessionPage() {
 
   const handleMicClick = async () => {
     try {
-      if (!userStream) await request();
+      const grantedStream = userStream || (await request());
+      await userAnalyzer.start(grantedStream);
       if (!voiceSession.connected && !voiceSession.isConnecting) {
         await voiceSession.connect();
         transition('START_SESSION');
@@ -243,6 +245,7 @@ export default function InterviewSessionPage() {
           <div>userIntensity: {userAnalyzer.intensity.toFixed(2)}</div>
           <div>rexIntensity: {rexAnalyzer.intensity.toFixed(2)}</div>
           <div>mic: {micStatus}</div>
+          <div>analyzerActive: {String(userAnalyzer.isActive)}</div>
           <div>hz: {userAnalyzer.updateRate.toFixed(0)}</div>
           <button
             type="button"

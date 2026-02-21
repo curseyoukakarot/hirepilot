@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function TranscriptPanel() {
+function TranscriptPanel() {
   return (
     <section
       id="transcript-panel"
@@ -145,3 +145,5 @@ export default function TranscriptPanel() {
     </section>
   );
 }
+
+export default React.memo(TranscriptPanel);
