@@ -123,6 +123,23 @@ const AtsIntegrations = lazy(() => import("./pages/blog/AtsIntegrations"));
 const RexAgentMode = lazy(() => import("./pages/blog/RexAgentMode"));
 const FreePlanPlaybook = lazy(() => import("./pages/blog/FreePlanPlaybook"));
 const HirePilotFullATS = lazy(() => import("./pages/blog/HirePilotFullATS"));
+const HirePilot20RecruitingOS = lazy(() => import("./pages/blog/HirePilot20RecruitingOS"));
+const HirePilotWorkflowReplacement = lazy(() => import("./pages/blog/HirePilotWorkflowReplacement"));
+const FounderMissionManualBarriers = lazy(() => import("./pages/blog/FounderMissionManualBarriers"));
+const WhyWeMadeAtsFree = lazy(() => import("./pages/blog/WhyWeMadeAtsFree"));
+const CustomTablesDashboardsCommandCenter = lazy(() => import("./pages/blog/CustomTablesDashboardsCommandCenter"));
+const RecruitersToRevenueOperators = lazy(() => import("./pages/blog/RecruitersToRevenueOperators"));
+const Sniper20DependencyAwareSourcing = lazy(() => import("./pages/blog/Sniper20DependencyAwareSourcing"));
+const AgentModeDeepDive = lazy(() => import("./pages/blog/AgentModeDeepDive"));
+const EnhancedEnrichmentDeepDive = lazy(() => import("./pages/blog/EnhancedEnrichmentDeepDive"));
+const RexVoiceInterviewHelper = lazy(() => import("./pages/blog/RexVoiceInterviewHelper"));
+const StopApplyingStartConversations = lazy(() => import("./pages/blog/StopApplyingStartConversations"));
+const PrepModeProfessionalPresence = lazy(() => import("./pages/blog/PrepModeProfessionalPresence"));
+const JobSeekerAgentDirectOutreach = lazy(() => import("./pages/blog/JobSeekerAgentDirectOutreach"));
+const PrepareInterviewsWithRexVoice = lazy(() => import("./pages/blog/PrepareInterviewsWithRexVoice"));
+const ModernJobSearchStack = lazy(() => import("./pages/blog/ModernJobSearchStack"));
+const ResumeScoringDeepDive = lazy(() => import("./pages/blog/ResumeScoringDeepDive"));
+const AiStandOutWithoutRobot = lazy(() => import("./pages/blog/AiStandOutWithoutRobot"));
 const JobCollaboration = lazy(() => import("./pages/blog/JobCollaboration"));
 // AutomateRecruiting Series
 const AutomateRecruiting1 = lazy(() => import("./pages/blog/AutomateRecruiting1"));
@@ -971,6 +988,23 @@ function InnerApp() {
               <Route path="/blog/agentmode" element={<RexAgentMode />} />
               <Route path="/blog/free-plan-playbook" element={<FreePlanPlaybook />} />
               <Route path="/blog/hirepilot-full-ats" element={<HirePilotFullATS />} />
+              <Route path="/blog/hirepilot-2-0-recruiting-os" element={<HirePilot20RecruitingOS />} />
+              <Route path="/blog/hirepilot-workflow-replacement" element={<HirePilotWorkflowReplacement />} />
+              <Route path="/blog/founder-mission-manual-barriers" element={<FounderMissionManualBarriers />} />
+              <Route path="/blog/why-we-made-a-full-ats-free" element={<WhyWeMadeAtsFree />} />
+              <Route path="/blog/custom-tables-dashboards-command-center" element={<CustomTablesDashboardsCommandCenter />} />
+              <Route path="/blog/recruiters-to-revenue-operators" element={<RecruitersToRevenueOperators />} />
+              <Route path="/blog/sniper-2-0-dependency-aware-sourcing" element={<Sniper20DependencyAwareSourcing />} />
+              <Route path="/blog/agent-mode-deep-dive" element={<AgentModeDeepDive />} />
+              <Route path="/blog/enhanced-enrichment-deep-dive" element={<EnhancedEnrichmentDeepDive />} />
+              <Route path="/blog/rex-voice-interview-helper" element={<RexVoiceInterviewHelper />} />
+              <Route path="/blog/stop-applying-start-conversations" element={<StopApplyingStartConversations />} />
+              <Route path="/blog/prep-mode-professional-presence" element={<PrepModeProfessionalPresence />} />
+              <Route path="/blog/job-seeker-agent-direct-outreach" element={<JobSeekerAgentDirectOutreach />} />
+              <Route path="/blog/prepare-interviews-with-rex-voice" element={<PrepareInterviewsWithRexVoice />} />
+              <Route path="/blog/modern-job-search-stack" element={<ModernJobSearchStack />} />
+              <Route path="/blog/resume-scoring-deep-dive" element={<ResumeScoringDeepDive />} />
+              <Route path="/blog/ai-help-you-stand-out-without-sounding-like-a-robot" element={<AiStandOutWithoutRobot />} />
               <Route path="/blog/jobcollaboration" element={<JobCollaboration />} />
               {/* Email Deliverability Series */}
               <Route path="/blog/email-deliverability-1" element={<EmailDeliverability1 />} />
