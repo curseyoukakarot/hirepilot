@@ -125,6 +125,9 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+// Makes mid-range scores feel less punitive in /10 mapping.
+const SCORE_CURVE_GAMMA = 0.6;
+
 function avg(values: number[]) {
   if (!values.length) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -204,7 +207,8 @@ function computePrepPack(turns: any[]) {
       scoreKeys.length
     ).toFixed(4)
   );
-  const overall10 = Number(clamp(((totalAvg5 - 1) / 4) * 10, 0, 10).toFixed(1));
+  const normalizedAvg = clamp((totalAvg5 - 1) / 4, 0, 1);
+  const overall10 = Number(clamp(Math.pow(normalizedAvg, SCORE_CURVE_GAMMA) * 10, 0, 10).toFixed(1));
 
   const strengthMap = new Map<string, number>();
   const focusMap = new Map<string, number>();
