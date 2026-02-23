@@ -7,7 +7,10 @@ import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 import { pushNotification } from '../lib/notifications';
 
 const router = express.Router();
-router.use((_req: Request, res: Response, next) => {
+router.use((req: Request, res: Response, next) => {
+  // #region agent log
+  if (req.method === 'GET' && (req.path === '/' || req.path === '')) { console.error('[DEBUG_HDR] tasks_list_route_enter', { path: req.path }); }
+  // #endregion
   res.setHeader('x-tasks-route-hit', '1');
   next();
 });
@@ -468,6 +471,9 @@ taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Reque
     .eq('workspace_id', workspaceId)
     .eq('task_id', receivedTaskId);
   if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
+  // #region agent log
+  if (res.headersSent) { console.error('[DEBUG_HDR] HEADERS_ALREADY_SENT taskFetchRouter', { path: req.path }); return; }
+  // #endregion
   return res.json({ task: buildTaskResponse(task, Number(count || 0)), debug: 'FETCH-V4-HANDLER-LIVE-AND-VALID-UUID' });
 });
 
@@ -664,6 +670,9 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     const tasks = visibilityScoped.map((task) => buildTaskResponse(task, commentCountByTask[task.id] || 0));
 
+    // #region agent log
+    if (res.headersSent) { console.error('[DEBUG_HDR] HEADERS_ALREADY_SENT listTasksHandler', { path: req.path }); return; }
+    // #endregion
     return res.json({ tasks });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:list', 'tasks_list_failed', e);
@@ -1232,6 +1241,10 @@ router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), a
 });
 
 router.all('*', (req: Request, res: Response) => {
+  // #region agent log
+  console.error('[DEBUG_HDR] tasks_404_hit', { path: req.path, baseUrl: req.baseUrl, headersSent: res.headersSent });
+  // #endregion
+  if (res.headersSent) return;
   return res.status(404).json({
     error: 'tasks_route_not_found',
     method: req.method,
