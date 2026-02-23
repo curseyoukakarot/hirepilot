@@ -418,42 +418,7 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
-async function resolveRecordRequestContext(req: Request, explicitTaskId: string | null = null) {
-  // Prefer explicitTaskId when valid; avoid req.params fallback (/:id can capture "record" on misrouted requests)
-  const explicit = typeof explicitTaskId === 'string' ? String(explicitTaskId).trim() : '';
-  const taskId = explicit && isUuid(explicit)
-    ? explicit
-    : String((typeof (req.params as any)?.id === 'string' ? (req.params as any).id : '') || '').trim();
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H1',location:'routes/tasks.ts:resolveRecordRequestContext:entry',message:'resolver entry values',data:{explicitTaskIdLen:String(explicitTaskId || '').length,paramTaskIdLen:String((req.params as any)?.id || '').length,finalTaskIdLen:taskId.length,isUuidFinal:isUuid(taskId),usedExplicit:Boolean(explicit&&isUuid(explicit))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  if (!taskId || !isUuid(taskId)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H2',location:'routes/tasks.ts:resolveRecordRequestContext:invalid-task-id',message:'resolver rejected task id format',data:{finalTaskIdLen:taskId.length,finalTaskIdSample:taskId.slice(0,8),explicitTaskIdSample:String(explicitTaskId || '').slice(0,8),paramTaskIdSample:String((req.params as any)?.id || '').slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    return { error: { status: 400, body: { error: 'invalid_task_id_format' } } } as const;
-  }
-
-  const userId = String((req as any)?.user?.id || '').trim();
-  if (!userId) return { error: { status: 401, body: { error: 'unauthorized' } } } as const;
-
-  const workspaceId = resolveWorkspaceId(req);
-  if (!workspaceId) return { error: { status: 400, body: { error: 'workspace_required' } } } as const;
-
-  const membership = await getMembership(userId, workspaceId);
-  if (!membership) return { error: { status: 403, body: { error: 'workspace_forbidden' } } } as const;
-
-  const task = await getTaskForWorkspace(taskId, workspaceId);
-  if (!task) return { taskId, userId, workspaceId, membership, task: null } as const;
-
-  if (!canViewTask(task, userId, membership.role)) {
-    return { error: { status: 403, body: { error: 'forbidden' } } } as const;
-  }
-
-  return { taskId, userId, workspaceId, membership, task } as const;
-}
-
-function readRecordTaskId(req: Request): string {
+function getTaskIdFromRecordRequest(req: Request): string {
   const fromQuery = String((req.query as any)?.task_id || '').trim();
   const fromBody = String((req.body as any)?.task_id || '').trim();
   return fromQuery || fromBody || '';
@@ -461,141 +426,122 @@ function readRecordTaskId(req: Request): string {
 
 router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const parsedTaskId = readRecordTaskId(req);
-    const preValid = isUuid(parsedTaskId);
-    res.setHeader('x-tasks-record-v3-route', 'record');
-    res.setHeader('x-tasks-record-v3-task-id', parsedTaskId || 'missing');
-    res.setHeader('x-tasks-record-v3-prevalid', preValid ? '1' : '0');
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H7',location:'routes/tasks.ts:get-record:v3:entry',message:'record v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    const taskId = readRecordTaskId(req);
-    res.setHeader('x-tasks-record-v3-task-id-second', taskId || 'missing');
+    const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    const ctx = await resolveRecordRequestContext(req as any, taskId);
-    if ('error' in ctx) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H3',location:'routes/tasks.ts:get-record:v3:error-branch',message:'record endpoint resolver error branch',data:{preValid,errorCode:String((ctx as any)?.error?.body?.error || 'unknown'),status:Number((ctx as any)?.error?.status || 0),taskIdLen:taskId.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
-      if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
-        res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
-      }
-      return res.status(ctx.error.status).json(ctx.error.body);
-    }
-    if (!ctx.task) return res.json({ task: null });
+    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(taskId, workspaceId);
+    if (!task) return res.json({ task: null });
+    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
     const { count, error } = await supabase
       .from('task_comments')
       .select('id', { count: 'exact', head: true })
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('task_id', ctx.taskId);
+      .eq('workspace_id', workspaceId)
+      .eq('task_id', taskId);
     if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
 
-    res.setHeader('x-tasks-record-v3-hit', '1');
-    return res.json({ task: buildTaskResponse(ctx.task, Number(count || 0)) });
+    return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:get-by-id:v3', 'task_fetch_failed', e);
+    return respondInternalError(res, 'tasks:record:get', 'task_fetch_failed', e);
   }
 });
 
 router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const parsedTaskId = readRecordTaskId(req);
-    const preValid = isUuid(parsedTaskId);
-    res.setHeader('x-tasks-record-v3-route', 'record-comments');
-    res.setHeader('x-tasks-record-v3-task-id', parsedTaskId || 'missing');
-    res.setHeader('x-tasks-record-v3-prevalid', preValid ? '1' : '0');
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H8',location:'routes/tasks.ts:get-record-comments:v3:entry',message:'record comments v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    const taskId = readRecordTaskId(req);
-    res.setHeader('x-tasks-record-v3-task-id-second', taskId || 'missing');
+    const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    const ctx = await resolveRecordRequestContext(req as any, taskId);
-    if ('error' in ctx) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H4',location:'routes/tasks.ts:get-record-comments:v3:error-branch',message:'record comments endpoint resolver error branch',data:{preValid,errorCode:String((ctx as any)?.error?.body?.error || 'unknown'),status:Number((ctx as any)?.error?.status || 0),taskIdLen:taskId.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
-      if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
-        res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
-      }
-      return res.status(ctx.error.status).json(ctx.error.body);
-    }
-    if (!ctx.task) return res.json({ comments: [] });
+    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(taskId, workspaceId);
+    if (!task) return res.json({ comments: [] });
+    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
     const { data, error } = await supabase
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('task_id', ctx.taskId)
+      .eq('workspace_id', workspaceId)
+      .eq('task_id', taskId)
       .order('created_at', { ascending: true });
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
 
-    res.setHeader('x-tasks-record-v3-hit', '1');
     return res.json({ comments: data || [] });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:list:v3', 'task_comments_list_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:list', 'task_comments_list_failed', e);
   }
 });
 
 router.post('/record/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
-    const taskId = readRecordTaskId(req);
+    const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    const ctx = await resolveRecordRequestContext(req as any, taskId);
-    if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
-    if (!ctx.task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(ctx.task, ctx.userId, ctx.membership.role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(taskId, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
 
     const { data, error } = await supabase
       .from('task_comments')
-      .insert({
-        workspace_id: ctx.workspaceId,
-        task_id: ctx.taskId,
-        user_id: ctx.userId,
-        body,
-      })
+      .insert({ workspace_id: workspaceId, task_id: taskId, user_id: userId, body })
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .single();
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
 
     try {
-      const candidates = await getWorkspaceMentionCandidates(ctx.workspaceId);
-      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== ctx.userId);
+      const candidates = await getWorkspaceMentionCandidates(workspaceId);
+      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== userId);
       if (mentionedUserIds.length) {
-        const actor = candidates.find((user) => user.id === ctx.userId);
+        const actor = candidates.find((user) => user.id === userId);
         const actorLabel = actor?.fullName || actor?.email || 'A teammate';
-        const taskTitle = String(ctx.task.title || 'Task').trim() || 'Task';
+        const taskTitle = String(task.title || 'Task').trim() || 'Task';
         const snippet = body.length > 180 ? `${body.slice(0, 177)}...` : body;
         await Promise.all(
-          mentionedUserIds.map(async (targetUserId) => {
-            await pushNotification({
+          mentionedUserIds.map((targetUserId) =>
+            pushNotification({
               user_id: targetUserId,
               source: 'inapp',
-              thread_key: `task:${ctx.taskId}`,
+              thread_key: `task:${taskId}`,
               title: `${actorLabel} mentioned you on ${taskTitle}`,
               body_md: snippet,
               type: 'task_mention',
-              metadata: {
-                workspace_id: ctx.workspaceId,
-                task_id: ctx.taskId,
-                comment_id: (data as any)?.id || null,
-              },
-            } as any);
-          }),
+              metadata: { workspace_id: workspaceId, task_id: taskId, comment_id: (data as any)?.id || null },
+            } as any),
+          ),
         );
       }
     } catch {}
 
-    res.setHeader('x-tasks-record-v3-hit', '1');
     return res.status(201).json({ comment: data });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:create:v3', 'task_comment_create_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:create', 'task_comment_create_failed', e);
   }
 });
 
