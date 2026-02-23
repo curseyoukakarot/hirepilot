@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import TaskActivityFeed from './TaskActivityFeed';
 
 export default function TaskDetailPanel({
@@ -20,6 +21,7 @@ export default function TaskDetailPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [customStatusLabel, setCustomStatusLabel] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const titleInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
 
@@ -244,12 +246,20 @@ export default function TaskDetailPanel({
           />
           <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
             <button
-              className="text-gray-500 hover:text-primary-400 p-1 transition"
-              onClick={() => {
+              className="text-gray-500 hover:text-primary-400 p-1 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={commentSubmitting}
+              onClick={async () => {
                 const next = commentBody.trim();
                 if (!next) return;
-                onAddComment?.(next);
-                setCommentBody('');
+                setCommentSubmitting(true);
+                try {
+                  await onAddComment?.(next);
+                  setCommentBody('');
+                } catch (err) {
+                  toast.error(err?.message || 'Failed to add comment');
+                } finally {
+                  setCommentSubmitting(false);
+                }
               }}
             >
               <i className="fa-solid fa-paper-plane text-sm" />

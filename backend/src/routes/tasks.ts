@@ -21,6 +21,34 @@ router.get('/_debug/version', (_req: Request, res: Response) => {
     env: process.env.NODE_ENV || 'unknown',
   });
 });
+
+router.get('/_debug/lookup/:id', async (req: Request, res: Response) => {
+  const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+  const requestWorkspaceId = String(req.headers['x-workspace-id'] || '').trim() || null;
+
+  const { data, error } = await getBypassClient()
+    .from('tasks')
+    .select('id,workspace_id,created_by_user_id,assigned_to_user_id,status,created_at')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: error.message || 'debug_lookup_failed' });
+  if (!data) {
+    return res.json({
+      exists: false,
+      task_id: taskId,
+      request_workspace_id: requestWorkspaceId,
+    });
+  }
+
+  return res.json({
+    exists: true,
+    task: data,
+    request_workspace_id: requestWorkspaceId,
+    workspace_matches_request: Boolean(requestWorkspaceId) ? String((data as any).workspace_id) === requestWorkspaceId : null,
+  });
+});
 router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
 
 const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];

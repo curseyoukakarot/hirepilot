@@ -468,8 +468,20 @@ export default function TasksPage() {
               }}
               onAddComment={async (body) => {
                 if (!selectedTaskId) return;
-                await apiPost(`/api/tasks/record/${selectedTaskId}/comments`, { body });
-                setRefreshKey((k) => k + 1);
+                try {
+                  await apiPost(`/api/tasks/record/${selectedTaskId}/comments`, { body });
+                  setRefreshKey((k) => k + 1);
+                } catch (err) {
+                  const message = String(err?.message || '');
+                  if (message.includes('task_not_found')) {
+                    setSelectedTaskId('');
+                    setSelectedTask(null);
+                    setActivity([]);
+                    setRefreshKey((k) => k + 1);
+                    throw new Error('This task no longer exists. The list has been refreshed.');
+                  }
+                  throw err;
+                }
               }}
               onDuplicate={async () => {
                 if (!selectedTask?.raw) return;
