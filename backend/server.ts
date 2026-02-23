@@ -553,6 +553,12 @@ app.use('/api/landing-pages', landingPagesRouter);
 app.use('/api/landing-domains', landingDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
+// Hard mount tasks endpoints to avoid accidental shadowing by generic /api routers.
+app.use('/api/tasks', (req, _res, next) => {
+  const suffix = req.url === '/' ? '' : req.url;
+  req.url = `/tasks${suffix}`;
+  next();
+}, tasksRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
