@@ -665,7 +665,7 @@ const listTasksHandler = async (req: Request, res: Response) => {
   }
 };
 
-router.get('/', requireTaskApiKeyScope('tasks:read'), listTasksHandler);
+router.get(['/', ''], requireTaskApiKeyScope('tasks:read'), listTasksHandler);
 
 TAB_ALIASES.forEach((tabKey) => {
   router.get(`/${tabKey}`, requireTaskApiKeyScope('tasks:read'), (req: Request, res: Response) => {
@@ -764,7 +764,7 @@ const createTaskHandler = async (req: Request, res: Response) => {
   }
 };
 
-router.post('/', requireTaskApiKeyScope('tasks:write'), createTaskHandler);
+router.post(['/', ''], requireTaskApiKeyScope('tasks:write'), createTaskHandler);
 
 router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
