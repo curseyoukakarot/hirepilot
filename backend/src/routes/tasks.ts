@@ -7,10 +7,18 @@ import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 import { pushNotification } from '../lib/notifications';
 
 const router = express.Router();
+
+// CRITICAL: Skip main tasksRouter for /fetch paths (prevents double execution when both routers match)
+router.use((req: Request, res: Response, next: any) => {
+  const fullPath = `${req.baseUrl || ''}${req.path || ''}`.replace('//', '/');
+  if (fullPath.includes('/fetch')) {
+    console.log('SKIPPING main tasksRouter for fetch path:', fullPath);
+    return next('route');
+  }
+  next();
+});
+
 router.use((req: Request, res: Response, next) => {
-  // #region agent log
-  if (req.method === 'GET' && (req.path === '/' || req.path === '')) { console.error('[DEBUG_HDR] tasks_list_route_enter', { path: req.path }); }
-  // #endregion
   res.setHeader('x-tasks-route-hit', '1');
   next();
 });
@@ -370,6 +378,7 @@ const statusesHandler = async (req: Request, res: Response) => {
       .order('label', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message || 'statuses_fetch_failed' });
+    if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'statusesHandler', path: req.path }); return; }
     return res.json({ statuses: data || [] });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:statuses', 'statuses_fetch_failed', e);
@@ -429,31 +438,10 @@ taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace
 taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
 
-  console.log('🚨🚨 FETCH-V4-HANDLER-HIT 🚨🚨', {
-    timestamp: new Date().toISOString(),
-    originalUrl: req.originalUrl,
-    path: req.path,
-    query: req.query,
-    params: req.params,
-    receivedTaskId,
-    isUuidResult: receivedTaskId ? isUuid(receivedTaskId) : false,
-    headers: {
-      authorization: req.headers.authorization ? 'present' : 'missing',
-      'x-workspace-id': req.headers['x-workspace-id'],
-    },
-  });
-
-  res.setHeader('x-debug-handler', 'fetch-v4-diagnostic-20260223');
-  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
+  console.log('FETCH-V4-HANDLER-HIT', { receivedTaskId, isUuid: receivedTaskId ? isUuid(receivedTaskId) : false });
 
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
-    return res.status(400).json({
-      error: 'invalid_task_id_format',
-      debug: 'THIS_IS_THE_NEW_HANDLER',
-      receivedTaskId,
-      isUuidResult: false,
-      note: 'If you see this body + x-debug-handler header, new code is LIVE but taskId is invalid to isUuid()',
-    });
+    return res.status(400).json({ error: 'invalid_task_id_format' });
   }
 
   const userId = (req as any)?.user?.id as string | undefined;
@@ -471,25 +459,14 @@ taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Reque
     .eq('workspace_id', workspaceId)
     .eq('task_id', receivedTaskId);
   if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-  // #region agent log
-  if (res.headersSent) { console.error('[DEBUG_HDR] HEADERS_ALREADY_SENT taskFetchRouter', { path: req.path }); return; }
-  // #endregion
-  return res.json({ task: buildTaskResponse(task, Number(count || 0)), debug: 'FETCH-V4-HANDLER-LIVE-AND-VALID-UUID' });
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'taskFetchRouter.get', path: req.path }); return; }
+  return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
 });
 
 taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
-  console.log('🚨 FETCH-V4-COMMENTS-HIT', { receivedTaskId, query: req.query });
-
-  res.setHeader('x-debug-handler', 'fetch-v4-comments-diagnostic-20260223');
-  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
-
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
-    return res.status(400).json({
-      error: 'invalid_task_id_format',
-      debug: 'THIS_IS_THE_NEW_COMMENTS_HANDLER',
-      receivedTaskId,
-    });
+    return res.status(400).json({ error: 'invalid_task_id_format' });
   }
 
   const userId = (req as any)?.user?.id as string | undefined;
@@ -499,7 +476,7 @@ taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (re
   const membership = await getMembership(userId, workspaceId);
   if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
   const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
-  if (!task) return res.json({ comments: [], debug: 'LIVE' });
+  if (!task) return res.json({ comments: [] });
   if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
   const { data, error } = await supabase
     .from('task_comments')
@@ -508,22 +485,14 @@ taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (re
     .eq('task_id', receivedTaskId)
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
-  return res.json({ comments: data || [], debug: 'LIVE' });
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'taskFetchRouter.get/comments', path: req.path }); return; }
+  return res.json({ comments: data || [] });
 });
 
 taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.body as any)?.task_id || '').trim();
-  console.log('🚨 FETCH-V4-POST-COMMENT-HIT', { receivedTaskId });
-
-  res.setHeader('x-debug-handler', 'fetch-v4-post-diagnostic-20260223');
-  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
-
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
-    return res.status(400).json({
-      error: 'invalid_task_id_format',
-      debug: 'THIS_IS_THE_NEW_POST_HANDLER',
-      receivedTaskId,
-    });
+    return res.status(400).json({ error: 'invalid_task_id_format' });
   }
 
   const commentBody = String((req.body as any)?.body || '').trim();
@@ -670,9 +639,7 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     const tasks = visibilityScoped.map((task) => buildTaskResponse(task, commentCountByTask[task.id] || 0));
 
-    // #region agent log
-    if (res.headersSent) { console.error('[DEBUG_HDR] HEADERS_ALREADY_SENT listTasksHandler', { path: req.path }); return; }
-    // #endregion
+    if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'listTasksHandler', path: req.path }); return; }
     return res.json({ tasks });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:list', 'tasks_list_failed', e);
@@ -1241,10 +1208,7 @@ router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), a
 });
 
 router.all('*', (req: Request, res: Response) => {
-  // #region agent log
-  console.error('[DEBUG_HDR] tasks_404_hit', { path: req.path, baseUrl: req.baseUrl, headersSent: res.headersSent });
-  // #endregion
-  if (res.headersSent) return;
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'router.all(404)', path: req.path }); return; }
   return res.status(404).json({
     error: 'tasks_route_not_found',
     method: req.method,

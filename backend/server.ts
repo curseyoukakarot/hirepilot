@@ -554,10 +554,7 @@ app.use('/api/landing-domains', landingDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
 // Task-by-id endpoints: mounted first so they bypass main tasks router (avoids /:id collision)
-console.log('🚨 Mounting taskFetchRouter at /api/tasks/fetch');
 app.use('/api/tasks/fetch', taskFetchRouter);
-
-console.log('🚨 Mounting main tasksRouter at /api/tasks');
 app.use('/api/tasks', tasksRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
