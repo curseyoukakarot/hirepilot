@@ -230,6 +230,10 @@ router.get('/tasks', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
 
     return res.json({ tasks });
   } catch (e: any) {
+    if (res.headersSent) {
+      console.error('[tasks:list] error after response sent', e);
+      return;
+    }
     return res.status(500).json({ error: e?.message || 'tasks_list_failed' });
   }
 });
@@ -301,6 +305,10 @@ router.post('/tasks', requireTaskApiKeyScope('tasks:write'), async (req: Request
 
     return res.status(201).json({ task: buildTaskResponse(data, 0) });
   } catch (e: any) {
+    if (res.headersSent) {
+      console.error('[tasks:create] error after response sent', e);
+      return;
+    }
     return res.status(500).json({ error: e?.message || 'task_create_failed' });
   }
 });
@@ -353,6 +361,10 @@ router.post('/tasks/from-note', requireTaskApiKeyScope('tasks:write'), async (re
       },
     });
   } catch (e: any) {
+    if (res.headersSent) {
+      console.error('[tasks:from-note] error after response sent', e);
+      return;
+    }
     return res.status(500).json({ error: e?.message || 'task_from_note_failed' });
   }
 });
