@@ -144,7 +144,7 @@ router.get('/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Reques
   }
 });
 
-router.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get(['', '/'], requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -280,7 +280,7 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
   }
 });
 
-router.post('/', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post(['', '/'], requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
