@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
-import { getSupabaseClient, supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 
 const router = express.Router();
@@ -288,7 +288,7 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = getSupabaseClient(hasGlobalAdmin);
+    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks detail request:', {
       taskId,
@@ -332,7 +332,7 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = getSupabaseClient(hasGlobalAdmin);
+    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments list request:', {
       taskId,
@@ -375,7 +375,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = getSupabaseClient(hasGlobalAdmin);
+    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments create request:', {
       taskId,
