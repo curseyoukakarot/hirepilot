@@ -207,6 +207,12 @@ function respondInternalError(res: Response, tag: string, fallback: string, erro
   return res.status(500).json({ error: error?.message || fallback });
 }
 
+function selectDbClient(hasGlobalAdmin: boolean) {
+  const preferred = hasGlobalAdmin ? (supabaseAdmin as any) : (supabase as any);
+  if (preferred && typeof preferred.from === 'function') return preferred;
+  return supabase as any;
+}
+
 const statusesHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
@@ -288,7 +294,7 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
+    const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks detail request:', {
       taskId,
@@ -332,7 +338,7 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
+    const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments list request:', {
       taskId,
@@ -375,7 +381,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const client = hasGlobalAdmin ? supabaseAdmin : supabase;
+    const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments create request:', {
       taskId,
