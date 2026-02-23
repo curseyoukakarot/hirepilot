@@ -418,68 +418,74 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
+async function resolveRecordRequestContext(req: Request) {
+  const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!taskId || !isUuid(taskId)) return { error: { status: 400, body: { error: 'invalid_task_id_format' } } } as const;
+
+  const userId = String((req as any)?.user?.id || '').trim();
+  if (!userId) return { error: { status: 401, body: { error: 'unauthorized' } } } as const;
+
+  const workspaceId = resolveWorkspaceId(req);
+  if (!workspaceId) return { error: { status: 400, body: { error: 'workspace_required' } } } as const;
+
+  const membership = await getMembership(userId, workspaceId);
+  if (!membership) return { error: { status: 403, body: { error: 'workspace_forbidden' } } } as const;
+
+  const task = await getTaskForWorkspace(taskId, workspaceId);
+  if (!task) return { taskId, userId, workspaceId, membership, task: null } as const;
+
+  if (!canViewTask(task, userId, membership.role)) {
+    return { error: { status: 403, body: { error: 'forbidden' } } } as const;
+  }
+
+  return { taskId, userId, workspaceId, membership, task } as const;
+}
+
 router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const ctx = await resolveRecordRequestContext(req);
+    if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
+    if (!ctx.task) return res.json({ task: null });
 
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.json({ task: null });
-
-    const { data: comments, error: commentsError } = await supabase
+    const { count, error } = await supabase
       .from('task_comments')
-      .select('task_id')
-      .eq('workspace_id', workspaceId)
-      .eq('task_id', taskId);
-    if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_fetch_failed' });
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('task_id', ctx.taskId);
+    if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
 
-    return res.json({
-      task: buildTaskResponse(task, (comments || []).length),
-    });
+    return res.json({ task: buildTaskResponse(ctx.task, Number(count || 0)) });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:get-by-id', 'task_fetch_failed', e);
+    return respondInternalError(res, 'tasks:record:get-by-id:v2', 'task_fetch_failed', e);
   }
 });
 
 router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.json({ comments: [] });
+    const ctx = await resolveRecordRequestContext(req);
+    if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
+    if (!ctx.task) return res.json({ comments: [] });
 
     const { data, error } = await supabase
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
-      .eq('workspace_id', workspaceId)
-      .eq('task_id', taskId)
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('task_id', ctx.taskId)
       .order('created_at', { ascending: true });
-
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
+
     return res.json({ comments: data || [] });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:list', 'task_comments_list_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:list:v2', 'task_comments_list_failed', e);
   }
 });
 
 router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
-    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    const ctx = await resolveRecordRequestContext(req);
+    if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
+    if (!ctx.task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(ctx.task, ctx.userId, ctx.membership.role)) return res.status(403).json({ error: 'forbidden' });
 
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
@@ -487,37 +493,35 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     const { data, error } = await supabase
       .from('task_comments')
       .insert({
-        workspace_id: workspaceId,
-        task_id: taskId,
-        user_id: userId,
+        workspace_id: ctx.workspaceId,
+        task_id: ctx.taskId,
+        user_id: ctx.userId,
         body,
       })
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .single();
-
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
 
-    // Best-effort mention notifications: never block comment creation on notification errors.
     try {
-      const candidates = await getWorkspaceMentionCandidates(workspaceId);
-      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== userId);
+      const candidates = await getWorkspaceMentionCandidates(ctx.workspaceId);
+      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== ctx.userId);
       if (mentionedUserIds.length) {
-        const actor = candidates.find((user) => user.id === userId);
+        const actor = candidates.find((user) => user.id === ctx.userId);
         const actorLabel = actor?.fullName || actor?.email || 'A teammate';
-        const taskTitle = String(task.title || 'Task').trim() || 'Task';
+        const taskTitle = String(ctx.task.title || 'Task').trim() || 'Task';
         const snippet = body.length > 180 ? `${body.slice(0, 177)}...` : body;
         await Promise.all(
           mentionedUserIds.map(async (targetUserId) => {
             await pushNotification({
               user_id: targetUserId,
               source: 'inapp',
-              thread_key: `task:${taskId}`,
+              thread_key: `task:${ctx.taskId}`,
               title: `${actorLabel} mentioned you on ${taskTitle}`,
               body_md: snippet,
               type: 'task_mention',
               metadata: {
-                workspace_id: workspaceId,
-                task_id: taskId,
+                workspace_id: ctx.workspaceId,
+                task_id: ctx.taskId,
                 comment_id: (data as any)?.id || null,
               },
             } as any);
@@ -528,7 +532,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
 
     return res.status(201).json({ comment: data });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:create', 'task_comment_create_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:create:v2', 'task_comment_create_failed', e);
   }
 });
 

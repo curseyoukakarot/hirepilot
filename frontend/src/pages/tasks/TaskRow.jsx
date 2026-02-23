@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 function statusClass(tone) {
   if (tone === 'yellow') return 'bg-yellow-600/20 text-yellow-400 border border-yellow-500/30';
@@ -7,7 +7,9 @@ function statusClass(tone) {
   return 'bg-gray-700/50 text-gray-300 border border-gray-600';
 }
 
-export default function TaskRow({ task, selected, onSelect }) {
+export default function TaskRow({ task, selected, onSelect, onAction, currentUserId = '' }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const canDelete = String(task?.raw?.created_by_user_id || '') === String(currentUserId || '');
   const rowClasses = selected
     ? 'group grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-800 bg-primary-600/10 cursor-pointer items-center border-l-4 border-l-primary-500 transition-colors'
     : task.completed
@@ -39,6 +41,52 @@ export default function TaskRow({ task, selected, onSelect }) {
                 Selected
               </span>
             )}
+            <div className="relative ml-1">
+              <button
+                className="text-xs text-gray-500 hover:text-gray-300 p-1 rounded hover:bg-dark-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((open) => !open);
+                }}
+              >
+                <i className="fa-solid fa-ellipsis" />
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute left-0 top-6 z-20 w-32 rounded-md border border-gray-700 bg-dark-200 shadow-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-dark-100"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction?.(task, 'duplicate');
+                    }}
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-dark-100"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction?.(task, 'edit');
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-dark-100 ${canDelete ? 'text-red-300' : 'text-gray-500 cursor-not-allowed'}`}
+                    onClick={() => {
+                      if (!canDelete) return;
+                      setMenuOpen(false);
+                      onAction?.(task, 'delete');
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span

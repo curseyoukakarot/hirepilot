@@ -135,6 +135,7 @@ export default function TasksPage() {
   const [notifications, setNotifications] = useState([]);
   const [notificationUnread, setNotificationUnread] = useState(0);
   const [highlightedActivityId, setHighlightedActivityId] = useState('');
+  const createTaskInFlightRef = useRef(false);
   const lastRealtimeRefreshAt = useRef(0);
 
   const triggerLightRefresh = useCallback(() => {
@@ -411,6 +412,58 @@ export default function TasksPage() {
     if (!row?.read_at) loadNotifications();
   };
 
+  const handleTaskRowAction = useCallback(
+    async (task, action) => {
+      if (!task?.id) return;
+      if (action === 'edit') {
+        setSelectedTaskId(task.id);
+        return;
+      }
+
+      if (action === 'duplicate') {
+        const source = task.raw || null;
+        if (!source) return;
+        setSavingTask(true);
+        try {
+          const res = await apiPost('/api/tasks', {
+            title: `${source.title || task.title} (Copy)`,
+            description: source.description || null,
+            assigned_to_user_id: source.assigned_to_user_id || null,
+            due_at: source.due_at || null,
+            priority: source.priority || 'medium',
+            status: source.status || 'open',
+            related_type: source.related_type || null,
+            related_id: source.related_id || null,
+          });
+          const duplicateId = res?.task?.id || '';
+          setRefreshKey((k) => k + 1);
+          if (duplicateId) setSelectedTaskId(duplicateId);
+        } finally {
+          setSavingTask(false);
+        }
+        return;
+      }
+
+      if (action === 'delete') {
+        const confirmed = window.confirm('Delete this task? This cannot be undone.');
+        if (!confirmed) return;
+        setSavingTask(true);
+        try {
+          await apiDelete(`/api/tasks/${task.id}`);
+          if (String(task.id) === String(selectedTaskId)) {
+            setSelectedTaskId('');
+            setSelectedTask(null);
+            setActivity([]);
+          }
+          setRefreshKey((k) => k + 1);
+        } finally {
+          setSavingTask(false);
+        }
+      }
+    },
+    [selectedTaskId],
+  );
+
   useEffect(() => {
     if (!activeWorkspaceId) return undefined;
     const ch = supabase
@@ -667,6 +720,8 @@ export default function TasksPage() {
                 tasks={tasks}
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
+                onTaskAction={handleTaskRowAction}
+                currentUserId={currentUserId}
               />
               {loadingList && (
                 <div className="text-xs text-gray-500 mt-3 px-2">Loading tasks...</div>
@@ -811,6 +866,8 @@ export default function TasksPage() {
         currentUserId={currentUserId}
         creating={creatingTask}
         onCreate={async (form) => {
+          if (createTaskInFlightRef.current) return;
+          createTaskInFlightRef.current = true;
           setCreatingTask(true);
           try {
             const payload = {
@@ -829,6 +886,7 @@ export default function TasksPage() {
             setRefreshKey((k) => k + 1);
             if (createdId) setSelectedTaskId(createdId);
           } finally {
+            createTaskInFlightRef.current = false;
             setCreatingTask(false);
           }
         }}
