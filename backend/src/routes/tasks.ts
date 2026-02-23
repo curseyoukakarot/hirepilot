@@ -6,6 +6,10 @@ import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 
 const router = express.Router();
 router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
+router.use((_req: Request, res: Response, next) => {
+  res.setHeader('x-tasks-route-hit', '1');
+  next();
+});
 
 const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];
 
@@ -185,6 +189,18 @@ function respondInternalError(res: Response, tag: string, fallback: string, erro
   }
   return res.status(500).json({ error: error?.message || fallback });
 }
+
+router.get('/_debug/version', (_req: Request, res: Response) => {
+  return res.json({
+    router: 'tasks',
+    commit:
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.GITHUB_SHA ||
+      'unknown',
+    env: process.env.NODE_ENV || 'unknown',
+  });
+});
 
 const statusesHandler = async (req: Request, res: Response) => {
   try {
