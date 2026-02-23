@@ -458,9 +458,11 @@ router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request,
     fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H7',location:'routes/tasks.ts:get-record:v3:entry',message:'record v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
     const taskId = readRecordTaskId(req);
+    res.setHeader('x-tasks-record-v3-task-id-second', taskId || 'missing');
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) {
+      res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
       if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
         res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
       }
@@ -493,9 +495,11 @@ router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req:
     fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H8',location:'routes/tasks.ts:get-record-comments:v3:entry',message:'record comments v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
     const taskId = readRecordTaskId(req);
+    res.setHeader('x-tasks-record-v3-task-id-second', taskId || 'missing');
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) {
+      res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
       if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
         res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
       }
