@@ -418,134 +418,149 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
-/** Mounted at /api/tasks/fetch - bypasses main tasks router entirely to avoid /:id collision.
- * Explicitly sources taskId from req.query.task_id (GET) or req.body.task_id (POST) - never params. */
+/** TEMPORARY: ULTRA-LOUD DIAGNOSTIC - proves whether fetch handlers are live in production.
+ * Mounted at /api/tasks/fetch. Remove after verification. */
 export const taskFetchRouter = express.Router();
 taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
 
 taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
-  try {
-    const taskId = String((req.query as any)?.task_id || '').trim();
-    console.log('[tasks:fetch] GET task - raw taskId from query:', taskId, {
-      userId: (req as any)?.user?.id,
-      workspaceId: resolveWorkspaceId(req),
+  const receivedTaskId = String((req.query as any)?.task_id || '').trim();
+
+  console.log('🚨🚨 FETCH-V4-HANDLER-HIT 🚨🚨', {
+    timestamp: new Date().toISOString(),
+    originalUrl: req.originalUrl,
+    path: req.path,
+    query: req.query,
+    params: req.params,
+    receivedTaskId,
+    isUuidResult: receivedTaskId ? isUuid(receivedTaskId) : false,
+    headers: {
+      authorization: req.headers.authorization ? 'present' : 'missing',
+      'x-workspace-id': req.headers['x-workspace-id'],
+    },
+  });
+
+  res.setHeader('x-debug-handler', 'fetch-v4-diagnostic-20260223');
+  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
+
+  if (!receivedTaskId || !isUuid(receivedTaskId)) {
+    return res.status(400).json({
+      error: 'invalid_task_id_format',
+      debug: 'THIS_IS_THE_NEW_HANDLER',
+      receivedTaskId,
+      isUuidResult: false,
+      note: 'If you see this body + x-debug-handler header, new code is LIVE but taskId is invalid to isUuid()',
     });
-    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) {
-      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
-      return res.status(400).json({ error: 'invalid_task_id_format' });
-    }
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-    const { count, error } = await supabase
-      .from('task_comments')
-      .select('id', { count: 'exact', head: true })
-      .eq('workspace_id', workspaceId)
-      .eq('task_id', taskId);
-    if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-    return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:fetch:get', 'task_fetch_failed', e);
   }
+
+  const userId = (req as any)?.user?.id as string | undefined;
+  if (!userId) return res.status(401).json({ error: 'unauthorized' });
+  const workspaceId = resolveWorkspaceId(req);
+  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+  const membership = await getMembership(userId, workspaceId);
+  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
+  if (!task) return res.status(404).json({ error: 'task_not_found' });
+  if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+  const { count, error } = await supabase
+    .from('task_comments')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .eq('task_id', receivedTaskId);
+  if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
+  return res.json({ task: buildTaskResponse(task, Number(count || 0)), debug: 'FETCH-V4-HANDLER-LIVE-AND-VALID-UUID' });
 });
 
 taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
-  try {
-    const taskId = String((req.query as any)?.task_id || '').trim();
-    console.log('[tasks:fetch] GET comments - raw taskId from query:', taskId, {
-      userId: (req as any)?.user?.id,
-      workspaceId: resolveWorkspaceId(req),
+  const receivedTaskId = String((req.query as any)?.task_id || '').trim();
+  console.log('🚨 FETCH-V4-COMMENTS-HIT', { receivedTaskId, query: req.query });
+
+  res.setHeader('x-debug-handler', 'fetch-v4-comments-diagnostic-20260223');
+  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
+
+  if (!receivedTaskId || !isUuid(receivedTaskId)) {
+    return res.status(400).json({
+      error: 'invalid_task_id_format',
+      debug: 'THIS_IS_THE_NEW_COMMENTS_HANDLER',
+      receivedTaskId,
     });
-    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) {
-      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
-      return res.status(400).json({ error: 'invalid_task_id_format' });
-    }
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.json({ comments: [] });
-    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-    const { data, error } = await supabase
-      .from('task_comments')
-      .select('id,workspace_id,task_id,user_id,body,created_at')
-      .eq('workspace_id', workspaceId)
-      .eq('task_id', taskId)
-      .order('created_at', { ascending: true });
-    if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
-    return res.json({ comments: data || [] });
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:fetch:comments:list', 'task_comments_list_failed', e);
   }
+
+  const userId = (req as any)?.user?.id as string | undefined;
+  if (!userId) return res.status(401).json({ error: 'unauthorized' });
+  const workspaceId = resolveWorkspaceId(req);
+  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+  const membership = await getMembership(userId, workspaceId);
+  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
+  if (!task) return res.json({ comments: [], debug: 'LIVE' });
+  if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+  const { data, error } = await supabase
+    .from('task_comments')
+    .select('id,workspace_id,task_id,user_id,body,created_at')
+    .eq('workspace_id', workspaceId)
+    .eq('task_id', receivedTaskId)
+    .order('created_at', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
+  return res.json({ comments: data || [], debug: 'LIVE' });
 });
 
 taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
-  try {
-    const taskId = String((req.body as any)?.task_id || '').trim();
-    const commentBody = String((req.body as any)?.body || '').trim();
-    console.log('[tasks:fetch] POST comment - raw taskId from body:', taskId, {
-      userId: (req as any)?.user?.id,
-      workspaceId: resolveWorkspaceId(req),
+  const receivedTaskId = String((req.body as any)?.task_id || '').trim();
+  console.log('🚨 FETCH-V4-POST-COMMENT-HIT', { receivedTaskId });
+
+  res.setHeader('x-debug-handler', 'fetch-v4-post-diagnostic-20260223');
+  res.setHeader('x-debug-received-taskid', receivedTaskId || 'MISSING');
+
+  if (!receivedTaskId || !isUuid(receivedTaskId)) {
+    return res.status(400).json({
+      error: 'invalid_task_id_format',
+      debug: 'THIS_IS_THE_NEW_POST_HANDLER',
+      receivedTaskId,
     });
-    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) {
-      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
-      return res.status(400).json({ error: 'invalid_task_id_format' });
-    }
-    if (!commentBody) return res.status(400).json({ error: 'comment_body_required' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-    const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-    const { data, error } = await supabase
-      .from('task_comments')
-      .insert({ workspace_id: workspaceId, task_id: taskId, user_id: userId, body: commentBody })
-      .select('id,workspace_id,task_id,user_id,body,created_at')
-      .single();
-    if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
-    try {
-      const candidates = await getWorkspaceMentionCandidates(workspaceId);
-      const mentionedUserIds = resolveMentionedUserIds(commentBody, candidates).filter((id) => id !== userId);
-      if (mentionedUserIds.length) {
-        const actor = candidates.find((u: any) => u.id === userId);
-        const actorLabel = actor?.fullName || actor?.email || 'A teammate';
-        const taskTitle = String(task.title || 'Task').trim() || 'Task';
-        const snippet = commentBody.length > 180 ? `${commentBody.slice(0, 177)}...` : commentBody;
-        await Promise.all(
-          mentionedUserIds.map((targetUserId: string) =>
-            pushNotification({
-              user_id: targetUserId,
-              source: 'inapp',
-              thread_key: `task:${taskId}`,
-              title: `${actorLabel} mentioned you on ${taskTitle}`,
-              body_md: snippet,
-              type: 'task_mention',
-              metadata: { workspace_id: workspaceId, task_id: taskId, comment_id: (data as any)?.id || null },
-            } as any),
-          ),
-        );
-      }
-    } catch {}
-    return res.status(201).json({ comment: data });
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:fetch:comments:create', 'task_comment_create_failed', e);
   }
+
+  const commentBody = String((req.body as any)?.body || '').trim();
+  if (!commentBody) return res.status(400).json({ error: 'comment_body_required' });
+  const userId = (req as any)?.user?.id as string | undefined;
+  if (!userId) return res.status(401).json({ error: 'unauthorized' });
+  const workspaceId = resolveWorkspaceId(req);
+  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+  const membership = await getMembership(userId, workspaceId);
+  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
+  if (!task) return res.status(404).json({ error: 'task_not_found' });
+  if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+  const { data, error } = await supabase
+    .from('task_comments')
+    .insert({ workspace_id: workspaceId, task_id: receivedTaskId, user_id: userId, body: commentBody })
+    .select('id,workspace_id,task_id,user_id,body,created_at')
+    .single();
+  if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
+  try {
+    const candidates = await getWorkspaceMentionCandidates(workspaceId);
+    const mentionedUserIds = resolveMentionedUserIds(commentBody, candidates).filter((id) => id !== userId);
+    if (mentionedUserIds.length) {
+      const actor = candidates.find((u: any) => u.id === userId);
+      const actorLabel = actor?.fullName || actor?.email || 'A teammate';
+      const taskTitle = String(task.title || 'Task').trim() || 'Task';
+      const snippet = commentBody.length > 180 ? `${commentBody.slice(0, 177)}...` : commentBody;
+      await Promise.all(
+        mentionedUserIds.map((targetUserId: string) =>
+          pushNotification({
+            user_id: targetUserId,
+            source: 'inapp',
+            thread_key: `task:${receivedTaskId}`,
+            title: `${actorLabel} mentioned you on ${taskTitle}`,
+            body_md: snippet,
+            type: 'task_mention',
+            metadata: { workspace_id: workspaceId, task_id: receivedTaskId, comment_id: (data as any)?.id || null },
+          } as any),
+        ),
+      );
+    }
+  } catch {}
+  return res.status(201).json({ comment: data, debug: 'LIVE' });
 });
 
 const listTasksHandler = async (req: Request, res: Response) => {
