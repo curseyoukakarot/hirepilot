@@ -944,4 +944,12 @@ router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), a
   }
 });
 
+router.all('*', (req: Request, res: Response) => {
+  return res.status(404).json({
+    error: 'tasks_route_not_found',
+    method: req.method,
+    path: req.path,
+  });
+});
+
 export default router;
