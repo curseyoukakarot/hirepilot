@@ -249,8 +249,8 @@ export default function TasksPage() {
       try {
         const fallbackTask = tasks.find((row) => row.id === selectedTaskId) || null;
         const [taskRes, commentsRes] = await Promise.all([
-          apiGet(`/api/tasks/${selectedTaskId}`),
-          apiGet(`/api/tasks/${selectedTaskId}/comments`),
+          apiGet(`/api/tasks/record/${selectedTaskId}`),
+          apiGet(`/api/tasks/record/${selectedTaskId}/comments`),
         ]);
         if (!mounted) return;
         const task = taskRes?.task ? mapTask(taskRes.task, usersById) : fallbackTask;
@@ -468,7 +468,7 @@ export default function TasksPage() {
               }}
               onAddComment={async (body) => {
                 if (!selectedTaskId) return;
-                await apiPost(`/api/tasks/${selectedTaskId}/comments`, { body });
+                await apiPost(`/api/tasks/record/${selectedTaskId}/comments`, { body });
                 setRefreshKey((k) => k + 1);
               }}
               onDuplicate={async () => {
