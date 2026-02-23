@@ -418,8 +418,8 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
-async function resolveRecordRequestContext(req: Request) {
-  const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+async function resolveRecordRequestContext(req: Request, explicitTaskId: string | null = null) {
+  const taskId = String(explicitTaskId || (typeof req.params.id === 'string' ? req.params.id : '') || '').trim();
   if (!taskId || !isUuid(taskId)) return { error: { status: 400, body: { error: 'invalid_task_id_format' } } } as const;
 
   const userId = String((req as any)?.user?.id || '').trim();
@@ -457,8 +457,7 @@ router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request,
     // #endregion
     const taskId = readRecordTaskId(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    (req as any).params = { ...(req as any).params, id: taskId };
-    const ctx = await resolveRecordRequestContext(req as any);
+    const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.json({ task: null });
 
@@ -486,8 +485,7 @@ router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req:
     // #endregion
     const taskId = readRecordTaskId(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    (req as any).params = { ...(req as any).params, id: taskId };
-    const ctx = await resolveRecordRequestContext(req as any);
+    const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.json({ comments: [] });
 
@@ -510,8 +508,7 @@ router.post('/record/comments', requireTaskApiKeyScope('tasks:write'), async (re
   try {
     const taskId = readRecordTaskId(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    (req as any).params = { ...(req as any).params, id: taskId };
-    const ctx = await resolveRecordRequestContext(req as any);
+    const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.status(404).json({ error: 'task_not_found' });
     if (!canUpdateTask(ctx.task, ctx.userId, ctx.membership.role)) return res.status(403).json({ error: 'forbidden' });
