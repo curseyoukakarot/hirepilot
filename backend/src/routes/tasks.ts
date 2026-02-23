@@ -137,7 +137,7 @@ function respondInternalError(res: Response, tag: string, fallback: string, erro
   return res.status(500).json({ error: error?.message || fallback });
 }
 
-router.get('/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+const statusesHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -159,7 +159,9 @@ router.get('/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Reques
   } catch (e: any) {
     return respondInternalError(res, 'tasks:statuses', 'statuses_fetch_failed', e);
   }
-});
+};
+
+router.get('/statuses', requireTaskApiKeyScope('tasks:read'), statusesHandler);
 
 const listTasksHandler = async (req: Request, res: Response) => {
   try {
@@ -282,6 +284,12 @@ TAB_ALIASES.forEach((tabKey) => {
 router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (taskId === 'statuses') return statusesHandler(req, res);
+    if ((TAB_ALIASES as readonly string[]).includes(taskId)) {
+      const params = new URLSearchParams((req.query as any) || {});
+      params.set('tab', taskId);
+      return res.redirect(307, `/api/tasks?${params.toString()}`);
+    }
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
 
     const userId = (req as any)?.user?.id as string | undefined;
