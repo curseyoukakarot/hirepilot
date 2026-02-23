@@ -1,3 +1,6 @@
+/* ───────────────────────────────────────────────────
+   Tasks UI – Light mode (default)
+   ─────────────────────────────────────────────────── */
 .tasks-ui {
   --tasks-bg-page: #f1f5f9;
   --tasks-bg-content: #f8fafc;
@@ -42,35 +45,136 @@
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.18) !important;
 }
 
-.tasks-ui ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.tasks-ui ::-webkit-scrollbar-track {
-  background: transparent;
-}
-.tasks-ui ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-.tasks-ui ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+.tasks-ui ::-webkit-scrollbar { width: 6px; height: 6px; }
+.tasks-ui ::-webkit-scrollbar-track { background: transparent; }
+.tasks-ui ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.tasks-ui ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 .tasks-ui .glass-panel {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
 }
 
-.tasks-ui .hide-scrollbar::-webkit-scrollbar {
-  display: none;
+.tasks-ui .hide-scrollbar::-webkit-scrollbar { display: none; }
+.tasks-ui .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.tasks-ui select option { background-color: #ffffff; color: #1e293b; }
+
+
+/* ───────────────────────────────────────────────────
+   Tasks UI – Dark mode
+   Uses .dark .tasks-ui for higher specificity than
+   the global .dark overrides in index.css
+   ─────────────────────────────────────────────────── */
+
+/* Custom bg-dark-* surface colors */
+.dark .tasks-ui .bg-dark-500 { background-color: #0b1120 !important; }
+.dark .tasks-ui .bg-dark-400 { background-color: #0f172a !important; }
+.dark .tasks-ui .bg-dark-300 { background-color: #111827 !important; }
+.dark .tasks-ui .bg-dark-200 { background-color: #1e293b !important; }
+.dark .tasks-ui .bg-dark-100 { background-color: #334155 !important; }
+.dark .tasks-ui .hover\:bg-dark-200:hover { background-color: #1e293b !important; }
+.dark .tasks-ui .hover\:bg-dark-100:hover { background-color: #334155 !important; }
+.dark .tasks-ui .focus\:bg-dark-100:focus { background-color: #334155 !important; }
+
+/* Standard background overrides */
+.dark .tasks-ui .bg-white { background-color: #1e293b !important; }
+.dark .tasks-ui .bg-gray-50 { background-color: #111827 !important; }
+.dark .tasks-ui .bg-gray-100 { background-color: #1e293b !important; }
+.dark .tasks-ui .bg-gray-200 { background-color: #334155 !important; }
+
+/* Hover backgrounds */
+.dark .tasks-ui .hover\:bg-gray-50:hover { background-color: #1e293b !important; }
+.dark .tasks-ui .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+.dark .tasks-ui .focus\:bg-white:focus { background-color: #1e293b !important; }
+
+/* Text colors (light on dark) */
+.dark .tasks-ui .text-gray-900 { color: #f1f5f9 !important; }
+.dark .tasks-ui .text-gray-800 { color: #e2e8f0 !important; }
+.dark .tasks-ui .text-gray-700 { color: #cbd5e1 !important; }
+.dark .tasks-ui .text-gray-600 { color: #94a3b8 !important; }
+.dark .tasks-ui .text-gray-500 { color: #64748b !important; }
+.dark .tasks-ui .text-gray-400 { color: #475569 !important; }
+.dark .tasks-ui .text-gray-300 { color: #334155 !important; }
+
+/* Border colors */
+.dark .tasks-ui .border-gray-100 { border-color: #1e293b !important; }
+.dark .tasks-ui .border-gray-200 { border-color: #1e293b !important; }
+.dark .tasks-ui .border-gray-300 { border-color: #334155 !important; }
+.dark .tasks-ui .border-gray-400 { border-color: #475569 !important; }
+
+/* Ring colors */
+.dark .tasks-ui .ring-white { --tw-ring-color: #1e293b !important; }
+.dark .tasks-ui .ring-gray-200 { --tw-ring-color: #334155 !important; }
+
+/* Semantic accent text – lighter for dark backgrounds */
+.dark .tasks-ui .text-indigo-600 { color: #a5b4fc !important; }
+.dark .tasks-ui .text-indigo-500 { color: #a5b4fc !important; }
+.dark .tasks-ui .text-red-600 { color: #fca5a5 !important; }
+.dark .tasks-ui .text-blue-700 { color: #93c5fd !important; }
+.dark .tasks-ui .text-amber-700 { color: #fcd34d !important; }
+.dark .tasks-ui .text-emerald-700 { color: #6ee7b7 !important; }
+
+/* Tinted badge / chip backgrounds */
+.dark .tasks-ui .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.15) !important; }
+.dark .tasks-ui .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.22) !important; }
+.dark .tasks-ui .bg-red-50 { background-color: rgba(239, 68, 68, 0.14) !important; }
+.dark .tasks-ui .bg-red-100 { background-color: rgba(239, 68, 68, 0.22) !important; }
+.dark .tasks-ui .bg-blue-50 { background-color: rgba(59, 130, 246, 0.14) !important; }
+.dark .tasks-ui .bg-blue-100 { background-color: rgba(59, 130, 246, 0.22) !important; }
+.dark .tasks-ui .bg-amber-50 { background-color: rgba(245, 158, 11, 0.14) !important; }
+.dark .tasks-ui .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.14) !important; }
+
+/* Tinted badge / chip borders */
+.dark .tasks-ui .border-indigo-200 { border-color: rgba(99, 102, 241, 0.3) !important; }
+.dark .tasks-ui .border-indigo-500 { border-color: rgba(99, 102, 241, 0.5) !important; }
+.dark .tasks-ui .border-red-200 { border-color: rgba(239, 68, 68, 0.3) !important; }
+.dark .tasks-ui .border-blue-200 { border-color: rgba(59, 130, 246, 0.3) !important; }
+.dark .tasks-ui .border-amber-200 { border-color: rgba(245, 158, 11, 0.3) !important; }
+.dark .tasks-ui .border-emerald-200 { border-color: rgba(16, 185, 129, 0.3) !important; }
+
+/* Inputs / selects / textareas in dark mode */
+.dark .tasks-ui input:not([type="checkbox"]):not([type="radio"]),
+.dark .tasks-ui select,
+.dark .tasks-ui textarea {
+  background-color: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
 }
-.tasks-ui .hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.dark .tasks-ui input::placeholder,
+.dark .tasks-ui textarea::placeholder {
+  color: #64748b !important;
 }
 
-.tasks-ui select option {
-  background-color: #ffffff;
-  color: #1e293b;
+/* Placeholder utility override */
+.dark .tasks-ui .placeholder-gray-400::placeholder { color: #64748b !important; }
+
+/* Shadows – stronger for dark mode depth */
+.dark .tasks-ui .shadow-soft {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3) !important;
 }
+.dark .tasks-ui .shadow-drawer {
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.5) !important;
+}
+.dark .tasks-ui .shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+.dark .tasks-ui .shadow-glow {
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.25) !important;
+}
+.dark .tasks-ui .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Scrollbar – dark track */
+.dark .tasks-ui ::-webkit-scrollbar-thumb { background: #334155; }
+.dark .tasks-ui ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Glass panel */
+.dark .tasks-ui .glass-panel {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+/* Select option dropdown */
+.dark .tasks-ui select option { background-color: #1e293b; color: #e2e8f0; }
