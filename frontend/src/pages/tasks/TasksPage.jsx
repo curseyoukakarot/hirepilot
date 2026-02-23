@@ -102,6 +102,7 @@ export default function TasksPage() {
   const [creatingTask, setCreatingTask] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState('');
 
   const loadCounts = useCallback(async () => {
     try {
@@ -127,6 +128,7 @@ export default function TasksPage() {
         const { data: authData } = await supabase.auth.getUser();
         const authUser = authData?.user;
         if (!authUser || !mounted) return;
+        setCurrentUserId(String(authUser.id || ''));
         const { data } = await supabase.from('users').select('id,first_name,last_name,email,team_id').eq('id', authUser.id).maybeSingle();
         const current = data || {};
         let users = [current];
@@ -366,6 +368,7 @@ export default function TasksPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         assignees={assignees}
+        currentUserId={currentUserId}
         creating={creatingTask}
         onCreate={async (form) => {
           setCreatingTask(true);

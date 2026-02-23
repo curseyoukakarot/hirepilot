@@ -901,6 +901,7 @@ export default function JobRequisitionPage() {
       onClose={() => setShowConvertTaskModal(false)}
       creating={convertingTask}
       assignees={taskAssignees}
+      currentUserId={currentUser?.id || ''}
       initialValues={{
         title: taskDraft.title,
         description: taskDraft.description,

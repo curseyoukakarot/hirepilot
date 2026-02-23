@@ -2083,6 +2083,7 @@ export default function KanbanBoardPage() {
         onClose={() => setShowConvertTaskModal(false)}
         creating={convertingTask}
         assignees={taskAssignees}
+        currentUserId={currentUserId || ''}
         initialValues={{
           title: taskDraft.title,
           description: taskDraft.description,

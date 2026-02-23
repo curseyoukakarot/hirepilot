@@ -15,20 +15,25 @@ export default function TaskCreateModal({
   assignees = [],
   creating = false,
   initialValues = null,
+  currentUserId = '',
 }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [attempted, setAttempted] = useState(false);
+  const [assignToSelf, setAssignToSelf] = useState(false);
 
   const titleError = useMemo(() => (attempted && !form.title.trim() ? 'Task title is required.' : ''), [attempted, form.title]);
+  const currentUserIdValue = String(currentUserId || '').trim();
 
   useEffect(() => {
     if (!open) return;
-    setForm({
+    const nextForm = {
       ...INITIAL_FORM,
       ...(initialValues || {}),
-    });
+    };
+    setForm(nextForm);
+    setAssignToSelf(Boolean(currentUserIdValue) && String(nextForm.assigneeId || '') === currentUserIdValue);
     setAttempted(false);
-  }, [open, initialValues]);
+  }, [open, initialValues, currentUserIdValue]);
 
   if (!open) {
     return null;
@@ -72,7 +77,11 @@ export default function TaskCreateModal({
                       <label className="block text-sm font-medium text-gray-400">Assignee</label>
                       <select
                         value={form.assigneeId}
-                        onChange={(e) => setForm((prev) => ({ ...prev, assigneeId: e.target.value }))}
+                        onChange={(e) => {
+                          const nextAssigneeId = e.target.value;
+                          setForm((prev) => ({ ...prev, assigneeId: nextAssigneeId }));
+                          setAssignToSelf(Boolean(currentUserIdValue) && nextAssigneeId === currentUserIdValue);
+                        }}
                         className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md border bg-dark-200 text-gray-200"
                       >
                         <option value="">Unassigned</option>
@@ -82,6 +91,24 @@ export default function TaskCreateModal({
                           </option>
                         ))}
                       </select>
+                      {currentUserIdValue && (
+                        <label className="mt-2 inline-flex items-center gap-2 text-xs text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={assignToSelf}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setAssignToSelf(checked);
+                              setForm((prev) => ({
+                                ...prev,
+                                assigneeId: checked ? currentUserIdValue : (prev.assigneeId === currentUserIdValue ? '' : prev.assigneeId),
+                              }));
+                            }}
+                            className="h-3.5 w-3.5 rounded border-gray-600 bg-dark-200 text-primary-600 focus:ring-primary-500"
+                          />
+                          Assign to myself
+                        </label>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-400">Due Date</label>

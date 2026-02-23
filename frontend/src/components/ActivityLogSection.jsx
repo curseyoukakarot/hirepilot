@@ -18,6 +18,7 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [taskAssignees, setTaskAssignees] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [error, setError] = useState('');
 
   const truncateTaskTitle = (value) => {
@@ -127,6 +128,7 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!active || !user?.id) return;
+        setCurrentUserId(String(user.id));
         const { data: me } = await supabase
           .from('users')
           .select('id,first_name,last_name,email')
@@ -492,6 +494,7 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
         onClose={() => setShowTaskModal(false)}
         creating={creatingTask}
         assignees={taskAssignees}
+        currentUserId={currentUserId}
         initialValues={{
           title: taskDraft.title,
           description: taskDraft.description,
