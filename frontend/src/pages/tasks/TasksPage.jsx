@@ -118,6 +118,9 @@ export default function TasksPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentUserId, setCurrentUserId] = useState('');
+  const [currentUserName, setCurrentUserName] = useState('User');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUserAvatar, setCurrentUserAvatar] = useState('');
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const lastRealtimeRefreshAt = useRef(0);
 
@@ -153,8 +156,27 @@ export default function TasksPage() {
         const authUser = authData?.user;
         if (!authUser || !mounted) return;
         setCurrentUserId(String(authUser.id || ''));
-        const { data } = await supabase.from('users').select('id,first_name,last_name,email,team_id').eq('id', authUser.id).maybeSingle();
+        const { data } = await supabase
+          .from('users')
+          .select('id,first_name,last_name,full_name,email,team_id,avatar_url')
+          .eq('id', authUser.id)
+          .maybeSingle();
         const current = data || {};
+        const meta = authUser.user_metadata || {};
+        const fullName =
+          String(current?.full_name || '').trim() ||
+          `${current?.first_name || meta.first_name || meta.firstName || ''} ${current?.last_name || meta.last_name || meta.lastName || ''}`
+            .trim() ||
+          String(meta.full_name || meta.name || authUser.email || 'User').trim();
+        const avatarCandidate =
+          String(current?.avatar_url || '').trim() ||
+          String(meta.avatar_url || meta.photo_url || meta.profile_image_url || meta.picture || meta.image || '').trim();
+        const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`;
+        if (mounted) {
+          setCurrentUserName(fullName);
+          setCurrentUserEmail(String(current?.email || authUser.email || '').trim());
+          setCurrentUserAvatar(avatarCandidate || fallbackAvatar);
+        }
         let users = [current];
         if (current?.team_id) {
           const { data: teamUsers } = await supabase.from('users').select('id,first_name,last_name,email').eq('team_id', current.team_id);
@@ -370,12 +392,12 @@ export default function TasksPage() {
               <div className="flex items-center gap-3 cursor-pointer hover:bg-dark-200 p-1.5 rounded-lg transition">
                 <img
                   className="h-8 w-8 rounded-lg object-cover ring-2 ring-gray-700"
-                  src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg"
-                  alt="Sarah Johnson"
+                  src={currentUserAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUserName || 'User')}&background=random`}
+                  alt={currentUserName || 'User'}
                 />
                 <div className="hidden lg:block text-left">
-                  <p className="text-sm font-medium text-gray-200">Sarah Johnson</p>
-                  <p className="text-xs text-gray-500">johns@hirepilot.com</p>
+                  <p className="text-sm font-medium text-gray-200">{currentUserName || 'User'}</p>
+                  <p className="text-xs text-gray-500">{currentUserEmail || 'No email'}</p>
                 </div>
                 <i className="fa-solid fa-chevron-down text-xs text-gray-500 ml-1" />
               </div>
