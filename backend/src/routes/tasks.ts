@@ -441,9 +441,18 @@ async function resolveRecordRequestContext(req: Request) {
   return { taskId, userId, workspaceId, membership, task } as const;
 }
 
-router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+function readRecordTaskId(req: Request): string {
+  const fromQuery = String((req.query as any)?.task_id || '').trim();
+  const fromBody = String((req.body as any)?.task_id || '').trim();
+  return fromQuery || fromBody || '';
+}
+
+router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const ctx = await resolveRecordRequestContext(req);
+    const taskId = readRecordTaskId(req);
+    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
+    (req as any).params = { ...(req as any).params, id: taskId };
+    const ctx = await resolveRecordRequestContext(req as any);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.json({ task: null });
 
@@ -454,15 +463,19 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
       .eq('task_id', ctx.taskId);
     if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
 
+    res.setHeader('x-tasks-record-v3-hit', '1');
     return res.json({ task: buildTaskResponse(ctx.task, Number(count || 0)) });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:get-by-id:v2', 'task_fetch_failed', e);
+    return respondInternalError(res, 'tasks:record:get-by-id:v3', 'task_fetch_failed', e);
   }
 });
 
-router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const ctx = await resolveRecordRequestContext(req);
+    const taskId = readRecordTaskId(req);
+    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
+    (req as any).params = { ...(req as any).params, id: taskId };
+    const ctx = await resolveRecordRequestContext(req as any);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.json({ comments: [] });
 
@@ -474,15 +487,19 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
       .order('created_at', { ascending: true });
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
 
+    res.setHeader('x-tasks-record-v3-hit', '1');
     return res.json({ comments: data || [] });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:list:v2', 'task_comments_list_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:list:v3', 'task_comments_list_failed', e);
   }
 });
 
-router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/record/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
-    const ctx = await resolveRecordRequestContext(req);
+    const taskId = readRecordTaskId(req);
+    if (!taskId) return res.status(400).json({ error: 'task_id_required' });
+    (req as any).params = { ...(req as any).params, id: taskId };
+    const ctx = await resolveRecordRequestContext(req as any);
     if ('error' in ctx) return res.status(ctx.error.status).json(ctx.error.body);
     if (!ctx.task) return res.status(404).json({ error: 'task_not_found' });
     if (!canUpdateTask(ctx.task, ctx.userId, ctx.membership.role)) return res.status(403).json({ error: 'forbidden' });
@@ -530,9 +547,10 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
       }
     } catch {}
 
+    res.setHeader('x-tasks-record-v3-hit', '1');
     return res.status(201).json({ comment: data });
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:create:v2', 'task_comment_create_failed', e);
+    return respondInternalError(res, 'tasks:record:comments:create:v3', 'task_comment_create_failed', e);
   }
 });
 

@@ -48,10 +48,18 @@ function mapRelatedIcon(relatedType) {
   return 'fa-solid fa-link';
 }
 
+function avatarFallback(name) {
+  const label = String(name || 'User').trim() || 'User';
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(label)}&background=random`;
+}
+
 function mapTask(task, usersById = {}) {
   const assignee = task.assigned_to_user_id ? usersById[task.assigned_to_user_id] : null;
+  const owner = task.created_by_user_id ? usersById[task.created_by_user_id] : null;
   const isCompleted = Boolean(task.completed_at) || String(task.status || '').toLowerCase() === 'completed';
   const dueOverdue = Boolean(task.due_at) && new Date(task.due_at).getTime() < Date.now() && !isCompleted;
+  const ownerName = owner?.name || 'Owner';
+  const assigneeName = assignee?.name || 'Unassigned';
   return {
     id: task.id,
     code: String(task.id || '').slice(0, 8).toUpperCase(),
@@ -68,9 +76,9 @@ function mapTask(task, usersById = {}) {
     commentCount: Number(task.comment_count || 0),
     relatedLabel: task.related_id ? `${task.related_type || 'related'} #${String(task.related_id).slice(0, 6)}` : 'Unlinked',
     relatedTypeIcon: mapRelatedIcon(task.related_type),
-    ownerAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
-    assigneeName: assignee?.name || 'Unassigned',
-    assigneeAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+    ownerAvatar: owner?.avatar || avatarFallback(ownerName),
+    assigneeName,
+    assigneeAvatar: assignee?.avatar || avatarFallback(assigneeName),
     assigneeId: task.assigned_to_user_id || '',
     createdAt: task.created_at ? `Created ${new Date(task.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : 'Created --',
     description: task.description || 'No description',
@@ -223,14 +231,18 @@ export default function TasksPage() {
         }
         let users = [current];
         if (current?.team_id) {
-          const { data: teamUsers } = await supabase.from('users').select('id,first_name,last_name,email').eq('team_id', current.team_id);
+          const { data: teamUsers } = await supabase
+            .from('users')
+            .select('id,first_name,last_name,full_name,email,avatar_url')
+            .eq('team_id', current.team_id);
           users = teamUsers || users;
         }
         const normalized = users
           .filter((user) => user?.id)
           .map((user) => ({
             id: user.id,
-            name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Team Member',
+            name: String(user.full_name || '').trim() || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Team Member',
+            avatar: String(user.avatar_url || '').trim() || avatarFallback(String(user.full_name || '').trim() || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Team Member'),
           }));
         const map = normalized.reduce((acc, user) => ({ ...acc, [user.id]: user }), {});
         if (mounted) {
@@ -325,9 +337,10 @@ export default function TasksPage() {
     (async () => {
       try {
         const fallbackTask = tasks.find((row) => row.id === selectedTaskId) || null;
+        const encodedTaskId = encodeURIComponent(selectedTaskId);
         const [taskRes, commentsRes] = await Promise.all([
-          apiGet(`/api/tasks/record/${selectedTaskId}`),
-          apiGet(`/api/tasks/record/${selectedTaskId}/comments`),
+          apiGet(`/api/tasks/record?task_id=${encodedTaskId}`),
+          apiGet(`/api/tasks/record/comments?task_id=${encodedTaskId}`),
         ]);
         if (!mounted) return;
         const task = taskRes?.task ? mapTask(taskRes.task, usersById) : fallbackTask;
@@ -758,7 +771,7 @@ export default function TasksPage() {
               onAddComment={async (body) => {
                 if (!selectedTaskId) return;
                 try {
-                  await apiPost(`/api/tasks/record/${selectedTaskId}/comments`, { body });
+                  await apiPost('/api/tasks/record/comments', { task_id: selectedTaskId, body });
                   setRefreshKey((k) => k + 1);
                 } catch (err) {
                   const message = String(err?.message || '');
