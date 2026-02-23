@@ -46,27 +46,27 @@ export default function TaskDetailPanel({
   }
 
   return (
-    <div className="w-[400px] bg-dark-300 border-l border-gray-800 flex-col h-full shadow-drawer z-30 lg:relative lg:flex hidden">
-      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+    <div className="w-[400px] bg-white border-l border-gray-200 flex-col h-full shadow-drawer z-30 lg:relative lg:flex hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span className="bg-dark-200 px-2 py-1 rounded border border-gray-700">{task.code}</span>
+          <span className="bg-gray-100 px-2 py-1 rounded-md border border-gray-200 font-mono text-gray-600">{task.code}</span>
           <span>•</span>
           <span>{task.createdAt}</span>
         </div>
         <div className="relative flex items-center gap-2">
-          <button className="text-gray-500 hover:text-gray-300 p-1.5 rounded-md hover:bg-dark-200 transition">
+          <button className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition">
             <i className="fa-solid fa-link" />
           </button>
           <button
-            className="text-gray-500 hover:text-gray-300 p-1.5 rounded-md hover:bg-dark-200 transition"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition"
             onClick={() => setMenuOpen((open) => !open)}
           >
             <i className="fa-solid fa-ellipsis" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-10 z-20 w-40 rounded-md border border-gray-700 bg-dark-200 shadow-lg">
+            <div className="absolute right-0 top-10 z-20 w-40 rounded-lg border border-gray-200 bg-white shadow-lg">
               <button
-                className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-dark-100"
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
                 onClick={() => {
                   setMenuOpen(false);
                   titleInputRef.current?.focus();
@@ -75,7 +75,7 @@ export default function TaskDetailPanel({
                 Edit
               </button>
               <button
-                className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-dark-100"
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                 onClick={() => {
                   setMenuOpen(false);
                   onDuplicate?.();
@@ -84,7 +84,7 @@ export default function TaskDetailPanel({
                 Duplicate
               </button>
               <button
-                className="w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-dark-100"
+                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50 rounded-b-lg"
                 onClick={() => {
                   setMenuOpen(false);
                   onDelete?.();
@@ -100,7 +100,7 @@ export default function TaskDetailPanel({
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-4">
-            <button className="mt-1.5 text-gray-600 hover:text-primary-400 transition">
+            <button className="mt-1.5 text-gray-300 hover:text-indigo-500 transition">
               <i className="fa-regular fa-circle text-xl" />
             </button>
             <input
@@ -113,17 +113,17 @@ export default function TaskDetailPanel({
                 if (!next || next === task.title) return;
                 onFieldUpdate?.({ title: next });
               }}
-              className="text-xl font-bold text-white leading-snug bg-transparent border border-transparent focus:border-gray-700 rounded px-1 -mx-1 w-full outline-none"
+              className="text-xl font-bold text-gray-900 leading-snug bg-transparent border border-transparent focus:border-gray-300 rounded-lg px-1 -mx-1 w-full outline-none"
             />
           </div>
 
           <div className="flex flex-wrap gap-2 ml-8">
-            <label className="flex items-center gap-1.5 bg-blue-600/20 text-blue-400 px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-600/30 transition border border-blue-500/30">
+            <label className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-100 transition border border-blue-200">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <select
                 value={task.statusKey || task.status}
                 onChange={(e) => onFieldUpdate?.({ status: e.target.value })}
-                className="bg-transparent outline-none text-xs font-semibold"
+                className="bg-transparent outline-none text-xs font-semibold text-blue-700"
               >
                 {statuses.length
                   ? statuses.map((status) => (
@@ -138,27 +138,27 @@ export default function TaskDetailPanel({
               <i className="fa-solid fa-chevron-down text-[10px] ml-1 opacity-50" />
             </label>
             <button
-              className="flex items-center gap-1.5 bg-dark-200 text-gray-300 px-3 py-1 rounded-md text-xs font-medium hover:bg-dark-100 transition border border-gray-700 border-dashed"
+              className="flex items-center gap-1.5 bg-gray-50 text-gray-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-gray-100 transition border border-gray-300 border-dashed"
               onClick={() => setStatusModalOpen(true)}
             >
               <i className="fa-solid fa-plus text-[10px]" />
               Custom Status
             </button>
-            <label className="flex items-center gap-1.5 bg-dark-200 text-gray-300 px-3 py-1 rounded-md text-xs font-medium hover:bg-dark-100 transition border border-gray-700 border-dashed">
-              <i className="fa-solid fa-calendar text-gray-500" />
+            <label className="flex items-center gap-1.5 bg-gray-50 text-gray-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-gray-100 transition border border-gray-300 border-dashed">
+              <i className="fa-solid fa-calendar text-gray-400" />
               <input
                 type="date"
                 value={dueDateValue}
                 onChange={(e) => onFieldUpdate?.({ due_at: e.target.value ? `${e.target.value}T17:00:00.000Z` : null })}
-                className="bg-transparent outline-none text-xs font-medium"
+                className="bg-transparent outline-none text-xs font-medium text-gray-700"
               />
             </label>
-            <label className="flex items-center gap-1.5 bg-dark-200 text-gray-300 px-3 py-1 rounded-md text-xs font-medium hover:bg-dark-100 transition border border-gray-700 border-dashed">
+            <label className="flex items-center gap-1.5 bg-gray-50 text-gray-600 px-3 py-1 rounded-lg text-xs font-medium hover:bg-gray-100 transition border border-gray-300 border-dashed">
               <span className={`w-2 h-2 rounded-full ${task.priorityTone === 'orange' ? 'bg-orange-400' : 'bg-red-500'}`} />
               <select
                 value={task.priorityKey || task.priority}
                 onChange={(e) => onFieldUpdate?.({ priority: e.target.value })}
-                className="bg-transparent outline-none text-xs font-medium"
+                className="bg-transparent outline-none text-xs font-medium text-gray-700"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -168,14 +168,14 @@ export default function TaskDetailPanel({
           </div>
         </div>
 
-        <div className="bg-dark-200 rounded-lg p-4 mb-6 border border-gray-800">
+        <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
           <div className="grid grid-cols-2 gap-y-4 gap-x-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Assignee</label>
               <select
                 value={task.assigneeId || ''}
                 onChange={(e) => onFieldUpdate?.({ assigned_to_user_id: e.target.value || null })}
-                className="mt-1 block w-full pl-2 pr-2 py-1 text-sm border-gray-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md border bg-dark-300 text-gray-200"
+                className="mt-1 block w-full pl-2 pr-2 py-1 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg border bg-white text-gray-800"
               >
                 <option value="">Unassigned</option>
                 {assignees.map((assignee) => (
@@ -187,14 +187,14 @@ export default function TaskDetailPanel({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Related To</label>
-              <a href="#" className="flex items-center gap-1.5 text-sm text-primary-400 hover:underline">
+              <a href="#" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
                 <i className={`${task.relatedTypeIcon} text-xs`} />
                 {task.relatedLabel}
               </a>
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
-              <p className="text-sm text-gray-400 leading-relaxed">{task.description}</p>
+              <p className="text-sm text-gray-600 leading-relaxed">{task.description}</p>
             </div>
           </div>
         </div>
@@ -202,19 +202,19 @@ export default function TaskDetailPanel({
         <TaskActivityFeed activity={activity} highlightedActivityId={highlightedActivityId} />
       </div>
 
-      <div className="p-4 border-t border-gray-800 bg-dark-200">
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
         {statusModalOpen && (
-          <div className="mb-3 rounded-md border border-gray-700 bg-dark-300 p-3">
-            <div className="text-xs font-medium text-gray-400 mb-2">Create custom status</div>
+          <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
+            <div className="text-xs font-medium text-gray-500 mb-2">Create custom status</div>
             <div className="flex items-center gap-2">
               <input
                 value={customStatusLabel}
                 onChange={(e) => setCustomStatusLabel(e.target.value)}
-                className="flex-1 px-2 py-1.5 border border-gray-700 rounded bg-dark-200 text-sm text-gray-200"
+                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-800"
                 placeholder="e.g. Waiting on Candidate"
               />
               <button
-                className="px-2.5 py-1.5 text-xs rounded bg-primary-600 text-white hover:bg-primary-700"
+                className="px-2.5 py-1.5 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700"
                 onClick={async () => {
                   const label = customStatusLabel.trim();
                   if (!label) return;
@@ -226,7 +226,7 @@ export default function TaskDetailPanel({
                 Save
               </button>
               <button
-                className="px-2.5 py-1.5 text-xs rounded border border-gray-700 text-gray-300 hover:bg-dark-100"
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
                 onClick={() => {
                   setCustomStatusLabel('');
                   setStatusModalOpen(false);
@@ -242,12 +242,12 @@ export default function TaskDetailPanel({
             type="text"
             value={commentBody}
             onChange={(e) => setCommentBody(e.target.value)}
-            className="block w-full pl-3 pr-10 py-2 border border-gray-700 rounded-md leading-5 bg-dark-300 placeholder-gray-500 text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
             placeholder="Write a comment or type / for actions..."
           />
           <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
             <button
-              className="text-gray-500 hover:text-primary-400 p-1 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-gray-400 hover:text-indigo-500 p-1 transition disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={commentSubmitting}
               onClick={async () => {
                 const next = commentBody.trim();
@@ -281,14 +281,14 @@ export default function TaskDetailPanel({
               }}
             />
             <button
-              className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition"
+              className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded transition"
               title="Add Attachment"
               onClick={() => attachmentInputRef.current?.click()}
             >
               <i className="fa-solid fa-paperclip text-sm" />
             </button>
             <button
-              className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition"
+              className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded transition"
               title="Mention"
               onClick={() => {
                 const mention = window.prompt('Mention teammate (name or @handle)');
@@ -302,13 +302,13 @@ export default function TaskDetailPanel({
           </div>
           <div className="flex gap-2">
             <button
-              className="bg-dark-300 border border-gray-700 text-gray-300 text-xs font-medium px-3 py-1.5 rounded hover:bg-dark-200 shadow-sm transition"
+              className="bg-white border border-gray-300 text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50 shadow-sm transition"
               onClick={() => onConvertReminder?.()}
             >
               Convert to Reminder
             </button>
             <button
-              className="bg-primary-600 text-white text-xs font-medium px-3 py-1.5 rounded hover:bg-primary-700 shadow-sm transition shadow-glow disabled:opacity-60"
+              className="bg-primary-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-primary-700 shadow-sm transition shadow-glow disabled:opacity-60"
               onClick={() => onMarkComplete?.()}
               disabled={saving}
             >

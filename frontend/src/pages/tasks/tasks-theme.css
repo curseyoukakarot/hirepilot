@@ -1,32 +1,28 @@
 .tasks-ui {
-  --tasks-gray-50: #f9fafb;
-  --tasks-gray-100: #f3f4f6;
-  --tasks-gray-200: #e5e7eb;
-  --tasks-gray-300: #d1d5db;
-  --tasks-gray-400: #9ca3af;
-  --tasks-gray-500: #6b7280;
-  --tasks-gray-600: #4b5563;
-  --tasks-gray-700: #374151;
-  --tasks-gray-800: #1f2937;
-  --tasks-gray-900: #111827;
-  --tasks-dark-500: #070b15;
-  --tasks-dark-400: #0a0f1c;
-  --tasks-dark-300: #0f1623;
-  --tasks-dark-200: #151d2a;
-  --tasks-dark-100: #1a2332;
-  --tasks-primary-400: #818cf8;
+  --tasks-bg-page: #f1f5f9;
+  --tasks-bg-content: #f8fafc;
+  --tasks-bg-card: #ffffff;
+  --tasks-bg-input: #f1f5f9;
+  --tasks-bg-hover: #e2e8f0;
+
+  --tasks-primary-400: #6366f1;
   --tasks-primary-500: #6366f1;
   --tasks-primary-600: #4f46e5;
   --tasks-primary-700: #4338ca;
 }
 
-.tasks-ui .bg-dark-500 { background-color: var(--tasks-dark-500) !important; }
-.tasks-ui .bg-dark-400 { background-color: var(--tasks-dark-400) !important; }
-.tasks-ui .bg-dark-300 { background-color: var(--tasks-dark-300) !important; }
-.tasks-ui .bg-dark-200 { background-color: var(--tasks-dark-200) !important; }
-.tasks-ui .bg-dark-100 { background-color: var(--tasks-dark-100) !important; }
+.tasks-ui .bg-dark-500 { background-color: var(--tasks-bg-page) !important; }
+.tasks-ui .bg-dark-400 { background-color: var(--tasks-bg-content) !important; }
+.tasks-ui .bg-dark-300 { background-color: var(--tasks-bg-card) !important; }
+.tasks-ui .bg-dark-200 { background-color: var(--tasks-bg-input) !important; }
+.tasks-ui .bg-dark-100 { background-color: var(--tasks-bg-hover) !important; }
+
+.tasks-ui .hover\:bg-dark-200:hover { background-color: var(--tasks-bg-input) !important; }
+.tasks-ui .hover\:bg-dark-100:hover { background-color: var(--tasks-bg-hover) !important; }
+.tasks-ui .focus\:bg-dark-100:focus { background-color: var(--tasks-bg-hover) !important; }
 
 .tasks-ui .text-primary-400 { color: var(--tasks-primary-400) !important; }
+.tasks-ui .text-primary-300 { color: var(--tasks-primary-500) !important; }
 .tasks-ui .bg-primary-600 { background-color: var(--tasks-primary-600) !important; }
 .tasks-ui .hover\:bg-primary-700:hover { background-color: var(--tasks-primary-700) !important; }
 .tasks-ui .focus\:ring-primary-500:focus { --tw-ring-color: var(--tasks-primary-500) !important; }
@@ -34,16 +30,16 @@
 .tasks-ui .border-primary-500 { border-color: var(--tasks-primary-500) !important; }
 
 .tasks-ui .shadow-soft {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 .tasks-ui .shadow-drawer {
-  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: -1px 0 8px rgba(0, 0, 0, 0.06) !important;
 }
 .tasks-ui .shadow-card {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 .tasks-ui .shadow-glow {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.18) !important;
 }
 
 .tasks-ui ::-webkit-scrollbar {
@@ -54,15 +50,15 @@
   background: transparent;
 }
 .tasks-ui ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #cbd5e1;
   border-radius: 3px;
 }
 .tasks-ui ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: #94a3b8;
 }
 
 .tasks-ui .glass-panel {
-  background: rgba(26, 35, 50, 0.95);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
 }
 
@@ -72,4 +68,9 @@
 .tasks-ui .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.tasks-ui select option {
+  background-color: #ffffff;
+  color: #1e293b;
 }
