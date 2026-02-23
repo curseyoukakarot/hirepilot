@@ -31,9 +31,10 @@ type Membership = {
 };
 
 function resolveWorkspaceId(req: Request): string | null {
+  const fromHeader = String(req.headers['x-workspace-id'] || '').trim();
   const fromQuery = String((req.query as any)?.workspaceId || '').trim();
   const fromCtx = String((req as any).workspaceId || '').trim();
-  return (fromQuery || fromCtx) || null;
+  return (fromHeader || fromQuery || fromCtx) || null;
 }
 
 function normalizeRole(role: string | null | undefined): string {
