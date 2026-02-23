@@ -353,8 +353,8 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
     const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+    if (!task) return res.json({ task: null });
+    if (!canViewTask(task, userId, membership.role)) return res.json({ task: null });
 
     const { data: comments, error: commentsError } = await supabase
       .from('task_comments')

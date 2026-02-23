@@ -247,12 +247,13 @@ export default function TasksPage() {
     }
     (async () => {
       try {
+        const fallbackTask = tasks.find((row) => row.id === selectedTaskId) || null;
         const [taskRes, commentsRes] = await Promise.all([
           apiGet(`/api/tasks/${selectedTaskId}`),
           apiGet(`/api/tasks/${selectedTaskId}/comments`),
         ]);
         if (!mounted) return;
-        const task = taskRes?.task ? mapTask(taskRes.task, usersById) : null;
+        const task = taskRes?.task ? mapTask(taskRes.task, usersById) : fallbackTask;
         const comments = Array.isArray(commentsRes?.comments) ? commentsRes.comments : [];
         setSelectedTask(task);
         setActivity([
