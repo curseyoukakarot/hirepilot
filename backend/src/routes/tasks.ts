@@ -245,6 +245,14 @@ router.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: 
 
 router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
+    const idParam = String(req.params.id || '').trim();
+    const tabAliases = new Set(['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed']);
+    if (tabAliases.has(idParam)) {
+      const params = new URLSearchParams((req.query as any) || {});
+      params.set('tab', idParam);
+      return res.redirect(307, `/api/tasks?${params.toString()}`);
+    }
+
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
