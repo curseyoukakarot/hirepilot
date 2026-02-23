@@ -31,17 +31,25 @@ type Membership = {
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PARAM_PATTERN = ':id([0-9a-fA-F-]{36})';
 const TAB_ALIASES = ['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed'] as const;
-
-function resolveWorkspaceId(req: Request): string | null {
-  const fromHeader = String(req.headers['x-workspace-id'] || '').trim();
-  const fromQuery = String((req.query as any)?.workspaceId || '').trim();
-  const fromCtx = String((req as any).workspaceId || '').trim();
-  return (fromHeader || fromQuery || fromCtx) || null;
-}
 
 function isUuid(value: string | null | undefined): boolean {
   return UUID_REGEX.test(String(value || '').trim());
+}
+
+function cleanUuidInput(value: unknown): string | null {
+  const cleaned = String(value || '').trim();
+  if (!cleaned) return null;
+  if (cleaned.toLowerCase() === 'undefined' || cleaned.toLowerCase() === 'null') return null;
+  return isUuid(cleaned) ? cleaned : null;
+}
+
+function resolveWorkspaceId(req: Request): string | null {
+  const fromHeader = cleanUuidInput(req.headers['x-workspace-id']);
+  const fromQuery = cleanUuidInput((req.query as any)?.workspaceId);
+  const fromCtx = cleanUuidInput((req as any).workspaceId);
+  return fromHeader || fromQuery || fromCtx || null;
 }
 
 function normalizeRole(role: string | null | undefined): string {
@@ -192,7 +200,11 @@ router.get(['', '/'], requireTaskApiKeyScope('tasks:read'), async (req: Request,
     if (status) query = query.eq('status', status);
     if (assignee) query = query.eq('assigned_to_user_id', assignee);
     if (relatedType) query = query.eq('related_type', relatedType);
-    if (relatedId) query = query.eq('related_id', relatedId);
+    if (relatedId) {
+      const parsedRelatedId = cleanUuidInput(relatedId);
+      if (!parsedRelatedId) return res.status(400).json({ error: 'related_id_invalid' });
+      query = query.eq('related_id', parsedRelatedId);
+    }
 
     if (due === 'none') query = query.is('due_at', null);
     if (due === 'overdue') {
@@ -258,7 +270,7 @@ TAB_ALIASES.forEach((tabKey) => {
   });
 });
 
-router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
 
@@ -303,10 +315,18 @@ router.post(['', '/'], requireTaskApiKeyScope('tasks:write'), async (req: Reques
     const title = String(payload.title || '').trim();
     if (!title) return res.status(400).json({ error: 'title_required' });
 
-    const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+    const assignedTo = cleanUuidInput(payload.assigned_to_user_id);
     if (assignedTo) {
       const assignedMembership = await getMembership(assignedTo, workspaceId);
       if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+    }
+    if (typeof payload.assigned_to_user_id !== 'undefined' && !assignedTo && payload.assigned_to_user_id) {
+      return res.status(400).json({ error: 'assignee_id_invalid' });
+    }
+
+    const relatedId = typeof payload.related_id === 'undefined' ? null : cleanUuidInput(payload.related_id);
+    if (typeof payload.related_id !== 'undefined' && payload.related_id && !relatedId) {
+      return res.status(400).json({ error: 'related_id_invalid' });
     }
 
     const insertPayload: any = {
@@ -319,7 +339,7 @@ router.post(['', '/'], requireTaskApiKeyScope('tasks:write'), async (req: Reques
       priority: payload.priority ? String(payload.priority) : 'medium',
       due_at: payload.due_at || null,
       related_type: payload.related_type ? String(payload.related_type) : null,
-      related_id: payload.related_id || null,
+      related_id: relatedId,
     };
 
     const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
@@ -350,10 +370,18 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
     const title = String(payload.title || autoTitle).trim();
     if (!title) return res.status(400).json({ error: 'title_required' });
 
-    const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+    const assignedTo = cleanUuidInput(payload.assigned_to_user_id);
     if (assignedTo) {
       const assignedMembership = await getMembership(assignedTo, workspaceId);
       if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+    }
+    if (typeof payload.assigned_to_user_id !== 'undefined' && !assignedTo && payload.assigned_to_user_id) {
+      return res.status(400).json({ error: 'assignee_id_invalid' });
+    }
+
+    const relatedId = typeof payload.related_id === 'undefined' ? null : cleanUuidInput(payload.related_id);
+    if (typeof payload.related_id !== 'undefined' && payload.related_id && !relatedId) {
+      return res.status(400).json({ error: 'related_id_invalid' });
     }
 
     const insertPayload: any = {
@@ -366,7 +394,7 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
       priority: payload.priority ? String(payload.priority) : 'medium',
       due_at: payload.due_at || null,
       related_type: payload.related_type ? String(payload.related_type) : null,
-      related_id: payload.related_id || null,
+      related_id: relatedId,
     };
 
     const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
@@ -383,7 +411,7 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
   }
 });
 
-router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.patch(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -411,14 +439,23 @@ router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request,
     if (typeof payload.priority !== 'undefined') updates.priority = String(payload.priority || 'medium');
     if (typeof payload.due_at !== 'undefined') updates.due_at = payload.due_at || null;
     if (typeof payload.related_type !== 'undefined') updates.related_type = payload.related_type ? String(payload.related_type) : null;
-    if (typeof payload.related_id !== 'undefined') updates.related_id = payload.related_id || null;
+    if (typeof payload.related_id !== 'undefined') {
+      if (!payload.related_id) {
+        updates.related_id = null;
+      } else {
+        const relatedId = cleanUuidInput(payload.related_id);
+        if (!relatedId) return res.status(400).json({ error: 'related_id_invalid' });
+        updates.related_id = relatedId;
+      }
+    }
 
     if (typeof payload.assigned_to_user_id !== 'undefined') {
-      const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+      const assignedTo = cleanUuidInput(payload.assigned_to_user_id);
       if (assignedTo) {
         const assignedMembership = await getMembership(assignedTo, workspaceId);
         if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
       }
+      if (!assignedTo && payload.assigned_to_user_id) return res.status(400).json({ error: 'assignee_id_invalid' });
       updates.assigned_to_user_id = assignedTo;
     }
 
@@ -445,7 +482,7 @@ router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request,
   }
 });
 
-router.patch('/:id/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.patch(`/${UUID_PARAM_PATTERN}/status`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -537,7 +574,7 @@ router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: R
   }
 });
 
-router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post(`/${UUID_PARAM_PATTERN}/follow-up`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -553,9 +590,13 @@ router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req:
     if (!canUpdateTask(sourceTask, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
     const payload = req.body || {};
-    const assignedTo = payload.assigned_to_user_id
-      ? String(payload.assigned_to_user_id)
-      : sourceTask.assigned_to_user_id || null;
+    const assignedTo =
+      typeof payload.assigned_to_user_id !== 'undefined'
+        ? cleanUuidInput(payload.assigned_to_user_id)
+        : (sourceTask.assigned_to_user_id || null);
+    if (typeof payload.assigned_to_user_id !== 'undefined' && payload.assigned_to_user_id && !assignedTo) {
+      return res.status(400).json({ error: 'assignee_id_invalid' });
+    }
     if (assignedTo) {
       const assignedMembership = await getMembership(assignedTo, workspaceId);
       if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
@@ -574,6 +615,14 @@ router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req:
     const title = String(payload.title || `Follow-up: ${String(sourceTask.title || '').trim()}`).trim().slice(0, 500);
     if (!title) return res.status(400).json({ error: 'title_required' });
 
+    const relatedId =
+      typeof payload.related_id !== 'undefined'
+        ? cleanUuidInput(payload.related_id)
+        : (sourceTask.related_id || null);
+    if (typeof payload.related_id !== 'undefined' && payload.related_id && !relatedId) {
+      return res.status(400).json({ error: 'related_id_invalid' });
+    }
+
     const insertPayload: any = {
       workspace_id: workspaceId,
       created_by_user_id: userId,
@@ -587,7 +636,7 @@ router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req:
       priority: payload.priority ? String(payload.priority) : (sourceTask.priority || 'medium'),
       due_at: dueAt,
       related_type: payload.related_type ? String(payload.related_type) : (sourceTask.related_type || null),
-      related_id: payload.related_id || sourceTask.related_id || null,
+      related_id: relatedId,
     };
 
     const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
@@ -602,7 +651,7 @@ router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req:
   }
 });
 
-router.post('/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post(`/${UUID_PARAM_PATTERN}/complete`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -632,7 +681,7 @@ router.post('/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: 
   }
 });
 
-router.post('/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post(`/${UUID_PARAM_PATTERN}/reopen`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -662,7 +711,7 @@ router.post('/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Re
   }
 });
 
-router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -691,7 +740,7 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
   }
 });
 
-router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
@@ -727,7 +776,7 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
   }
 });
 
-router.delete('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;

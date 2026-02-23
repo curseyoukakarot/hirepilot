@@ -231,6 +231,11 @@ export default function TasksPage() {
       setActivity([]);
       return;
     }
+    if (tasks.length && !tasks.some((task) => task.id === selectedTaskId)) {
+      setSelectedTask(null);
+      setActivity([]);
+      return;
+    }
     (async () => {
       try {
         const [taskRes, commentsRes] = await Promise.all([
@@ -267,7 +272,7 @@ export default function TasksPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedTaskId, refreshKey, usersById]);
+  }, [selectedTaskId, refreshKey, usersById, tasks]);
 
   useEffect(() => {
     if (!activeWorkspaceId) return undefined;
