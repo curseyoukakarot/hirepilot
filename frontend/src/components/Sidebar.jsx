@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms, FaHeartbeat, FaGlobe } from 'react-icons/fa';
+import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms, FaHeartbeat, FaGlobe, FaTasks } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
 
@@ -127,6 +127,7 @@ export default function Sidebar() {
               ...((isFree || isGuest) ? [] : [{ to: '/analytics', label: 'Analytics', icon: <FaChartBar /> }]),
               { to: '/tables', label: 'Tables', icon: <FaTable /> },
               { to: '/kanban', label: 'Kanban', icon: <FaChartBar className="rotate-180" /> },
+              { to: '/tasks', label: 'Tasks', icon: <FaTasks /> },
               { to: '/forms', label: 'Forms', icon: <FaWpforms /> },
               ...((isFree || isGuest) ? [] : [{ to: '/prep/landing-page', label: 'Landing Pages', icon: <FaGlobe /> }]),
             ].map(link => (

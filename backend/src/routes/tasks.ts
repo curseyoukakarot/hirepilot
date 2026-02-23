@@ -1,0 +1,719 @@
+import express, { Request, Response } from 'express';
+import { requireAuth } from '../../middleware/authMiddleware';
+import activeWorkspace from '../middleware/activeWorkspace';
+import { supabase } from '../lib/supabase';
+import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
+
+const router = express.Router();
+router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
+
+const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];
+
+function getEffectiveApiKeyScopes(req: Request): string[] {
+  const scopes = Array.isArray((req as any).apiKeyScopes) ? (req as any).apiKeyScopes : [];
+  if (scopes.length) return scopes.map((s: any) => String(s));
+  return DEFAULT_API_KEY_TASK_SCOPES;
+}
+
+function requireTaskApiKeyScope(requiredScope: 'tasks:read' | 'tasks:write') {
+  return (req: Request, res: Response, next: any) => {
+    const authSource = String((req as any)?.user?._auth_source || '');
+    if (authSource !== 'api_key') return next();
+    const scopes = getEffectiveApiKeyScopes(req);
+    if (scopes.includes(requiredScope) || scopes.includes('tasks:*') || scopes.includes('*')) return next();
+    return res.status(403).json({ error: 'insufficient_scope', missing: [requiredScope] });
+  };
+}
+
+type Membership = {
+  role: string | null;
+  status: string | null;
+};
+
+function resolveWorkspaceId(req: Request): string | null {
+  const fromQuery = String((req.query as any)?.workspaceId || '').trim();
+  const fromCtx = String((req as any).workspaceId || '').trim();
+  return (fromQuery || fromCtx) || null;
+}
+
+function normalizeRole(role: string | null | undefined): string {
+  return String(role || '').toLowerCase().trim();
+}
+
+function isWorkspaceAdminRole(role: string | null | undefined): boolean {
+  return ['owner', 'admin', 'team_admin', 'super_admin'].includes(normalizeRole(role));
+}
+
+function completedState(task: any): boolean {
+  return Boolean(task?.completed_at) || String(task?.status || '').toLowerCase() === 'completed';
+}
+
+function toIsoDayBounds(dateInput: string): { start: string; end: string } | null {
+  const dt = new Date(dateInput);
+  if (Number.isNaN(dt.getTime())) return null;
+  const start = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 0, 0, 0));
+  const end = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate() + 1, 0, 0, 0));
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function getMembership(userId: string, workspaceId: string): Promise<Membership | null> {
+  const { data, error } = await supabase
+    .from('workspace_members')
+    .select('role,status')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  if (String((data as any).status || '').toLowerCase() !== 'active') return null;
+  return data as Membership;
+}
+
+async function getTaskForWorkspace(taskId: string, workspaceId: string) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as any;
+}
+
+function canViewTask(task: any, userId: string, membershipRole: string | null): boolean {
+  if (!task) return false;
+  if (task.assigned_to_user_id === userId) return true;
+  if (task.created_by_user_id === userId) return true;
+  return isWorkspaceAdminRole(membershipRole);
+}
+
+function canUpdateTask(task: any, userId: string, membershipRole: string | null): boolean {
+  if (!task) return false;
+  if (task.assigned_to_user_id === userId) return true;
+  if (task.created_by_user_id === userId) return true;
+  return isWorkspaceAdminRole(membershipRole);
+}
+
+function canDeleteTask(task: any, userId: string, membershipRole: string | null): boolean {
+  if (!task) return false;
+  if (task.created_by_user_id === userId) return true;
+  return isWorkspaceAdminRole(membershipRole);
+}
+
+function buildTaskResponse(task: any, commentCount = 0) {
+  return {
+    ...task,
+    comment_count: commentCount,
+    linked_object: {
+      related_type: task.related_type || null,
+      related_id: task.related_id || null,
+    },
+  };
+}
+
+router.get('/tasks/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const { data, error } = await supabase
+      .from('task_statuses')
+      .select('id,workspace_id,key,label,sort_order,is_default,created_at,updated_at')
+      .eq('workspace_id', workspaceId)
+      .order('sort_order', { ascending: true })
+      .order('label', { ascending: true });
+
+    if (error) return res.status(500).json({ error: error.message || 'statuses_fetch_failed' });
+    return res.json({ statuses: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'statuses_fetch_failed' });
+  }
+});
+
+router.get('/tasks', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const tab = String((req.query as any)?.tab || 'assigned_to_me');
+    const search = String((req.query as any)?.search || '').trim();
+    const status = String((req.query as any)?.status || '').trim();
+    const assignee = String((req.query as any)?.assignee || '').trim();
+    const due = String((req.query as any)?.due || '').trim().toLowerCase();
+    const relatedType = String((req.query as any)?.related_type || '').trim();
+    const relatedId = String((req.query as any)?.related_id || '').trim();
+    const canViewAllTeam = isWorkspaceAdminRole(membership.role);
+
+    if (tab === 'all_team' && !canViewAllTeam) {
+      return res.status(403).json({ error: 'all_team_forbidden' });
+    }
+
+    let query = supabase
+      .from('tasks')
+      .select(
+        'id,workspace_id,created_by_user_id,assigned_to_user_id,title,description,status,priority,due_at,completed_at,related_type,related_id,created_at,updated_at',
+      )
+      .eq('workspace_id', workspaceId)
+      .order('due_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (search) {
+      const safe = search.replace(/[%]/g, '');
+      query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
+    }
+
+    if (status) query = query.eq('status', status);
+    if (assignee) query = query.eq('assigned_to_user_id', assignee);
+    if (relatedType) query = query.eq('related_type', relatedType);
+    if (relatedId) query = query.eq('related_id', relatedId);
+
+    if (due === 'none') query = query.is('due_at', null);
+    if (due === 'overdue') {
+      const nowIso = new Date().toISOString();
+      query = query.lt('due_at', nowIso).neq('status', 'completed');
+    }
+    if (due === 'today') {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
+      query = query.gte('due_at', start).lt('due_at', end);
+    }
+    if (due && /^\d{4}-\d{2}-\d{2}$/.test(due)) {
+      const bounds = toIsoDayBounds(due);
+      if (bounds) query = query.gte('due_at', bounds.start).lt('due_at', bounds.end);
+    }
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message || 'tasks_list_failed' });
+
+    const nowIso = new Date().toISOString();
+    const filteredByTab = (data || []).filter((task) => {
+      const isCompleted = completedState(task);
+      if (tab === 'assigned_to_me') return task.assigned_to_user_id === userId && !isCompleted;
+      if (tab === 'assigned_by_me') return task.created_by_user_id === userId && !isCompleted;
+      if (tab === 'all_team') return !isCompleted;
+      if (tab === 'overdue') return Boolean(task.due_at) && String(task.due_at) < nowIso && !isCompleted;
+      if (tab === 'completed') return isCompleted;
+      return true;
+    });
+
+    const visibilityScoped = filteredByTab.filter((task) => canViewTask(task, userId, membership.role));
+    const taskIds = visibilityScoped.map((t) => t.id);
+
+    let commentCountByTask: Record<string, number> = {};
+    if (taskIds.length) {
+      const { data: comments, error: commentsError } = await supabase
+        .from('task_comments')
+        .select('task_id')
+        .eq('workspace_id', workspaceId)
+        .in('task_id', taskIds);
+      if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_comments_count_failed' });
+      commentCountByTask = (comments || []).reduce((acc: Record<string, number>, row: any) => {
+        const taskId = String(row.task_id);
+        acc[taskId] = (acc[taskId] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    const tasks = visibilityScoped.map((task) => buildTaskResponse(task, commentCountByTask[task.id] || 0));
+
+    return res.json({ tasks });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'tasks_list_failed' });
+  }
+});
+
+router.get('/tasks/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const { data: comments, error: commentsError } = await supabase
+      .from('task_comments')
+      .select('task_id')
+      .eq('workspace_id', workspaceId)
+      .eq('task_id', req.params.id);
+    if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_fetch_failed' });
+
+    return res.json({
+      task: buildTaskResponse(task, (comments || []).length),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_fetch_failed' });
+  }
+});
+
+router.post('/tasks', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const payload = req.body || {};
+    const title = String(payload.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'title_required' });
+
+    const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+    if (assignedTo) {
+      const assignedMembership = await getMembership(assignedTo, workspaceId);
+      if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+    }
+
+    const insertPayload: any = {
+      workspace_id: workspaceId,
+      created_by_user_id: userId,
+      assigned_to_user_id: assignedTo,
+      title,
+      description: payload.description ? String(payload.description) : null,
+      status: payload.status ? String(payload.status) : 'open',
+      priority: payload.priority ? String(payload.priority) : 'medium',
+      due_at: payload.due_at || null,
+      related_type: payload.related_type ? String(payload.related_type) : null,
+      related_id: payload.related_id || null,
+    };
+
+    const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
+    if (error) return res.status(500).json({ error: error.message || 'task_create_failed' });
+
+    return res.status(201).json({ task: buildTaskResponse(data, 0) });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_create_failed' });
+  }
+});
+
+router.post('/tasks/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const payload = req.body || {};
+    const noteText = String(payload.note || payload.body || payload.text || '').trim();
+    if (!noteText) return res.status(400).json({ error: 'note_required' });
+
+    const firstLine = noteText.split('\n').map((line) => line.trim()).find(Boolean) || 'Untitled task';
+    const autoTitle = firstLine.slice(0, 80);
+    const title = String(payload.title || autoTitle).trim();
+    if (!title) return res.status(400).json({ error: 'title_required' });
+
+    const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+    if (assignedTo) {
+      const assignedMembership = await getMembership(assignedTo, workspaceId);
+      if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+    }
+
+    const insertPayload: any = {
+      workspace_id: workspaceId,
+      created_by_user_id: userId,
+      assigned_to_user_id: assignedTo,
+      title,
+      description: String(payload.description || noteText || '').trim() || null,
+      status: payload.status ? String(payload.status) : 'open',
+      priority: payload.priority ? String(payload.priority) : 'medium',
+      due_at: payload.due_at || null,
+      related_type: payload.related_type ? String(payload.related_type) : null,
+      related_id: payload.related_id || null,
+    };
+
+    const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
+    if (error) return res.status(500).json({ error: error.message || 'task_from_note_failed' });
+
+    return res.status(201).json({
+      task: buildTaskResponse(data, 0),
+      source: {
+        title_prefilled_from_note: autoTitle,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_from_note_failed' });
+  }
+});
+
+router.patch('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const payload = req.body || {};
+    const updates: any = {};
+
+    if (typeof payload.title !== 'undefined') {
+      const title = String(payload.title || '').trim();
+      if (!title) return res.status(400).json({ error: 'title_required' });
+      updates.title = title;
+    }
+    if (typeof payload.description !== 'undefined') updates.description = payload.description ? String(payload.description) : null;
+    if (typeof payload.status !== 'undefined') updates.status = String(payload.status || 'open');
+    if (typeof payload.priority !== 'undefined') updates.priority = String(payload.priority || 'medium');
+    if (typeof payload.due_at !== 'undefined') updates.due_at = payload.due_at || null;
+    if (typeof payload.related_type !== 'undefined') updates.related_type = payload.related_type ? String(payload.related_type) : null;
+    if (typeof payload.related_id !== 'undefined') updates.related_id = payload.related_id || null;
+
+    if (typeof payload.assigned_to_user_id !== 'undefined') {
+      const assignedTo = payload.assigned_to_user_id ? String(payload.assigned_to_user_id) : null;
+      if (assignedTo) {
+        const assignedMembership = await getMembership(assignedTo, workspaceId);
+        if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+      }
+      updates.assigned_to_user_id = assignedTo;
+    }
+
+    if (typeof payload.status !== 'undefined') {
+      const nextStatus = String(payload.status || '').toLowerCase();
+      updates.completed_at = nextStatus === 'completed' ? new Date().toISOString() : null;
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .select('*')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message || 'task_update_failed' });
+
+    return res.json({
+      task: buildTaskResponse(data),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_update_failed' });
+  }
+});
+
+router.patch('/tasks/:id/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const status = String((req.body || {}).status || '').trim();
+    if (!status) return res.status(400).json({ error: 'status_required' });
+
+    const normalized = status.toLowerCase();
+    const updates: any = {
+      status,
+      completed_at: normalized === 'completed' ? new Date().toISOString() : null,
+    };
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .select('*')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message || 'task_status_update_failed' });
+    return res.json({ task: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_status_update_failed' });
+  }
+});
+
+router.post('/tasks/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const payload = req.body || {};
+    const taskIds = Array.isArray(payload.task_ids) ? payload.task_ids.map((v: any) => String(v)).filter(Boolean) : [];
+    const status = String(payload.status || '').trim();
+    if (!taskIds.length) return res.status(400).json({ error: 'task_ids_required' });
+    if (!status) return res.status(400).json({ error: 'status_required' });
+
+    const { data: rows, error: rowsError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('id', taskIds);
+    if (rowsError) return res.status(500).json({ error: rowsError.message || 'task_bulk_status_failed' });
+
+    const normalizedStatus = status.toLowerCase();
+    const completedAt = normalizedStatus === 'completed' ? new Date().toISOString() : null;
+
+    const allowed = (rows || []).filter((task: any) => canUpdateTask(task, userId, membership.role));
+    const allowedIds = allowed.map((t: any) => String(t.id));
+    const skippedIds = taskIds.filter((id: string) => !allowedIds.includes(id));
+
+    let updatedRows: any[] = [];
+    if (allowedIds.length) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({ status, completed_at: completedAt })
+        .eq('workspace_id', workspaceId)
+        .in('id', allowedIds)
+        .select('*');
+      if (error) return res.status(500).json({ error: error.message || 'task_bulk_status_failed' });
+      updatedRows = data || [];
+    }
+
+    return res.json({
+      updated_count: updatedRows.length,
+      skipped_count: skippedIds.length,
+      skipped_ids: skippedIds,
+      tasks: updatedRows.map((task) => buildTaskResponse(task)),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_bulk_status_failed' });
+  }
+});
+
+router.post('/tasks/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const sourceTask = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!sourceTask) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(sourceTask, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const payload = req.body || {};
+    const assignedTo = payload.assigned_to_user_id
+      ? String(payload.assigned_to_user_id)
+      : sourceTask.assigned_to_user_id || null;
+    if (assignedTo) {
+      const assignedMembership = await getMembership(assignedTo, workspaceId);
+      if (!assignedMembership) return res.status(400).json({ error: 'assignee_not_in_workspace' });
+    }
+
+    let dueAt = payload.due_at || null;
+    if (!dueAt && typeof payload.due_in_days !== 'undefined') {
+      const days = Number(payload.due_in_days);
+      if (Number.isFinite(days)) dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
+    if (!dueAt && typeof payload.due_in_hours !== 'undefined') {
+      const hours = Number(payload.due_in_hours);
+      if (Number.isFinite(hours)) dueAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    }
+
+    const title = String(payload.title || `Follow-up: ${String(sourceTask.title || '').trim()}`).trim().slice(0, 500);
+    if (!title) return res.status(400).json({ error: 'title_required' });
+
+    const insertPayload: any = {
+      workspace_id: workspaceId,
+      created_by_user_id: userId,
+      assigned_to_user_id: assignedTo,
+      title,
+      description:
+        typeof payload.description !== 'undefined'
+          ? (payload.description ? String(payload.description) : null)
+          : (sourceTask.description || null),
+      status: payload.status ? String(payload.status) : 'open',
+      priority: payload.priority ? String(payload.priority) : (sourceTask.priority || 'medium'),
+      due_at: dueAt,
+      related_type: payload.related_type ? String(payload.related_type) : (sourceTask.related_type || null),
+      related_id: payload.related_id || sourceTask.related_id || null,
+    };
+
+    const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
+    if (error) return res.status(500).json({ error: error.message || 'task_follow_up_failed' });
+
+    return res.status(201).json({
+      task: buildTaskResponse(data, 0),
+      source_task_id: sourceTask.id,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_follow_up_failed' });
+  }
+});
+
+router.post('/tasks/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .select('*')
+      .single();
+    if (error) return res.status(500).json({ error: error.message || 'task_complete_failed' });
+
+    return res.json({ task: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_complete_failed' });
+  }
+});
+
+router.post('/tasks/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({ status: 'open', completed_at: null })
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .select('*')
+      .single();
+    if (error) return res.status(500).json({ error: error.message || 'task_reopen_failed' });
+
+    return res.json({ task: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_reopen_failed' });
+  }
+});
+
+router.get('/tasks/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const { data, error } = await supabase
+      .from('task_comments')
+      .select('id,workspace_id,task_id,user_id,body,created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('task_id', req.params.id)
+      .order('created_at', { ascending: true });
+
+    if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
+    return res.json({ comments: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_comments_list_failed' });
+  }
+});
+
+router.post('/tasks/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const body = String((req.body || {}).body || '').trim();
+    if (!body) return res.status(400).json({ error: 'comment_body_required' });
+
+    const { data, error } = await supabase
+      .from('task_comments')
+      .insert({
+        workspace_id: workspaceId,
+        task_id: req.params.id,
+        user_id: userId,
+        body,
+      })
+      .select('id,workspace_id,task_id,user_id,body,created_at')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
+    return res.status(201).json({ comment: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_comment_create_failed' });
+  }
+});
+
+router.delete('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+
+    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
+    if (!canDeleteTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const { error } = await supabase.from('tasks').delete().eq('id', req.params.id).eq('workspace_id', workspaceId);
+    if (error) return res.status(500).json({ error: error.message || 'task_delete_failed' });
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'task_delete_failed' });
+  }
+});
+
+export default router;

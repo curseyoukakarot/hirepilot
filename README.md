@@ -119,3 +119,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [React](https://reactjs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Font Awesome](https://fontawesome.com/) 
+
+## Tasks Migration Notes
+
+Apply the Tasks schema + RLS migration:
+
+```bash
+cd supabase
+supabase db push
+```
+
+If you need to run just this migration in SQL editor, execute:
+
+- `supabase/migrations/20260222100000_tasks_feature_schema_rls.sql`
+
+What this migration adds:
+
+- `tasks`, `task_comments`, `task_statuses`
+- Workspace-scoped RLS for all three tables
+- Default task statuses per workspace (`Open`, `In Progress`, `Waiting`, `Completed`) with auto-seed on new workspace creation
