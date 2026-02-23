@@ -111,6 +111,14 @@ function buildTaskResponse(task: any, commentCount = 0) {
   };
 }
 
+function respondInternalError(res: Response, tag: string, fallback: string, error: any) {
+  if (res.headersSent) {
+    console.error(`[${tag}] error after response sent`, error);
+    return;
+  }
+  return res.status(500).json({ error: error?.message || fallback });
+}
+
 router.get('/tasks/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
@@ -131,7 +139,7 @@ router.get('/tasks/statuses', requireTaskApiKeyScope('tasks:read'), async (req: 
     if (error) return res.status(500).json({ error: error.message || 'statuses_fetch_failed' });
     return res.json({ statuses: data || [] });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'statuses_fetch_failed' });
+    return respondInternalError(res, 'tasks:statuses', 'statuses_fetch_failed', e);
   }
 });
 
@@ -230,11 +238,7 @@ router.get('/tasks', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
 
     return res.json({ tasks });
   } catch (e: any) {
-    if (res.headersSent) {
-      console.error('[tasks:list] error after response sent', e);
-      return;
-    }
-    return res.status(500).json({ error: e?.message || 'tasks_list_failed' });
+    return respondInternalError(res, 'tasks:list', 'tasks_list_failed', e);
   }
 });
 
@@ -263,7 +267,7 @@ router.get('/tasks/:id', requireTaskApiKeyScope('tasks:read'), async (req: Reque
       task: buildTaskResponse(task, (comments || []).length),
     });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_fetch_failed' });
+    return respondInternalError(res, 'tasks:get-by-id', 'task_fetch_failed', e);
   }
 });
 
@@ -305,11 +309,7 @@ router.post('/tasks', requireTaskApiKeyScope('tasks:write'), async (req: Request
 
     return res.status(201).json({ task: buildTaskResponse(data, 0) });
   } catch (e: any) {
-    if (res.headersSent) {
-      console.error('[tasks:create] error after response sent', e);
-      return;
-    }
-    return res.status(500).json({ error: e?.message || 'task_create_failed' });
+    return respondInternalError(res, 'tasks:create', 'task_create_failed', e);
   }
 });
 
@@ -361,11 +361,7 @@ router.post('/tasks/from-note', requireTaskApiKeyScope('tasks:write'), async (re
       },
     });
   } catch (e: any) {
-    if (res.headersSent) {
-      console.error('[tasks:from-note] error after response sent', e);
-      return;
-    }
-    return res.status(500).json({ error: e?.message || 'task_from_note_failed' });
+    return respondInternalError(res, 'tasks:from-note', 'task_from_note_failed', e);
   }
 });
 
@@ -426,7 +422,7 @@ router.patch('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Re
       task: buildTaskResponse(data),
     });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_update_failed' });
+    return respondInternalError(res, 'tasks:update', 'task_update_failed', e);
   }
 });
 
@@ -464,7 +460,7 @@ router.patch('/tasks/:id/status', requireTaskApiKeyScope('tasks:write'), async (
     if (error) return res.status(500).json({ error: error.message || 'task_status_update_failed' });
     return res.json({ task: data });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_status_update_failed' });
+    return respondInternalError(res, 'tasks:patch-status', 'task_status_update_failed', e);
   }
 });
 
@@ -517,7 +513,7 @@ router.post('/tasks/bulk/status', requireTaskApiKeyScope('tasks:write'), async (
       tasks: updatedRows.map((task) => buildTaskResponse(task)),
     });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_bulk_status_failed' });
+    return respondInternalError(res, 'tasks:bulk-status', 'task_bulk_status_failed', e);
   }
 });
 
@@ -581,7 +577,7 @@ router.post('/tasks/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async
       source_task_id: sourceTask.id,
     });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_follow_up_failed' });
+    return respondInternalError(res, 'tasks:follow-up', 'task_follow_up_failed', e);
   }
 });
 
@@ -610,7 +606,7 @@ router.post('/tasks/:id/complete', requireTaskApiKeyScope('tasks:write'), async 
 
     return res.json({ task: data });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_complete_failed' });
+    return respondInternalError(res, 'tasks:complete', 'task_complete_failed', e);
   }
 });
 
@@ -639,7 +635,7 @@ router.post('/tasks/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (r
 
     return res.json({ task: data });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_reopen_failed' });
+    return respondInternalError(res, 'tasks:reopen', 'task_reopen_failed', e);
   }
 });
 
@@ -667,7 +663,7 @@ router.get('/tasks/:id/comments', requireTaskApiKeyScope('tasks:read'), async (r
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
     return res.json({ comments: data || [] });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_comments_list_failed' });
+    return respondInternalError(res, 'tasks:comments:list', 'task_comments_list_failed', e);
   }
 });
 
@@ -702,7 +698,7 @@ router.post('/tasks/:id/comments', requireTaskApiKeyScope('tasks:write'), async 
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
     return res.status(201).json({ comment: data });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_comment_create_failed' });
+    return respondInternalError(res, 'tasks:comments:create', 'task_comment_create_failed', e);
   }
 });
 
@@ -724,7 +720,7 @@ router.delete('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: R
     if (error) return res.status(500).json({ error: error.message || 'task_delete_failed' });
     return res.json({ ok: true });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'task_delete_failed' });
+    return respondInternalError(res, 'tasks:delete', 'task_delete_failed', e);
   }
 });
 

@@ -230,6 +230,14 @@ const SNIPER_V1_ENABLED = String(process.env.SNIPER_V1_ENABLED || 'false').toLow
 const SNIPER_INTELLIGENCE_ENABLED = String(process.env.SNIPER_INTELLIGENCE_ENABLED || 'false').toLowerCase() === 'true';
 const REX_RECRUITING_V2 = String(process.env.REX_RECRUITING_V2 || 'true').toLowerCase() === 'true';
 
+// Keep process alive and log enough context for Railway crash triage.
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandledRejection', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[process] uncaughtException', error);
+});
+
 // Health check route (before CORS)
 app.get('/health', (_, res) => {
   console.log('[Health] Endpoint hit');
