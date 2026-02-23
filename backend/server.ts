@@ -553,13 +553,8 @@ app.use('/api/landing-pages', landingPagesRouter);
 app.use('/api/landing-domains', landingDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
-// Hard mount tasks endpoints to avoid accidental shadowing by generic /api routers.
-app.use('/api/tasks', (req, _res, next) => {
-  const [pathPart, queryPart] = String(req.url || '/').split('?');
-  const normalizedPath = pathPart === '/' ? '' : pathPart;
-  req.url = `/tasks${normalizedPath}${queryPart ? `?${queryPart}` : ''}`;
-  next();
-}, tasksRouter);
+// Keep tasks isolated from broad /api router chains.
+app.use('/api/tasks', tasksRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);
 app.get('/api/advanced-info', getAdvancedInfo);
@@ -604,7 +599,6 @@ app.use('/api/collaborators', requireAuthFlag, collaboratorsRouter);
   app.use('/api/opportunities', opportunitiesRouter);
   app.use('/api/tables', tablesRouter);
   app.use('/api', kanbanRouter);
-  app.use('/api', tasksRouter);
   app.use('/api', submitCandidateRouter);
   app.use('/api/opportunity-pipeline', opportunityPipelineRouter);
   app.use('/api/invoices', invoicesRouter);

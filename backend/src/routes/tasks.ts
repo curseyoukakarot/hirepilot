@@ -119,7 +119,7 @@ function respondInternalError(res: Response, tag: string, fallback: string, erro
   return res.status(500).json({ error: error?.message || fallback });
 }
 
-router.get('/tasks/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/statuses', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -143,7 +143,7 @@ router.get('/tasks/statuses', requireTaskApiKeyScope('tasks:read'), async (req: 
   }
 });
 
-router.get('/tasks', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -242,7 +242,7 @@ router.get('/tasks', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
   }
 });
 
-router.get('/tasks/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -271,7 +271,7 @@ router.get('/tasks/:id', requireTaskApiKeyScope('tasks:read'), async (req: Reque
   }
 });
 
-router.post('/tasks', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -313,7 +313,7 @@ router.post('/tasks', requireTaskApiKeyScope('tasks:write'), async (req: Request
   }
 });
 
-router.post('/tasks/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -365,7 +365,7 @@ router.post('/tasks/from-note', requireTaskApiKeyScope('tasks:write'), async (re
   }
 });
 
-router.patch('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -426,7 +426,7 @@ router.patch('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Re
   }
 });
 
-router.patch('/tasks/:id/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.patch('/:id/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -464,7 +464,7 @@ router.patch('/tasks/:id/status', requireTaskApiKeyScope('tasks:write'), async (
   }
 });
 
-router.post('/tasks/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -517,7 +517,7 @@ router.post('/tasks/bulk/status', requireTaskApiKeyScope('tasks:write'), async (
   }
 });
 
-router.post('/tasks/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -581,7 +581,7 @@ router.post('/tasks/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async
   }
 });
 
-router.post('/tasks/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -610,7 +610,7 @@ router.post('/tasks/:id/complete', requireTaskApiKeyScope('tasks:write'), async 
   }
 });
 
-router.post('/tasks/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -639,7 +639,7 @@ router.post('/tasks/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (r
   }
 });
 
-router.get('/tasks/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -667,7 +667,7 @@ router.get('/tasks/:id/comments', requireTaskApiKeyScope('tasks:read'), async (r
   }
 });
 
-router.post('/tasks/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -702,7 +702,7 @@ router.post('/tasks/:id/comments', requireTaskApiKeyScope('tasks:write'), async 
   }
 });
 
-router.delete('/tasks/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.delete('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
