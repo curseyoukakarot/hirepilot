@@ -55,6 +55,12 @@ const supabaseBypass = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
+function getBypassClient() {
+  const candidate = supabaseBypass as any;
+  if (candidate && typeof candidate.from === 'function') return candidate;
+  return supabase as any;
+}
+
 function isUuid(value: string | null | undefined): boolean {
   return UUID_REGEX.test(String(value || '').trim());
 }
@@ -146,7 +152,7 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
 
 async function getTaskByIdAnyWorkspace(taskId: string) {
   if (!isUuid(taskId)) return null;
-  const { data, error } = await supabaseBypass.from('tasks').select('*').eq('id', taskId).maybeSingle();
+  const { data, error } = await getBypassClient().from('tasks').select('*').eq('id', taskId).maybeSingle();
   if (error || !data) return null;
   return data as any;
 }
@@ -322,7 +328,7 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
     if (!task) return res.json({ task: null });
 
     const realWorkspaceId = String(task.workspace_id || '').trim();
-    const { data: comments, error: commentsError } = await supabaseBypass
+    const { data: comments, error: commentsError } = await getBypassClient()
       .from('task_comments')
       .select('task_id')
       .eq('workspace_id', realWorkspaceId)
@@ -347,7 +353,7 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
     if (!task) return res.json({ comments: [] });
     const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await supabaseBypass
+    const { data, error } = await getBypassClient()
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .eq('workspace_id', realWorkspaceId)
@@ -374,7 +380,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
     const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await supabaseBypass
+    const { data, error } = await getBypassClient()
       .from('task_comments')
       .insert({
         workspace_id: realWorkspaceId,
