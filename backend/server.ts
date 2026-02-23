@@ -89,7 +89,7 @@ import submitCandidateRouter from './src/routes/submitCandidate';
 import searchRouter from './src/routes/search';
 import activitiesRouter from './src/routes/activities';
 import kanbanRouter from './src/routes/kanban';
-import tasksRouter, { taskFetchRouter } from './src/routes/tasks';
+import tasksRouter from './src/routes/tasks';
 import publicKanbanV1Router from './src/routes/publicKanbanV1';
 import publicWebhooksV1Router from './src/routes/publicWebhooksV1';
 import featureEventsRouter from './src/routes/events.feature';
@@ -553,8 +553,6 @@ app.use('/api/landing-pages', landingPagesRouter);
 app.use('/api/landing-domains', landingDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
-// Task-by-id endpoints: mounted first so they bypass main tasks router (avoids /:id collision)
-app.use('/api/tasks/fetch', taskFetchRouter);
 app.use('/api/tasks', tasksRouter);
   app.use('/api', apiRouter);
 app.use('/api/admin', linkedinSessionAdminRouter);

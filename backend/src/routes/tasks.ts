@@ -8,16 +8,6 @@ import { pushNotification } from '../lib/notifications';
 
 const router = express.Router();
 
-// CRITICAL: Skip main tasksRouter for /fetch paths (prevents double execution when both routers match)
-router.use((req: Request, res: Response, next: any) => {
-  const fullPath = `${req.baseUrl || ''}${req.path || ''}`.replace('//', '/');
-  if (fullPath.includes('/fetch')) {
-    console.log('SKIPPING main tasksRouter for fetch path:', fullPath);
-    return next('route');
-  }
-  next();
-});
-
 router.use((req: Request, res: Response, next) => {
   res.setHeader('x-tasks-route-hit', '1');
   next();
@@ -430,15 +420,10 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
-/** TEMPORARY: ULTRA-LOUD DIAGNOSTIC - proves whether fetch handlers are live in production.
- * Mounted at /api/tasks/fetch. Remove after verification. */
-export const taskFetchRouter = express.Router();
-taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
-
-taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
 
-  console.log('FETCH-V4-HANDLER-HIT', { receivedTaskId, isUuid: receivedTaskId ? isUuid(receivedTaskId) : false });
+  console.log('FETCH-TASK-V5', { taskId: receivedTaskId, isValid: receivedTaskId ? isUuid(receivedTaskId) : false });
 
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
@@ -459,11 +444,11 @@ taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Reque
     .eq('workspace_id', workspaceId)
     .eq('task_id', receivedTaskId);
   if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'taskFetchRouter.get', path: req.path }); return; }
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch', path: req.path }); return; }
   return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
 });
 
-taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
@@ -485,11 +470,11 @@ taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (re
     .eq('task_id', receivedTaskId)
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'taskFetchRouter.get/comments', path: req.path }); return; }
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch/comments', path: req.path }); return; }
   return res.json({ comments: data || [] });
 });
 
-taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.body as any)?.task_id || '').trim();
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
@@ -535,7 +520,8 @@ taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (
       );
     }
   } catch {}
-  return res.status(201).json({ comment: data, debug: 'LIVE' });
+  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.post/fetch/comments', path: req.path }); return; }
+  return res.status(201).json({ comment: data });
 });
 
 const listTasksHandler = async (req: Request, res: Response) => {
