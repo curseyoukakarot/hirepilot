@@ -418,18 +418,23 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
   }
 });
 
-function getTaskIdFromRecordRequest(req: Request): string {
-  const fromQuery = String((req.query as any)?.task_id || '').trim();
-  const fromBody = String((req.body as any)?.task_id || '').trim();
-  return fromQuery || fromBody || '';
-}
+/** Mounted at /api/tasks/fetch - bypasses main tasks router entirely to avoid /:id collision.
+ * Explicitly sources taskId from req.query.task_id (GET) or req.body.task_id (POST) - never params. */
+export const taskFetchRouter = express.Router();
+taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
 
-/** Task-by-id handlers (fetch task + comments by task_id query param) */
-function createRecordHandlers() {
-  const getHandler = async (req: Request, res: Response) => {
-    const taskId = getTaskIdFromRecordRequest(req);
+taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const taskId = String((req.query as any)?.task_id || '').trim();
+    console.log('[tasks:fetch] GET task - raw taskId from query:', taskId, {
+      userId: (req as any)?.user?.id,
+      workspaceId: resolveWorkspaceId(req),
+    });
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    if (!isUuid(taskId)) {
+      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
+      return res.status(400).json({ error: 'invalid_task_id_format' });
+    }
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -437,7 +442,7 @@ function createRecordHandlers() {
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
     const task = await getTaskForWorkspace(taskId, workspaceId);
-    if (!task) return res.json({ task: null });
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
     const { count, error } = await supabase
       .from('task_comments')
@@ -446,12 +451,23 @@ function createRecordHandlers() {
       .eq('task_id', taskId);
     if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
     return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
-  };
+  } catch (e: any) {
+    return respondInternalError(res, 'tasks:fetch:get', 'task_fetch_failed', e);
+  }
+});
 
-  const getCommentsHandler = async (req: Request, res: Response) => {
-    const taskId = getTaskIdFromRecordRequest(req);
+taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+  try {
+    const taskId = String((req.query as any)?.task_id || '').trim();
+    console.log('[tasks:fetch] GET comments - raw taskId from query:', taskId, {
+      userId: (req as any)?.user?.id,
+      workspaceId: resolveWorkspaceId(req),
+    });
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    if (!isUuid(taskId)) {
+      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
+      return res.status(400).json({ error: 'invalid_task_id_format' });
+    }
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -469,12 +485,25 @@ function createRecordHandlers() {
       .order('created_at', { ascending: true });
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
     return res.json({ comments: data || [] });
-  };
+  } catch (e: any) {
+    return respondInternalError(res, 'tasks:fetch:comments:list', 'task_comments_list_failed', e);
+  }
+});
 
-  const postCommentsHandler = async (req: Request, res: Response) => {
-    const taskId = getTaskIdFromRecordRequest(req);
+taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const taskId = String((req.body as any)?.task_id || '').trim();
+    const commentBody = String((req.body as any)?.body || '').trim();
+    console.log('[tasks:fetch] POST comment - raw taskId from body:', taskId, {
+      userId: (req as any)?.user?.id,
+      workspaceId: resolveWorkspaceId(req),
+    });
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
-    if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    if (!isUuid(taskId)) {
+      console.warn('[tasks:fetch] Invalid taskId format:', taskId);
+      return res.status(400).json({ error: 'invalid_task_id_format' });
+    }
+    if (!commentBody) return res.status(400).json({ error: 'comment_body_required' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -484,24 +513,22 @@ function createRecordHandlers() {
     const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-    const body = String((req.body || {}).body || '').trim();
-    if (!body) return res.status(400).json({ error: 'comment_body_required' });
     const { data, error } = await supabase
       .from('task_comments')
-      .insert({ workspace_id: workspaceId, task_id: taskId, user_id: userId, body })
+      .insert({ workspace_id: workspaceId, task_id: taskId, user_id: userId, body: commentBody })
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .single();
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
     try {
       const candidates = await getWorkspaceMentionCandidates(workspaceId);
-      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== userId);
+      const mentionedUserIds = resolveMentionedUserIds(commentBody, candidates).filter((id) => id !== userId);
       if (mentionedUserIds.length) {
-        const actor = candidates.find((user) => user.id === userId);
+        const actor = candidates.find((u: any) => u.id === userId);
         const actorLabel = actor?.fullName || actor?.email || 'A teammate';
         const taskTitle = String(task.title || 'Task').trim() || 'Task';
-        const snippet = body.length > 180 ? `${body.slice(0, 177)}...` : body;
+        const snippet = commentBody.length > 180 ? `${commentBody.slice(0, 177)}...` : commentBody;
         await Promise.all(
-          mentionedUserIds.map((targetUserId) =>
+          mentionedUserIds.map((targetUserId: string) =>
             pushNotification({
               user_id: targetUserId,
               source: 'inapp',
@@ -516,33 +543,6 @@ function createRecordHandlers() {
       }
     } catch {}
     return res.status(201).json({ comment: data });
-  };
-
-  return { getHandler, getCommentsHandler, postCommentsHandler };
-}
-
-const recordHandlers = createRecordHandlers();
-
-/** Mounted at /api/tasks/fetch - bypasses main tasks router entirely to avoid /:id collision */
-export const taskFetchRouter = express.Router();
-taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
-taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req, res) => {
-  try {
-    await recordHandlers.getHandler(req, res);
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:fetch:get', 'task_fetch_failed', e);
-  }
-});
-taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req, res) => {
-  try {
-    await recordHandlers.getCommentsHandler(req, res);
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:fetch:comments:list', 'task_comments_list_failed', e);
-  }
-});
-taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req, res) => {
-  try {
-    await recordHandlers.postCommentsHandler(req, res);
   } catch (e: any) {
     return respondInternalError(res, 'tasks:fetch:comments:create', 'task_comment_create_failed', e);
   }
