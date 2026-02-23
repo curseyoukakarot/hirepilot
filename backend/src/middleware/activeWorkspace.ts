@@ -15,6 +15,11 @@ type WorkspaceMembership = {
 };
 
 const WORKSPACES_ENABLED = String(process.env.WORKSPACES_ENABLED || 'false').toLowerCase() === 'true';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string | null | undefined): boolean {
+  return UUID_REGEX.test(String(value || '').trim());
+}
 
 function isJobSeekerRole(role: any): boolean {
   const r = String(role || '').toLowerCase();
@@ -22,6 +27,7 @@ function isJobSeekerRole(role: any): boolean {
 }
 
 export async function getUserWorkspaces(userId: string): Promise<WorkspaceMembership[]> {
+  if (!isUuid(userId)) return [];
   const { data, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, role, status, created_at, workspaces (id, name, plan, seat_count)')
@@ -32,6 +38,7 @@ export async function getUserWorkspaces(userId: string): Promise<WorkspaceMember
 }
 
 export async function assertWorkspaceMember(userId: string, workspaceId: string): Promise<{ ok: boolean; role?: string | null }> {
+  if (!isUuid(userId) || !isUuid(workspaceId)) return { ok: false };
   const { data, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, role, status')
@@ -58,12 +65,23 @@ export async function activeWorkspace(req: Request, res: Response, next: NextFun
     const userId = (req as any)?.user?.id as string | undefined;
     const role = (req as any)?.user?.role;
     if (!userId) return next();
+    if (!isUuid(userId)) {
+      console.warn('active_workspace_invalid_user_id', { userId, path: req.path, method: req.method });
+      return next();
+    }
     if (isJobSeekerRole(role)) return next();
 
     const headerWorkspaceId = String(req.headers['x-workspace-id'] || '').trim();
     const cookieWorkspaceId = String((req as any)?.cookies?.active_workspace_id || '').trim();
     const requestedWorkspaceId = headerWorkspaceId || cookieWorkspaceId || '';
     const requestedSource = headerWorkspaceId ? 'header' : (cookieWorkspaceId ? 'cookie' : 'none');
+
+    if (requestedWorkspaceId && !isUuid(requestedWorkspaceId)) {
+      if (WORKSPACES_ENABLED) {
+        return res.status(400).json({ error: 'workspace_id_invalid' });
+      }
+      return next();
+    }
 
     if (requestedWorkspaceId) {
       const membership = await assertWorkspaceMember(userId, requestedWorkspaceId);

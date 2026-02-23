@@ -73,6 +73,7 @@ function toIsoDayBounds(dateInput: string): { start: string; end: string } | nul
 }
 
 async function getMembership(userId: string, workspaceId: string): Promise<Membership | null> {
+  if (!isUuid(userId) || !isUuid(workspaceId)) return null;
   const { data, error } = await supabase
     .from('workspace_members')
     .select('role,status')
@@ -86,6 +87,7 @@ async function getMembership(userId: string, workspaceId: string): Promise<Membe
 }
 
 async function getTaskForWorkspace(taskId: string, workspaceId: string) {
+  if (!isUuid(taskId) || !isUuid(workspaceId)) return null;
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -198,7 +200,11 @@ router.get(['', '/'], requireTaskApiKeyScope('tasks:read'), async (req: Request,
     }
 
     if (status) query = query.eq('status', status);
-    if (assignee) query = query.eq('assigned_to_user_id', assignee);
+    if (assignee) {
+      const parsedAssignee = cleanUuidInput(assignee);
+      if (!parsedAssignee) return res.status(400).json({ error: 'assignee_id_invalid' });
+      query = query.eq('assigned_to_user_id', parsedAssignee);
+    }
     if (relatedType) query = query.eq('related_type', relatedType);
     if (relatedId) {
       const parsedRelatedId = cleanUuidInput(relatedId);
@@ -532,7 +538,13 @@ router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: R
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
     const payload = req.body || {};
-    const taskIds = Array.isArray(payload.task_ids) ? payload.task_ids.map((v: any) => String(v)).filter(Boolean) : [];
+    const rawTaskIds = Array.isArray(payload.task_ids) ? payload.task_ids : [];
+    const taskIds: string[] = [];
+    for (const rawId of rawTaskIds) {
+      const parsed = cleanUuidInput(rawId);
+      if (!parsed) return res.status(400).json({ error: 'task_id_invalid' });
+      taskIds.push(parsed);
+    }
     const status = String(payload.status || '').trim();
     if (!taskIds.length) return res.status(400).json({ error: 'task_ids_required' });
     if (!status) return res.status(400).json({ error: 'status_required' });
