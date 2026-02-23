@@ -52,6 +52,36 @@ router.get('/_debug/lookup/:id', async (req: Request, res: Response) => {
   });
 });
 router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
+router.use((req: Request, res: Response, next) => {
+  const originalJson = res.json.bind(res);
+  const originalSend = res.send.bind(res);
+  let firstWriter: string | null = null;
+
+  // #region agent log
+  (res as any).json = (body: any) => {
+    const location = firstWriter ? 'tasks.ts:response-second-json' : 'tasks.ts:response-first-json';
+    const message = firstWriter ? 'second_response_attempt_json' : 'first_response_writer_json';
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H1',location,message,data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
+    if (!firstWriter) firstWriter = 'json';
+    return originalJson(body);
+  };
+  (res as any).send = (body: any) => {
+    const location = firstWriter ? 'tasks.ts:response-second-send' : 'tasks.ts:response-first-send';
+    const message = firstWriter ? 'second_response_attempt_send' : 'first_response_writer_send';
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H2',location,message,data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
+    if (!firstWriter) firstWriter = 'send';
+    return originalSend(body);
+  };
+  // #endregion
+
+  res.once('finish', () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H3',location:'tasks.ts:response-finish',message:'response_finished',data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  });
+
+  next();
+});
 
 const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];
 
