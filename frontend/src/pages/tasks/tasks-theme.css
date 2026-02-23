@@ -88,14 +88,20 @@
 .dark .tasks-ui .hover\:bg-gray-100:hover { background-color: #334155 !important; }
 .dark .tasks-ui .focus\:bg-white:focus { background-color: #1e293b !important; }
 
-/* Text colors (light on dark) */
+/* Text colors (light on dark) — every level must be readable */
 .dark .tasks-ui .text-gray-900 { color: #f1f5f9 !important; }
 .dark .tasks-ui .text-gray-800 { color: #e2e8f0 !important; }
 .dark .tasks-ui .text-gray-700 { color: #cbd5e1 !important; }
 .dark .tasks-ui .text-gray-600 { color: #94a3b8 !important; }
-.dark .tasks-ui .text-gray-500 { color: #64748b !important; }
-.dark .tasks-ui .text-gray-400 { color: #475569 !important; }
-.dark .tasks-ui .text-gray-300 { color: #334155 !important; }
+.dark .tasks-ui .text-gray-500 { color: #94a3b8 !important; }
+.dark .tasks-ui .text-gray-400 { color: #7d8da1 !important; }
+.dark .tasks-ui .text-gray-300 { color: #64748b !important; }
+
+/* Hover text colors */
+.dark .tasks-ui .hover\:text-gray-700:hover { color: #e2e8f0 !important; }
+.dark .tasks-ui .hover\:text-gray-600:hover { color: #cbd5e1 !important; }
+.dark .tasks-ui .hover\:text-gray-900:hover { color: #f1f5f9 !important; }
+.dark .tasks-ui .group:hover .group-hover\:text-indigo-600 { color: #a5b4fc !important; }
 
 /* Border colors */
 .dark .tasks-ui .border-gray-100 { border-color: #1e293b !important; }
