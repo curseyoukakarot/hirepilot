@@ -99,29 +99,28 @@ export async function withApiKeyAuth(req: Request): Promise<ApiKeyAuthContext | 
  */
 export async function attachApiKeyAuth(req: Request, _res: Response, next: NextFunction) {
   try {
-    // Do not override if a user was already attached (e.g., by session/JWT)
-    if ((req as any).user?.id) return next();
-    const ctx = await withApiKeyAuth(req);
-    if (ctx?.userId) {
-      (req as any).user = {
-        id: ctx.userId,
-        email: ctx.user?.email || null,
-        role: ctx.user?.role || 'api_key',
-        first_name: ctx.user?.first_name || null,
-        last_name: ctx.user?.last_name || null,
-        plan: ctx.user?.plan || null,
-        team_id: ctx.user?.team_id || null,
-        _auth_source: ctx.source,
-        _api_key_id: ctx.keyId
-      };
-      (req as any).apiKeyScopes = ctx.scopes;
-      console.log('[Auth] Authenticated via API key for user_id', ctx.userId);
+    if (!(req as any).user?.id) {
+      const ctx = await withApiKeyAuth(req);
+      if (ctx?.userId) {
+        (req as any).user = {
+          id: ctx.userId,
+          email: ctx.user?.email || null,
+          role: ctx.user?.role || 'api_key',
+          first_name: ctx.user?.first_name || null,
+          last_name: ctx.user?.last_name || null,
+          plan: ctx.user?.plan || null,
+          team_id: ctx.user?.team_id || null,
+          _auth_source: ctx.source,
+          _api_key_id: ctx.keyId
+        };
+        (req as any).apiKeyScopes = ctx.scopes;
+        console.log('[Auth] Authenticated via API key for user_id', ctx.userId);
+      }
     }
   } catch {
     // swallow; behave like unauthenticated
-  } finally {
-    next();
   }
+  next();
 }
 
 

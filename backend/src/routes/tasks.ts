@@ -52,36 +52,6 @@ router.get('/_debug/lookup/:id', async (req: Request, res: Response) => {
   });
 });
 router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
-router.use((req: Request, res: Response, next) => {
-  const originalJson = res.json.bind(res);
-  const originalSend = res.send.bind(res);
-  let firstWriter: string | null = null;
-
-  // #region agent log
-  (res as any).json = (body: any) => {
-    const location = firstWriter ? 'tasks.ts:response-second-json' : 'tasks.ts:response-first-json';
-    const message = firstWriter ? 'second_response_attempt_json' : 'first_response_writer_json';
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H1',location,message,data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
-    if (!firstWriter) firstWriter = 'json';
-    return originalJson(body);
-  };
-  (res as any).send = (body: any) => {
-    const location = firstWriter ? 'tasks.ts:response-second-send' : 'tasks.ts:response-first-send';
-    const message = firstWriter ? 'second_response_attempt_send' : 'first_response_writer_send';
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H2',location,message,data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
-    if (!firstWriter) firstWriter = 'send';
-    return originalSend(body);
-  };
-  // #endregion
-
-  res.once('finish', () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-first-writer-v1',hypothesisId:'H3',location:'tasks.ts:response-finish',message:'response_finished',data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent,firstWriter},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  });
-
-  next();
-});
 
 const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];
 
@@ -398,7 +368,6 @@ const statusesHandler = async (req: Request, res: Response) => {
       .order('label', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message || 'statuses_fetch_failed' });
-    if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'statusesHandler', path: req.path }); return; }
     return res.json({ statuses: data || [] });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:statuses', 'statuses_fetch_failed', e);
@@ -452,10 +421,6 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
 
 router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
-
-  console.log('FETCH-TASK-V5', { taskId: receivedTaskId, isValid: receivedTaskId ? isUuid(receivedTaskId) : false });
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch.entry', path: req.path }); return; }
-
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
   }
@@ -475,13 +440,11 @@ router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
     .eq('workspace_id', workspaceId)
     .eq('task_id', receivedTaskId);
   if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch', path: req.path }); return; }
   return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
 });
 
 router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch/comments.entry', path: req.path }); return; }
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
   }
@@ -502,7 +465,6 @@ router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: 
     .eq('task_id', receivedTaskId)
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.get/fetch/comments', path: req.path }); return; }
   return res.json({ comments: data || [] });
 });
 
@@ -552,13 +514,11 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
       );
     }
   } catch {}
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'tasksRouter.post/fetch/comments', path: req.path }); return; }
   return res.status(201).json({ comment: data });
 });
 
 const listTasksHandler = async (req: Request, res: Response) => {
   try {
-    if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'listTasksHandler.entry', path: req.path }); return; }
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
@@ -658,14 +618,13 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     const tasks = visibilityScoped.map((task) => buildTaskResponse(task, commentCountByTask[task.id] || 0));
 
-    if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'listTasksHandler', path: req.path }); return; }
     return res.json({ tasks });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:list', 'tasks_list_failed', e);
   }
 };
 
-router.get(['/', ''], requireTaskApiKeyScope('tasks:read'), listTasksHandler);
+router.get('/', requireTaskApiKeyScope('tasks:read'), listTasksHandler);
 
 TAB_ALIASES.forEach((tabKey) => {
   router.get(`/${tabKey}`, requireTaskApiKeyScope('tasks:read'), (req: Request, res: Response) => {
@@ -764,7 +723,7 @@ const createTaskHandler = async (req: Request, res: Response) => {
   }
 };
 
-router.post(['/', ''], requireTaskApiKeyScope('tasks:write'), createTaskHandler);
+router.post('/', requireTaskApiKeyScope('tasks:write'), createTaskHandler);
 
 router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
@@ -1225,7 +1184,6 @@ router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), a
 });
 
 router.all('*', (req: Request, res: Response) => {
-  if (res.headersSent) { console.warn('HEADERS_ALREADY_SENT – early return', { handler: 'router.all(404)', path: req.path }); return; }
   return res.status(404).json({
     error: 'tasks_route_not_found',
     method: req.method,
