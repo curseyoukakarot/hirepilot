@@ -52,6 +52,17 @@ router.get('/_debug/lookup/:id', async (req: Request, res: Response) => {
   });
 });
 router.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
+router.use((req: Request, res: Response, next) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-headers-v2',hypothesisId:'H3',location:'tasks.ts:post-auth-mw',message:'post_auth_middleware_state',data:{path:req.path,method:req.method,headersSent:res.headersSent,statusCode:res.statusCode},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  res.once('finish', () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-headers-v2',hypothesisId:'H4',location:'tasks.ts:finish',message:'tasks_response_finish',data:{path:req.path,method:req.method,statusCode:res.statusCode,headersSent:res.headersSent},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  });
+  next();
+});
 
 const DEFAULT_API_KEY_TASK_SCOPES = ['tasks:read', 'tasks:write'];
 
@@ -424,6 +435,9 @@ router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
 
   console.log('FETCH-TASK-V5', { taskId: receivedTaskId, isValid: receivedTaskId ? isUuid(receivedTaskId) : false });
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-headers-v2',hypothesisId:'H2',location:'tasks.ts:get/fetch',message:'fetch_handler_entry',data:{path:req.path,headersSent:res.headersSent,taskId:receivedTaskId? 'present':'missing'},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
@@ -450,6 +464,9 @@ router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
 
 router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   const receivedTaskId = String((req.query as any)?.task_id || '').trim();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-headers-v2',hypothesisId:'H2',location:'tasks.ts:get/fetch/comments',message:'fetch_comments_handler_entry',data:{path:req.path,headersSent:res.headersSent,taskId:receivedTaskId? 'present':'missing'},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   if (!receivedTaskId || !isUuid(receivedTaskId)) {
     return res.status(400).json({ error: 'invalid_task_id_format' });
   }
@@ -526,6 +543,9 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
 
 const listTasksHandler = async (req: Request, res: Response) => {
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'tasks-headers-v2',hypothesisId:'H1',location:'tasks.ts:listTasksHandler',message:'list_handler_entry',data:{path:req.path,headersSent:res.headersSent,statusCode:res.statusCode},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
