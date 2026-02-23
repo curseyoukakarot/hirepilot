@@ -276,9 +276,10 @@ TAB_ALIASES.forEach((tabKey) => {
   });
 });
 
-router.get(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
+    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
 
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -288,7 +289,7 @@ router.get(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:read'), async
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
@@ -296,7 +297,7 @@ router.get(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:read'), async
       .from('task_comments')
       .select('task_id')
       .eq('workspace_id', workspaceId)
-      .eq('task_id', req.params.id);
+      .eq('task_id', taskId);
     if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_fetch_failed' });
 
     return res.json({
@@ -723,9 +724,10 @@ router.post(`/${UUID_PARAM_PATTERN}/reopen`, requireTaskApiKeyScope('tasks:write
   }
 });
 
-router.get(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
+router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
+    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -734,7 +736,7 @@ router.get(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:read
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
@@ -742,7 +744,7 @@ router.get(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:read
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .eq('workspace_id', workspaceId)
-      .eq('task_id', req.params.id)
+      .eq('task_id', taskId)
       .order('created_at', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
