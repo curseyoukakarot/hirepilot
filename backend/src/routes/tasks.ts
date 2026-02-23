@@ -64,6 +64,15 @@ function completedState(task: any): boolean {
   return Boolean(task?.completed_at) || String(task?.status || '').toLowerCase() === 'completed';
 }
 
+function toStatusKey(input: string): string {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50);
+}
+
 function toIsoDayBounds(dateInput: string): { start: string; end: string } | null {
   const dt = new Date(dateInput);
   if (Number.isNaN(dt.getTime())) return null;
@@ -162,6 +171,49 @@ const statusesHandler = async (req: Request, res: Response) => {
 };
 
 router.get('/statuses', requireTaskApiKeyScope('tasks:read'), statusesHandler);
+
+router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+
+    const membership = await getMembership(userId, workspaceId);
+    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+    if (!isWorkspaceAdminRole(membership.role)) return res.status(403).json({ error: 'status_admin_required' });
+
+    const payload = req.body || {};
+    const label = String(payload.label || '').trim().slice(0, 80);
+    if (!label) return res.status(400).json({ error: 'status_label_required' });
+
+    const key = toStatusKey(String(payload.key || label));
+    if (!key) return res.status(400).json({ error: 'status_key_invalid' });
+
+    const requestedSort = Number(payload.sort_order);
+    const sortOrder = Number.isFinite(requestedSort) ? requestedSort : 100;
+
+    const { data, error } = await supabase
+      .from('task_statuses')
+      .upsert(
+        {
+          workspace_id: workspaceId,
+          key,
+          label,
+          sort_order: sortOrder,
+          is_default: false,
+        },
+        { onConflict: 'workspace_id,key' },
+      )
+      .select('id,workspace_id,key,label,sort_order,is_default,created_at,updated_at')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message || 'status_create_failed' });
+    return res.status(201).json({ status: data });
+  } catch (e: any) {
+    return respondInternalError(res, 'tasks:statuses:create', 'status_create_failed', e);
+  }
+});
 
 const listTasksHandler = async (req: Request, res: Response) => {
   try {
@@ -768,9 +820,10 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
   }
 });
 
-router.post(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
+router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
+    const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -779,7 +832,7 @@ router.post(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:wri
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
 
@@ -790,7 +843,7 @@ router.post(`/${UUID_PARAM_PATTERN}/comments`, requireTaskApiKeyScope('tasks:wri
       .from('task_comments')
       .insert({
         workspace_id: workspaceId,
-        task_id: req.params.id,
+        task_id: taskId,
         user_id: userId,
         body,
       })

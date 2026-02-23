@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import TaskActivityFeed from './TaskActivityFeed';
 
 export default function TaskDetailPanel({
@@ -9,10 +9,19 @@ export default function TaskDetailPanel({
   onFieldUpdate,
   onMarkComplete,
   onAddComment,
+  onDuplicate,
+  onDelete,
+  onCreateStatus,
+  onConvertReminder,
   saving = false,
 }) {
   const [draftTitle, setDraftTitle] = useState('');
   const [commentBody, setCommentBody] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [customStatusLabel, setCustomStatusLabel] = useState('');
+  const titleInputRef = useRef(null);
+  const attachmentInputRef = useRef(null);
 
   const dueDateValue = useMemo(() => {
     if (!task?.dueAt) return '';
@@ -20,6 +29,14 @@ export default function TaskDetailPanel({
     if (Number.isNaN(dt.getTime())) return '';
     return dt.toISOString().slice(0, 10);
   }, [task?.dueAt]);
+
+  useEffect(() => {
+    setDraftTitle('');
+    setCommentBody('');
+    setMenuOpen(false);
+    setStatusModalOpen(false);
+    setCustomStatusLabel('');
+  }, [task?.id]);
 
   if (!task) {
     return null;
@@ -33,13 +50,47 @@ export default function TaskDetailPanel({
           <span>•</span>
           <span>{task.createdAt}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2">
           <button className="text-gray-500 hover:text-gray-300 p-1.5 rounded-md hover:bg-dark-200 transition">
             <i className="fa-solid fa-link" />
           </button>
-          <button className="text-gray-500 hover:text-gray-300 p-1.5 rounded-md hover:bg-dark-200 transition">
+          <button
+            className="text-gray-500 hover:text-gray-300 p-1.5 rounded-md hover:bg-dark-200 transition"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
             <i className="fa-solid fa-ellipsis" />
           </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-10 z-20 w-40 rounded-md border border-gray-700 bg-dark-200 shadow-lg">
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-dark-100"
+                onClick={() => {
+                  setMenuOpen(false);
+                  titleInputRef.current?.focus();
+                }}
+              >
+                Edit
+              </button>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-dark-100"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDuplicate?.();
+                }}
+              >
+                Duplicate
+              </button>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-dark-100"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete?.();
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -50,6 +101,7 @@ export default function TaskDetailPanel({
               <i className="fa-regular fa-circle text-xl" />
             </button>
             <input
+              ref={titleInputRef}
               value={draftTitle || task.title}
               onChange={(e) => setDraftTitle(e.target.value)}
               onBlur={() => {
@@ -82,6 +134,13 @@ export default function TaskDetailPanel({
               </select>
               <i className="fa-solid fa-chevron-down text-[10px] ml-1 opacity-50" />
             </label>
+            <button
+              className="flex items-center gap-1.5 bg-dark-200 text-gray-300 px-3 py-1 rounded-md text-xs font-medium hover:bg-dark-100 transition border border-gray-700 border-dashed"
+              onClick={() => setStatusModalOpen(true)}
+            >
+              <i className="fa-solid fa-plus text-[10px]" />
+              Custom Status
+            </button>
             <label className="flex items-center gap-1.5 bg-dark-200 text-gray-300 px-3 py-1 rounded-md text-xs font-medium hover:bg-dark-100 transition border border-gray-700 border-dashed">
               <i className="fa-solid fa-calendar text-gray-500" />
               <input
@@ -141,6 +200,40 @@ export default function TaskDetailPanel({
       </div>
 
       <div className="p-4 border-t border-gray-800 bg-dark-200">
+        {statusModalOpen && (
+          <div className="mb-3 rounded-md border border-gray-700 bg-dark-300 p-3">
+            <div className="text-xs font-medium text-gray-400 mb-2">Create custom status</div>
+            <div className="flex items-center gap-2">
+              <input
+                value={customStatusLabel}
+                onChange={(e) => setCustomStatusLabel(e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-700 rounded bg-dark-200 text-sm text-gray-200"
+                placeholder="e.g. Waiting on Candidate"
+              />
+              <button
+                className="px-2.5 py-1.5 text-xs rounded bg-primary-600 text-white hover:bg-primary-700"
+                onClick={async () => {
+                  const label = customStatusLabel.trim();
+                  if (!label) return;
+                  await onCreateStatus?.(label);
+                  setCustomStatusLabel('');
+                  setStatusModalOpen(false);
+                }}
+              >
+                Save
+              </button>
+              <button
+                className="px-2.5 py-1.5 text-xs rounded border border-gray-700 text-gray-300 hover:bg-dark-100"
+                onClick={() => {
+                  setCustomStatusLabel('');
+                  setStatusModalOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         <div className="relative">
           <input
             type="text"
@@ -165,15 +258,42 @@ export default function TaskDetailPanel({
         </div>
         <div className="flex justify-between items-center mt-3">
           <div className="flex gap-2">
-            <button className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition" title="Add Attachment">
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const fileName = e.target.files?.[0]?.name;
+                if (!fileName) return;
+                setCommentBody((prev) => `${prev}${prev ? ' ' : ''}[Attachment: ${fileName}]`);
+                e.target.value = '';
+              }}
+            />
+            <button
+              className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition"
+              title="Add Attachment"
+              onClick={() => attachmentInputRef.current?.click()}
+            >
               <i className="fa-solid fa-paperclip text-sm" />
             </button>
-            <button className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition" title="Mention">
+            <button
+              className="p-1.5 text-gray-500 hover:bg-dark-300 hover:text-gray-300 hover:shadow-sm rounded transition"
+              title="Mention"
+              onClick={() => {
+                const mention = window.prompt('Mention teammate (name or @handle)');
+                if (!mention) return;
+                const normalized = mention.startsWith('@') ? mention : `@${mention}`;
+                setCommentBody((prev) => `${prev}${prev ? ' ' : ''}${normalized}`);
+              }}
+            >
               <i className="fa-solid fa-at text-sm" />
             </button>
           </div>
           <div className="flex gap-2">
-            <button className="bg-dark-300 border border-gray-700 text-gray-300 text-xs font-medium px-3 py-1.5 rounded hover:bg-dark-200 shadow-sm transition">
+            <button
+              className="bg-dark-300 border border-gray-700 text-gray-300 text-xs font-medium px-3 py-1.5 rounded hover:bg-dark-200 shadow-sm transition"
+              onClick={() => onConvertReminder?.()}
+            >
               Convert to Reminder
             </button>
             <button

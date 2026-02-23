@@ -4,7 +4,7 @@ import TasksList from './TasksList';
 import TaskDetailPanel from './TaskDetailPanel';
 import TaskCreateModal from './TaskCreateModal';
 import { TASK_TABS } from './mockTasks';
-import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import './tasks-theme.css';
 
@@ -90,6 +90,15 @@ function emptyCounts() {
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
+
+function toStatusKey(input) {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50);
 }
 
 export default function TasksPage() {
@@ -460,6 +469,88 @@ export default function TasksPage() {
                 if (!selectedTaskId) return;
                 await apiPost(`/api/tasks/${selectedTaskId}/comments`, { body });
                 setRefreshKey((k) => k + 1);
+              }}
+              onDuplicate={async () => {
+                if (!selectedTask?.raw) return;
+                setSavingTask(true);
+                try {
+                  const source = selectedTask.raw;
+                  const res = await apiPost('/api/tasks', {
+                    title: `${source.title || selectedTask.title} (Copy)`,
+                    description: source.description || null,
+                    assigned_to_user_id: source.assigned_to_user_id || null,
+                    due_at: source.due_at || null,
+                    priority: source.priority || 'medium',
+                    status: source.status || 'open',
+                    related_type: source.related_type || null,
+                    related_id: source.related_id || null,
+                  });
+                  const duplicateId = res?.task?.id || '';
+                  setRefreshKey((k) => k + 1);
+                  if (duplicateId) setSelectedTaskId(duplicateId);
+                } finally {
+                  setSavingTask(false);
+                }
+              }}
+              onDelete={async () => {
+                if (!selectedTaskId) return;
+                const confirmed = window.confirm('Delete this task? This cannot be undone.');
+                if (!confirmed) return;
+                setSavingTask(true);
+                try {
+                  await apiDelete(`/api/tasks/${selectedTaskId}`);
+                  setSelectedTaskId('');
+                  setSelectedTask(null);
+                  setActivity([]);
+                  setRefreshKey((k) => k + 1);
+                } finally {
+                  setSavingTask(false);
+                }
+              }}
+              onCreateStatus={async (label) => {
+                const key = toStatusKey(label);
+                if (!key) return;
+                try {
+                  const res = await apiPost('/api/tasks/statuses', { key, label, sort_order: statuses.length * 10 + 10 });
+                  const created = res?.status;
+                  if (created) {
+                    setStatuses((prev) => {
+                      const withoutDuplicate = prev.filter((item) => item.key !== created.key);
+                      return [...withoutDuplicate, created].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+                    });
+                    await apiPatch(`/api/tasks/${selectedTaskId}`, { status: created.key });
+                    setRefreshKey((k) => k + 1);
+                    return;
+                  }
+                } catch {}
+                // Fallback: keep UI usable even if custom status API is unavailable.
+                setStatuses((prev) => {
+                  if (prev.some((item) => item.key === key)) return prev;
+                  return [...prev, { key, label, sort_order: prev.length * 10 + 10 }];
+                });
+                await apiPatch(`/api/tasks/${selectedTaskId}`, { status: key });
+                setRefreshKey((k) => k + 1);
+              }}
+              onConvertReminder={async () => {
+                if (!selectedTaskId || !selectedTask?.raw) return;
+                setSavingTask(true);
+                try {
+                  const source = selectedTask.raw;
+                  const res = await apiPost(`/api/tasks/${selectedTaskId}/follow-up`, {
+                    title: `Reminder: ${source.title || selectedTask.title}`,
+                    description: source.description || null,
+                    assigned_to_user_id: source.assigned_to_user_id || null,
+                    related_type: source.related_type || null,
+                    related_id: source.related_id || null,
+                    due_in_hours: 24,
+                    priority: source.priority || 'medium',
+                  });
+                  const reminderId = res?.task?.id || '';
+                  setRefreshKey((k) => k + 1);
+                  if (reminderId) setSelectedTaskId(reminderId);
+                } finally {
+                  setSavingTask(false);
+                }
               }}
             />
           </div>
