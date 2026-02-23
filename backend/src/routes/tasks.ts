@@ -138,6 +138,13 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
   return data as any;
 }
 
+async function getTaskByIdAnyWorkspace(taskId: string) {
+  if (!isUuid(taskId)) return null;
+  const { data, error } = await supabaseAdmin.from('tasks').select('*').eq('id', taskId).maybeSingle();
+  if (error || !data) return null;
+  return data as any;
+}
+
 async function getGlobalRole(userId: string): Promise<string | null> {
   if (!isUuid(userId)) return null;
   const { data, error } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
@@ -305,40 +312,19 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
 
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const task = await getTaskByIdAnyWorkspace(taskId);
+    if (!task) return res.json({ task: null });
 
-    const bearerRole = readRoleFromBearer(req);
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
-    const client = selectDbClient(hasGlobalAdmin);
-    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
-    console.log('Tasks detail request:', {
-      taskId,
-      userId,
-      workspaceId,
-      isSuperAdmin: hasGlobalAdmin,
-      clientType,
-      roleFromRequest: (req as any)?.user?.role || null,
-      roleFromBearer: bearerRole,
-      roleResolved: globalRole,
-      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
-    });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
-    if (!resolved) return res.json({ task: null });
-
-    const { data: comments, error: commentsError } = await client
+    const realWorkspaceId = String(task.workspace_id || '').trim();
+    const { data: comments, error: commentsError } = await supabaseAdmin
       .from('task_comments')
       .select('task_id')
-      .eq('workspace_id', resolved.workspaceId)
+      .eq('workspace_id', realWorkspaceId)
       .eq('task_id', taskId);
     if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_fetch_failed' });
 
     return res.json({
-      task: buildTaskResponse(resolved.task, (comments || []).length),
+      task: buildTaskResponse(task, (comments || []).length),
     });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:record:get-by-id', 'task_fetch_failed', e);
@@ -351,35 +337,14 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const task = await getTaskByIdAnyWorkspace(taskId);
+    if (!task) return res.json({ comments: [] });
+    const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const bearerRole = readRoleFromBearer(req);
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
-    const client = selectDbClient(hasGlobalAdmin);
-    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
-    console.log('Tasks comments list request:', {
-      taskId,
-      userId,
-      workspaceId,
-      isSuperAdmin: hasGlobalAdmin,
-      clientType,
-      roleFromRequest: (req as any)?.user?.role || null,
-      roleFromBearer: bearerRole,
-      roleResolved: globalRole,
-      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
-    });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
-    if (!resolved) return res.json({ comments: [] });
-
-    const { data, error } = await client
+    const { data, error } = await supabaseAdmin
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
-      .eq('workspace_id', resolved.workspaceId)
+      .eq('workspace_id', realWorkspaceId)
       .eq('task_id', taskId)
       .order('created_at', { ascending: true });
 
@@ -396,38 +361,17 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
-    const bearerRole = readRoleFromBearer(req);
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
-    const client = selectDbClient(hasGlobalAdmin);
-    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
-    console.log('Tasks comments create request:', {
-      taskId,
-      userId,
-      workspaceId,
-      isSuperAdmin: hasGlobalAdmin,
-      clientType,
-      roleFromRequest: (req as any)?.user?.role || null,
-      roleFromBearer: bearerRole,
-      roleResolved: globalRole,
-      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
-    });
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
-    if (!resolved) return res.status(404).json({ error: 'task_not_found' });
+    const task = await getTaskByIdAnyWorkspace(taskId);
+    if (!task) return res.status(404).json({ error: 'task_not_found' });
 
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
+    const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await client
+    const { data, error } = await supabaseAdmin
       .from('task_comments')
       .insert({
-        workspace_id: resolved.workspaceId,
+        workspace_id: realWorkspaceId,
         task_id: taskId,
         user_id: userId,
         body,
