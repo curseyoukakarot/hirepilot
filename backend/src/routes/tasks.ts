@@ -75,6 +75,22 @@ function isWorkspaceAdminRole(role: string | null | undefined): boolean {
   return ['owner', 'admin', 'team_admin', 'super_admin'].includes(normalizeRole(role));
 }
 
+function readRoleFromBearer(req: Request): string | null {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    if (!authHeader.startsWith('Bearer ')) return null;
+    const token = authHeader.slice(7).trim();
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadJson = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    const payload = JSON.parse(payloadJson) as any;
+    const appRole = payload?.app_metadata?.role || payload?.user_metadata?.role || payload?.user_metadata?.account_type;
+    return appRole ? String(appRole) : null;
+  } catch {
+    return null;
+  }
+}
+
 function completedState(task: any): boolean {
   return Boolean(task?.completed_at) || String(task?.status || '').toLowerCase() === 'completed';
 }
@@ -292,8 +308,9 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const bearerRole = readRoleFromBearer(req);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
     const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks detail request:', {
@@ -303,6 +320,7 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
       isSuperAdmin: hasGlobalAdmin,
       clientType,
       roleFromRequest: (req as any)?.user?.role || null,
+      roleFromBearer: bearerRole,
       roleResolved: globalRole,
       authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
     });
@@ -336,8 +354,9 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const bearerRole = readRoleFromBearer(req);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
     const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments list request:', {
@@ -347,6 +366,7 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
       isSuperAdmin: hasGlobalAdmin,
       clientType,
       roleFromRequest: (req as any)?.user?.role || null,
+      roleFromBearer: bearerRole,
       roleResolved: globalRole,
       authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
     });
@@ -379,8 +399,9 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
-    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const bearerRole = readRoleFromBearer(req);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role || bearerRole);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole) || isWorkspaceAdminRole(bearerRole);
     const client = selectDbClient(hasGlobalAdmin);
     const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
     console.log('Tasks comments create request:', {
@@ -390,6 +411,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
       isSuperAdmin: hasGlobalAdmin,
       clientType,
       roleFromRequest: (req as any)?.user?.role || null,
+      roleFromBearer: bearerRole,
       roleResolved: globalRole,
       authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
     });
