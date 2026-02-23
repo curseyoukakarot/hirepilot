@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 
 const router = express.Router();
@@ -48,6 +49,11 @@ type Membership = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UUID_PARAM_PATTERN = ':id([0-9a-fA-F-]{36})';
 const TAB_ALIASES = ['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed'] as const;
+const supabaseBypass = createClient(
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string,
+  { auth: { persistSession: false, autoRefreshToken: false } },
+);
 
 function isUuid(value: string | null | undefined): boolean {
   return UUID_REGEX.test(String(value || '').trim());
@@ -140,7 +146,7 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
 
 async function getTaskByIdAnyWorkspace(taskId: string) {
   if (!isUuid(taskId)) return null;
-  const { data, error } = await supabaseAdmin.from('tasks').select('*').eq('id', taskId).maybeSingle();
+  const { data, error } = await supabaseBypass.from('tasks').select('*').eq('id', taskId).maybeSingle();
   if (error || !data) return null;
   return data as any;
 }
@@ -231,7 +237,7 @@ function respondInternalError(res: Response, tag: string, fallback: string, erro
 }
 
 function selectDbClient(hasGlobalAdmin: boolean) {
-  const preferred = hasGlobalAdmin ? (supabaseAdmin as any) : (supabase as any);
+  const preferred = hasGlobalAdmin ? (supabaseBypass as any) : (supabase as any);
   if (preferred && typeof preferred.from === 'function') return preferred;
   return supabase as any;
 }
@@ -316,7 +322,7 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
     if (!task) return res.json({ task: null });
 
     const realWorkspaceId = String(task.workspace_id || '').trim();
-    const { data: comments, error: commentsError } = await supabaseAdmin
+    const { data: comments, error: commentsError } = await supabaseBypass
       .from('task_comments')
       .select('task_id')
       .eq('workspace_id', realWorkspaceId)
@@ -341,7 +347,7 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
     if (!task) return res.json({ comments: [] });
     const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseBypass
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .eq('workspace_id', realWorkspaceId)
@@ -368,7 +374,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
     const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseBypass
       .from('task_comments')
       .insert({
         workspace_id: realWorkspaceId,
