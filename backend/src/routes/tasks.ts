@@ -420,7 +420,15 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
 
 async function resolveRecordRequestContext(req: Request, explicitTaskId: string | null = null) {
   const taskId = String(explicitTaskId || (typeof req.params.id === 'string' ? req.params.id : '') || '').trim();
-  if (!taskId || !isUuid(taskId)) return { error: { status: 400, body: { error: 'invalid_task_id_format' } } } as const;
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H1',location:'routes/tasks.ts:resolveRecordRequestContext:entry',message:'resolver entry values',data:{explicitTaskIdLen:String(explicitTaskId || '').length,paramTaskIdLen:String((req.params as any)?.id || '').length,finalTaskIdLen:taskId.length,isUuidFinal:isUuid(taskId)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (!taskId || !isUuid(taskId)) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H2',location:'routes/tasks.ts:resolveRecordRequestContext:invalid-task-id',message:'resolver rejected task id format',data:{finalTaskIdLen:taskId.length,finalTaskIdSample:taskId.slice(0,8),explicitTaskIdSample:String(explicitTaskId || '').slice(0,8),paramTaskIdSample:String((req.params as any)?.id || '').slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return { error: { status: 400, body: { error: 'invalid_task_id_format' } } } as const;
+  }
 
   const userId = String((req as any)?.user?.id || '').trim();
   if (!userId) return { error: { status: 401, body: { error: 'unauthorized' } } } as const;
@@ -462,6 +470,9 @@ router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request,
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H3',location:'routes/tasks.ts:get-record:v3:error-branch',message:'record endpoint resolver error branch',data:{preValid,errorCode:String((ctx as any)?.error?.body?.error || 'unknown'),status:Number((ctx as any)?.error?.status || 0),taskIdLen:taskId.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
       if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
         res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
@@ -499,6 +510,9 @@ router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req:
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     const ctx = await resolveRecordRequestContext(req as any, taskId);
     if ('error' in ctx) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H4',location:'routes/tasks.ts:get-record-comments:v3:error-branch',message:'record comments endpoint resolver error branch',data:{preValid,errorCode:String((ctx as any)?.error?.body?.error || 'unknown'),status:Number((ctx as any)?.error?.status || 0),taskIdLen:taskId.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       res.setHeader('x-tasks-record-v3-error-code', String((ctx as any)?.error?.body?.error || 'unknown'));
       if (preValid && String((ctx as any)?.error?.body?.error || '') === 'invalid_task_id_format') {
         res.setHeader('x-tasks-record-v3-resolver-mismatch', '1');
