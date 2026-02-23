@@ -76,6 +76,12 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
     } catch {}
   }
 
+  // #region agent log
+  if (String(endpoint || '').startsWith('/api/tasks/record')) {
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H9',location:'frontend/lib/api.ts:record-request',message:'frontend calling task record endpoint',data:{endpoint,method:String(fetchOptions.method||'GET')},timestamp:Date.now()})}).catch(()=>{});
+  }
+  // #endregion
+
   // Make the request
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...fetchOptions,
@@ -86,6 +92,11 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
   // Handle response
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    // #region agent log
+    if (String(endpoint || '').startsWith('/api/tasks/record')) {
+      fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H9',location:'frontend/lib/api.ts:record-response-nonok',message:'frontend task record non-ok response',data:{endpoint,status:response.status,errorCode:String((error as any)?.error||''),errorMessage:String((error as any)?.message||''),recordRouteHeader:String(response.headers.get('x-tasks-record-v3-route')||''),recordTaskHeader:String(response.headers.get('x-tasks-record-v3-task-id')||'')},timestamp:Date.now()})}).catch(()=>{});
+    }
+    // #endregion
     throw new Error(error.error || error.message || `${response.status} ${response.statusText}`);
   }
 

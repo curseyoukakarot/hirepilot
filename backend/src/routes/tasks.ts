@@ -449,6 +449,12 @@ function readRecordTaskId(req: Request): string {
 
 router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
+    const parsedTaskId = readRecordTaskId(req);
+    res.setHeader('x-tasks-record-v3-route', 'record');
+    res.setHeader('x-tasks-record-v3-task-id', parsedTaskId || 'missing');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H7',location:'routes/tasks.ts:get-record:v3:entry',message:'record v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const taskId = readRecordTaskId(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     (req as any).params = { ...(req as any).params, id: taskId };
@@ -472,6 +478,12 @@ router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request,
 
 router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
+    const parsedTaskId = readRecordTaskId(req);
+    res.setHeader('x-tasks-record-v3-route', 'record-comments');
+    res.setHeader('x-tasks-record-v3-task-id', parsedTaskId || 'missing');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run3',hypothesisId:'H8',location:'routes/tasks.ts:get-record-comments:v3:entry',message:'record comments v3 endpoint entry',data:{path:req.path,queryTaskId:String((req.query as any)?.task_id||''),parsedTaskId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const taskId = readRecordTaskId(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     (req as any).params = { ...(req as any).params, id: taskId };
