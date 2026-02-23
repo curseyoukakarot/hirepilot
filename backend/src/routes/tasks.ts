@@ -107,17 +107,25 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
   return data as any;
 }
 
-async function getTaskForUser(taskId: string, userId: string, preferredWorkspaceId: string) {
+async function getGlobalRole(userId: string): Promise<string | null> {
+  if (!isUuid(userId)) return null;
+  const { data, error } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+  if (error || !data) return null;
+  return String((data as any).role || '').trim() || null;
+}
+
+async function getTaskForUser(taskId: string, userId: string, preferredWorkspaceId: string, globalRole: string | null) {
   if (!isUuid(taskId) || !isUuid(userId)) return null;
+  const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
 
   const preferredTask = await getTaskForWorkspace(taskId, preferredWorkspaceId);
   if (preferredTask) {
     const preferredMembership = await getMembership(userId, preferredWorkspaceId);
-    if (preferredMembership && canViewTask(preferredTask, userId, preferredMembership.role)) {
+    if ((preferredMembership && canViewTask(preferredTask, userId, preferredMembership.role)) || hasGlobalAdmin) {
       return {
         task: preferredTask,
         workspaceId: preferredWorkspaceId,
-        membershipRole: preferredMembership.role,
+        membershipRole: preferredMembership?.role || globalRole,
       };
     }
   }
@@ -129,13 +137,13 @@ async function getTaskForUser(taskId: string, userId: string, preferredWorkspace
   if (!isUuid(actualWorkspaceId)) return null;
 
   const actualMembership = await getMembership(userId, actualWorkspaceId);
-  if (!actualMembership) return null;
-  if (!canViewTask(data, userId, actualMembership.role)) return null;
+  if (!actualMembership && !hasGlobalAdmin) return null;
+  if (actualMembership && !canViewTask(data, userId, actualMembership.role) && !hasGlobalAdmin) return null;
 
   return {
     task: data as any,
     workspaceId: actualWorkspaceId,
-    membershipRole: actualMembership.role,
+    membershipRole: actualMembership?.role || globalRole,
   };
 }
 
@@ -381,10 +389,12 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
+    const globalRole = await getGlobalRole(userId);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const resolved = await getTaskForUser(taskId, userId, workspaceId);
+    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.json({ task: null });
 
     const { data: comments, error: commentsError } = await supabase
@@ -830,10 +840,12 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
+    const globalRole = await getGlobalRole(userId);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const resolved = await getTaskForUser(taskId, userId, workspaceId);
+    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.json({ comments: [] });
 
     const { data, error } = await supabase
@@ -859,10 +871,12 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
+    const globalRole = await getGlobalRole(userId);
+    const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
+    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const resolved = await getTaskForUser(taskId, userId, workspaceId);
+    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.status(404).json({ error: 'task_not_found' });
 
     const body = String((req.body || {}).body || '').trim();
