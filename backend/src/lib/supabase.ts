@@ -16,3 +16,9 @@ export const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string,
   { auth: { persistSession: false, autoRefreshToken: false } }
 );
+
+// Diagnostic selector used by routes that want explicit super-admin intent.
+// Note: both clients are server-side and never exposed to frontend code.
+export function getSupabaseClient(isSuperAdmin = false) {
+  return isSuperAdmin ? supabaseAdmin : supabase;
+}

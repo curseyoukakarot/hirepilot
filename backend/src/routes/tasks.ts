@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient, supabase } from '../lib/supabase';
 import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 
 const router = express.Router();
@@ -288,13 +288,25 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const client = getSupabaseClient(hasGlobalAdmin);
+    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
+    console.log('Tasks detail request:', {
+      taskId,
+      userId,
+      workspaceId,
+      isSuperAdmin: hasGlobalAdmin,
+      clientType,
+      roleFromRequest: (req as any)?.user?.role || null,
+      roleResolved: globalRole,
+      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
+    });
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
     const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.json({ task: null });
 
-    const { data: comments, error: commentsError } = await supabase
+    const { data: comments, error: commentsError } = await client
       .from('task_comments')
       .select('task_id')
       .eq('workspace_id', resolved.workspaceId)
@@ -320,13 +332,25 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const client = getSupabaseClient(hasGlobalAdmin);
+    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
+    console.log('Tasks comments list request:', {
+      taskId,
+      userId,
+      workspaceId,
+      isSuperAdmin: hasGlobalAdmin,
+      clientType,
+      roleFromRequest: (req as any)?.user?.role || null,
+      roleResolved: globalRole,
+      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
+    });
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
     const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.json({ comments: [] });
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .eq('workspace_id', resolved.workspaceId)
@@ -351,6 +375,18 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+    const client = getSupabaseClient(hasGlobalAdmin);
+    const clientType = hasGlobalAdmin ? 'admin (bypass RLS)' : 'normal (RLS enforced)';
+    console.log('Tasks comments create request:', {
+      taskId,
+      userId,
+      workspaceId,
+      isSuperAdmin: hasGlobalAdmin,
+      clientType,
+      roleFromRequest: (req as any)?.user?.role || null,
+      roleResolved: globalRole,
+      authHeader: req.headers.authorization ? `${String(req.headers.authorization).slice(0, 20)}...` : null,
+    });
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
@@ -360,7 +396,7 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('task_comments')
       .insert({
         workspace_id: resolved.workspaceId,
