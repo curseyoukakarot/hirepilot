@@ -4,6 +4,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
+import { pushNotification } from '../lib/notifications';
 
 const router = express.Router();
 router.use((_req: Request, res: Response, next) => {
@@ -176,6 +177,85 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
     .maybeSingle();
   if (error || !data) return null;
   return data as any;
+}
+
+type MentionCandidate = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+};
+
+function normalizeMentionText(input: unknown): string {
+  return String(input || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildMentionAliases(user: MentionCandidate): string[] {
+  const emailLocal = String(user.email || '').split('@')[0] || '';
+  const rawAliases = [
+    user.fullName,
+    `${user.firstName} ${user.lastName}`.trim(),
+    user.firstName,
+    user.lastName,
+    user.email,
+    emailLocal,
+  ];
+  const deduped = new Set<string>();
+  rawAliases.forEach((alias) => {
+    const normalized = normalizeMentionText(alias);
+    if (normalized.length >= 2) deduped.add(normalized);
+  });
+  return Array.from(deduped);
+}
+
+function resolveMentionedUserIds(commentBody: string, candidates: MentionCandidate[]): string[] {
+  const text = normalizeMentionText(commentBody);
+  if (!text.includes('@')) return [];
+  const mentioned = new Set<string>();
+  candidates.forEach((candidate) => {
+    const aliases = buildMentionAliases(candidate);
+    if (aliases.some((alias) => text.includes(`@${alias}`))) mentioned.add(candidate.id);
+  });
+  return Array.from(mentioned);
+}
+
+async function getWorkspaceMentionCandidates(workspaceId: string): Promise<MentionCandidate[]> {
+  const { data: members, error: membersError } = await supabase
+    .from('workspace_members')
+    .select('user_id,status')
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'active');
+  if (membersError || !Array.isArray(members) || !members.length) return [];
+  const userIds = members.map((row: any) => String(row.user_id || '').trim()).filter(isUuid);
+  if (!userIds.length) return [];
+
+  const { data: users, error: usersError } = await supabase
+    .from('users')
+    .select('id,first_name,last_name,full_name,email')
+    .in('id', userIds);
+  if (usersError || !Array.isArray(users)) return [];
+
+  return users
+    .map((user: any) => {
+      const firstName = String(user.first_name || '').trim();
+      const lastName = String(user.last_name || '').trim();
+      const fullName =
+        String(user.full_name || '').trim() ||
+        [firstName, lastName].filter(Boolean).join(' ').trim() ||
+        String(user.email || '').trim();
+      return {
+        id: String(user.id || '').trim(),
+        email: String(user.email || '').trim(),
+        firstName,
+        lastName,
+        fullName,
+      };
+    })
+    .filter((user) => isUuid(user.id));
 }
 
 async function getGlobalRole(userId: string): Promise<string | null> {
@@ -416,6 +496,36 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
       .single();
 
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
+
+    // Best-effort mention notifications: never block comment creation on notification errors.
+    try {
+      const candidates = await getWorkspaceMentionCandidates(workspaceId);
+      const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== userId);
+      if (mentionedUserIds.length) {
+        const actor = candidates.find((user) => user.id === userId);
+        const actorLabel = actor?.fullName || actor?.email || 'A teammate';
+        const taskTitle = String(task.title || 'Task').trim() || 'Task';
+        const snippet = body.length > 180 ? `${body.slice(0, 177)}...` : body;
+        await Promise.all(
+          mentionedUserIds.map(async (targetUserId) => {
+            await pushNotification({
+              user_id: targetUserId,
+              source: 'inapp',
+              thread_key: `task:${taskId}`,
+              title: `${actorLabel} mentioned you on ${taskTitle}`,
+              body_md: snippet,
+              type: 'task_mention',
+              metadata: {
+                workspace_id: workspaceId,
+                task_id: taskId,
+                comment_id: (data as any)?.id || null,
+              },
+            } as any);
+          }),
+        );
+      }
+    } catch {}
+
     return res.status(201).json({ comment: data });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:record:comments:create', 'task_comment_create_failed', e);

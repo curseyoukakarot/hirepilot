@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import TasksTabs from './TasksTabs';
 import TasksList from './TasksList';
 import TaskDetailPanel from './TaskDetailPanel';
@@ -102,6 +103,8 @@ function toStatusKey(input) {
 }
 
 export default function TasksPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [tabCounts, setTabCounts] = useState(emptyCounts());
   const [activeTab, setActiveTab] = useState('assigned_to_me');
@@ -122,6 +125,16 @@ export default function TasksPage() {
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserAvatar, setCurrentUserAvatar] = useState('');
   const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [selectedDue, setSelectedDue] = useState('');
+  const [todayProgress, setTodayProgress] = useState({ done: 0, total: 0 });
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationUnread, setNotificationUnread] = useState(0);
+  const [highlightedActivityId, setHighlightedActivityId] = useState('');
   const lastRealtimeRefreshAt = useRef(0);
 
   const triggerLightRefresh = useCallback(() => {
@@ -146,6 +159,36 @@ export default function TasksPage() {
       });
       setTabCounts(next);
     } catch {}
+  }, []);
+
+  const loadTodayProgress = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const [openRes, doneRes] = await Promise.all([
+        apiGet('/api/tasks?tab=assigned_to_me&due=today'),
+        apiGet(`/api/tasks?tab=completed&due=today&assignee=${encodeURIComponent(currentUserId)}`),
+      ]);
+      const openCount = Array.isArray(openRes?.tasks) ? openRes.tasks.length : 0;
+      const doneCount = Array.isArray(doneRes?.tasks) ? doneRes.tasks.length : 0;
+      setTodayProgress({ done: doneCount, total: doneCount + openCount });
+    } catch {
+      setTodayProgress({ done: 0, total: 0 });
+    }
+  }, [currentUserId]);
+
+  const loadNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    try {
+      const [listRes, statsRes] = await Promise.all([apiGet('/api/notifications?limit=8'), apiGet('/api/notifications/stats')]);
+      const rows = Array.isArray(listRes?.notifications) ? listRes.notifications : [];
+      setNotifications(rows);
+      setNotificationUnread(Number(statsRes?.unread || rows.filter((item) => !item?.read_at).length || 0));
+    } catch {
+      setNotifications([]);
+      setNotificationUnread(0);
+    } finally {
+      setNotificationsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -201,6 +244,13 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => {
+    const routeTaskId = String(searchParams.get('taskId') || '').trim();
+    const routeCommentId = String(searchParams.get('commentId') || '').trim();
+    if (isUuid(routeTaskId)) setSelectedTaskId(routeTaskId);
+    setHighlightedActivityId(routeCommentId);
+  }, [searchParams]);
+
+  useEffect(() => {
     const syncWorkspace = () => {
       try {
         setActiveWorkspaceId(window.localStorage.getItem(WORKSPACE_STORAGE_KEY) || '');
@@ -236,7 +286,11 @@ export default function TasksPage() {
     const timer = setTimeout(async () => {
       setLoadingList(true);
       try {
-        const query = new URLSearchParams({ tab: activeTab, search }).toString();
+        const queryParams = new URLSearchParams({ tab: activeTab, search });
+        if (selectedStatus) queryParams.set('status', selectedStatus);
+        if (selectedAssignee) queryParams.set('assignee', selectedAssignee);
+        if (selectedDue) queryParams.set('due', selectedDue);
+        const query = queryParams.toString();
         const res = await apiGet(`/api/tasks?${query}`);
         const rows = Array.isArray(res?.tasks) ? res.tasks : [];
         const mapped = rows.map((task) => mapTask(task, usersById));
@@ -253,7 +307,7 @@ export default function TasksPage() {
       loadCounts();
     }, 250);
     return () => clearTimeout(timer);
-  }, [activeTab, search, selectedTaskId, usersById, refreshKey, loadCounts]);
+  }, [activeTab, search, selectedTaskId, usersById, refreshKey, loadCounts, selectedStatus, selectedAssignee, selectedDue]);
 
   useEffect(() => {
     let mounted = true;
@@ -277,6 +331,7 @@ export default function TasksPage() {
         if (!mounted) return;
         const task = taskRes?.task ? mapTask(taskRes.task, usersById) : fallbackTask;
         const comments = Array.isArray(commentsRes?.comments) ? commentsRes.comments : [];
+        let hasHighlightedComment = false;
         setSelectedTask(task);
         setActivity([
           {
@@ -293,8 +348,18 @@ export default function TasksPage() {
             at: comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now',
             avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
             body: comment.body || '',
+            highlighted: highlightedActivityId && String(comment.id) === String(highlightedActivityId),
           })),
         ]);
+        hasHighlightedComment = comments.some((comment) => String(comment.id) === String(highlightedActivityId));
+        if (hasHighlightedComment) {
+          setTimeout(() => {
+            const target = document.getElementById(`task-activity-${highlightedActivityId}`);
+            if (target && typeof target.scrollIntoView === 'function') {
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 80);
+        }
       } catch {
         if (!mounted) return;
         setSelectedTask(null);
@@ -304,7 +369,47 @@ export default function TasksPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedTaskId, refreshKey, usersById, tasks]);
+  }, [selectedTaskId, refreshKey, usersById, tasks, highlightedActivityId]);
+
+  useEffect(() => {
+    loadTodayProgress();
+  }, [loadTodayProgress, refreshKey, selectedTaskId]);
+
+  useEffect(() => {
+    loadNotifications();
+    const timer = setInterval(loadNotifications, 30000);
+    return () => clearInterval(timer);
+  }, [loadNotifications]);
+
+  const hasActiveFilters = Boolean(selectedStatus || selectedAssignee || selectedDue);
+
+  const formatNotificationTime = (isoString) => {
+    if (!isoString) return '';
+    const dt = new Date(isoString);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+
+  const handleNotificationClick = async (row) => {
+    const meta = row?.metadata || {};
+    const taskId = String(meta.task_id || '').trim();
+    const commentId = String(meta.comment_id || '').trim();
+    try {
+      await apiPatch(`/api/notifications/${row.id}/read`);
+    } catch {}
+    setNotificationsOpen(false);
+    setNotificationUnread((prev) => Math.max(0, prev - (row?.read_at ? 0 : 1)));
+    if (isUuid(taskId)) {
+      const params = new URLSearchParams();
+      params.set('taskId', taskId);
+      if (commentId) params.set('commentId', commentId);
+      navigate(`/tasks?${params.toString()}`);
+      setSelectedTaskId(taskId);
+      if (commentId) setHighlightedActivityId(commentId);
+      return;
+    }
+    if (!row?.read_at) loadNotifications();
+  };
 
   useEffect(() => {
     if (!activeWorkspaceId) return undefined;
@@ -384,10 +489,49 @@ export default function TasksPage() {
               />
             </div>
             <div className="flex items-center gap-4">
-              <button className="p-2 text-gray-500 hover:text-gray-300 rounded-full hover:bg-dark-200 transition relative">
-                <i className="fa-regular fa-bell text-lg" />
-                <span className="absolute top-1.5 right-2 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-dark-300" />
-              </button>
+              <div className="relative">
+                <button
+                  className="p-2 text-gray-500 hover:text-gray-300 rounded-full hover:bg-dark-200 transition relative"
+                  onClick={async () => {
+                    const next = !notificationsOpen;
+                    setNotificationsOpen(next);
+                    if (next) await loadNotifications();
+                  }}
+                >
+                  <i className="fa-regular fa-bell text-lg" />
+                  {notificationUnread > 0 && (
+                    <span className="absolute top-1.5 right-2 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-dark-300" />
+                  )}
+                </button>
+                {notificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-96 max-h-96 overflow-y-auto rounded-lg border border-gray-700 bg-dark-200 shadow-xl z-30">
+                    <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-100">Notifications</span>
+                      <span className="text-xs text-gray-400">{notificationUnread} unread</span>
+                    </div>
+                    {notificationsLoading ? (
+                      <div className="px-3 py-4 text-sm text-gray-400">Loading...</div>
+                    ) : notifications.length ? (
+                      notifications.map((row) => (
+                        <button
+                          key={row.id}
+                          onClick={() => handleNotificationClick(row)}
+                          className="w-full text-left px-3 py-3 border-b border-gray-800 hover:bg-dark-100 transition"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm ${row.read_at ? 'text-gray-300' : 'text-gray-100 font-medium'}`}>{row.title || 'Notification'}</p>
+                            {!row.read_at && <span className="mt-1 h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{row.body_md || ''}</p>
+                          <p className="text-[11px] text-gray-500 mt-1">{formatNotificationTime(row.created_at)}</p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-gray-400">No notifications yet.</div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="h-8 w-px bg-gray-800 mx-1" />
               <div className="flex items-center gap-3 cursor-pointer hover:bg-dark-200 p-1.5 rounded-lg transition">
                 <img
@@ -417,14 +561,81 @@ export default function TasksPage() {
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
                     </div>
                     <span className="text-xs font-medium text-gray-300">
-                      My Tasks Today: <span className="font-bold text-white">4/12</span>
+                      My Tasks Today: <span className="font-bold text-white">{todayProgress.done}/{todayProgress.total}</span>
                     </span>
                   </div>
 
-                  <button className="inline-flex items-center px-3 py-2 border border-gray-700 shadow-sm text-sm font-medium rounded-md text-gray-300 bg-dark-200 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition">
-                    <i className="fa-solid fa-filter mr-2 text-gray-500" />
-                    Filter
-                  </button>
+                  <div className="relative">
+                    <button
+                      className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition ${hasActiveFilters ? 'border-primary-500 text-primary-300 bg-primary-500/10' : 'border-gray-700 text-gray-300 bg-dark-200 hover:bg-dark-100'}`}
+                      onClick={() => setFiltersOpen((open) => !open)}
+                    >
+                      <i className="fa-solid fa-filter mr-2 text-gray-500" />
+                      Filter
+                    </button>
+                    {filtersOpen && (
+                      <div className="absolute right-0 mt-2 w-72 rounded-lg border border-gray-700 bg-dark-200 shadow-xl p-3 z-20">
+                        <label className="block text-xs text-gray-400 mb-1">Status</label>
+                        <select
+                          className="w-full mb-3 px-2 py-1.5 bg-dark-300 border border-gray-700 rounded text-sm text-gray-200"
+                          value={selectedStatus}
+                          onChange={(e) => setSelectedStatus(e.target.value)}
+                        >
+                          <option value="">All statuses</option>
+                          {statuses.map((status) => (
+                            <option key={status.key} value={status.key}>
+                              {status.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="block text-xs text-gray-400 mb-1">Assignee</label>
+                        <select
+                          className="w-full mb-3 px-2 py-1.5 bg-dark-300 border border-gray-700 rounded text-sm text-gray-200"
+                          value={selectedAssignee}
+                          onChange={(e) => setSelectedAssignee(e.target.value)}
+                        >
+                          <option value="">All assignees</option>
+                          {assignees.map((assignee) => (
+                            <option key={assignee.id} value={assignee.id}>
+                              {assignee.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="block text-xs text-gray-400 mb-1">Due Date</label>
+                        <select
+                          className="w-full mb-3 px-2 py-1.5 bg-dark-300 border border-gray-700 rounded text-sm text-gray-200"
+                          value={selectedDue}
+                          onChange={(e) => setSelectedDue(e.target.value)}
+                        >
+                          <option value="">Any due date</option>
+                          <option value="today">Due today</option>
+                          <option value="overdue">Overdue</option>
+                          <option value="none">No due date</option>
+                        </select>
+
+                        <div className="flex items-center justify-between">
+                          <button
+                            className="text-xs text-gray-400 hover:text-gray-200"
+                            onClick={() => {
+                              setSelectedStatus('');
+                              setSelectedAssignee('');
+                              setSelectedDue('');
+                            }}
+                          >
+                            Clear filters
+                          </button>
+                          <button
+                            className="text-xs text-gray-300 hover:text-white"
+                            onClick={() => setFiltersOpen(false)}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     className="inline-flex items-center px-3 py-2 border border-gray-700 shadow-sm text-sm font-medium rounded-md text-gray-300 bg-dark-200 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition"
                     onClick={() => setRefreshKey((k) => k + 1)}
@@ -465,6 +676,7 @@ export default function TasksPage() {
             <TaskDetailPanel
               task={selectedTask}
               activity={activity}
+              highlightedActivityId={highlightedActivityId}
               statuses={statuses}
               assignees={assignees}
               saving={savingTask}

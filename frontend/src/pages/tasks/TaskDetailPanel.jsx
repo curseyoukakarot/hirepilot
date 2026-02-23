@@ -5,6 +5,7 @@ import TaskActivityFeed from './TaskActivityFeed';
 export default function TaskDetailPanel({
   task,
   activity,
+  highlightedActivityId,
   statuses = [],
   assignees = [],
   onFieldUpdate,
@@ -198,7 +199,7 @@ export default function TaskDetailPanel({
           </div>
         </div>
 
-        <TaskActivityFeed activity={activity} />
+        <TaskActivityFeed activity={activity} highlightedActivityId={highlightedActivityId} />
       </div>
 
       <div className="p-4 border-t border-gray-800 bg-dark-200">

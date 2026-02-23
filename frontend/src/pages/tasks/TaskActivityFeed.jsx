@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function TaskActivityFeed({ activity }) {
+export default function TaskActivityFeed({ activity, highlightedActivityId }) {
   return (
     <div className="mt-8">
       <h3 className="text-sm font-bold text-white mb-4 flex items-center justify-between">
@@ -12,7 +12,7 @@ export default function TaskActivityFeed({ activity }) {
         {activity.map((item) => {
           if (item.type === 'system') {
             return (
-              <div className="relative" key={item.id}>
+              <div className="relative" key={item.id} id={`task-activity-${item.id}`}>
                 <div className="absolute -left-[21px] top-0 h-3 w-3 rounded-full border-2 border-dark-300 bg-gray-600" />
                 <div className="flex flex-col gap-1">
                   <div className="flex items-baseline gap-2">
@@ -26,7 +26,7 @@ export default function TaskActivityFeed({ activity }) {
           }
 
           return (
-            <div className="relative" key={item.id}>
+            <div className="relative" key={item.id} id={`task-activity-${item.id}`}>
               <div className="absolute -left-[25px] top-0">
                 <img src={item.avatar} className="w-5 h-5 rounded-full ring-2 ring-dark-300" alt={item.author} />
               </div>
@@ -38,8 +38,16 @@ export default function TaskActivityFeed({ activity }) {
                 <div
                   className={
                     item.type === 'comment-primary'
-                      ? 'bg-primary-600/20 p-3 rounded-lg rounded-tl-none border border-primary-500/30 text-sm text-gray-200 shadow-sm'
-                      : 'bg-dark-200 p-3 rounded-lg rounded-tl-none border border-gray-800 text-sm text-gray-300 shadow-sm'
+                      ? `bg-primary-600/20 p-3 rounded-lg rounded-tl-none border text-sm text-gray-200 shadow-sm ${
+                          item.highlighted || String(item.id) === String(highlightedActivityId)
+                            ? 'border-yellow-400 ring-1 ring-yellow-300/70'
+                            : 'border-primary-500/30'
+                        }`
+                      : `bg-dark-200 p-3 rounded-lg rounded-tl-none border text-sm text-gray-300 shadow-sm ${
+                          item.highlighted || String(item.id) === String(highlightedActivityId)
+                            ? 'border-yellow-400 ring-1 ring-yellow-300/70'
+                            : 'border-gray-800'
+                        }`
                   }
                 >
                   <p>{item.body}</p>
