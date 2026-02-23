@@ -30,11 +30,18 @@ type Membership = {
   status: string | null;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TAB_ALIASES = ['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed'] as const;
+
 function resolveWorkspaceId(req: Request): string | null {
   const fromHeader = String(req.headers['x-workspace-id'] || '').trim();
   const fromQuery = String((req.query as any)?.workspaceId || '').trim();
   const fromCtx = String((req as any).workspaceId || '').trim();
   return (fromHeader || fromQuery || fromCtx) || null;
+}
+
+function isUuid(value: string | null | undefined): boolean {
+  return UUID_REGEX.test(String(value || '').trim());
 }
 
 function normalizeRole(role: string | null | undefined): string {
@@ -243,15 +250,17 @@ router.get(['', '/'], requireTaskApiKeyScope('tasks:read'), async (req: Request,
   }
 });
 
+TAB_ALIASES.forEach((tabKey) => {
+  router.get(`/${tabKey}`, requireTaskApiKeyScope('tasks:read'), (req: Request, res: Response) => {
+    const params = new URLSearchParams((req.query as any) || {});
+    params.set('tab', tabKey);
+    return res.redirect(307, `/api/tasks?${params.toString()}`);
+  });
+});
+
 router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
-    const idParam = String(req.params.id || '').trim();
-    const tabAliases = new Set(['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed']);
-    if (tabAliases.has(idParam)) {
-      const params = new URLSearchParams((req.query as any) || {});
-      params.set('tab', idParam);
-      return res.redirect(307, `/api/tasks?${params.toString()}`);
-    }
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
 
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
@@ -376,6 +385,7 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
 
 router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -437,6 +447,7 @@ router.patch('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request,
 
 router.patch('/:id/status', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -528,6 +539,7 @@ router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: R
 
 router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -592,6 +604,7 @@ router.post('/:id/follow-up', requireTaskApiKeyScope('tasks:write'), async (req:
 
 router.post('/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -621,6 +634,7 @@ router.post('/:id/complete', requireTaskApiKeyScope('tasks:write'), async (req: 
 
 router.post('/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -650,6 +664,7 @@ router.post('/:id/reopen', requireTaskApiKeyScope('tasks:write'), async (req: Re
 
 router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -678,6 +693,7 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
 
 router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
@@ -713,6 +729,7 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
 
 router.delete('/:id', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);

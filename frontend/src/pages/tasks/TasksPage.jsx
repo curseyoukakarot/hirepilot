@@ -88,6 +88,10 @@ function emptyCounts() {
   };
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [tabCounts, setTabCounts] = useState(emptyCounts());
@@ -222,7 +226,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     let mounted = true;
-    if (!selectedTaskId) {
+    if (!selectedTaskId || !isUuid(selectedTaskId)) {
       setSelectedTask(null);
       setActivity([]);
       return;
