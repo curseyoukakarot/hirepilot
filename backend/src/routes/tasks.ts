@@ -419,9 +419,13 @@ router.post('/statuses', requireTaskApiKeyScope('tasks:write'), async (req: Requ
 });
 
 async function resolveRecordRequestContext(req: Request, explicitTaskId: string | null = null) {
-  const taskId = String(explicitTaskId || (typeof req.params.id === 'string' ? req.params.id : '') || '').trim();
+  // Prefer explicitTaskId when valid; avoid req.params fallback (/:id can capture "record" on misrouted requests)
+  const explicit = typeof explicitTaskId === 'string' ? String(explicitTaskId).trim() : '';
+  const taskId = explicit && isUuid(explicit)
+    ? explicit
+    : String((typeof (req.params as any)?.id === 'string' ? (req.params as any).id : '') || '').trim();
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H1',location:'routes/tasks.ts:resolveRecordRequestContext:entry',message:'resolver entry values',data:{explicitTaskIdLen:String(explicitTaskId || '').length,paramTaskIdLen:String((req.params as any)?.id || '').length,finalTaskIdLen:taskId.length,isUuidFinal:isUuid(taskId)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/618677c7-c76b-4616-acaf-83dcd722fe68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'record400-debug-run4',hypothesisId:'H1',location:'routes/tasks.ts:resolveRecordRequestContext:entry',message:'resolver entry values',data:{explicitTaskIdLen:String(explicitTaskId || '').length,paramTaskIdLen:String((req.params as any)?.id || '').length,finalTaskIdLen:taskId.length,isUuidFinal:isUuid(taskId),usedExplicit:Boolean(explicit&&isUuid(explicit))},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   if (!taskId || !isUuid(taskId)) {
     // #region agent log
