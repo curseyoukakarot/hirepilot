@@ -4,6 +4,7 @@ import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import type { KanbanBoard, KanbanCard } from '../../shared/kanbanTypes';
+import TaskCreateModal from '../tasks/TaskCreateModal';
 
 type CardLink = {
   id: string;
@@ -57,6 +58,9 @@ export default function KanbanBoardPage() {
   const [newChecklistItem, setNewChecklistItem] = React.useState('');
   const [commentBody, setCommentBody] = React.useState('');
   const [comments, setComments] = React.useState<CardComment[]>([]);
+  const [showConvertTaskModal, setShowConvertTaskModal] = React.useState(false);
+  const [convertingTask, setConvertingTask] = React.useState(false);
+  const [taskDraft, setTaskDraft] = React.useState<{ title: string; description: string }>({ title: '', description: '' });
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [showFilterMenu, setShowFilterMenu] = React.useState(false);
   const [showViewMenu, setShowViewMenu] = React.useState(false);
@@ -197,6 +201,25 @@ export default function KanbanBoardPage() {
   const boardMembers = board?.members || [];
   const visibleMembers = boardMembers.slice(0, 3);
   const overflowMembers = boardMembers.length - visibleMembers.length;
+  const taskAssignees = React.useMemo(
+    () =>
+      boardMembers
+        .map((member) => ({
+          id: member.memberId,
+          name: String(member.user?.fullName || member.user?.email || member.email || 'Teammate'),
+        }))
+        .filter((member) => member.id),
+    [boardMembers]
+  );
+
+  const buildTaskTitle = (value?: string | null) => {
+    const firstLine =
+      String(value || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .find(Boolean) || 'Follow up';
+    return firstLine.slice(0, 80);
+  };
 
   const resolveMemberInitials = (fullName?: string | null) => {
     const parts = String(fullName || '').split(' ').filter(Boolean);
@@ -455,6 +478,36 @@ export default function KanbanBoardPage() {
       setCommentBody('');
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleOpenConvertTask = (body?: string | null) => {
+    const content = String(body || '').trim();
+    setTaskDraft({
+      title: buildTaskTitle(content),
+      description: content,
+    });
+    setShowConvertTaskModal(true);
+  };
+
+  const handleCreateTaskFromComment = async (form: { title: string; description: string; assigneeId?: string; dueDate?: string }) => {
+    if (!selectedCard?.id) return;
+    setConvertingTask(true);
+    try {
+      await apiPost('/api/tasks/from-note', {
+        note: form.description || taskDraft.description || '',
+        title: String(form.title || taskDraft.title || '').trim(),
+        assigned_to_user_id: form.assigneeId || null,
+        due_at: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        related_type: 'kanban_card',
+        related_id: selectedCard.id,
+      });
+      toast.success('Task created from comment');
+      setShowConvertTaskModal(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create task');
+    } finally {
+      setConvertingTask(false);
     }
   };
 
@@ -1849,6 +1902,13 @@ export default function KanbanBoardPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-semibold text-white">{comment.author?.fullName || 'Teammate'}</span>
                           <span className="text-xs text-gray-500">{formatTimestamp(comment.createdAt)}</span>
+                          <button
+                            type="button"
+                            className="ml-auto text-xs text-indigo-300 hover:text-indigo-200 font-medium"
+                            onClick={() => handleOpenConvertTask(comment.body)}
+                          >
+                            Convert to Task
+                          </button>
                         </div>
                         <p className="text-sm text-gray-300 leading-relaxed">{comment.body}</p>
                       </div>
@@ -2018,6 +2078,17 @@ export default function KanbanBoardPage() {
           </div>
         </div>
       </div>
+      <TaskCreateModal
+        open={showConvertTaskModal}
+        onClose={() => setShowConvertTaskModal(false)}
+        creating={convertingTask}
+        assignees={taskAssignees}
+        initialValues={{
+          title: taskDraft.title,
+          description: taskDraft.description,
+        }}
+        onCreate={handleCreateTaskFromComment}
+      />
     </div>
   );
 }

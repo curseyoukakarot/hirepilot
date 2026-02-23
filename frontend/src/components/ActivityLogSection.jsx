@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import LogActivityModal from './LogActivityModal';
 import { supabase } from '../lib/supabaseClient';
+import { apiPost } from '../lib/api';
+import TaskCreateModal from '../pages/tasks/TaskCreateModal';
 
 const API_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
 
@@ -11,7 +14,16 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
   const [emailLoading, setEmailLoading] = useState(true);
   const [emailError, setEmailError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
+  const [taskAssignees, setTaskAssignees] = useState([]);
   const [error, setError] = useState('');
+
+  const truncateTaskTitle = (value) => {
+    const firstLine = String(value || '').split('\n').map((line) => line.trim()).find(Boolean) || 'Follow up';
+    return firstLine.slice(0, 80);
+  };
 
   // Helper to get auth headers - memoized to prevent recreating on every render
   const getAuthHeaders = useCallback(async () => {
@@ -108,6 +120,30 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     fetchActivities();
     fetchEmailEvents();
   }, [fetchActivities, fetchEmailEvents]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!active || !user?.id) return;
+        const { data: me } = await supabase
+          .from('users')
+          .select('id,first_name,last_name,email')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!active || !me?.id) return;
+        const fullName = [me.first_name, me.last_name].filter(Boolean).join(' ').trim() || me.email || 'Me';
+        setTaskAssignees([{ id: me.id, name: fullName }]);
+      } catch {
+        if (!active) return;
+        setTaskAssignees([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleActivityAdded = (newActivity) => {
     // Add the new activity to the top of the list
@@ -248,6 +284,37 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
     return eventType.charAt(0).toUpperCase() + eventType.slice(1);
   };
 
+  const handleOpenConvertModal = (notes) => {
+    const body = String(notes || '').trim();
+    setTaskDraft({
+      title: truncateTaskTitle(body),
+      description: body,
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleCreateTaskFromActivity = async (form) => {
+    const relatedId = entityType === 'lead' ? lead?.id : (lead?.lead_id || lead?.id);
+    if (!relatedId) return;
+    setCreatingTask(true);
+    try {
+      await apiPost('/api/tasks/from-note', {
+        note: form.description || taskDraft.description || '',
+        title: (form.title || taskDraft.title || '').trim(),
+        assigned_to_user_id: form.assigneeId || null,
+        due_at: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        related_type: entityType === 'candidate' ? 'candidate' : 'lead',
+        related_id: relatedId,
+      });
+      toast.success('Task created from note');
+      setShowTaskModal(false);
+    } catch (err) {
+      toast.error(err?.message || 'Failed to create task');
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Section Header */}
@@ -381,6 +448,15 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-xs text-gray-500">{formatDate(activity.activity_timestamp)}</span>
+                        {activity.notes && (
+                          <button
+                            onClick={() => handleOpenConvertModal(activity.notes)}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            title="Convert this note to a task"
+                          >
+                            Convert to Task
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteActivity(activity.id)}
                           className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all duration-200 p-1"
@@ -411,6 +487,17 @@ export default function ActivityLogSection({ lead, onActivityAdded, entityType =
           onActivityAdded={handleActivityAdded}
         />
       )}
+      <TaskCreateModal
+        open={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        creating={creatingTask}
+        assignees={taskAssignees}
+        initialValues={{
+          title: taskDraft.title,
+          description: taskDraft.description,
+        }}
+        onCreate={handleCreateTaskFromActivity}
+      />
     </div>
   );
 }

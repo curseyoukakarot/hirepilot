@@ -1,18 +1,34 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 const INITIAL_FORM = {
   title: '',
   description: '',
-  assignee: 'Sarah Johnson',
+  assigneeId: '',
   dueDate: '',
   relatedObject: '',
 };
 
-export default function TaskCreateModal({ open, onClose, onCreate }) {
+export default function TaskCreateModal({
+  open,
+  onClose,
+  onCreate,
+  assignees = [],
+  creating = false,
+  initialValues = null,
+}) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [attempted, setAttempted] = useState(false);
 
   const titleError = useMemo(() => (attempted && !form.title.trim() ? 'Task title is required.' : ''), [attempted, form.title]);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      ...INITIAL_FORM,
+      ...(initialValues || {}),
+    });
+    setAttempted(false);
+  }, [open, initialValues]);
 
   if (!open) {
     return null;
@@ -55,12 +71,16 @@ export default function TaskCreateModal({ open, onClose, onCreate }) {
                     <div>
                       <label className="block text-sm font-medium text-gray-400">Assignee</label>
                       <select
-                        value={form.assignee}
-                        onChange={(e) => setForm((prev) => ({ ...prev, assignee: e.target.value }))}
+                        value={form.assigneeId}
+                        onChange={(e) => setForm((prev) => ({ ...prev, assigneeId: e.target.value }))}
                         className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md border bg-dark-200 text-gray-200"
                       >
-                        <option>Sarah Johnson</option>
-                        <option>Mike Ross</option>
+                        <option value="">Unassigned</option>
+                        {assignees.map((assignee) => (
+                          <option key={assignee.id} value={assignee.id}>
+                            {assignee.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -98,13 +118,15 @@ export default function TaskCreateModal({ open, onClose, onCreate }) {
               className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm transition shadow-glow"
               onClick={() => {
                 setAttempted(true);
+                if (creating) return;
                 if (!form.title.trim()) return;
                 onCreate(form);
                 setForm(INITIAL_FORM);
                 setAttempted(false);
               }}
+              disabled={creating}
             >
-              Create Task
+              {creating ? 'Creating...' : 'Create Task'}
             </button>
             <button
               type="button"

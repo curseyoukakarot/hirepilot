@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
+import { apiPost } from '../lib/api';
 import JobDetailsCard from '../components/job/JobDetailsCard';
 import JobPipeline from './JobPipeline';
 import PipelineBoard from '../components/pipeline/PipelineBoard';
@@ -9,6 +10,7 @@ import DfyDashboard from './DfyDashboard';
 import AddGuestModal from '../components/AddGuestModal';
 import UpgradeModal from '../components/UpgradeModal';
 import ShareJobModal from '../components/ShareJobModal';
+import TaskCreateModal from '../pages/tasks/TaskCreateModal';
 import { useAppMode } from '../lib/appMode';
 
 export default function JobRequisitionPage() {
@@ -34,6 +36,9 @@ export default function JobRequisitionPage() {
   const [descDraft, setDescDraft] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [showConvertTaskModal, setShowConvertTaskModal] = useState(false);
+  const [convertingTask, setConvertingTask] = useState(false);
+  const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const appMode = useAppMode();
@@ -251,6 +256,27 @@ export default function JobRequisitionPage() {
 
   const collaboratorUserIds = useMemo(() => new Set((team || []).map(t => t.user_id || t.users?.id)), [team]);
   const availableOrgUsers = useMemo(() => (orgUsers || []).filter(u => !collaboratorUserIds.has(u.id)), [orgUsers, collaboratorUserIds]);
+  const taskAssignees = useMemo(() => {
+    const entries = [];
+    const addUser = (u) => {
+      if (!u?.id) return;
+      const name = [u.first_name, u.last_name].filter(Boolean).join(' ').trim() || u.full_name || u.email || 'User';
+      entries.push({ id: u.id, name });
+    };
+    addUser(currentUser);
+    (orgUsers || []).forEach(addUser);
+    (team || []).forEach((t) => addUser(t?.users || (t?.user_id ? { id: t.user_id, email: t.email } : null)));
+    const byId = new Map();
+    entries.forEach((entry) => {
+      if (!byId.has(entry.id)) byId.set(entry.id, entry);
+    });
+    return Array.from(byId.values());
+  }, [currentUser, orgUsers, team]);
+
+  const buildTaskTitle = (text) => {
+    const firstLine = String(text || '').split('\n').map((line) => line.trim()).find(Boolean) || 'Follow up';
+    return firstLine.slice(0, 80);
+  };
 
   const handleEdit = (label) => {
     if (label === 'description') {
@@ -309,6 +335,34 @@ export default function JobRequisitionPage() {
       setNoteText('');
     } catch (e) {
       alert(e.message || 'Failed to post note');
+    }
+  };
+  const handleOpenConvertTask = (content) => {
+    const body = String(content || '').trim();
+    setTaskDraft({
+      title: buildTaskTitle(body),
+      description: body,
+    });
+    setShowConvertTaskModal(true);
+  };
+
+  const handleCreateTaskFromNote = async (form) => {
+    setConvertingTask(true);
+    try {
+      await apiPost('/api/tasks/from-note', {
+        note: form.description || taskDraft.description || '',
+        title: (form.title || taskDraft.title || '').trim(),
+        assigned_to_user_id: form.assigneeId || null,
+        due_at: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        related_type: 'job_req',
+        related_id: id,
+      });
+      toast.success('Task created from note');
+      setShowConvertTaskModal(false);
+    } catch (e) {
+      toast.error(e?.message || 'Failed to create task');
+    } finally {
+      setConvertingTask(false);
     }
   };
   const handleAddTeammate = () => setShowAddTeammateModal(true);
@@ -624,6 +678,14 @@ export default function JobRequisitionPage() {
                             <span>{displayName(noteActors[n.actor_id]) || displayName(currentUser) || (n.actor_id || 'Unknown')}</span>
                             <span className="mx-1">•</span>
                             <span>{new Date(n.created_at).toLocaleString()}</span>
+                            <span className="mx-1">•</span>
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:text-blue-700 font-medium"
+                              onClick={() => handleOpenConvertTask(n.content)}
+                            >
+                              Convert to Task
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -834,6 +896,17 @@ export default function JobRequisitionPage() {
       </div>
     </div>
     {shareOpen && <ShareJobModal job={job} open={shareOpen} onClose={()=>setShareOpen(false)} />}
+    <TaskCreateModal
+      open={showConvertTaskModal}
+      onClose={() => setShowConvertTaskModal(false)}
+      creating={convertingTask}
+      assignees={taskAssignees}
+      initialValues={{
+        title: taskDraft.title,
+        description: taskDraft.description,
+      }}
+      onCreate={handleCreateTaskFromNote}
+    />
     </>
   );
 }

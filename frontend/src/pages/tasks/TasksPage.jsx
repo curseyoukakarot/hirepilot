@@ -1,51 +1,241 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import TasksTabs from './TasksTabs';
 import TasksList from './TasksList';
 import TaskDetailPanel from './TaskDetailPanel';
 import TaskCreateModal from './TaskCreateModal';
-import { MOCK_ACTIVITY, MOCK_TASKS, TASK_TABS } from './mockTasks';
+import { TASK_TABS } from './mockTasks';
+import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 import './tasks-theme.css';
 
-function getTabTasks(tasks, tabKey) {
-  if (tabKey === 'assigned_to_me') return tasks.filter((task) => task.assignedToMe && !task.completed);
-  if (tabKey === 'assigned_by_me') return tasks.filter((task) => task.assignedByMe && !task.completed);
-  if (tabKey === 'all_team') return tasks.filter((task) => !task.completed);
-  if (tabKey === 'overdue') return tasks.filter((task) => task.dueOverdue && !task.completed);
-  if (tabKey === 'completed') return tasks.filter((task) => task.completed);
-  return tasks;
+function normalizeDateLabel(dueAt) {
+  if (!dueAt) return 'No due date';
+  const dt = new Date(dueAt);
+  if (Number.isNaN(dt.getTime())) return 'No due date';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const itemDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+  if (itemDay === today) return `Today, ${dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  if (itemDay === today - 86400000) return 'Yesterday';
+  if (itemDay === today + 86400000) return 'Tomorrow';
+  return dt.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function countByTab(tasks) {
+function mapPriorityTone(priority) {
+  const normalized = String(priority || '').toLowerCase();
+  if (normalized === 'high') return 'red';
+  if (normalized === 'medium') return 'orange';
+  return 'blue';
+}
+
+function mapStatusTone(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (['completed', 'done'].includes(normalized)) return 'green';
+  if (['in_progress', 'in progress', 'in review'].includes(normalized)) return 'blue';
+  if (['waiting', 'blocked'].includes(normalized)) return 'yellow';
+  return 'gray';
+}
+
+function mapRelatedIcon(relatedType) {
+  const normalized = String(relatedType || '').toLowerCase();
+  if (normalized === 'lead') return 'fa-solid fa-user-tie';
+  if (normalized === 'job_req') return 'fa-solid fa-briefcase';
+  if (normalized === 'kanban_card') return 'fa-solid fa-layer-group';
+  if (normalized === 'dashboard_item') return 'fa-solid fa-chart-line';
+  return 'fa-solid fa-link';
+}
+
+function mapTask(task, usersById = {}) {
+  const assignee = task.assigned_to_user_id ? usersById[task.assigned_to_user_id] : null;
+  const isCompleted = Boolean(task.completed_at) || String(task.status || '').toLowerCase() === 'completed';
+  const dueOverdue = Boolean(task.due_at) && new Date(task.due_at).getTime() < Date.now() && !isCompleted;
   return {
-    assigned_to_me: tasks.filter((task) => task.assignedToMe && !task.completed).length,
-    assigned_by_me: tasks.filter((task) => task.assignedByMe && !task.completed).length,
-    all_team: tasks.filter((task) => !task.completed).length,
-    overdue: tasks.filter((task) => task.dueOverdue && !task.completed).length,
-    completed: tasks.filter((task) => task.completed).length,
+    id: task.id,
+    code: String(task.id || '').slice(0, 8).toUpperCase(),
+    title: task.title || 'Untitled Task',
+    status: task.status_label || task.status || 'open',
+    statusKey: task.status || 'open',
+    statusTone: mapStatusTone(task.status || ''),
+    dueLabel: normalizeDateLabel(task.due_at),
+    dueAt: task.due_at || null,
+    dueOverdue,
+    priority: String(task.priority || 'medium').replace(/^./, (c) => c.toUpperCase()),
+    priorityKey: String(task.priority || 'medium').toLowerCase(),
+    priorityTone: mapPriorityTone(task.priority || 'medium'),
+    commentCount: Number(task.comment_count || 0),
+    relatedLabel: task.related_id ? `${task.related_type || 'related'} #${String(task.related_id).slice(0, 6)}` : 'Unlinked',
+    relatedTypeIcon: mapRelatedIcon(task.related_type),
+    ownerAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+    assigneeName: assignee?.name || 'Unassigned',
+    assigneeAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+    assigneeId: task.assigned_to_user_id || '',
+    createdAt: task.created_at ? `Created ${new Date(task.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : 'Created --',
+    description: task.description || 'No description',
+    completed: isCompleted,
+    raw: task,
+  };
+}
+
+function emptyCounts() {
+  return {
+    assigned_to_me: 0,
+    assigned_by_me: 0,
+    all_team: 0,
+    overdue: 0,
+    completed: 0,
   };
 }
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const [tasks, setTasks] = useState([]);
+  const [tabCounts, setTabCounts] = useState(emptyCounts());
   const [activeTab, setActiveTab] = useState('assigned_to_me');
   const [search, setSearch] = useState('');
-  const [selectedTaskId, setSelectedTaskId] = useState(MOCK_TASKS.find((t) => t.selected)?.id || MOCK_TASKS[0]?.id);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [statuses, setStatuses] = useState([]);
+  const [assignees, setAssignees] = useState([]);
+  const [usersById, setUsersById] = useState({});
+  const [activity, setActivity] = useState([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const tabCounts = useMemo(() => countByTab(tasks), [tasks]);
-  const tabTasks = useMemo(() => getTabTasks(tasks, activeTab), [tasks, activeTab]);
-  const filteredTasks = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return tabTasks;
-    return tabTasks.filter(
-      (task) => task.title.toLowerCase().includes(q) || task.relatedLabel.toLowerCase().includes(q) || task.assigneeName.toLowerCase().includes(q),
-    );
-  }, [search, tabTasks]);
+  const loadCounts = useCallback(async () => {
+    try {
+      const tabs = ['assigned_to_me', 'assigned_by_me', 'all_team', 'overdue', 'completed'];
+      const responses = await Promise.all(
+        tabs.map(async (tab) => {
+          const res = await apiGet(`/api/tasks?tab=${tab}`);
+          return { tab, count: Array.isArray(res?.tasks) ? res.tasks.length : 0 };
+        }),
+      );
+      const next = emptyCounts();
+      responses.forEach((entry) => {
+        next[entry.tab] = entry.count;
+      });
+      setTabCounts(next);
+    } catch {}
+  }, []);
 
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId) || filteredTasks[0] || null,
-    [tasks, selectedTaskId, filteredTasks],
-  );
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const authUser = authData?.user;
+        if (!authUser || !mounted) return;
+        const { data } = await supabase.from('users').select('id,first_name,last_name,email,team_id').eq('id', authUser.id).maybeSingle();
+        const current = data || {};
+        let users = [current];
+        if (current?.team_id) {
+          const { data: teamUsers } = await supabase.from('users').select('id,first_name,last_name,email').eq('team_id', current.team_id);
+          users = teamUsers || users;
+        }
+        const normalized = users
+          .filter((user) => user?.id)
+          .map((user) => ({
+            id: user.id,
+            name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Team Member',
+          }));
+        const map = normalized.reduce((acc, user) => ({ ...acc, [user.id]: user }), {});
+        if (mounted) {
+          setAssignees(normalized);
+          setUsersById(map);
+        }
+      } catch {}
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiGet('/api/tasks/statuses');
+        if (!mounted) return;
+        setStatuses(Array.isArray(res?.statuses) ? res.statuses : []);
+      } catch {
+        if (!mounted) return;
+        setStatuses([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      setLoadingList(true);
+      try {
+        const query = new URLSearchParams({ tab: activeTab, search }).toString();
+        const res = await apiGet(`/api/tasks?${query}`);
+        const rows = Array.isArray(res?.tasks) ? res.tasks : [];
+        const mapped = rows.map((task) => mapTask(task, usersById));
+        setTasks(mapped);
+        if (!selectedTaskId && mapped[0]) setSelectedTaskId(mapped[0].id);
+        if (selectedTaskId && !mapped.some((task) => task.id === selectedTaskId)) {
+          setSelectedTaskId(mapped[0]?.id || '');
+        }
+      } catch {
+        setTasks([]);
+      } finally {
+        setLoadingList(false);
+      }
+      loadCounts();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [activeTab, search, selectedTaskId, usersById, refreshKey, loadCounts]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!selectedTaskId) {
+      setSelectedTask(null);
+      setActivity([]);
+      return;
+    }
+    (async () => {
+      try {
+        const [taskRes, commentsRes] = await Promise.all([
+          apiGet(`/api/tasks/${selectedTaskId}`),
+          apiGet(`/api/tasks/${selectedTaskId}/comments`),
+        ]);
+        if (!mounted) return;
+        const task = taskRes?.task ? mapTask(taskRes.task, usersById) : null;
+        const comments = Array.isArray(commentsRes?.comments) ? commentsRes.comments : [];
+        setSelectedTask(task);
+        setActivity([
+          {
+            id: 'system-created',
+            type: 'system',
+            author: 'System',
+            at: task?.createdAt || 'Created',
+            body: 'Task created',
+          },
+          ...comments.map((comment) => ({
+            id: comment.id,
+            type: String(comment.user_id) === String(taskRes?.task?.assigned_to_user_id) ? 'comment-primary' : 'comment',
+            author: usersById[comment.user_id]?.name || 'Team Member',
+            at: comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now',
+            avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+            body: comment.body || '',
+          })),
+        ]);
+      } catch {
+        if (!mounted) return;
+        setSelectedTask(null);
+        setActivity([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedTaskId, refreshKey, usersById]);
 
   return (
     <div className="tasks-ui h-full min-h-full overflow-hidden">
@@ -122,15 +312,52 @@ export default function TasksPage() {
                 counts={tabCounts}
                 onChange={(key) => {
                   setActiveTab(key);
-                  const next = getTabTasks(tasks, key)[0];
-                  if (next) setSelectedTaskId(next.id);
+                  setSelectedTaskId('');
                 }}
               />
 
-              <TasksList tasks={filteredTasks} selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} />
+              <TasksList
+                tasks={tasks}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+              />
+              {loadingList && (
+                <div className="text-xs text-gray-500 mt-3 px-2">Loading tasks...</div>
+              )}
             </div>
 
-            <TaskDetailPanel task={selectedTask} activity={MOCK_ACTIVITY} />
+            <TaskDetailPanel
+              task={selectedTask}
+              activity={activity}
+              statuses={statuses}
+              assignees={assignees}
+              saving={savingTask}
+              onFieldUpdate={async (updates) => {
+                if (!selectedTaskId) return;
+                setSavingTask(true);
+                try {
+                  await apiPatch(`/api/tasks/${selectedTaskId}`, updates);
+                  setRefreshKey((k) => k + 1);
+                } finally {
+                  setSavingTask(false);
+                }
+              }}
+              onMarkComplete={async () => {
+                if (!selectedTaskId) return;
+                setSavingTask(true);
+                try {
+                  await apiPost(`/api/tasks/${selectedTaskId}/complete`, {});
+                  setRefreshKey((k) => k + 1);
+                } finally {
+                  setSavingTask(false);
+                }
+              }}
+              onAddComment={async (body) => {
+                if (!selectedTaskId) return;
+                await apiPost(`/api/tasks/${selectedTaskId}/comments`, { body });
+                setRefreshKey((k) => k + 1);
+              }}
+            />
           </div>
         </div>
       </main>
@@ -138,34 +365,29 @@ export default function TasksPage() {
       <TaskCreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreate={(form) => {
-          const newTask = {
-            id: `task-${Date.now()}`,
-            code: `TASK-${Math.floor(2000 + Math.random() * 5000)}`,
-            title: form.title.trim(),
-            status: 'To Do',
-            statusTone: 'gray',
-            dueLabel: form.dueDate || 'No due date',
-            dueSort: 100,
-            dueOverdue: false,
-            priority: 'Medium',
-            priorityTone: 'orange',
-            commentCount: 0,
-            relatedLabel: form.relatedObject || 'Unlinked',
-            relatedTypeIcon: 'fa-solid fa-link',
-            ownerAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
-            assigneeName: form.assignee || 'Unassigned',
-            assigneeAvatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
-            createdAt: 'Created just now',
-            description: form.description || 'No description',
-            assignedToMe: true,
-            assignedByMe: true,
-            completed: false,
-          };
-          setTasks((prev) => [newTask, ...prev]);
-          setActiveTab('assigned_to_me');
-          setSelectedTaskId(newTask.id);
-          setCreateOpen(false);
+        assignees={assignees}
+        creating={creatingTask}
+        onCreate={async (form) => {
+          setCreatingTask(true);
+          try {
+            const payload = {
+              title: form.title.trim(),
+              description: form.description || null,
+              assigned_to_user_id: form.assigneeId || null,
+              due_at: form.dueDate ? `${form.dueDate}T17:00:00.000Z` : null,
+              related_type: form.relatedObject ? 'note' : null,
+              related_id: null,
+              priority: 'medium',
+            };
+            const res = await apiPost('/api/tasks', payload);
+            const createdId = res?.task?.id || '';
+            setCreateOpen(false);
+            setActiveTab('assigned_to_me');
+            setRefreshKey((k) => k + 1);
+            if (createdId) setSelectedTaskId(createdId);
+          } finally {
+            setCreatingTask(false);
+          }
         }}
       />
     </div>
