@@ -555,8 +555,9 @@ app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
 // Hard mount tasks endpoints to avoid accidental shadowing by generic /api routers.
 app.use('/api/tasks', (req, _res, next) => {
-  const suffix = req.url === '/' ? '' : req.url;
-  req.url = `/tasks${suffix}`;
+  const [pathPart, queryPart] = String(req.url || '/').split('?');
+  const normalizedPath = pathPart === '/' ? '' : pathPart;
+  req.url = `/tasks${normalizedPath}${queryPart ? `?${queryPart}` : ''}`;
   next();
 }, tasksRouter);
   app.use('/api', apiRouter);
