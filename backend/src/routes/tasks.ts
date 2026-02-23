@@ -129,6 +129,12 @@ async function getGlobalRole(userId: string): Promise<string | null> {
   return String((data as any).role || '').trim() || null;
 }
 
+async function resolveEffectiveGlobalRole(userId: string, requestRole: unknown): Promise<string | null> {
+  const fromDb = await getGlobalRole(userId);
+  const fromRequest = String(requestRole || '').trim();
+  return fromDb || fromRequest || null;
+}
+
 async function getTaskForUser(taskId: string, userId: string, preferredWorkspaceId: string, globalRole: string | null) {
   if (!isUuid(taskId) || !isUuid(userId)) return null;
   const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
@@ -404,7 +410,7 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await getGlobalRole(userId);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
@@ -855,7 +861,7 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await getGlobalRole(userId);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
@@ -886,7 +892,7 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const globalRole = await getGlobalRole(userId);
+    const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
     const membership = await getMembership(userId, workspaceId);
     if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
