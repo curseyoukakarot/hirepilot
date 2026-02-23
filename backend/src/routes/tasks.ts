@@ -424,55 +424,43 @@ function getTaskIdFromRecordRequest(req: Request): string {
   return fromQuery || fromBody || '';
 }
 
-router.get('/record', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
-  try {
+/** Task-by-id handlers (fetch task + comments by task_id query param) */
+function createRecordHandlers() {
+  const getHandler = async (req: Request, res: Response) => {
     const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
     const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.json({ task: null });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
     const { count, error } = await supabase
       .from('task_comments')
       .select('id', { count: 'exact', head: true })
       .eq('workspace_id', workspaceId)
       .eq('task_id', taskId);
     if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-
     return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:get', 'task_fetch_failed', e);
-  }
-});
+  };
 
-router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
-  try {
+  const getCommentsHandler = async (req: Request, res: Response) => {
     const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
     const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.json({ comments: [] });
     if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
     const { data, error } = await supabase
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
@@ -480,41 +468,30 @@ router.get('/record/comments', requireTaskApiKeyScope('tasks:read'), async (req:
       .eq('task_id', taskId)
       .order('created_at', { ascending: true });
     if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
-
     return res.json({ comments: data || [] });
-  } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:list', 'task_comments_list_failed', e);
-  }
-});
+  };
 
-router.post('/record/comments', requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
-  try {
+  const postCommentsHandler = async (req: Request, res: Response) => {
     const taskId = getTaskIdFromRecordRequest(req);
     if (!taskId) return res.status(400).json({ error: 'task_id_required' });
     if (!isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
-
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
     if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
     const membership = await getMembership(userId, workspaceId);
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
     const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
     if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
-
     const { data, error } = await supabase
       .from('task_comments')
       .insert({ workspace_id: workspaceId, task_id: taskId, user_id: userId, body })
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .single();
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
-
     try {
       const candidates = await getWorkspaceMentionCandidates(workspaceId);
       const mentionedUserIds = resolveMentionedUserIds(body, candidates).filter((id) => id !== userId);
@@ -538,10 +515,36 @@ router.post('/record/comments', requireTaskApiKeyScope('tasks:write'), async (re
         );
       }
     } catch {}
-
     return res.status(201).json({ comment: data });
+  };
+
+  return { getHandler, getCommentsHandler, postCommentsHandler };
+}
+
+const recordHandlers = createRecordHandlers();
+
+/** Mounted at /api/tasks/fetch - bypasses main tasks router entirely to avoid /:id collision */
+export const taskFetchRouter = express.Router();
+taskFetchRouter.use(attachApiKeyAuth as any, requireAuth as any, activeWorkspace as any);
+taskFetchRouter.get('/', requireTaskApiKeyScope('tasks:read'), async (req, res) => {
+  try {
+    await recordHandlers.getHandler(req, res);
   } catch (e: any) {
-    return respondInternalError(res, 'tasks:record:comments:create', 'task_comment_create_failed', e);
+    return respondInternalError(res, 'tasks:fetch:get', 'task_fetch_failed', e);
+  }
+});
+taskFetchRouter.get('/comments', requireTaskApiKeyScope('tasks:read'), async (req, res) => {
+  try {
+    await recordHandlers.getCommentsHandler(req, res);
+  } catch (e: any) {
+    return respondInternalError(res, 'tasks:fetch:comments:list', 'task_comments_list_failed', e);
+  }
+});
+taskFetchRouter.post('/comments', requireTaskApiKeyScope('tasks:write'), async (req, res) => {
+  try {
+    await recordHandlers.postCommentsHandler(req, res);
+  } catch (e: any) {
+    return respondInternalError(res, 'tasks:fetch:comments:create', 'task_comment_create_failed', e);
   }
 });
 

@@ -339,8 +339,8 @@ export default function TasksPage() {
         const fallbackTask = tasks.find((row) => row.id === selectedTaskId) || null;
         const encodedTaskId = encodeURIComponent(selectedTaskId);
         const [taskRes, commentsRes] = await Promise.all([
-          apiGet(`/api/tasks/record?task_id=${encodedTaskId}`),
-          apiGet(`/api/tasks/record/comments?task_id=${encodedTaskId}`),
+          apiGet(`/api/tasks/fetch?task_id=${encodedTaskId}`),
+          apiGet(`/api/tasks/fetch/comments?task_id=${encodedTaskId}`),
         ]);
         if (!mounted) return;
         const task = taskRes?.task ? mapTask(taskRes.task, usersById) : fallbackTask;
@@ -771,7 +771,7 @@ export default function TasksPage() {
               onAddComment={async (body) => {
                 if (!selectedTaskId) return;
                 try {
-                  await apiPost('/api/tasks/record/comments', { task_id: selectedTaskId, body });
+                  await apiPost('/api/tasks/fetch/comments', { task_id: selectedTaskId, body });
                   setRefreshKey((k) => k + 1);
                 } catch (err) {
                   const message = String(err?.message || '');
