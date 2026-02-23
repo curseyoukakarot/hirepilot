@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import TasksTabs from './TasksTabs';
 import TasksList from './TasksList';
 import TaskDetailPanel from './TaskDetailPanel';
@@ -7,6 +7,8 @@ import { TASK_TABS } from './mockTasks';
 import { apiGet, apiPatch, apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import './tasks-theme.css';
+
+const WORKSPACE_STORAGE_KEY = 'hp_active_workspace_id';
 
 function normalizeDateLabel(dueAt) {
   if (!dueAt) return 'No due date';
@@ -103,6 +105,15 @@ export default function TasksPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentUserId, setCurrentUserId] = useState('');
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
+  const lastRealtimeRefreshAt = useRef(0);
+
+  const triggerLightRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRealtimeRefreshAt.current < 800) return;
+    lastRealtimeRefreshAt.current = now;
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const loadCounts = useCallback(async () => {
     try {
@@ -151,6 +162,21 @@ export default function TasksPage() {
     })();
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncWorkspace = () => {
+      try {
+        setActiveWorkspaceId(window.localStorage.getItem(WORKSPACE_STORAGE_KEY) || '');
+      } catch {
+        setActiveWorkspaceId('');
+      }
+    };
+    syncWorkspace();
+    window.addEventListener('storage', syncWorkspace);
+    return () => {
+      window.removeEventListener('storage', syncWorkspace);
     };
   }, []);
 
@@ -239,6 +265,66 @@ export default function TasksPage() {
     };
   }, [selectedTaskId, refreshKey, usersById]);
 
+  useEffect(() => {
+    if (!activeWorkspaceId) return undefined;
+    const ch = supabase
+      .channel(`tasks-realtime-${activeWorkspaceId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `workspace_id=eq.${activeWorkspaceId}` },
+        () => {
+          triggerLightRefresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {}
+    };
+  }, [activeWorkspaceId, triggerLightRefresh]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId || !selectedTaskId) return undefined;
+    const assigneeId = String(selectedTask?.assigneeId || '');
+    const ch = supabase
+      .channel(`task-comments-realtime-${selectedTaskId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'task_comments', filter: `workspace_id=eq.${activeWorkspaceId}` },
+        (payload) => {
+          const row = payload?.new;
+          if (!row || String(row.task_id) !== String(selectedTaskId)) return;
+          const nextItem = {
+            id: row.id,
+            type: String(row.user_id) === assigneeId ? 'comment-primary' : 'comment',
+            author: usersById[row.user_id]?.name || 'Team Member',
+            at: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
+            avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+            body: row.body || '',
+          };
+          setActivity((prev) => {
+            if (prev.some((item) => String(item.id) === String(row.id))) return prev;
+            return [...prev, nextItem];
+          });
+          setTasks((prev) => prev.map((task) => (task.id === selectedTaskId ? { ...task, commentCount: Number(task.commentCount || 0) + 1 } : task)));
+          setSelectedTask((prev) => (
+            prev && prev.id === selectedTaskId
+              ? { ...prev, commentCount: Number(prev.commentCount || 0) + 1 }
+              : prev
+          ));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {}
+    };
+  }, [activeWorkspaceId, selectedTaskId, selectedTask?.assigneeId, usersById]);
+
   return (
     <div className="tasks-ui h-full min-h-full overflow-hidden">
       <main className="text-gray-100 h-full overflow-hidden flex bg-dark-500">
@@ -297,6 +383,13 @@ export default function TasksPage() {
                   <button className="inline-flex items-center px-3 py-2 border border-gray-700 shadow-sm text-sm font-medium rounded-md text-gray-300 bg-dark-200 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition">
                     <i className="fa-solid fa-filter mr-2 text-gray-500" />
                     Filter
+                  </button>
+                  <button
+                    className="inline-flex items-center px-3 py-2 border border-gray-700 shadow-sm text-sm font-medium rounded-md text-gray-300 bg-dark-200 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition"
+                    onClick={() => setRefreshKey((k) => k + 1)}
+                  >
+                    <i className="fa-solid fa-rotate-right mr-2 text-gray-500" />
+                    Refresh
                   </button>
                   <button
                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition shadow-glow"
