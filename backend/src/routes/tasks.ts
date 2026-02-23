@@ -178,13 +178,6 @@ async function getTaskForWorkspace(taskId: string, workspaceId: string) {
   return data as any;
 }
 
-async function getTaskByIdAnyWorkspace(taskId: string) {
-  if (!isUuid(taskId)) return null;
-  const { data, error } = await getBypassClient().from('tasks').select('*').eq('id', taskId).maybeSingle();
-  if (error || !data) return null;
-  return data as any;
-}
-
 async function getGlobalRole(userId: string): Promise<string | null> {
   if (!isUuid(userId)) return null;
   const { data, error } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
@@ -349,17 +342,18 @@ router.get('/record/:id', requireTaskApiKeyScope('tasks:read'), async (req: Requ
   try {
     const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskByIdAnyWorkspace(taskId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.json({ task: null });
 
-    const realWorkspaceId = String(task.workspace_id || '').trim();
-    const { data: comments, error: commentsError } = await getBypassClient()
+    const { data: comments, error: commentsError } = await supabase
       .from('task_comments')
       .select('task_id')
-      .eq('workspace_id', realWorkspaceId)
+      .eq('workspace_id', workspaceId)
       .eq('task_id', taskId);
     if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_fetch_failed' });
 
@@ -375,16 +369,17 @@ router.get('/record/:id/comments', requireTaskApiKeyScope('tasks:read'), async (
   try {
     const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskByIdAnyWorkspace(taskId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.json({ comments: [] });
-    const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await getBypassClient()
+    const { data, error } = await supabase
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
-      .eq('workspace_id', realWorkspaceId)
+      .eq('workspace_id', workspaceId)
       .eq('task_id', taskId)
       .order('created_at', { ascending: true });
 
@@ -399,19 +394,20 @@ router.post('/record/:id/comments', requireTaskApiKeyScope('tasks:write'), async
   try {
     const taskId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
     if (!taskId || !isUuid(taskId)) return res.status(400).json({ error: 'invalid_task_id_format' });
+    const workspaceId = resolveWorkspaceId(req);
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const task = await getTaskByIdAnyWorkspace(taskId);
+    const task = await getTaskForWorkspace(taskId, workspaceId);
     if (!task) return res.status(404).json({ error: 'task_not_found' });
 
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
-    const realWorkspaceId = String(task.workspace_id || '').trim();
 
-    const { data, error } = await getBypassClient()
+    const { data, error } = await supabase
       .from('task_comments')
       .insert({
-        workspace_id: realWorkspaceId,
+        workspace_id: workspaceId,
         task_id: taskId,
         user_id: userId,
         body,
