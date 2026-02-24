@@ -355,15 +355,19 @@ export default function TasksPage() {
             at: task?.createdAt || 'Created',
             body: 'Task created',
           },
-          ...comments.map((comment) => ({
-            id: comment.id,
-            type: String(comment.user_id) === String(taskRes?.task?.assigned_to_user_id) ? 'comment-primary' : 'comment',
-            author: usersById[comment.user_id]?.name || 'Team Member',
-            at: comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now',
-            avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
-            body: comment.body || '',
-            highlighted: highlightedActivityId && String(comment.id) === String(highlightedActivityId),
-          })),
+          ...comments.map((comment) => {
+            const commentUser = usersById[comment.user_id];
+            const authorName = commentUser?.name || 'Team Member';
+            return {
+              id: comment.id,
+              type: String(comment.user_id) === String(taskRes?.task?.assigned_to_user_id) ? 'comment-primary' : 'comment',
+              author: authorName,
+              at: comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now',
+              avatar: commentUser?.avatar || avatarFallback(authorName),
+              body: comment.body || '',
+              highlighted: highlightedActivityId && String(comment.id) === String(highlightedActivityId),
+            };
+          }),
         ]);
         hasHighlightedComment = comments.some((comment) => String(comment.id) === String(highlightedActivityId));
         if (hasHighlightedComment) {
@@ -508,12 +512,14 @@ export default function TasksPage() {
         (payload) => {
           const row = payload?.new;
           if (!row || String(row.task_id) !== String(selectedTaskId)) return;
+          const realtimeUser = usersById[row.user_id];
+          const realtimeAuthor = realtimeUser?.name || 'Team Member';
           const nextItem = {
             id: row.id,
             type: String(row.user_id) === assigneeId ? 'comment-primary' : 'comment',
-            author: usersById[row.user_id]?.name || 'Team Member',
+            author: realtimeAuthor,
             at: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
-            avatar: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg',
+            avatar: realtimeUser?.avatar || avatarFallback(realtimeAuthor),
             body: row.body || '',
           };
           setActivity((prev) => {
