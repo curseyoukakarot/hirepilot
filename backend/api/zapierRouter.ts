@@ -266,13 +266,15 @@ router.post('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
     }
 
     // Manual upsert by (user_id, email) to avoid DB constraint requirement
-    const { data: existing, error: findErr } = await supabaseDb
+    const { data: existingRows, error: findErr } = await supabaseDb
       .from('leads')
       .select('id, created_at')
       .eq('user_id', userId)
       .eq('email', lead.email)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
     if (findErr) throw findErr;
+    const existing = existingRows?.[0] ?? null;
 
     let data: any;
     if (existing && existing.id) {
