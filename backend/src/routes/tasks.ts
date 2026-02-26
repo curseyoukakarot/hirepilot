@@ -163,9 +163,23 @@ async function getMembership(userId: string, workspaceId: string): Promise<Membe
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error || !data) return null;
-  if (String((data as any).status || '').toLowerCase() !== 'active') return null;
-  return data as Membership;
+  if (!error && data && String((data as any).status || '').toLowerCase() === 'active') {
+    return data as Membership;
+  }
+
+  // Super admins have implicit access to all workspaces even without
+  // an explicit workspace_members row.
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  const role = String((userRow as any)?.role || '').toLowerCase();
+  if (role === 'super_admin' || role === 'superadmin') {
+    return { role: 'super_admin', status: 'active' } as Membership;
+  }
+
+  return null;
 }
 
 async function getTaskForWorkspace(taskId: string, workspaceId: string) {
