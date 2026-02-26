@@ -5,6 +5,11 @@ import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { attachApiKeyAuth } from '../middleware/withApiKeyAuth';
 import { pushNotification } from '../lib/notifications';
+import {
+  sendTaskAssignedEmail,
+  sendTaskCommentEmail,
+  sendTaskCompletedEmail,
+} from '../services/taskEmailNotifications';
 
 const router = express.Router();
 
@@ -528,6 +533,15 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
       );
     }
   } catch {}
+
+  sendTaskCommentEmail({
+    workspaceId,
+    task,
+    assigneeUserId: (task as any).assigned_to_user_id || null,
+    commenterUserId: userId,
+    commentBody,
+  }).catch((e) => console.error('[tasks] comment email (fetch/comments)', e));
+
   return res.status(201).json({ comment: data });
 });
 
@@ -731,6 +745,15 @@ const createTaskHandler = async (req: Request, res: Response) => {
     const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
     if (error) return res.status(500).json({ error: error.message || 'task_create_failed' });
 
+    if (assignedTo) {
+      sendTaskAssignedEmail({
+        workspaceId,
+        task: data,
+        assigneeUserId: assignedTo,
+        assignerUserId: userId,
+      }).catch((e) => console.error('[tasks] assigned email', e));
+    }
+
     return res.status(201).json({ task: buildTaskResponse(data, 0) });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:create', 'task_create_failed', e);
@@ -787,6 +810,15 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
 
     const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
     if (error) return res.status(500).json({ error: error.message || 'task_from_note_failed' });
+
+    if (assignedTo) {
+      sendTaskAssignedEmail({
+        workspaceId,
+        task: data,
+        assigneeUserId: assignedTo,
+        assignerUserId: userId,
+      }).catch((e) => console.error('[tasks] assigned email (from-note)', e));
+    }
 
     return res.status(201).json({
       task: buildTaskResponse(data, 0),
@@ -862,6 +894,30 @@ router.patch(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), as
 
     if (error) return res.status(500).json({ error: error.message || 'task_update_failed' });
 
+    const wasCompleted = completedState(task);
+    const isNowCompleted = completedState(data);
+
+    if (updates.assigned_to_user_id !== undefined) {
+      const newAssignee = updates.assigned_to_user_id as string | null;
+      const oldAssignee = (task as any).assigned_to_user_id as string | null;
+      if (newAssignee && String(newAssignee) !== String(oldAssignee || '')) {
+        sendTaskAssignedEmail({
+          workspaceId,
+          task: data,
+          assigneeUserId: newAssignee,
+          assignerUserId: userId,
+        }).catch((e) => console.error('[tasks] assigned email (patch)', e));
+      }
+    }
+    if (!wasCompleted && isNowCompleted) {
+      sendTaskCompletedEmail({
+        workspaceId,
+        task: data,
+        assigneeUserId: (data as any).assigned_to_user_id || null,
+        assignerUserId: (data as any).created_by_user_id || null,
+      }).catch((e) => console.error('[tasks] completed email (patch)', e));
+    }
+
     return res.json({
       task: buildTaskResponse(data),
     });
@@ -903,6 +959,16 @@ router.patch(`/${UUID_PARAM_PATTERN}/status`, requireTaskApiKeyScope('tasks:writ
       .single();
 
     if (error) return res.status(500).json({ error: error.message || 'task_status_update_failed' });
+
+    if (normalized === 'completed' && !completedState(task)) {
+      sendTaskCompletedEmail({
+        workspaceId,
+        task: data,
+        assigneeUserId: (data as any).assigned_to_user_id || null,
+        assignerUserId: (data as any).created_by_user_id || null,
+      }).catch((e) => console.error('[tasks] completed email (patch-status)', e));
+    }
+
     return res.json({ task: data });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:patch-status', 'task_status_update_failed', e);
@@ -955,6 +1021,21 @@ router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: R
         .select('*');
       if (error) return res.status(500).json({ error: error.message || 'task_bulk_status_failed' });
       updatedRows = data || [];
+
+      if (normalizedStatus === 'completed') {
+        const newlyCompleted = updatedRows.filter((t: any) => {
+          const oldTask = allowed.find((a: any) => String(a.id) === String(t.id));
+          return oldTask && !completedState(oldTask);
+        });
+        for (const t of newlyCompleted) {
+          sendTaskCompletedEmail({
+            workspaceId,
+            task: t,
+            assigneeUserId: (t as any).assigned_to_user_id || null,
+            assignerUserId: (t as any).created_by_user_id || null,
+          }).catch((e) => console.error('[tasks] completed email (bulk)', e));
+        }
+      }
     }
 
     return res.json({
@@ -1069,6 +1150,15 @@ router.post(`/${UUID_PARAM_PATTERN}/complete`, requireTaskApiKeyScope('tasks:wri
       .single();
     if (error) return res.status(500).json({ error: error.message || 'task_complete_failed' });
 
+    if (!completedState(task)) {
+      sendTaskCompletedEmail({
+        workspaceId,
+        task: data,
+        assigneeUserId: (data as any).assigned_to_user_id || null,
+        assignerUserId: (data as any).created_by_user_id || null,
+      }).catch((e) => console.error('[tasks] completed email (complete)', e));
+    }
+
     return res.json({ task: data });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:complete', 'task_complete_failed', e);
@@ -1168,6 +1258,15 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
       .single();
 
     if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
+
+    sendTaskCommentEmail({
+      workspaceId: resolved.workspaceId,
+      task: resolved.task,
+      assigneeUserId: (resolved.task as any).assigned_to_user_id || null,
+      commenterUserId: userId,
+      commentBody: body,
+    }).catch((e) => console.error('[tasks] comment email (:id/comments)', e));
+
     return res.status(201).json({ comment: data });
   } catch (e: any) {
     return respondInternalError(res, 'tasks:comments:create', 'task_comment_create_failed', e);
