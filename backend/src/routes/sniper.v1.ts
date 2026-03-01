@@ -107,7 +107,8 @@ sniperV1Router.post('/targets', async (req: ApiRequest, res: Response) => {
     const target = await createTarget({ workspace_id: workspaceId, created_by: userId, name, post_url: postUrl });
 
     if (parsed.data.auto_run) {
-      const provider = 'airtop' as any;
+      const targetSettings = await fetchSniperV1Settings(workspaceId);
+      const provider = (targetSettings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
       const job = await createJob({
         workspace_id: workspaceId,
         created_by: userId,
@@ -967,7 +968,7 @@ sniperV1Router.get('/settings', async (req: ApiRequest, res: Response) => {
     const s = await fetchSniperV1Settings(workspaceId);
     return res.json({
       cloud_engine_enabled: Boolean(s.cloud_engine_enabled),
-      provider: (s.cloud_engine_enabled ? 'airtop' : 'extension_only'),
+      provider: s.provider || (s.cloud_engine_enabled ? 'airtop' : 'extension_only'),
       max_actions_per_day: s.max_actions_per_day,
       max_actions_per_hour: s.max_actions_per_hour,
       min_delay_seconds: s.min_delay_seconds,
@@ -990,7 +991,7 @@ sniperV1Router.put('/settings', async (req: ApiRequest, res: Response) => {
 
     const schema = z.object({
       cloud_engine_enabled: z.boolean(),
-      provider: z.enum(['airtop', 'extension_only']),
+      provider: z.enum(['airtop', 'extension_only', 'agentic_browser']),
       max_actions_per_day: z.number().int().min(1).max(5000),
       max_actions_per_hour: z.number().int().min(1).max(500),
       min_delay_seconds: z.number().int().min(1).max(600),
@@ -1009,9 +1010,8 @@ sniperV1Router.put('/settings', async (req: ApiRequest, res: Response) => {
     const patch: any = {
       workspace_id: workspaceId,
       cloud_engine_enabled: cloudEnabled,
-      provider: cloudEnabled ? 'airtop' : 'extension_only',
-      // v1 execution provider_preference is forced to airtop when cloud is enabled
-      provider_preference: cloudEnabled ? 'airtop' : existing.provider_preference,
+      provider: cloudEnabled ? parsed.data.provider : 'extension_only',
+      provider_preference: cloudEnabled ? (parsed.data.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') : existing.provider_preference,
       max_actions_per_day: parsed.data.max_actions_per_day,
       max_actions_per_hour: parsed.data.max_actions_per_hour,
       min_delay_seconds: parsed.data.min_delay_seconds,
