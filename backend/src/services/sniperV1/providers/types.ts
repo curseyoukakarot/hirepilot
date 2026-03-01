@@ -1,6 +1,6 @@
 import type { ProspectProfile } from './linkedinActions';
 
-export type ProviderName = 'airtop' | 'local_playwright';
+export type ProviderName = 'airtop' | 'local_playwright' | 'agentic_browser';
 
 export type JobListing = {
   job_url: string;
@@ -10,14 +10,22 @@ export type JobListing = {
   location?: string | null;
 };
 
-export type LinkedInAuthStartResult = {
-  provider: 'airtop';
-  auth_session_id: string;
-  airtop_session_id: string;
-  airtop_window_id: string;
-  airtop_profile_id: string;
-  live_view_url: string;
-};
+export type LinkedInAuthStartResult =
+  | {
+      provider: 'airtop';
+      auth_session_id: string;
+      airtop_session_id: string;
+      airtop_window_id: string;
+      airtop_profile_id: string;
+      live_view_url: string;
+    }
+  | {
+      provider: 'agentic_browser';
+      auth_session_id: string;
+      browserbase_session_id: string;
+      browserbase_context_id: string;
+      live_view_url: string;
+    };
 
 export type ActionDebugContext = { jobId?: string | null; enabled?: boolean };
 

@@ -5,6 +5,8 @@ export type UserLinkedInAuthRow = {
   workspace_id: string;
   airtop_profile_id: string | null;
   airtop_last_auth_at: string | null;
+  browserbase_context_id: string | null;
+  browserbase_last_auth_at: string | null;
   local_li_at: string | null;
   local_jsessionid: string | null;
   status: 'ok' | 'needs_reauth' | 'checkpointed';
@@ -74,6 +76,54 @@ export async function markAirtopAuthSession(id: string, status: AirtopAuthSessio
   const { error } = await sniperSupabaseDb
     .from('sniper_airtop_auth_sessions')
     .update({ status })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Browserbase auth sessions
+// ---------------------------------------------------------------------------
+
+export type BrowserbaseAuthSessionRow = {
+  id: string;
+  user_id: string;
+  workspace_id: string;
+  browserbase_session_id: string;
+  browserbase_context_id: string;
+  status: 'active' | 'completed' | 'expired';
+  created_at: string;
+  updated_at: string;
+};
+
+export async function createBrowserbaseAuthSession(row: {
+  user_id: string;
+  workspace_id: string;
+  browserbase_session_id: string;
+  browserbase_context_id: string;
+}): Promise<BrowserbaseAuthSessionRow> {
+  const { data, error } = await sniperSupabaseDb
+    .from('sniper_browserbase_auth_sessions')
+    .insert({ ...row, status: 'active' } as any)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as any;
+}
+
+export async function getBrowserbaseAuthSession(id: string): Promise<BrowserbaseAuthSessionRow | null> {
+  const { data, error } = await sniperSupabaseDb
+    .from('sniper_browserbase_auth_sessions')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as any) || null;
+}
+
+export async function markBrowserbaseAuthSession(id: string, status: BrowserbaseAuthSessionRow['status']) {
+  const { error } = await sniperSupabaseDb
+    .from('sniper_browserbase_auth_sessions')
+    .update({ status, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw error;
 }

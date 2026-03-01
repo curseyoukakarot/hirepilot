@@ -2068,6 +2068,97 @@ server.registerCapabilities({
         });
       }
     },
+    // ==================== SNIPER V2: AGENTIC BROWSER TOOLS ====================
+    sniper_update_settings: {
+      parameters: {
+        userId: { type:'string' },
+        max_connects_per_day: { type:'number', optional: true },
+        max_messages_per_day: { type:'number', optional: true },
+        min_delay_seconds: { type:'number', optional: true },
+        max_delay_seconds: { type:'number', optional: true },
+        active_hours_start: { type:'string', optional: true },
+        active_hours_end: { type:'string', optional: true },
+        active_hours_days: { type:'string', optional: true },
+        timezone: { type:'string', optional: true },
+        safety_mode: { type:'boolean', optional: true },
+        provider: { type:'string', optional: true },
+        cloud_engine_enabled: { type:'boolean', optional: true },
+        max_actions_per_day: { type:'number', optional: true },
+        max_actions_per_hour: { type:'number', optional: true },
+        cooldown_minutes: { type:'number', optional: true }
+      },
+      handler: async ({ userId, active_hours_start, active_hours_end, active_hours_days, ...rest }) => {
+        await assertPremium(userId);
+        const patch: any = {};
+        for (const [k, v] of Object.entries(rest)) {
+          if (k === 'userId' || v === undefined || v === null) continue;
+          patch[k] = v;
+        }
+        // Build active_hours_json if any active_hours fields provided
+        if (active_hours_start || active_hours_end || active_hours_days) {
+          const current = await apiAsUser(userId, '/api/sniper/v1/settings', { method: 'GET' });
+          const existing = (current as any)?.active_hours_json || { days: [1,2,3,4,5], start: '09:00', end: '17:00' };
+          patch.active_hours_json = {
+            ...existing,
+            ...(active_hours_start ? { start: active_hours_start } : {}),
+            ...(active_hours_end ? { end: active_hours_end } : {}),
+            ...(active_hours_days ? { days: active_hours_days.split(',').map(Number).filter(Boolean) } : {})
+          };
+        }
+        if (Object.keys(patch).length === 0) {
+          return { ok: false, error: 'No settings to update. Provide at least one setting field.' };
+        }
+        const result = await apiAsUser(userId, '/api/sniper/v1/settings', {
+          method: 'PUT',
+          body: JSON.stringify(patch)
+        });
+        return { ok: true, updated_settings: result };
+      }
+    },
+    sniper_get_status: {
+      parameters: {
+        userId: { type:'string' },
+        job_id: { type:'string', optional: true }
+      },
+      handler: async ({ userId, job_id }) => {
+        await assertPremium(userId);
+        // Fetch settings
+        const settings = await apiAsUser(userId, '/api/sniper/v1/settings', { method: 'GET' });
+        // Fetch auth status
+        const authStatus = await apiAsUser(userId, '/api/sniper/v1/linkedin/auth/status', { method: 'GET' });
+        // Fetch quota
+        const quota = await apiAsUser(userId, '/api/sniper/v1/bulk_quota', { method: 'GET' });
+        // Fetch specific job if requested
+        let job = null;
+        if (job_id) {
+          try {
+            job = await apiAsUser(userId, `/api/sniper/v1/jobs/${job_id}`, { method: 'GET' });
+          } catch {}
+        }
+        // Fetch recent jobs
+        let recentJobs: any = [];
+        try {
+          recentJobs = await apiAsUser(userId, '/api/sniper/v1/jobs?limit=5', { method: 'GET' });
+        } catch {}
+        return {
+          settings: {
+            provider: (settings as any)?.provider,
+            cloud_engine_enabled: (settings as any)?.cloud_engine_enabled,
+            max_connects_per_day: (settings as any)?.max_connects_per_day,
+            max_messages_per_day: (settings as any)?.max_messages_per_day,
+            min_delay_seconds: (settings as any)?.min_delay_seconds,
+            max_delay_seconds: (settings as any)?.max_delay_seconds,
+            active_hours: (settings as any)?.active_hours_json,
+            timezone: (settings as any)?.timezone,
+            safety_mode: (settings as any)?.safety_mode,
+          },
+          auth: authStatus,
+          quota,
+          current_job: job,
+          recent_jobs: recentJobs
+        };
+      }
+    },
     rex_widget_support_get_pricing_overview: {
       parameters: {},
       handler: async () => {

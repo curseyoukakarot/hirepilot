@@ -1,7 +1,7 @@
 import { sniperSupabaseDb } from './supabase';
 
-export type ProviderName = 'airtop' | 'local_playwright';
-export type SniperProviderMode = 'airtop' | 'extension_only';
+export type ProviderName = 'airtop' | 'local_playwright' | 'agentic_browser';
+export type SniperProviderMode = 'airtop' | 'extension_only' | 'agentic_browser';
 
 export type SniperV1Settings = {
   workspace_id: string;

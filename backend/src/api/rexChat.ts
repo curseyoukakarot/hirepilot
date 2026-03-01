@@ -321,7 +321,10 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'sniper_collect_post', parameters:{ type:'object', properties:{ userId:{type:'string'}, post_url:{type:'string'}, limit:{type:'number'} }, required:['userId','post_url'] } } },
       { type:'function', function:{ name:'sniper_poll_leads', parameters:{ type:'object', properties:{ userId:{type:'string'}, target_id:{type:'string'}, job_id:{type:'string'}, limit:{type:'number'}, cursor:{type:'string'} }, required:['userId'] } } },
       { type:'function', function:{ name:'sniper_campaign_outreach_connect', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'}, max_count:{type:'number'} }, required:['userId','template_name'] } } },
-      { type:'function', function:{ name:'sniper_send_message_to_profile', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_url:{type:'string'}, lead_id:{type:'string'}, template_name:{type:'string'}, message:{type:'string'} }, required:['userId'] } } }
+      { type:'function', function:{ name:'sniper_send_message_to_profile', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_url:{type:'string'}, lead_id:{type:'string'}, template_name:{type:'string'}, message:{type:'string'} }, required:['userId'] } } },
+      // Sniper V2: Agentic browser settings & status tools
+      { type:'function', function:{ name:'sniper_update_settings', parameters:{ type:'object', properties:{ userId:{type:'string'}, max_connects_per_day:{type:'number'}, max_messages_per_day:{type:'number'}, min_delay_seconds:{type:'number'}, max_delay_seconds:{type:'number'}, active_hours_start:{type:'string'}, active_hours_end:{type:'string'}, active_hours_days:{type:'string'}, timezone:{type:'string'}, safety_mode:{type:'boolean'}, provider:{type:'string'}, cloud_engine_enabled:{type:'boolean'}, max_actions_per_day:{type:'number'}, max_actions_per_hour:{type:'number'}, cooldown_minutes:{type:'number'} }, required:['userId'] } } },
+      { type:'function', function:{ name:'sniper_get_status', parameters:{ type:'object', properties:{ userId:{type:'string'}, job_id:{type:'string'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -369,6 +372,8 @@ If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/co
 If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
 If the user asks: "send linkedin outreach to the campaign you just created" AND provides a LinkedIn request template name, call 'sniper_campaign_outreach_connect' with { userId, campaign_id: 'latest', template_name: '<name>' } and then tell them to monitor results in /sniper/activity.
 If the user asks to send a LinkedIn message to someone they are already connected to, call 'sniper_send_message_to_profile' with either { userId, lead_id } or { userId, profile_url } and include message content or template_name.
+If the user asks to change Sniper settings (e.g., "set my max connects to 30", "only run between 9am and 5pm", "add a 30 second delay", "pause sniper", "switch to agentic browser"), call 'sniper_update_settings' with the relevant fields. Confirm the changes back to the user.
+If the user asks about their Sniper status, quota, or recent jobs (e.g., "what are my sniper settings?", "how many connects do I have left?", "show my recent sniper jobs"), call 'sniper_get_status' and summarize the results.
 When the user asks to email the newly sourced campaign using a named template, do this:
 1) If they ask for a preview, call 'preview_campaign_email' with { userId, campaign_id: '<latest or given>', template_name } and return the subject/body.
 2) If they confirm sending, call 'send_campaign_email_by_template_name' with { userId, campaign_id: '<latest or given>', template_name } and report how many were queued.

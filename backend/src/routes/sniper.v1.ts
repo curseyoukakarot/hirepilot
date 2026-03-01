@@ -1006,7 +1006,7 @@ sniperV1Router.post('/linkedin/auth/start', async (req: ApiRequest, res: Respons
     if (!provider.startLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
 
     const out = await provider.startLinkedInAuth({ userId, workspaceId });
-    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: out.airtop_profile_id });
+    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: (out as any).airtop_profile_id || null });
   } catch (e: any) {
     const msg = String(e?.message || '');
     if (msg.includes('AIRTOP provider disabled')) {
@@ -1068,14 +1068,91 @@ sniperV1Router.get('/linkedin/auth/status', async (req: ApiRequest, res: Respons
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(req, userId);
     const row = await getUserLinkedinAuth(userId, workspaceId);
-    const connected = Boolean(row?.status === 'ok' && row?.airtop_profile_id);
+    const settings = await fetchSniperV1Settings(workspaceId);
+
+    const airtopConnected = Boolean(row?.status === 'ok' && row?.airtop_profile_id);
+    const browserbaseConnected = Boolean(row?.status === 'ok' && row?.browserbase_context_id);
+    const connected = settings.provider === 'agentic_browser' ? browserbaseConnected : airtopConnected;
+
     return res.json({
       connected,
+      provider: settings.provider,
       profile_id: row?.airtop_profile_id || null,
+      browserbase_context_id: row?.browserbase_context_id || null,
+      airtop_connected: airtopConnected,
+      browserbase_connected: browserbaseConnected,
       last_checked_at: new Date().toISOString()
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_fetch_auth_status' });
+  }
+});
+
+// ---------------- Browserbase LinkedIn auth ----------------
+sniperV1Router.post('/linkedin/auth/start-browserbase', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    if (!settings.cloud_engine_enabled) {
+      return res.status(409).json({ error: 'Cloud Engine is disabled. Enable it in settings first.' });
+    }
+
+    const provider = getProvider('agentic_browser');
+    if (!provider.startLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
+
+    const out = await provider.startLinkedInAuth({ userId, workspaceId });
+    return res.json({
+      live_view_url: out.live_view_url,
+      auth_session_id: out.auth_session_id,
+      browserbase_session_id: (out as any).browserbase_session_id || null,
+      browserbase_context_id: (out as any).browserbase_context_id || null,
+    });
+  } catch (e: any) {
+    const msg = String(e?.message || '');
+    if (msg.includes('BROWSERBASE provider disabled')) {
+      return res.status(503).json({
+        error: 'Browserbase provider disabled',
+        hint: 'Set BROWSERBASE_PROVIDER_ENABLED=true, BROWSERBASE_API_KEY, and BROWSERBASE_PROJECT_ID.'
+      });
+    }
+    return res.status(500).json({ error: msg || 'failed_to_start_browserbase_auth' });
+  }
+});
+
+sniperV1Router.post('/linkedin/auth/complete-browserbase', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    if (!settings.cloud_engine_enabled) {
+      return res.status(409).json({ error: 'Cloud Engine is disabled.' });
+    }
+
+    const schema = z.object({ auth_session_id: z.string().uuid() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const provider = getProvider('agentic_browser');
+    if (!provider.completeLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
+    const out = await provider.completeLinkedInAuth({ userId, workspaceId, authSessionId: parsed.data.auth_session_id });
+    return res.json(out);
+  } catch (e: any) {
+    const msg = String(e?.message || '');
+    if (msg.includes('BROWSERBASE provider disabled')) {
+      return res.status(503).json({
+        error: 'Browserbase provider disabled',
+        hint: 'Set BROWSERBASE_PROVIDER_ENABLED=true, BROWSERBASE_API_KEY, and BROWSERBASE_PROJECT_ID.'
+      });
+    }
+    if (msg.includes('LINKEDIN_AUTH_REQUIRED')) {
+      return res.status(400).json({ error: 'LinkedIn login not detected. Please log in via the live view and try again.' });
+    }
+    return res.status(500).json({ error: msg || 'failed_to_complete_browserbase_auth' });
   }
 });
 

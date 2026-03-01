@@ -17,7 +17,7 @@ import { supabase } from "../lib/supabaseClient";
 
 type SniperSettings = {
   cloud_engine_enabled: boolean;
-  provider: "airtop" | "extension_only";
+  provider: "airtop" | "extension_only" | "agentic_browser";
   max_actions_per_day: number;
   max_actions_per_hour: number;
   min_delay_seconds: number;
@@ -28,9 +28,13 @@ type SniperSettings = {
   safety_mode: boolean;
 };
 
-type AirtopAuthStatus = {
+type AuthStatus = {
   connected: boolean;
+  provider?: string | null;
   profile_id?: string | null;
+  browserbase_context_id?: string | null;
+  airtop_connected?: boolean;
+  browserbase_connected?: boolean;
   last_checked_at?: string | null;
 };
 
@@ -61,7 +65,7 @@ export default function SniperControlCenterV1() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SniperSettings | null>(null);
-  const [airtop, setAirtop] = useState<AirtopAuthStatus | null>(null);
+  const [airtop, setAirtop] = useState<AuthStatus | null>(null);
   const [lastAuthSessionId, setLastAuthSessionId] = useState<string | null>(null);
   const [airtopAuthUrl, setAirtopAuthUrl] = useState<string | null>(null);
   const [airtopAuthOpen, setAirtopAuthOpen] = useState(false);
@@ -129,9 +133,9 @@ export default function SniperControlCenterV1() {
       const s = await apiGet<SniperSettings>("/sniper/settings");
       setSettings(s);
 
-      // Only check Airtop status if cloud engine enabled; otherwise show extension-only.
+      // Only check auth status if cloud engine enabled; otherwise show extension-only.
       if (s.cloud_engine_enabled) {
-        const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
+        const a = await apiGet<AuthStatus>("/sniper/linkedin/auth/status");
         setAirtop(a);
       } else {
         setAirtop({ connected: false, profile_id: null });
@@ -152,7 +156,9 @@ export default function SniperControlCenterV1() {
 
   const headerStatus = useMemo(() => {
     if (!settings) return "—";
-    return settings.cloud_engine_enabled ? "Cloud Engine enabled" : "Extension only";
+    if (!settings.cloud_engine_enabled) return "Extension only";
+    if (settings.provider === "agentic_browser") return "Agentic Browser";
+    return "Airtop Cloud";
   }, [settings]);
 
   const handleToggleCloud = async () => {
@@ -163,7 +169,7 @@ export default function SniperControlCenterV1() {
     const next: SniperSettings = {
       ...settings,
       cloud_engine_enabled: nextEnabled,
-      provider: nextEnabled ? "airtop" : "extension_only",
+      provider: nextEnabled ? (settings.provider === "extension_only" ? "agentic_browser" : settings.provider) : "extension_only",
     };
     setSettings(next);
     setSaving(true);
@@ -179,6 +185,25 @@ export default function SniperControlCenterV1() {
     }
   };
 
+  const handleSwitchProvider = async (provider: "airtop" | "agentic_browser") => {
+    if (!settings) return;
+    const next: SniperSettings = { ...settings, provider, cloud_engine_enabled: true };
+    setSettings(next);
+    setSaving(true);
+    try {
+      await apiPut("/sniper/settings", next);
+      showToast(`Switched to ${provider === "agentic_browser" ? "Agentic Browser" : "Airtop Cloud"}`, "success");
+      await load();
+    } catch (e: any) {
+      showToast(`Failed to switch provider: ${e?.message || "Unknown error"}`, "error");
+      setSettings(settings);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isBrowserbase = settings?.provider === "agentic_browser";
+
   const handleAirtopConnect = async () => {
     if (!cloudEnabled) {
       showToast("Enable Cloud Engine to connect LinkedIn.", "info");
@@ -186,11 +211,14 @@ export default function SniperControlCenterV1() {
     }
     try {
       showToast("Starting LinkedIn connect…", "info");
-      const resp = await apiPost<{ url: string; auth_session_id?: string }>("/sniper/linkedin/auth/start", {});
+      // Use Browserbase or Airtop endpoints based on provider
+      const endpoint = isBrowserbase ? "/sniper/linkedin/auth/start-browserbase" : "/sniper/linkedin/auth/start";
+      const resp = await apiPost<{ url?: string; live_view_url?: string; auth_session_id?: string }>(endpoint, {});
       if (resp?.auth_session_id) setLastAuthSessionId(resp.auth_session_id);
-      if (!resp?.url) throw new Error("Missing live view URL");
+      const liveUrl = resp?.live_view_url || resp?.url;
+      if (!liveUrl) throw new Error("Missing live view URL");
       setAirtopAuthError(null);
-      setAirtopAuthUrl(resp.url);
+      setAirtopAuthUrl(liveUrl);
       setAirtopAuthKey((k) => k + 1);
       setAirtopAuthOpen(true);
     } catch (e: any) {
@@ -206,8 +234,9 @@ export default function SniperControlCenterV1() {
     setAirtopAuthBusy(true);
     setAirtopAuthError(null);
     try {
-      await apiPost("/sniper/linkedin/auth/complete", { auth_session_id: lastAuthSessionId });
-      const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
+      const endpoint = isBrowserbase ? "/sniper/linkedin/auth/complete-browserbase" : "/sniper/linkedin/auth/complete";
+      await apiPost(endpoint, { auth_session_id: lastAuthSessionId });
+      const a = await apiGet<AuthStatus>("/sniper/linkedin/auth/status");
       setAirtop(a);
       showToast(a.connected ? "LinkedIn is connected." : "LinkedIn not connected yet.", a.connected ? "success" : "info");
       if (a.connected) {
@@ -229,10 +258,11 @@ export default function SniperControlCenterV1() {
       // Best-effort: if user just connected, finalize profile persistence
       if (lastAuthSessionId) {
         try {
-          await apiPost("/sniper/linkedin/auth/complete", { auth_session_id: lastAuthSessionId });
+          const endpoint = isBrowserbase ? "/sniper/linkedin/auth/complete-browserbase" : "/sniper/linkedin/auth/complete";
+          await apiPost(endpoint, { auth_session_id: lastAuthSessionId });
         } catch {}
       }
-      const a = await apiGet<AirtopAuthStatus>("/sniper/linkedin/auth/status");
+      const a = await apiGet<AuthStatus>("/sniper/linkedin/auth/status");
       setAirtop(a);
       showToast(a.connected ? "LinkedIn is connected." : "LinkedIn not connected yet.", a.connected ? "success" : "info");
     } catch (e: any) {
@@ -426,8 +456,37 @@ export default function SniperControlCenterV1() {
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                 <div className="text-xs font-semibold text-slate-400">Provider</div>
-                <div className="mt-1 text-sm font-bold text-slate-100">Cloud Engine</div>
-                <div className="mt-1 text-xs text-slate-500">Cloud Engine enabled = cloud execution only.</div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    disabled={saving}
+                    onClick={() => handleSwitchProvider("agentic_browser")}
+                    className={cx(
+                      "flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition",
+                      settings.provider === "agentic_browser"
+                        ? "bg-sky-600 text-white"
+                        : "border border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-950/70"
+                    )}
+                  >
+                    Agentic Browser
+                  </button>
+                  <button
+                    disabled={saving}
+                    onClick={() => handleSwitchProvider("airtop")}
+                    className={cx(
+                      "flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition",
+                      settings.provider === "airtop"
+                        ? "bg-sky-600 text-white"
+                        : "border border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-950/70"
+                    )}
+                  >
+                    Airtop Cloud
+                  </button>
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {settings.provider === "agentic_browser"
+                    ? "AI agent with Browserbase cloud browser."
+                    : "Airtop cloud execution engine."}
+                </div>
               </div>
             </div>
           )}

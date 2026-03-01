@@ -181,10 +181,10 @@ jobseekerAgentRouter.post('/settings/cloud-engine/connect', async (req: ApiReque
     if (!provider.startLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
     const out = await provider.startLinkedInAuth({ userId, workspaceId });
     await upsertCloudEngineSettings(userId, workspaceId, {
-      airtop_profile_id: out.airtop_profile_id,
+      airtop_profile_id: (out as any).airtop_profile_id || null,
       status: 'needs_reauth'
     } as any);
-    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: out.airtop_profile_id });
+    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: (out as any).airtop_profile_id || null });
   } catch (e: any) {
     const msg = String(e?.message || '');
     if (msg.includes('AIRTOP provider disabled')) {
