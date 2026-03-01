@@ -154,20 +154,12 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     // Create a new persistent Browserbase context
     const contextId = await createContext(name);
 
-    // Create a session with this context and navigate to LinkedIn login
+    // Create a session with this context (DO NOT connect Playwright here —
+    // browser.close() would kill the session before the user can interact).
+    // The user will navigate to LinkedIn themselves in the embedded live view.
     const session = await createSession({ contextId, timeoutMinutes: 15 });
 
-    // Connect and navigate to LinkedIn login
-    let browser: Browser | null = null;
-    try {
-      const conn = await connectPlaywright(session.sessionId);
-      browser = conn.browser;
-      await conn.page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    } catch {
-      // Session is still active for the user to use via live view
-    } finally {
-      try { if (browser) await browser.close(); } catch {}
-    }
+    console.log(`[agentic_browser] Auth session created: sessionId=${session.sessionId}, contextId=${contextId}, liveViewUrl=${session.liveViewUrl}`);
 
     // Store auth session record
     const authSession = await createBrowserbaseAuthSession({

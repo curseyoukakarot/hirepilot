@@ -125,7 +125,9 @@ async function getSessionDebugUrls(sessionId: string): Promise<{
   const client = getClient();
   const debugInfo = await client.sessions.debug(sessionId);
   return {
-    connectUrl: debugInfo.debuggerFullscreenUrl.replace('https://', 'wss://') || `wss://connect.browserbase.com?apiKey=${getApiKey()}&sessionId=${sessionId}`,
+    // CDP connection is always via the standard Browserbase connect endpoint
+    connectUrl: `wss://connect.browserbase.com?apiKey=${getApiKey()}&sessionId=${sessionId}`,
+    // Live view: the debugger fullscreen URL is the embeddable iframe view
     liveViewUrl: debugInfo.debuggerFullscreenUrl || `https://www.browserbase.com/sessions/${sessionId}`,
   };
 }
