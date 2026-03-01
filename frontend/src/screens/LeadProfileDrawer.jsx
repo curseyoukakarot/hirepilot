@@ -3100,7 +3100,7 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
             </p>
             {sniperCloudEngineEnabled && (
               <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 text-sm text-emerald-800 dark:text-emerald-200">
-                Using <strong>Sniper Cloud Engine (Airtop)</strong>. This will be queued and executed in the cloud. Track status in <strong>/sniper/activity</strong>.
+                Using <strong>HirePilot's Cloud Engine</strong>. This will be queued and executed in the cloud. Track status in <strong>/sniper/activity</strong>.
               </div>
             )}
             {isBrightDataEngine && (

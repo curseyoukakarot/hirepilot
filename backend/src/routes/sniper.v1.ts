@@ -208,7 +208,8 @@ sniperV1Router.post('/targets/:id/run', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const provider = 'airtop' as any;
+    const sniperSettings = await fetchSniperV1Settings(workspaceId);
+    const provider = (sniperSettings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
@@ -241,7 +242,8 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
     if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
-    const provider = 'airtop' as any;
+    const jobSettings = await fetchSniperV1Settings(workspaceId);
+    const provider = (jobSettings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -373,7 +375,9 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const provider = 'airtop' as any;
+    const connectSettings = await fetchSniperV1Settings(workspaceId);
+    const provider = (connectSettings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
+    const isAgenticBrowser = connectSettings.provider === 'agentic_browser';
 
     const requests = (parsed.data.requests || []).map((r) => ({
       profile_url: r.profile_url,
@@ -429,7 +433,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       target_id: null,
       job_type: 'send_connect_requests',
       provider,
-      input_json: { note: parsed.data.note || null, execution_mode: 'airtop_webhook' }
+      input_json: { note: parsed.data.note || null, execution_mode: isAgenticBrowser ? 'agentic_browser' : 'airtop_webhook' }
     });
 
     await insertJobItems(
@@ -465,6 +469,46 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const q = (req as any)._sniperQuota || {};
     const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
 
+    // --- Agentic Browser: always queue to BullMQ, skip Airtop webhooks/Zapier ---
+    if (isAgenticBrowser) {
+      const validItems = processed.filter((p) => p.normalized !== null);
+      if (validItems.length === 0) {
+        return res.status(400).json({
+          error: 'invalid_profile_url',
+          message: 'All LinkedIn profile URLs are invalid',
+          failed_count: processed.filter((p) => p.normalized === null).length
+        });
+      }
+
+      await sniperV1Queue.add('sniper_v1', { jobId: job.id });
+
+      await notifyConnectQueued({
+        userId,
+        workspaceId,
+        jobId: job.id,
+        totalTargets: validItems.length,
+        profileUrl: validItems.length === 1 ? validItems[0].normalized! : null,
+        note: (validItems.length === 1 ? validItems[0].note : parsed.data.note) || null,
+        estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
+        isBulk: validItems.length > 1
+      });
+
+      return res.status(202).json({
+        queued: true,
+        job_id: job.id,
+        queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
+        queue_source: 'agentic_browser',
+        quota: {
+          limit_per_day: throttle.settings.max_connects_per_day,
+          used_today: q.usedToday,
+          remaining_today: q.remainingToday,
+          day: q.day,
+          timezone: q.tz
+        }
+      });
+    }
+
+    // --- Airtop path: Zapier / single-profile webhook / batch webhook ---
     const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
     // TEMP: Google Sheets staging for Airtop testing
     if (zapierWebhookUrl) {
@@ -728,8 +772,8 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const provider = 'airtop' as any;
     const settings = await fetchSniperV1Settings(workspaceId);
+    const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
     const tz = settings.timezone || 'UTC';
     const day = dayStringInTimezone(new Date(), tz);
 

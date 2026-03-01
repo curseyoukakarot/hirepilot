@@ -157,7 +157,7 @@ export default function SniperControlCenterV1() {
   const headerStatus = useMemo(() => {
     if (!settings) return "—";
     if (!settings.cloud_engine_enabled) return "Extension only";
-    if (settings.provider === "agentic_browser") return "Agentic Browser";
+    if (settings.provider === "agentic_browser") return "HirePilot Cloud Engine";
     return "Airtop Cloud";
   }, [settings]);
 
@@ -192,7 +192,7 @@ export default function SniperControlCenterV1() {
     setSaving(true);
     try {
       await apiPut("/sniper/settings", next);
-      showToast(`Switched to ${provider === "agentic_browser" ? "Agentic Browser" : "Airtop Cloud"}`, "success");
+      showToast(`Switched to ${provider === "agentic_browser" ? "HirePilot Cloud Engine" : "Airtop Cloud"}`, "success");
       await load();
     } catch (e: any) {
       showToast(`Failed to switch provider: ${e?.message || "Unknown error"}`, "error");
@@ -467,7 +467,7 @@ export default function SniperControlCenterV1() {
                         : "border border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-950/70"
                     )}
                   >
-                    Agentic Browser
+                    HirePilot Cloud Engine
                   </button>
                   <button
                     disabled={saving}
@@ -484,7 +484,7 @@ export default function SniperControlCenterV1() {
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
                   {settings.provider === "agentic_browser"
-                    ? "AI agent with Browserbase cloud browser."
+                    ? "HirePilot's AI agent with cloud browser automation."
                     : "Airtop cloud execution engine."}
                 </div>
               </div>
