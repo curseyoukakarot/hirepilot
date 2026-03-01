@@ -312,7 +312,7 @@ export default function SniperControlCenterV1() {
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <div>
                 <div className="text-lg font-semibold text-slate-100">Connect LinkedIn</div>
-                <div className=”text-xs text-slate-400”>{‘Navigate to linkedin.com and log in, then click “I\’m logged in”. If the captcha loops, open the view in a new tab.’}</div>
+                <div className="text-xs text-slate-400">Navigate to linkedin.com and log in, then click “I’m logged in”. If the captcha loops, open the view in a new tab.</div>
               </div>
               <button
                 onClick={() => { setAirtopAuthOpen(false); }}
@@ -324,7 +324,6 @@ export default function SniperControlCenterV1() {
             <div className="relative bg-black/40">
               {airtopAuthUrl ? (
                 <>
-                  {/* Loading overlay shown while iframe loads */}
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/90 transition-opacity" id="bb-iframe-loader">
                     <svg className="h-8 w-8 animate-spin text-sky-400" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -339,10 +338,9 @@ export default function SniperControlCenterV1() {
                     className="h-[70vh] w-full"
                     sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
                     allow="clipboard-write"
-                    onLoad={(e) => {
-                      // Hide the loading overlay once the iframe content loads
-                      const loader = (e.target as HTMLIFrameElement).parentElement?.querySelector('#bb-iframe-loader');
-                      if (loader) (loader as HTMLElement).style.display = 'none';
+                    onLoad={() => {
+                      const el = document.getElementById('bb-iframe-loader');
+                      if (el) el.style.display = 'none';
                     }}
                     onError={() => setAirtopAuthError("Live view failed to load. Please try again.")}
                   />
@@ -459,37 +457,37 @@ export default function SniperControlCenterV1() {
                 <div className="mt-1 text-xs text-slate-500">Profile: {airtop?.profile_id ? airtop.profile_id : "—"}</div>
               </div>
 
-              <div className=”rounded-xl border border-slate-800 bg-slate-950/60 p-4”>
-                <div className=”text-xs font-semibold text-slate-400”>Connect LinkedIn</div>
-                <div className=”mt-2 flex gap-2”>
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs font-semibold text-slate-400">Connect LinkedIn</div>
+                <div className="mt-2 flex gap-2">
                   <button
                     onClick={handleAirtopConnect}
                     disabled={connectLoading}
                     className={cx(
-                      “flex-1 rounded-lg px-3 py-2 text-sm font-semibold text-white”,
+                      "flex-1 rounded-lg px-3 py-2 text-sm font-semibold text-white",
                       connectLoading
-                        ? “bg-sky-800 cursor-not-allowed”
-                        : “bg-sky-600 hover:bg-sky-500”
+                        ? "bg-sky-800 cursor-not-allowed"
+                        : "bg-sky-600 hover:bg-sky-500"
                     )}
                   >
                     {connectLoading ? (
-                      <span className=”inline-flex items-center gap-2”>
-                        <svg className=”h-4 w-4 animate-spin” viewBox=”0 0 24 24” fill=”none”>
-                          <circle className=”opacity-25” cx=”12” cy=”12” r=”10” stroke=”currentColor” strokeWidth=”4” />
-                          <path className=”opacity-75” fill=”currentColor” d=”M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z” />
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
                         Starting browser…
                       </span>
-                    ) : “Connect”}
+                    ) : "Connect"}
                   </button>
                   <button
                     onClick={handleAirtopRefresh}
-                    className=”rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70”
+                    className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-950/70"
                   >
                     Check
                   </button>
                 </div>
-                <div className=”mt-2 text-xs text-slate-500”>Complete the login in the popup and click “I’m logged in”.</div>
+                <div className="mt-2 text-xs text-slate-500">Complete the login in the popup and click “I’m logged in”.</div>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
