@@ -24,6 +24,7 @@ type SniperSettings = {
   max_delay_seconds: number;
   active_hours_start: string; // "08:00"
   active_hours_end: string;   // "18:00"
+  run_on_weekends: boolean;
   timezone: string;           // "America/Chicago"
   safety_mode: boolean;
 };
@@ -563,6 +564,25 @@ export default function SniperControlCenterV1() {
                 onChange={(e) => setSettings({ ...settings, active_hours_end: e.target.value })}
                 className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none"
               />
+            </label>
+
+            <label className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="text-xs font-semibold text-slate-400">Run on weekends</div>
+              <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+                <span className="text-sm font-semibold text-slate-100">{settings.run_on_weekends ? "ON" : "OFF"}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, run_on_weekends: !settings.run_on_weekends })}
+                  className={cx(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold",
+                    settings.run_on_weekends
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                  )}
+                >
+                  Toggle
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">Allow Sniper to run on Saturdays &amp; Sundays.</div>
             </label>
           </div>
 

@@ -975,6 +975,7 @@ sniperV1Router.get('/settings', async (req: ApiRequest, res: Response) => {
       max_delay_seconds: s.max_delay_seconds,
       active_hours_start: String(s.active_hours_json?.start || '09:00'),
       active_hours_end: String(s.active_hours_json?.end || '17:00'),
+      run_on_weekends: Boolean(s.active_hours_json?.runOnWeekends),
       timezone: s.timezone,
       safety_mode: Boolean(s.safety_mode)
     });
@@ -998,6 +999,7 @@ sniperV1Router.put('/settings', async (req: ApiRequest, res: Response) => {
       max_delay_seconds: z.number().int().min(1).max(1800),
       active_hours_start: z.string().regex(/^\d{2}:\d{2}$/),
       active_hours_end: z.string().regex(/^\d{2}:\d{2}$/),
+      run_on_weekends: z.boolean(),
       timezone: z.string().min(1),
       safety_mode: z.boolean()
     });
@@ -1022,7 +1024,7 @@ sniperV1Router.put('/settings', async (req: ApiRequest, res: Response) => {
         days: existing.active_hours_json?.days || [1, 2, 3, 4, 5],
         start: parsed.data.active_hours_start,
         end: parsed.data.active_hours_end,
-        runOnWeekends: Boolean(existing.active_hours_json?.runOnWeekends)
+        runOnWeekends: Boolean(parsed.data.run_on_weekends)
       }
     };
 
