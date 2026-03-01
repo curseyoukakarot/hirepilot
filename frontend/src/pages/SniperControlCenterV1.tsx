@@ -169,7 +169,7 @@ export default function SniperControlCenterV1() {
     const next: SniperSettings = {
       ...settings,
       cloud_engine_enabled: nextEnabled,
-      provider: nextEnabled ? (settings.provider === "extension_only" ? "agentic_browser" : settings.provider) : "extension_only",
+      provider: nextEnabled ? "agentic_browser" : "extension_only",
     };
     setSettings(next);
     setSaving(true);

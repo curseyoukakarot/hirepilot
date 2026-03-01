@@ -968,7 +968,7 @@ sniperV1Router.get('/settings', async (req: ApiRequest, res: Response) => {
     const s = await fetchSniperV1Settings(workspaceId);
     return res.json({
       cloud_engine_enabled: Boolean(s.cloud_engine_enabled),
-      provider: s.provider || (s.cloud_engine_enabled ? 'airtop' : 'extension_only'),
+      provider: s.provider || (s.cloud_engine_enabled ? 'agentic_browser' : 'extension_only'),
       max_actions_per_day: s.max_actions_per_day,
       max_actions_per_hour: s.max_actions_per_hour,
       min_delay_seconds: s.min_delay_seconds,
