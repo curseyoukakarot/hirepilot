@@ -134,7 +134,7 @@ export function isWithinActiveHours(now: Date, settings: SniperV1Settings): bool
   const runOnWeekends = Boolean(settings.active_hours_json?.runOnWeekends);
   const isWeekend = day === 6 || day === 7;
   if (isWeekend && !runOnWeekends) return false;
-  if (!days.includes(day)) return false;
+  if (!isWeekend && !days.includes(day)) return false;
 
   const [sh, sm] = String(settings.active_hours_json?.start || '00:00').split(':').map((x) => Number(x));
   const [eh, em] = String(settings.active_hours_json?.end || '23:59').split(':').map((x) => Number(x));
