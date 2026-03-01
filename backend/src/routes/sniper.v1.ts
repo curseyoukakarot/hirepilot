@@ -1158,13 +1158,15 @@ sniperV1Router.post('/linkedin/auth/start-browserbase', async (req: ApiRequest, 
     });
   } catch (e: any) {
     const msg = String(e?.message || '');
+    const stack = String(e?.stack || '').slice(0, 500);
+    console.error('[sniper-browserbase-auth] start-browserbase failed:', msg, stack);
     if (msg.includes('BROWSERBASE provider disabled')) {
       return res.status(503).json({
         error: 'Browserbase provider disabled',
         hint: 'Set BROWSERBASE_PROVIDER_ENABLED=true, BROWSERBASE_API_KEY, and BROWSERBASE_PROJECT_ID.'
       });
     }
-    return res.status(500).json({ error: msg || 'failed_to_start_browserbase_auth' });
+    return res.status(500).json({ error: msg || 'failed_to_start_browserbase_auth', details: stack });
   }
 });
 
@@ -1198,7 +1200,8 @@ sniperV1Router.post('/linkedin/auth/complete-browserbase', async (req: ApiReques
     if (msg.includes('LINKEDIN_AUTH_REQUIRED')) {
       return res.status(400).json({ error: 'LinkedIn login not detected. Please log in via the live view and try again.' });
     }
-    return res.status(500).json({ error: msg || 'failed_to_complete_browserbase_auth' });
+    console.error('[sniper-browserbase-auth] complete-browserbase failed:', msg, String(e?.stack || '').slice(0, 500));
+    return res.status(500).json({ error: msg || 'failed_to_complete_browserbase_auth', details: String(e?.stack || '').slice(0, 500) });
   }
 });
 
