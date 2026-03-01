@@ -158,7 +158,7 @@ export default function SniperControlCenterV1() {
     if (!settings) return "—";
     if (!settings.cloud_engine_enabled) return "Extension only";
     if (settings.provider === "agentic_browser") return "HirePilot Cloud Engine";
-    return "Airtop Cloud";
+    return "HirePilot Cloud Engine";
   }, [settings]);
 
   const handleToggleCloud = async () => {
@@ -192,7 +192,7 @@ export default function SniperControlCenterV1() {
     setSaving(true);
     try {
       await apiPut("/sniper/settings", next);
-      showToast(`Switched to ${provider === "agentic_browser" ? "HirePilot Cloud Engine" : "Airtop Cloud"}`, "success");
+      showToast(`Switched to HirePilot Cloud Engine`, "success");
       await load();
     } catch (e: any) {
       showToast(`Failed to switch provider: ${e?.message || "Unknown error"}`, "error");
@@ -456,36 +456,13 @@ export default function SniperControlCenterV1() {
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                 <div className="text-xs font-semibold text-slate-400">Provider</div>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    disabled={saving}
-                    onClick={() => handleSwitchProvider("agentic_browser")}
-                    className={cx(
-                      "flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition",
-                      settings.provider === "agentic_browser"
-                        ? "bg-sky-600 text-white"
-                        : "border border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-950/70"
-                    )}
-                  >
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white">
                     HirePilot Cloud Engine
-                  </button>
-                  <button
-                    disabled={saving}
-                    onClick={() => handleSwitchProvider("airtop")}
-                    className={cx(
-                      "flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition",
-                      settings.provider === "airtop"
-                        ? "bg-sky-600 text-white"
-                        : "border border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-950/70"
-                    )}
-                  >
-                    Airtop Cloud
-                  </button>
+                  </div>
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
-                  {settings.provider === "agentic_browser"
-                    ? "HirePilot's AI agent with cloud browser automation."
-                    : "Airtop cloud execution engine."}
+                  HirePilot's AI agent with cloud browser automation.
                 </div>
               </div>
             </div>
