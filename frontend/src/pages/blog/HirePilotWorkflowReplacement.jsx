@@ -168,8 +168,8 @@ export default function HirePilotWorkflowReplacement() {
               <li>Enrich profiles inside HirePilot</li>
               <li>Auto-convert responding leads into candidates</li>
             </ul>
-            <p>Old flow: Search -> Copy -> Paste -> Export -> Import -> Sequence -> Update</p>
-            <p>New flow: Search -> Pull -> Enrich -> Launch</p>
+            <p>Old flow: Search → Copy → Paste → Export → Import → Sequence → Update</p>
+            <p>New flow: Search → Pull → Enrich → Launch</p>
             <p>LinkedIn stays discovery. HirePilot becomes execution.</p>
 
             <h3>Step 3 - Enrich and Qualify</h3>
@@ -202,7 +202,7 @@ export default function HirePilotWorkflowReplacement() {
             <h3>Step 7 - Close and Invoice</h3>
             <p><strong>Traditional workflow:</strong> update ATS, create Stripe invoice separately, update spreadsheet, notify accounting manually.</p>
             <p><strong>With HirePilot:</strong> convert to placement, update opportunity stage, generate Stripe-powered invoice, track revenue in dashboards, and update client records automatically.</p>
-            <p>Placement -> Invoice -> Revenue visibility, all in one system.</p>
+            <p>Placement → Invoice → Revenue visibility, all in one system.</p>
           </div>
 
           <div id="what-gets-replaced-first">
@@ -226,7 +226,7 @@ export default function HirePilotWorkflowReplacement() {
             <p><strong>Add:</strong> Deals module, custom dashboards, and workspace collaboration.</p>
 
             <h3>Phase 3 - Fully Consolidated Workflow</h3>
-            <p>Sourcing -> Enrichment -> Outreach -> Pipeline -> Collaboration -> Billing -> Reporting</p>
+            <p>Sourcing → Enrichment → Outreach → Pipeline → Collaboration → Billing → Reporting</p>
             <p>All inside one architecture.</p>
           </div>
 

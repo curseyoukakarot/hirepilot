@@ -312,7 +312,7 @@ export default function SniperControlCenterV1() {
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <div>
                 <div className="text-lg font-semibold text-slate-100">Connect LinkedIn</div>
-                <div className=”text-xs text-slate-400”>{`Navigate to linkedin.com and log in, then click “I’m logged in”. If the captcha loops, open the view in a new tab.`}</div>
+                <div className=”text-xs text-slate-400”>{‘Navigate to linkedin.com and log in, then click “I\’m logged in”. If the captcha loops, open the view in a new tab.’}</div>
               </div>
               <button
                 onClick={() => { setAirtopAuthOpen(false); }}
