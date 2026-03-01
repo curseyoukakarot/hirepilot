@@ -196,6 +196,8 @@ export async function insertJobItems(items: Array<{
   scheduled_for?: string | null;
   status?: SniperJobItemStatus;
   result_json?: any;
+  error_code?: string | null;
+  error_message?: string | null;
 }>) {
   if (!items.length) return;
   const rows = items.map((it) => ({
@@ -205,7 +207,9 @@ export async function insertJobItems(items: Array<{
     action_type: it.action_type,
     scheduled_for: it.scheduled_for ?? null,
     status: it.status ?? 'queued',
-    result_json: it.result_json ?? null
+    result_json: it.result_json ?? null,
+    error_code: it.error_code ?? null,
+    error_message: it.error_message ?? null
   }));
   const { error } = await sniperSupabaseDb.from('sniper_job_items').insert(rows as any);
   if (error) throw error;

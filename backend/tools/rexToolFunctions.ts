@@ -14,6 +14,7 @@ import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../sr
 import { canAttemptLinkedinConnect } from '../src/services/sniperV1/connectThrottle';
 import { recordActionUsage } from '../src/services/sniperV1/throttle';
 import { notifyConnectQueued, notifyConnectResult } from '../src/services/sniperV1/connectNotifications';
+import { normalizeLinkedinProfileUrl } from '../src/utils/linkedinUrl';
 
 export async function sourceLeads({
   userId,
@@ -2338,9 +2339,17 @@ export async function linkedin_connect({
     if (message && message.length > 300) {
       throw new Error('Message cannot exceed 300 characters');
     }
-    const invalidUrls = linkedin_urls.filter(url => !url.includes('linkedin.com/in/'));
-    if (invalidUrls.length > 0) {
-      throw new Error(`Invalid LinkedIn URL format: ${invalidUrls.join(', ')}`);
+
+    // Normalize URLs; invalid ones will be marked failed and not enqueued
+    const seen = new Set<string>();
+    const processed: Array<{ original: string; normalized: string | null }> = [];
+    for (const url of linkedin_urls) {
+      const original = String(url).trim();
+      const normalized = normalizeLinkedinProfileUrl(original);
+      const key = normalized ?? original;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      processed.push({ original, normalized });
     }
 
     const { data: userRow } = await supabaseDb
@@ -2350,18 +2359,22 @@ export async function linkedin_connect({
       .maybeSingle();
     const workspaceId = (userRow as any)?.team_id || userId;
 
+    const validCount = processed.filter((p) => p.normalized !== null).length;
+    if (validCount === 0) {
+      throw new Error('All LinkedIn profile URLs are invalid');
+    }
     const throttle = await canAttemptLinkedinConnect({ workspaceId, userId, respectActiveHours: false });
     if (!throttle.ok) {
       console.log('[rex-linkedin_connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
       throw new Error(throttle.reason || 'connect_throttled');
     }
-    if (linkedin_urls.length > throttle.remaining) {
+    if (validCount > throttle.remaining) {
       console.log('[rex-linkedin_connect] throttle block', { userId, workspaceId, reason: 'daily_connect_limit_exceeded', remaining: throttle.remaining });
-      throw new Error(`Cannot queue ${linkedin_urls.length} requests. Daily limit allows ${throttle.remaining} more requests today.`);
+      throw new Error(`Cannot queue ${validCount} requests. Daily limit allows ${throttle.remaining} more requests today.`);
     }
 
     const creditCostPerRequest = 5;
-    const totalCreditsNeeded = linkedin_urls.length * creditCostPerRequest;
+    const totalCreditsNeeded = validCount * creditCostPerRequest;
     const { CreditService } = await import('../services/creditService');
     const hasEnough = await CreditService.hasSufficientCredits(userId, totalCreditsNeeded);
     if (!hasEnough) throw new Error(`Insufficient credits. Need ${totalCreditsNeeded} credits.`);
@@ -2377,15 +2390,34 @@ export async function linkedin_connect({
     });
 
     await insertJobItems(
-      linkedin_urls.map((url) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: url,
-        action_type: 'connect',
-        scheduled_for: scheduledDate.toISOString(),
-        status: 'queued',
-        result_json: message ? { note: message.trim() } : null
-      }))
+      processed.map((p) => {
+        if (p.normalized === null) {
+          console.warn('[rex-linkedin_connect] Invalid LinkedIn profile URL', { original: p.original });
+          return {
+            job_id: job.id,
+            workspace_id: workspaceId,
+            profile_url: p.original,
+            action_type: 'connect' as const,
+            scheduled_for: scheduledDate.toISOString(),
+            status: 'failed' as const,
+            result_json: message ? { note: message.trim() } : null,
+            error_code: 'invalid_profile_url',
+            error_message: 'Invalid LinkedIn profile URL'
+          };
+        }
+        if (p.original !== p.normalized) {
+          console.log('[rex-linkedin_connect] LinkedIn profile URL normalized', { original: p.original, normalized: p.normalized });
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: p.normalized,
+          action_type: 'connect' as const,
+          scheduled_for: scheduledDate.toISOString(),
+          status: 'queued' as const,
+          result_json: message ? { note: message.trim() } : null
+        };
+      })
     );
 
     const shouldQueueOnly = Boolean(throttle.outsideActiveHours);
@@ -2393,9 +2425,10 @@ export async function linkedin_connect({
     const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
     if (zapierWebhookUrl) {
       // TEMP: Google Sheets staging for Airtop testing
-      const items = await listJobItems(job.id, linkedin_urls.length);
+      const items = await listJobItems(job.id, processed.length);
+      const queuedItems = items.filter((item) => item.status === 'queued');
       await Promise.all(
-        items.map((item) =>
+        queuedItems.map((item) =>
           axios.post(
             zapierWebhookUrl,
             {
@@ -2412,25 +2445,25 @@ export async function linkedin_connect({
         userId,
         workspaceId,
         jobId: job.id,
-        totalTargets: linkedin_urls.length,
-        profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
+        totalTargets: queuedItems.length,
+        profileUrl: queuedItems.length === 1 ? queuedItems[0].profile_url : null,
         note: message?.trim() || null,
         estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-        isBulk: linkedin_urls.length > 1
+        isBulk: queuedItems.length > 1
       });
 
-      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${queuedItems.length} requests`);
 
       return {
         success: true,
-        message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
-        queued_count: linkedin_urls.length,
+        message: `Successfully queued ${queuedItems.length} LinkedIn connection request(s)`,
+        queued_count: queuedItems.length,
         credits_used: totalCreditsNeeded,
         scheduled_at: scheduledDate.toISOString(),
         job_id: job.id,
         queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
         queue_source: 'zapier_sheets',
-        tasks: items.map((item) => ({
+        tasks: queuedItems.map((item) => ({
           task_id: item.id,
           batch_run_id: job.id,
           profile_url: item.profile_url
@@ -2438,7 +2471,7 @@ export async function linkedin_connect({
       };
     }
 
-    if (linkedin_urls.length === 1 && !shouldQueueOnly) {
+    if (processed.length === 1 && processed[0].normalized && !shouldQueueOnly) {
       const singleAgentId = requireEnvAny([
         'AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID',
         'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
@@ -2450,12 +2483,16 @@ export async function linkedin_connect({
       const itemRows = await listJobItems(job.id, 1);
       const item = itemRows?.[0];
       if (!item) throw new Error('connect_item_not_found');
-
+      const singleItem = processed[0];
+      const normalizedUrl = singleItem.normalized!;
+      if (singleItem.original !== normalizedUrl) {
+        console.log('[rex-linkedin_connect] LinkedIn profile URL normalized', { original: singleItem.original, normalized: normalizedUrl });
+      }
       const { invocationId } = await invokeAgentWebhook({
         agentId: singleAgentId,
         webhookId: singleWebhookId,
         configVars: {
-          profile_url: item.profile_url,
+          profile_url: normalizedUrl,
           note: message?.trim() || null,
           send_without_note_if_blocked: true,
           max_attempts: 3,
@@ -2524,12 +2561,12 @@ export async function linkedin_connect({
         });
       }
 
-      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+      await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for 1 request`);
 
       return {
         success: true,
-        message: `Processed ${linkedin_urls.length} LinkedIn connection request(s)`,
-        queued_count: linkedin_urls.length,
+        message: `Processed 1 LinkedIn connection request(s)`,
+        queued_count: 1,
         credits_used: totalCreditsNeeded,
         scheduled_at: scheduledDate.toISOString(),
         job_id: job.id,
@@ -2573,23 +2610,24 @@ export async function linkedin_connect({
     });
     console.log('[airtop] batch connect invocation', { invocationId, jobId: job.id });
 
+    const validProcessed = processed.filter((p) => p.normalized !== null);
     await notifyConnectQueued({
       userId,
       workspaceId,
       jobId: job.id,
-      totalTargets: linkedin_urls.length,
-      profileUrl: linkedin_urls.length === 1 ? linkedin_urls[0] : null,
+      totalTargets: validProcessed.length,
+      profileUrl: validProcessed.length === 1 ? validProcessed[0].normalized! : null,
       note: message?.trim() || null,
       estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-      isBulk: linkedin_urls.length > 1
+      isBulk: validProcessed.length > 1
     });
 
-    await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${linkedin_urls.length} requests`);
+    await CreditService.deductCredits(userId, totalCreditsNeeded, 'api_usage', `LinkedIn auto-send for ${validProcessed.length} requests`);
 
     return {
       success: true,
-      message: `Successfully queued ${linkedin_urls.length} LinkedIn connection request(s)`,
-      queued_count: linkedin_urls.length,
+      message: `Successfully queued ${validProcessed.length} LinkedIn connection request(s)`,
+      queued_count: validProcessed.length,
       credits_used: totalCreditsNeeded,
       scheduled_at: scheduledDate.toISOString(),
       job_id: job.id,

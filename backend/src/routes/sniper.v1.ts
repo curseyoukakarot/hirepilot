@@ -26,6 +26,7 @@ import { invokeAgentWebhook, pollInvocationResult, safeOutputParse } from '../se
 import { canAttemptLinkedinConnect } from '../services/sniperV1/connectThrottle';
 import { recordActionUsage } from '../services/sniperV1/throttle';
 import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/connectNotifications';
+import { normalizeLinkedinProfileUrl } from '../utils/linkedinUrl';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -361,9 +362,9 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
 
     const schema = z.object({
       provider: z.enum(['airtop', 'local_playwright']).optional(),
-      profile_urls: z.array(z.string().url()).min(1).max(500).optional(),
+      profile_urls: z.array(z.string().min(1)).min(1).max(500).optional(),
       requests: z.array(z.object({
-        profile_url: z.string().url(),
+        profile_url: z.string().min(1),
         note: z.string().max(300).optional().nullable()
       })).min(1).max(500).optional(),
       note: z.string().max(300).optional().nullable(),
@@ -380,15 +381,20 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     }));
     const urls = (parsed.data.profile_urls || []).map((u) => ({ profile_url: u, note: parsed.data.note ?? null }));
     const merged = [...requests, ...urls];
-    // Deduplicate by URL (keep first note)
-    const seen = new Set<string>();
-    const unique = merged.filter((r) => {
-      const key = String(r.profile_url);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
 
+    // Normalize URLs and deduplicate by normalized URL (invalid URLs are kept for failed-marking)
+    const seen = new Set<string>();
+    const processed: Array<{ profile_url: string; note: string | null; normalized: string | null }> = [];
+    for (const r of merged) {
+      const original = String(r.profile_url).trim();
+      const normalized = normalizeLinkedinProfileUrl(original);
+      const key = normalized ?? original;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      processed.push({ profile_url: original, note: r.note ?? parsed.data.note ?? null, normalized });
+    }
+
+    const validCount = processed.filter((p) => p.normalized !== null).length;
     const throttle = await canAttemptLinkedinConnect({ workspaceId, userId, respectActiveHours: false });
     if (!throttle.ok) {
       console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
@@ -397,17 +403,17 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         cooldown_seconds: throttle.cooldownSeconds,
         limit_per_day: throttle.limit,
         remaining_today: throttle.remaining,
-        requested: unique.length
+        requested: validCount
       });
     }
-    if (unique.length > throttle.remaining) {
+    if (validCount > throttle.remaining) {
       console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: 'daily_connect_limit_exceeded', remaining: throttle.remaining });
       return res.status(429).json({
         error: 'daily_connect_limit_exceeded',
         cooldown_seconds: 60 * 60,
         limit_per_day: throttle.limit,
         remaining_today: throttle.remaining,
-        requested: unique.length
+        requested: validCount
       });
     }
     (req as any)._sniperQuota = {
@@ -427,16 +433,33 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     });
 
     await insertJobItems(
-      unique.map((r) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: r.profile_url,
-        action_type: 'connect',
-        scheduled_for: parsed.data.scheduled_for || null,
-        status: 'queued',
-        // Store per-item note for personalization; worker will prefer this over job.input_json.note
-        result_json: r.note ? { note: r.note } : null
-      }))
+      processed.map((p) => {
+        if (p.normalized === null) {
+          return {
+            job_id: job.id,
+            workspace_id: workspaceId,
+            profile_url: p.profile_url,
+            action_type: 'connect' as const,
+            scheduled_for: parsed.data.scheduled_for || null,
+            status: 'failed' as const,
+            result_json: p.note ? { note: p.note } : null,
+            error_code: 'invalid_profile_url',
+            error_message: 'Invalid LinkedIn profile URL'
+          };
+        }
+        if (p.profile_url !== p.normalized) {
+          console.log('[sniper-connect] LinkedIn profile URL normalized', { original: p.profile_url, normalized: p.normalized });
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: p.normalized,
+          action_type: 'connect' as const,
+          scheduled_for: parsed.data.scheduled_for || null,
+          status: 'queued' as const,
+          result_json: p.note ? { note: p.note } : null
+        };
+      })
     );
 
     const q = (req as any)._sniperQuota || {};
@@ -445,9 +468,17 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const zapierWebhookUrl = String(process.env.AIRTOP_ZAPIER_WEBHOOK_URL || '').trim();
     // TEMP: Google Sheets staging for Airtop testing
     if (zapierWebhookUrl) {
-      const items = await listJobItems(job.id, unique.length);
+      const items = await listJobItems(job.id, processed.length);
+      const queuedItems = items.filter((item) => item.status === 'queued');
+      if (queuedItems.length === 0) {
+        return res.status(400).json({
+          error: 'invalid_profile_url',
+          message: 'All LinkedIn profile URLs are invalid',
+          failed_count: processed.filter((p) => p.normalized === null).length
+        });
+      }
       await Promise.all(
-        items.map((item) =>
+        queuedItems.map((item) =>
           axios.post(
             zapierWebhookUrl,
             {
@@ -461,15 +492,16 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         )
       );
 
+      const firstQueued = queuedItems[0];
       await notifyConnectQueued({
         userId,
         workspaceId,
         jobId: job.id,
-        totalTargets: unique.length,
-        profileUrl: unique.length === 1 ? unique[0].profile_url : null,
-        note: (unique.length === 1 ? unique[0].note : parsed.data.note) || null,
+        totalTargets: queuedItems.length,
+        profileUrl: queuedItems.length === 1 && firstQueued ? firstQueued.profile_url : null,
+        note: (queuedItems.length === 1 && firstQueued?.result_json?.note) || parsed.data.note || null,
         estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-        isBulk: unique.length > 1
+        isBulk: queuedItems.length > 1
       });
 
       return res.status(202).json({
@@ -477,7 +509,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         job_id: job.id,
         queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
         queue_source: 'zapier_sheets',
-        tasks: items.map((item) => ({
+        tasks: queuedItems.map((item) => ({
           task_id: item.id,
           batch_run_id: job.id,
           profile_url: item.profile_url
@@ -493,7 +525,15 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     }
 
     // Single profile: execute immediately via Airtop Single-Profile webhook.
-    if (unique.length === 1 && !shouldQueueOnly) {
+    if (processed.length === 1 && !shouldQueueOnly) {
+      const singleItem = processed[0];
+      if (singleItem.normalized === null) {
+        return res.status(400).json({
+          error: 'invalid_profile_url',
+          message: 'Invalid LinkedIn profile URL',
+          profile_url: singleItem.profile_url
+        });
+      }
       const singleAgentId = requireEnvAny([
         'AIRTOP_LINKEDIN_CONNECT_SINGLE_AGENT_ID',
         'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
@@ -508,6 +548,9 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         throw new Error('connect_item_not_found');
       }
 
+      if (singleItem.profile_url !== singleItem.normalized) {
+        console.log('[sniper-connect] LinkedIn profile URL normalized', { original: singleItem.profile_url, normalized: singleItem.normalized });
+      }
       const { invocationId } = await invokeAgentWebhook({
         agentId: singleAgentId,
         webhookId: singleWebhookId,
@@ -597,6 +640,14 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     }
 
     // Bulk: trigger Airtop Batch Worker once and let it pull tasks.
+    const validProcessedBatch = processed.filter((p) => p.normalized !== null);
+    if (validProcessedBatch.length === 0) {
+      return res.status(400).json({
+        error: 'invalid_profile_url',
+        message: 'All LinkedIn profile URLs are invalid',
+        failed_count: processed.filter((p) => p.normalized === null).length
+      });
+    }
     const batchAgentId = requireEnvAny([
       'AIRTOP_LINKEDIN_CONNECT_BATCH_AGENT_ID',
       'AIRTOP_LINKEDIN_CONNECT_AGENT_ID'
@@ -636,11 +687,11 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       userId,
       workspaceId,
       jobId: job.id,
-      totalTargets: unique.length,
-      profileUrl: unique.length === 1 ? unique[0].profile_url : null,
-      note: (unique.length === 1 ? unique[0].note : parsed.data.note) || null,
+      totalTargets: validProcessedBatch.length,
+      profileUrl: validProcessedBatch.length === 1 ? validProcessedBatch[0].normalized! : null,
+      note: (validProcessedBatch.length === 1 ? validProcessedBatch[0].note : parsed.data.note) || null,
       estimatedRate: String(throttle.settings.max_actions_per_hour || ''),
-      isBulk: unique.length > 1
+      isBulk: validProcessedBatch.length > 1
     });
 
     return res.status(202).json({
