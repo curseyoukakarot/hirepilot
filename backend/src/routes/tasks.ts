@@ -551,12 +551,26 @@ const listTasksHandler = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
 
     const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
-    const membership = await getMembership(userId, workspaceId);
+    // Super admins may have no workspace membership; resolve effective membership for access check
+    let membership: Membership | null = null;
+    if (workspaceId) {
+      membership = await getMembership(userId, workspaceId);
+    }
+    if (!membership) {
+      const { data: userRow } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+      const role = normalizeRole((userRow as any)?.role);
+      if (role === 'super_admin' || role === 'superadmin') {
+        membership = { role: 'super_admin', status: 'active' };
+      }
+    }
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const tab = String((req.query as any)?.tab || 'assigned_to_me');
+    const isSuperAdminFromRole = ['super_admin', 'superadmin'].includes(normalizeRole(membership.role));
+    if (!workspaceId && !isSuperAdminFromRole) return res.status(400).json({ error: 'workspace_required' });
+
+    let tab = String((req.query as any)?.tab || 'assigned_to_me');
+    if (!workspaceId && isSuperAdminFromRole) tab = 'assigned_to_me';
     const search = String((req.query as any)?.search || '').trim();
     const status = String((req.query as any)?.status || '').trim();
     const assignee = String((req.query as any)?.assignee || '').trim();
@@ -569,14 +583,23 @@ const listTasksHandler = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'all_team_forbidden' });
     }
 
+    // Super admins may be assigned tasks in workspaces where they have no membership.
+    // For assigned_to_me, include tasks from all workspaces so they can see them.
+    const useCrossWorkspaceForAssigned = isSuperAdminFromRole && tab === 'assigned_to_me';
+
     let query = supabase
       .from('tasks')
       .select(
         'id,workspace_id,created_by_user_id,assigned_to_user_id,title,description,status,priority,due_at,completed_at,related_type,related_id,created_at,updated_at',
       )
-      .eq('workspace_id', workspaceId)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
+
+    if (useCrossWorkspaceForAssigned) {
+      query = query.eq('assigned_to_user_id', userId);
+    } else {
+      query = query.eq('workspace_id', workspaceId);
+    }
 
     if (search) {
       const safe = search.replace(/[%]/g, '');
@@ -631,11 +654,11 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     let commentCountByTask: Record<string, number> = {};
     if (taskIds.length) {
-      const { data: comments, error: commentsError } = await supabase
-        .from('task_comments')
-        .select('task_id')
-        .eq('workspace_id', workspaceId)
-        .in('task_id', taskIds);
+      let commentsQuery = supabase.from('task_comments').select('task_id').in('task_id', taskIds);
+      if (!useCrossWorkspaceForAssigned) {
+        commentsQuery = commentsQuery.eq('workspace_id', workspaceId);
+      }
+      const { data: comments, error: commentsError } = await commentsQuery;
       if (commentsError) return res.status(500).json({ error: commentsError.message || 'task_comments_count_failed' });
       commentCountByTask = (comments || []).reduce((acc: Record<string, number>, row: any) => {
         const taskId = String(row.task_id);
@@ -676,14 +699,25 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
 
     const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
     const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
 
-    const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
+    let membershipById: Membership | null = null;
+    if (workspaceId) {
+      membershipById = await getMembership(userId, workspaceId);
+    }
+    if (!membershipById && !hasGlobalAdmin) {
+      const { data: userRow } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+      const role = normalizeRole((userRow as any)?.role);
+      if (role === 'super_admin' || role === 'superadmin') {
+        membershipById = { role: 'super_admin', status: 'active' };
+      }
+    }
+    if (!membershipById && !hasGlobalAdmin) return res.status(403).json({ error: 'workspace_forbidden' });
+    if (!workspaceId && !hasGlobalAdmin) return res.status(400).json({ error: 'workspace_required' });
+
+    const resolved = await getTaskForUser(taskId, userId, workspaceId || '', globalRole);
     if (!resolved) return res.json({ task: null });
 
     const { data: comments, error: commentsError } = await supabase
