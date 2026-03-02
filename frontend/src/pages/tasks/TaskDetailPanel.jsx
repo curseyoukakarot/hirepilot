@@ -46,8 +46,8 @@ export default function TaskDetailPanel({
   }
 
   return (
-    <div className="w-[400px] bg-white border-l border-gray-200 flex-col h-full shadow-drawer z-30 lg:relative lg:flex hidden">
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div className="w-[400px] bg-white border-l border-gray-200 flex-col max-h-full shadow-drawer z-30 lg:relative lg:flex hidden overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span className="bg-gray-100 px-2 py-1 rounded-md border border-gray-200 font-mono text-gray-600">{task.code}</span>
           <span>•</span>
@@ -97,7 +97,7 @@ export default function TaskDetailPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 min-h-0">
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-4">
             <button className="mt-1.5 text-gray-300 hover:text-indigo-500 transition">
@@ -202,7 +202,7 @@ export default function TaskDetailPanel({
         <TaskActivityFeed activity={activity} highlightedActivityId={highlightedActivityId} />
       </div>
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
         {statusModalOpen && (
           <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
             <div className="text-xs font-medium text-gray-500 mb-2">Create custom status</div>
