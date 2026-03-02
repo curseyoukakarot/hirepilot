@@ -46,7 +46,7 @@ export default function TaskDetailPanel({
   }
 
   return (
-    <div className="w-[400px] bg-white border-l border-gray-200 flex-col max-h-full shadow-drawer z-30 lg:relative lg:flex hidden overflow-hidden">
+    <div className="w-[400px] bg-white border-l border-gray-200 flex flex-col h-screen max-h-screen shadow-drawer z-30 lg:sticky lg:top-0 lg:self-start hidden lg:flex overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span className="bg-gray-100 px-2 py-1 rounded-md border border-gray-200 font-mono text-gray-600">{task.code}</span>
