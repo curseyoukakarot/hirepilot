@@ -553,21 +553,20 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     const workspaceId = resolveWorkspaceId(req);
 
-    // Super admins may have no workspace membership; resolve effective membership for access check
+    // Resolve workspace membership AND check users table for super admin independently
     let membership: Membership | null = null;
     if (workspaceId) {
       membership = await getMembership(userId, workspaceId);
     }
-    if (!membership) {
-      const { data: userRow } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
-      const role = normalizeRole((userRow as any)?.role);
-      if (role === 'super_admin' || role === 'superadmin') {
-        membership = { role: 'super_admin', status: 'active' };
-      }
+
+    const { data: userRow } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+    const globalUserRole = normalizeRole((userRow as any)?.role);
+    const isSuperAdminFromRole = ['super_admin', 'superadmin'].includes(globalUserRole);
+
+    if (!membership && isSuperAdminFromRole) {
+      membership = { role: 'super_admin', status: 'active' };
     }
     if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const isSuperAdminFromRole = ['super_admin', 'superadmin'].includes(normalizeRole(membership.role));
     if (!workspaceId && !isSuperAdminFromRole) return res.status(400).json({ error: 'workspace_required' });
 
     let tab = String((req.query as any)?.tab || 'assigned_to_me');
