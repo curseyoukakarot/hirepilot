@@ -4,6 +4,8 @@
     { "source": "/auth/callback/:path*", "destination": "/index.html" },
     { "source": "/affiliates", "destination": "/index.html" },
     { "source": "/partners/:path*", "destination": "/index.html" },
+    { "source": "/homepage", "destination": "/homepage/index.html" },
+    { "source": "/homepage/:path*", "destination": "/homepage/:path*" },
     { "source": "/(.*)", "destination": "/" }
   ],
   "headers": [

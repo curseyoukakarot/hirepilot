@@ -349,6 +349,11 @@ function CampaignWizard() {
   );
 }
 
+function HomepageRedirect() {
+  useEffect(() => { window.location.replace('/homepage/index.html'); }, []);
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     const stop = startSessionCookieSync();
@@ -832,9 +837,10 @@ function InnerApp() {
                 element={
                   isCustomHost
                     ? <PublicLandingPage hostOverride={hostname} whiteLabel={true} />
-                    : <HomePage />
+                    : <HomepageRedirect />
                 }
               />
+              <Route path="/homepage" element={<HomepageRedirect />} />
               <Route path="/p/:slug" element={<PublicLandingPage />} />
               {/* Public Forms runtime */}
               <Route path="/f/:slug" element={<PublicFormRoute />} />
