@@ -57,29 +57,35 @@ export default function MeetRex() {
     document.querySelectorAll('.rex-reveal').forEach((el) => io.observe(el));
 
     /* typing animation for command bar */
+    let cancelled = false;
     let cmdIdx = 0;
     let charIdx = 0;
     let typing = true;
     let timer;
     const el = cmdRef.current;
     const tick = () => {
-      if (!el) return;
+      if (cancelled || !el) return;
       const cmd = commands[cmdIdx];
       if (typing) {
-        el.textContent = cmd.slice(0, ++charIdx);
-        timer = setTimeout(tick, 28);
-        if (charIdx >= cmd.length) { typing = false; timer = setTimeout(tick, 2400); }
+        charIdx++;
+        el.textContent = cmd.slice(0, charIdx);
+        if (charIdx >= cmd.length) {
+          typing = false;
+          timer = setTimeout(tick, 3000); /* pause 3s so user can read */
+        } else {
+          timer = setTimeout(tick, 45); /* 45ms per char — readable typing */
+        }
       } else {
         el.textContent = '';
         charIdx = 0;
         cmdIdx = (cmdIdx + 1) % commands.length;
         typing = true;
-        timer = setTimeout(tick, 400);
+        timer = setTimeout(tick, 600); /* brief pause before next phrase */
       }
     };
-    timer = setTimeout(tick, 800);
+    timer = setTimeout(tick, 1000);
 
-    return () => { io.disconnect(); clearTimeout(timer); };
+    return () => { cancelled = true; io.disconnect(); clearTimeout(timer); };
   }, []);
 
   return (
