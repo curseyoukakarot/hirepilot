@@ -23,7 +23,7 @@
                     colors: {
                         brand: {
                             dark: '#2A1B36',
-                            primary: '#FF6B4A',
+                            primary: '#8B5CF6',
                             secondary: '#4A3B56',
                             accent: '#D8B4FE',
                             text: '#F3E8FF',
@@ -50,80 +50,80 @@
     <!-- ============================================ -->
     <!-- PUBLIC NAVBAR (from app PublicNavbar.jsx)     -->
     <!-- ============================================ -->
-    <header id="header" class="fixed w-full top-0 z-50 bg-white shadow-sm border-b border-gray-100">
+    <header id="header" class="fixed w-full top-0 z-50 border-b border-white/10 transition-all duration-300" style="background:rgba(42,27,54,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
         <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2">
                 <img src="/logo.png" alt="HirePilot Logo" class="h-8 w-8" />
-                <span class="text-xl font-bold text-gray-900">HirePilot</span>
+                <span class="text-xl font-bold text-white">HirePilot</span>
             </a>
             <nav class="hidden md:flex items-center gap-8">
-                <a href="/rex" class="text-gray-800 border-b-2 border-transparent hover:border-blue-600 pb-1">Meet REX</a>
-                <a href="/freeforever" class="text-gray-800 border-b-2 border-transparent hover:border-blue-600 pb-1">Free Forever</a>
-                <a href="/workflows" class="text-gray-800 border-b-2 border-transparent hover:border-blue-600 pb-1">Workflows</a>
-                <a href="/pricing" class="text-gray-800 border-b-2 border-transparent hover:border-blue-600 pb-1">Pricing</a>
+                <a href="/rex" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Meet REX</a>
+                <a href="/freeforever" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Free Forever</a>
+                <a href="/workflows" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Workflows</a>
+                <a href="/pricing" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Pricing</a>
                 <div class="relative pb-3" id="use-cases-dropdown"
                      onmouseenter="openUseCases()" onmouseleave="scheduleCloseUseCases()">
                     <div class="flex items-center gap-2">
-                        <a href="/use-cases" class="text-gray-800 border-b-2 border-transparent hover:border-blue-600 pb-1">Use Cases</a>
+                        <a href="/use-cases" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Use Cases</a>
                         <button type="button" aria-haspopup="true" aria-expanded="false"
-                                class="text-gray-700 hover:text-gray-900 pb-1"
+                                class="text-gray-400 hover:text-white pb-1"
                                 onclick="toggleUseCases()">
                             <i class="fa-solid fa-chevron-down text-sm" id="use-cases-chevron"></i>
                         </button>
                     </div>
-                    <div id="use-cases-menu" class="hidden absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                        <a href="/use-cases" class="block px-4 py-2 text-gray-800 hover:bg-gray-50 hover:text-gray-900 rounded-md">Overview</a>
-                        <a href="/use-cases/recruiting-agencies" class="block px-4 py-2 text-gray-800 hover:bg-gray-50 hover:text-gray-900 rounded-md">Recruiting Agencies</a>
-                        <a href="/use-cases/fractional-executives" class="block px-4 py-2 text-gray-800 hover:bg-gray-50 hover:text-gray-900 rounded-md">Fractional Executives</a>
-                        <a href="/use-cases/consultants" class="block px-4 py-2 text-gray-800 hover:bg-gray-50 hover:text-gray-900 rounded-md">Consultants</a>
-                        <a href="https://jobs.thehirepilot.com/" class="block px-4 py-2 text-gray-800 hover:bg-gray-50 hover:text-gray-900 rounded-md">Job Seekers</a>
+                    <div id="use-cases-menu" class="hidden absolute top-full left-0 mt-1 w-64 bg-[#1E1226] border border-white/10 rounded-lg shadow-2xl py-2 z-50">
+                        <a href="/use-cases" class="block px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md">Overview</a>
+                        <a href="/use-cases/recruiting-agencies" class="block px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md">Recruiting Agencies</a>
+                        <a href="/use-cases/fractional-executives" class="block px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md">Fractional Executives</a>
+                        <a href="/use-cases/consultants" class="block px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md">Consultants</a>
+                        <a href="https://jobs.thehirepilot.com/" class="block px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md">Job Seekers</a>
                     </div>
                 </div>
             </nav>
             <div class="hidden md:flex items-center gap-4">
-                <a href="https://app.thehirepilot.com/login" class="text-sm text-gray-800 hover:text-gray-900">Log in</a>
-                <a href="https://app.thehirepilot.com/signup" class="inline-flex items-center bg-indigo-600 px-4 py-2 text-white rounded-lg">Sign up</a>
-                <a href="/pricing" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200">
+                <a href="https://app.thehirepilot.com/login" class="text-sm font-medium text-white hover:text-brand-primary transition-colors">Log in</a>
+                <a href="https://app.thehirepilot.com/signup" class="inline-flex items-center bg-white/10 border border-white/10 px-4 py-2 text-white rounded-lg hover:bg-white/20 transition-all">Sign up</a>
+                <a href="/pricing" class="bg-gradient-to-r from-violet-600 to-purple-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-200">
                     Start for Free
                 </a>
             </div>
             <!-- Mobile hamburger -->
-            <button onclick="toggleMobileMenu()" class="md:hidden text-gray-600">
+            <button onclick="toggleMobileMenu()" class="md:hidden text-gray-300 hover:text-white">
                 <i class="fa-solid fa-bars text-2xl"></i>
             </button>
         </div>
     </header>
 
     <!-- Mobile Menu Overlay -->
-    <div id="mobile-menu-overlay" class="fixed inset-0 z-50 bg-white flex-col p-6" style="display:none;">
+    <div id="mobile-menu-overlay" class="fixed inset-0 z-50 bg-[#2A1B36] flex-col p-6" style="display:none;">
         <div class="flex items-center justify-between mb-8">
             <a href="/" class="flex items-center gap-2">
                 <img src="/logo.png" alt="HirePilot Logo" class="h-8 w-8" />
-                <span class="text-xl font-bold text-gray-900">HirePilot</span>
+                <span class="text-xl font-bold text-white">HirePilot</span>
             </a>
-            <button onclick="toggleMobileMenu()" class="text-gray-600">
+            <button onclick="toggleMobileMenu()" class="text-gray-400 hover:text-white">
                 <i class="fa-solid fa-xmark text-3xl"></i>
             </button>
         </div>
         <nav class="flex-1 flex flex-col items-start gap-6 overflow-y-auto">
-            <a href="/rex" class="text-lg text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Meet REX</a>
-            <a href="/freeforever" class="text-lg text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Free Forever</a>
-            <a href="/workflows" class="text-lg text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Workflows</a>
-            <a href="/pricing" class="text-lg text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Pricing</a>
-            <button class="text-lg text-gray-700 hover:text-blue-600 flex items-center gap-2" onclick="toggleMobileUseCases()">
+            <a href="/rex" class="text-lg text-gray-300 hover:text-white" onclick="toggleMobileMenu()">Meet REX</a>
+            <a href="/freeforever" class="text-lg text-gray-300 hover:text-white" onclick="toggleMobileMenu()">Free Forever</a>
+            <a href="/workflows" class="text-lg text-gray-300 hover:text-white" onclick="toggleMobileMenu()">Workflows</a>
+            <a href="/pricing" class="text-lg text-gray-300 hover:text-white" onclick="toggleMobileMenu()">Pricing</a>
+            <button class="text-lg text-gray-300 hover:text-white flex items-center gap-2" onclick="toggleMobileUseCases()">
                 <span>Use Cases</span>
                 <i class="fa-solid fa-chevron-down text-sm" id="mobile-use-cases-chevron"></i>
             </button>
             <div id="mobile-use-cases-menu" class="hidden ml-4 flex flex-col gap-3">
-                <a href="/use-cases" class="text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Overview</a>
-                <a href="/use-cases/recruiting-agencies" class="text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Recruiting Agencies</a>
-                <a href="/use-cases/fractional-executives" class="text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Fractional Executives</a>
-                <a href="/use-cases/consultants" class="text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Consultants</a>
-                <a href="https://jobs.thehirepilot.com/" class="text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Job Seekers</a>
+                <a href="/use-cases" class="text-gray-400 hover:text-white" onclick="toggleMobileMenu()">Overview</a>
+                <a href="/use-cases/recruiting-agencies" class="text-gray-400 hover:text-white" onclick="toggleMobileMenu()">Recruiting Agencies</a>
+                <a href="/use-cases/fractional-executives" class="text-gray-400 hover:text-white" onclick="toggleMobileMenu()">Fractional Executives</a>
+                <a href="/use-cases/consultants" class="text-gray-400 hover:text-white" onclick="toggleMobileMenu()">Consultants</a>
+                <a href="https://jobs.thehirepilot.com/" class="text-gray-400 hover:text-white" onclick="toggleMobileMenu()">Job Seekers</a>
             </div>
-            <a href="https://app.thehirepilot.com/login" class="text-lg text-gray-700 hover:text-blue-600" onclick="toggleMobileMenu()">Sign in</a>
+            <a href="https://app.thehirepilot.com/login" class="text-lg text-gray-300 hover:text-white" onclick="toggleMobileMenu()">Sign in</a>
         </nav>
-        <a href="/pricing" class="mt-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white w-full text-center py-4 rounded-lg font-semibold" onclick="toggleMobileMenu()">
+        <a href="/pricing" class="mt-auto bg-gradient-to-r from-violet-600 to-purple-500 text-white w-full text-center py-4 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all" onclick="toggleMobileMenu()">
             Start for Free
         </a>
     </div>
@@ -160,7 +160,7 @@
 
             <!-- CTAs -->
             <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <a href="#" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-semibold rounded-xl text-white bg-brand-primary hover:bg-[#ff856a] transition-all duration-200 shadow-lg shadow-brand-primary/25 transform hover:-translate-y-0.5">
+                <a href="https://app.thehirepilot.com/signup" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 transition-all duration-200 shadow-lg shadow-purple-500/25 transform hover:-translate-y-0.5">
                     Launch HirePilot
                 </a>
                 <a href="#" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-white/20 text-base font-semibold rounded-xl text-white bg-transparent hover:bg-white/5 transition-all duration-200 backdrop-blur-sm group">
@@ -187,7 +187,7 @@
 
             <!-- Hero Visual / Dashboard Preview -->
             <div class="mt-16 relative mx-auto max-w-5xl">
-                <div class="absolute -inset-1 bg-gradient-to-r from-brand-primary to-purple-600 rounded-2xl blur opacity-20"></div>
+                <div class="absolute -inset-1 bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl blur opacity-20"></div>
                 <div class="relative rounded-2xl bg-[#1E1226] border border-white/10 shadow-2xl overflow-hidden">
                     <!-- Fake Browser Header -->
                     <div class="bg-white/5 border-b border-white/5 px-4 py-3 flex items-center gap-4">
@@ -471,7 +471,7 @@
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                 <div>
-                    <h2 class="text-3xl md:text-5xl font-bold mb-6">Clay-like personalization, <br><span class="text-brand-primary">but operational.</span></h2>
+                    <h2 class="text-3xl md:text-5xl font-bold mb-6">Clay-like personalization, <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-purple-300">but operational.</span></h2>
                     <p class="text-lg text-gray-300 mb-8">
                         Automation without the duct tape. Create sophisticated logic recipes that handle enrichment, messaging, and CRM updates in a single flow.
                     </p>
@@ -638,54 +638,26 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 <!-- Large Feature 1 -->
                 <div class="glass-card rounded-2xl overflow-hidden group border border-white/10 h-[400px] relative">
-                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10"></div>
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70 z-10"></div>
                     <div class="absolute bottom-0 left-0 p-8 z-20">
                         <h3 class="text-2xl font-bold text-white mb-2">Agent Mode Center</h3>
                         <p class="text-gray-300">Watch REX navigate the web, find candidates, and execute complex workflows in real-time.</p>
                     </div>
-                    <div class="w-full h-full bg-[#1a1025] p-6 pt-10">
-                        <!-- UI Mockup -->
-                        <div class="w-full h-full bg-[#2A1B36] rounded-xl border border-white/5 shadow-2xl p-4 flex gap-4">
-                             <div class="w-1/4 h-full bg-white/5 rounded-lg"></div>
-                             <div class="w-3/4 space-y-3">
-                                <div class="h-8 bg-white/5 rounded w-full"></div>
-                                <div class="h-32 bg-white/5 rounded w-full"></div>
-                                <div class="flex gap-2">
-                                    <div class="h-20 bg-brand-primary/20 rounded w-1/3"></div>
-                                    <div class="h-20 bg-white/5 rounded w-1/3"></div>
-                                    <div class="h-20 bg-white/5 rounded w-1/3"></div>
-                                </div>
-                             </div>
-                        </div>
-                    </div>
+                    <img src="https://cdn.mcauto-images-production.sendgrid.net/42fe98985fd9e1ca/4f5e83b5-b103-4c4c-bb54-8bdc76645ad0/2355x1972.jpeg"
+                         alt="Agent Mode Center Screenshot"
+                         class="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
                 </div>
 
                 <!-- Large Feature 2 -->
                 <div class="glass-card rounded-2xl overflow-hidden group border border-white/10 h-[400px] relative">
-                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10"></div>
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70 z-10"></div>
                     <div class="absolute bottom-0 left-0 p-8 z-20">
                         <h3 class="text-2xl font-bold text-white mb-2">Unified Pipeline View</h3>
                         <p class="text-gray-300">ATS and CRM merged into one drag-and-drop board for candidates and clients.</p>
                     </div>
-                    <div class="w-full h-full bg-[#1a1025] p-6 pt-10">
-                        <!-- UI Mockup -->
-                        <div class="w-full h-full flex gap-4 overflow-hidden">
-                             <div class="w-1/3 h-full bg-white/5 rounded-t-xl border-t border-x border-white/5 p-3 space-y-3">
-                                 <div class="h-4 w-20 bg-white/20 rounded mb-4"></div>
-                                 <div class="h-24 bg-[#2A1B36] rounded border border-white/5 p-2"></div>
-                                 <div class="h-24 bg-[#2A1B36] rounded border border-white/5 p-2"></div>
-                             </div>
-                             <div class="w-1/3 h-full bg-white/5 rounded-t-xl border-t border-x border-white/5 p-3 space-y-3">
-                                 <div class="h-4 w-20 bg-white/20 rounded mb-4"></div>
-                                 <div class="h-24 bg-[#2A1B36] rounded border border-white/5 p-2"></div>
-                             </div>
-                             <div class="w-1/3 h-full bg-white/5 rounded-t-xl border-t border-x border-white/5 p-3 space-y-3">
-                                 <div class="h-4 w-20 bg-white/20 rounded mb-4"></div>
-                                 <div class="h-24 bg-brand-primary/20 rounded border border-brand-primary/50 p-2 shadow-[0_0_15px_rgba(255,107,74,0.1)]"></div>
-                                 <div class="h-24 bg-[#2A1B36] rounded border border-white/5 p-2"></div>
-                             </div>
-                        </div>
-                    </div>
+                    <img src="https://cdn.mcauto-images-production.sendgrid.net/42fe98985fd9e1ca/7cecea2c-256e-4d97-97f9-30df98fd661a/1674x1500.png"
+                         alt="Unified Pipeline View Screenshot"
+                         class="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
                 </div>
             </div>
 
@@ -738,14 +710,14 @@
         <div class="max-w-4xl mx-auto px-4 relative z-10 text-center">
             <h2 class="text-4xl md:text-6xl font-bold mb-6 tracking-tight">
                 Start free. <br/>
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-purple-400">Scale when ready.</span>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-purple-300">Scale when ready.</span>
             </h2>
             <p class="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
                 Join the operators who have replaced their fragmented stack with the only AI Recruiting OS.
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <a href="#" class="w-full sm:w-auto px-8 py-4 bg-brand-primary hover:bg-[#ff856a] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(255,107,74,0.3)] transition-all transform hover:-translate-y-1">
+                <a href="https://app.thehirepilot.com/signup" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all transform hover:-translate-y-1">
                     Start Free
                 </a>
                 <a href="#" class="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-xl backdrop-blur-sm transition-all">

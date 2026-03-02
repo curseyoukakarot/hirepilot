@@ -22,7 +22,7 @@ body {
     border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #FF6B4A;
+    background: #8B5CF6;
 }
 
 .glass-card {
@@ -56,7 +56,7 @@ body {
     top: 0;
     bottom: 0;
     width: 2px;
-    background: linear-gradient(to bottom, transparent, #FF6B4A, transparent);
+    background: linear-gradient(to bottom, transparent, #8B5CF6, transparent);
     transform: translateX(-50%);
     z-index: 0;
 }
