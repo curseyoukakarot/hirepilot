@@ -307,7 +307,8 @@ async function getTaskForUser(taskId: string, userId: string, preferredWorkspace
     }
   }
 
-  const { data, error } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+  const fallbackClient = hasGlobalAdmin ? getBypassClient() : supabase;
+  const { data, error } = await fallbackClient.from('tasks').select('*').eq('id', taskId).maybeSingle();
   if (error || !data) return null;
 
   const actualWorkspaceId = String((data as any).workspace_id || '').trim();
@@ -585,9 +586,12 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     // Super admins may be assigned tasks in workspaces where they have no membership.
     // For assigned_to_me, include tasks from all workspaces so they can see them.
+    // Uses the service-role (bypass) client to skip RLS which would otherwise block rows
+    // from workspaces where the super admin has no workspace_members row.
     const useCrossWorkspaceForAssigned = isSuperAdminFromRole && tab === 'assigned_to_me';
+    const client = useCrossWorkspaceForAssigned ? getBypassClient() : supabase;
 
-    let query = supabase
+    let query = client
       .from('tasks')
       .select(
         'id,workspace_id,created_by_user_id,assigned_to_user_id,title,description,status,priority,due_at,completed_at,related_type,related_id,created_at,updated_at',
@@ -654,7 +658,7 @@ const listTasksHandler = async (req: Request, res: Response) => {
 
     let commentCountByTask: Record<string, number> = {};
     if (taskIds.length) {
-      let commentsQuery = supabase.from('task_comments').select('task_id').in('task_id', taskIds);
+      let commentsQuery = client.from('task_comments').select('task_id').in('task_id', taskIds);
       if (!useCrossWorkspaceForAssigned) {
         commentsQuery = commentsQuery.eq('workspace_id', workspaceId);
       }
@@ -720,7 +724,8 @@ router.get('/:id', requireTaskApiKeyScope('tasks:read'), async (req: Request, re
     const resolved = await getTaskForUser(taskId, userId, workspaceId || '', globalRole);
     if (!resolved) return res.json({ task: null });
 
-    const { data: comments, error: commentsError } = await supabase
+    const singleClient = hasGlobalAdmin ? getBypassClient() : supabase;
+    const { data: comments, error: commentsError } = await singleClient
       .from('task_comments')
       .select('task_id')
       .eq('workspace_id', resolved.workspaceId)
