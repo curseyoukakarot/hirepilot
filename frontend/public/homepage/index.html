@@ -871,21 +871,21 @@
         gsap.utils.toArray('section h2').forEach(function(h2) {
             gsap.from(h2, {
                 scrollTrigger: { trigger: h2, start: 'top 85%', toggleActions: 'play none none none' },
-                y: 40, opacity: 0, duration: 0.8, ease: 'power2.out'
+                y: 40, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
             });
         });
 
         /* ── Capabilities cards — staggered ── */
         gsap.from('#capabilities .glass-card', {
             scrollTrigger: { trigger: '#capabilities .grid', start: 'top 80%' },
-            y: 50, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out'
+            y: 50, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out', immediateRender: false
         });
 
         /* ── Timeline steps ── */
         gsap.utils.toArray('#how-it-works .space-y-12 > div, #how-it-works .space-y-24 > div').forEach(function(step, i) {
             gsap.from(step, {
                 scrollTrigger: { trigger: step, start: 'top 82%' },
-                y: 60, opacity: 0, duration: 0.8, delay: i * 0.05, ease: 'power2.out'
+                y: 60, opacity: 0, duration: 0.8, delay: i * 0.05, ease: 'power2.out', immediateRender: false
             });
         });
 
@@ -901,47 +901,47 @@
         /* ── Automation section ── */
         gsap.from('#automation .grid > div:first-child', {
             scrollTrigger: { trigger: '#automation', start: 'top 75%' },
-            x: -60, opacity: 0, duration: 0.8, ease: 'power2.out'
+            x: -60, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
         });
         gsap.from('#automation .grid > div:last-child', {
             scrollTrigger: { trigger: '#automation', start: 'top 75%' },
-            x: 60, opacity: 0, duration: 0.8, ease: 'power2.out'
+            x: 60, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
         });
 
         /* ── Audience cards ── */
         gsap.from('#audience .glass-card', {
             scrollTrigger: { trigger: '#audience .grid', start: 'top 80%' },
-            y: 50, opacity: 0, duration: 0.6, stagger: 0.15, ease: 'power2.out'
+            y: 50, opacity: 0, duration: 0.6, stagger: 0.15, ease: 'power2.out', immediateRender: false
         });
 
         /* ── Product moments — images ── */
         gsap.from('#product-moments .grid:first-child > div', {
             scrollTrigger: { trigger: '#product-moments', start: 'top 75%' },
-            y: 60, opacity: 0, scale: 0.96, duration: 0.8, stagger: 0.2, ease: 'power2.out'
+            y: 60, opacity: 0, scale: 0.96, duration: 0.8, stagger: 0.2, ease: 'power2.out', immediateRender: false
         });
         gsap.from('#product-moments .grid:last-child > div', {
             scrollTrigger: { trigger: '#product-moments .grid:last-child', start: 'top 82%' },
-            y: 40, opacity: 0, duration: 0.5, stagger: 0.12, ease: 'power2.out'
+            y: 40, opacity: 0, duration: 0.5, stagger: 0.12, ease: 'power2.out', immediateRender: false
         });
 
         /* ── CTA section ── */
         gsap.from('#cta h2', {
             scrollTrigger: { trigger: '#cta', start: 'top 75%' },
-            y: 50, opacity: 0, duration: 0.8, ease: 'power2.out'
+            y: 50, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
         });
         gsap.from('#cta p', {
             scrollTrigger: { trigger: '#cta', start: 'top 70%' },
-            y: 30, opacity: 0, duration: 0.6, delay: 0.2, ease: 'power2.out'
+            y: 30, opacity: 0, duration: 0.6, delay: 0.2, ease: 'power2.out', immediateRender: false
         });
         gsap.from('#cta .flex', {
             scrollTrigger: { trigger: '#cta', start: 'top 65%' },
-            y: 30, opacity: 0, duration: 0.5, delay: 0.35, ease: 'power2.out'
+            y: 30, opacity: 0, duration: 0.5, delay: 0.35, ease: 'power2.out', immediateRender: false
         });
 
         /* ── Footer ── */
         gsap.from('#footer > div', {
             scrollTrigger: { trigger: '#footer', start: 'top 90%' },
-            y: 30, opacity: 0, duration: 0.7, ease: 'power2.out'
+            y: 30, opacity: 0, duration: 0.7, ease: 'power2.out', immediateRender: false
         });
 
         /* ── Parallax glow orbs ── */
