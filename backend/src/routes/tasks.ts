@@ -448,19 +448,22 @@ router.get('/fetch', requireTaskApiKeyScope('tasks:read'), async (req: Request, 
   const userId = (req as any)?.user?.id as string | undefined;
   if (!userId) return res.status(401).json({ error: 'unauthorized' });
   const workspaceId = resolveWorkspaceId(req);
-  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-  const membership = await getMembership(userId, workspaceId);
-  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
-  if (!task) return res.status(404).json({ error: 'task_not_found' });
-  if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-  const { count, error } = await supabase
+  const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
+  const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+
+  if (!workspaceId && !hasGlobalAdmin) return res.status(400).json({ error: 'workspace_required' });
+
+  const resolved = await getTaskForUser(receivedTaskId, userId, workspaceId || '', globalRole);
+  if (!resolved) return res.status(404).json({ error: 'task_not_found' });
+
+  const dbClient = hasGlobalAdmin ? getBypassClient() : supabase;
+  const { count, error } = await dbClient
     .from('task_comments')
     .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', resolved.workspaceId)
     .eq('task_id', receivedTaskId);
   if (error) return res.status(500).json({ error: error.message || 'task_fetch_failed' });
-  return res.json({ task: buildTaskResponse(task, Number(count || 0)) });
+  return res.json({ task: buildTaskResponse(resolved.task, Number(count || 0)) });
 });
 
 router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: Request, res: Response) => {
@@ -472,16 +475,19 @@ router.get('/fetch/comments', requireTaskApiKeyScope('tasks:read'), async (req: 
   const userId = (req as any)?.user?.id as string | undefined;
   if (!userId) return res.status(401).json({ error: 'unauthorized' });
   const workspaceId = resolveWorkspaceId(req);
-  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-  const membership = await getMembership(userId, workspaceId);
-  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
-  if (!task) return res.json({ comments: [] });
-  if (!canViewTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-  const { data, error } = await supabase
+  const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
+  const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+
+  if (!workspaceId && !hasGlobalAdmin) return res.status(400).json({ error: 'workspace_required' });
+
+  const resolved = await getTaskForUser(receivedTaskId, userId, workspaceId || '', globalRole);
+  if (!resolved) return res.json({ comments: [] });
+
+  const dbClient = hasGlobalAdmin ? getBypassClient() : supabase;
+  const { data, error } = await dbClient
     .from('task_comments')
     .select('id,workspace_id,task_id,user_id,body,created_at')
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', resolved.workspaceId)
     .eq('task_id', receivedTaskId)
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message || 'task_comments_list_failed' });
@@ -499,20 +505,25 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
   const userId = (req as any)?.user?.id as string | undefined;
   if (!userId) return res.status(401).json({ error: 'unauthorized' });
   const workspaceId = resolveWorkspaceId(req);
-  if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-  const membership = await getMembership(userId, workspaceId);
-  if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-  const task = await getTaskForWorkspace(receivedTaskId, workspaceId);
-  if (!task) return res.status(404).json({ error: 'task_not_found' });
-  if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-  const { data, error } = await supabase
+  const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
+  const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+
+  if (!workspaceId && !hasGlobalAdmin) return res.status(400).json({ error: 'workspace_required' });
+
+  const resolved = await getTaskForUser(receivedTaskId, userId, workspaceId || '', globalRole);
+  if (!resolved) return res.status(404).json({ error: 'task_not_found' });
+  const task = resolved.task;
+  const taskWorkspaceId = resolved.workspaceId;
+
+  const dbClient = hasGlobalAdmin ? getBypassClient() : supabase;
+  const { data, error } = await dbClient
     .from('task_comments')
-    .insert({ workspace_id: workspaceId, task_id: receivedTaskId, user_id: userId, body: commentBody })
+    .insert({ workspace_id: taskWorkspaceId, task_id: receivedTaskId, user_id: userId, body: commentBody })
     .select('id,workspace_id,task_id,user_id,body,created_at')
     .single();
   if (error) return res.status(500).json({ error: error.message || 'task_comment_create_failed' });
   try {
-    const candidates = await getWorkspaceMentionCandidates(workspaceId);
+    const candidates = await getWorkspaceMentionCandidates(taskWorkspaceId);
     const mentionedUserIds = resolveMentionedUserIds(commentBody, candidates).filter((id) => id !== userId);
     if (mentionedUserIds.length) {
       const actor = candidates.find((u: any) => u.id === userId);
@@ -528,7 +539,7 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
             title: `${actorLabel} mentioned you on ${taskTitle}`,
             body_md: snippet,
             type: 'task_mention',
-            metadata: { workspace_id: workspaceId, task_id: receivedTaskId, comment_id: (data as any)?.id || null },
+            metadata: { workspace_id: taskWorkspaceId, task_id: receivedTaskId, comment_id: (data as any)?.id || null },
           } as any),
         ),
       );
@@ -536,7 +547,7 @@ router.post('/fetch/comments', requireTaskApiKeyScope('tasks:write'), async (req
   } catch {}
 
   sendTaskCommentEmail({
-    workspaceId,
+    workspaceId: taskWorkspaceId,
     task,
     assigneeUserId: (task as any).assigned_to_user_id || null,
     commenterUserId: userId,
