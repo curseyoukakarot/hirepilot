@@ -857,91 +857,74 @@
             navbar.classList.toggle('shadow-lg', window.scrollY > 50);
         });
 
-        /* ── Hero entrance ── */
-        var heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-        heroTl
-            .from('#hero .inline-flex:first-child', { y: 30, opacity: 0, duration: 0.6 })
-            .from('#hero h1', { y: 50, opacity: 0, duration: 0.8 }, '-=0.3')
-            .from('#hero h1 + p', { y: 30, opacity: 0, duration: 0.6 }, '-=0.4')
-            .from('#hero .mt-10', { y: 30, opacity: 0, duration: 0.5 }, '-=0.3')
-            .from('#hero .mt-12', { y: 20, opacity: 0, duration: 0.5 }, '-=0.2')
-            .from('#hero .mt-16', { y: 60, opacity: 0, scale: 0.97, duration: 1 }, '-=0.3');
-
-        /* ── Section headings ── */
-        gsap.utils.toArray('section h2').forEach(function(h2) {
-            gsap.from(h2, {
-                scrollTrigger: { trigger: h2, start: 'top 85%', toggleActions: 'play none none none' },
-                y: 40, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
+        /* ── Helper: create a scroll-triggered timeline for a section ── */
+        function sectionTl(trigger, start) {
+            return gsap.timeline({
+                scrollTrigger: { trigger: trigger, start: start || 'top 80%' },
+                defaults: { ease: 'power3.out', duration: 0.7 }
             });
-        });
+        }
 
-        /* ── Capabilities cards — staggered ── */
-        gsap.from('#capabilities .glass-card', {
-            scrollTrigger: { trigger: '#capabilities .grid', start: 'top 80%' },
-            y: 50, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out', immediateRender: false
-        });
+        /* ── Hero entrance ── */
+        gsap.timeline({ defaults: { ease: 'power3.out' } })
+            .from('#hero .inline-flex:first-child', { y: 24, opacity: 0, duration: 0.6 })
+            .from('#hero h1', { y: 36, opacity: 0, duration: 0.8 }, '-=0.3')
+            .from('#hero h1 + p', { y: 24, opacity: 0, duration: 0.6 }, '-=0.4')
+            .from('#hero .mt-10', { y: 24, opacity: 0, duration: 0.5 }, '-=0.3')
+            .from('#hero .mt-12', { y: 16, opacity: 0, duration: 0.5 }, '-=0.2')
+            .from('#hero .mt-16', { y: 36, opacity: 0, scale: 0.98, duration: 1 }, '-=0.3');
 
-        /* ── Timeline steps ── */
-        gsap.utils.toArray('#how-it-works .space-y-12 > div, #how-it-works .space-y-24 > div').forEach(function(step, i) {
+        /* ── Capabilities — heading + cards as one coordinated sequence ── */
+        sectionTl('#capabilities')
+            .from('#capabilities .text-center', { y: 30, opacity: 0 })
+            .from('#capabilities .glass-card', { y: 36, opacity: 0, stagger: 0.07 }, '-=0.3');
+
+        /* ── How It Works — header then each step reveals on its own ── */
+        sectionTl('#how-it-works')
+            .from('#how-it-works .text-center', { y: 30, opacity: 0 });
+
+        gsap.utils.toArray('#how-it-works .space-y-12 > div, #how-it-works .space-y-24 > div').forEach(function(step) {
             gsap.from(step, {
-                scrollTrigger: { trigger: step, start: 'top 82%' },
-                y: 60, opacity: 0, duration: 0.8, delay: i * 0.05, ease: 'power2.out', immediateRender: false
+                scrollTrigger: { trigger: step, start: 'top 85%' },
+                y: 36, opacity: 0, duration: 0.7, ease: 'power3.out', immediateRender: false
             });
         });
 
         /* ── Timeline line draw ── */
-        var tl = document.querySelector('.timeline-line');
-        if (tl) {
-            gsap.fromTo(tl, { scaleY: 0, transformOrigin: 'top center' }, {
+        var tlLine = document.querySelector('.timeline-line');
+        if (tlLine) {
+            gsap.fromTo(tlLine, { scaleY: 0, transformOrigin: 'top center' }, {
                 scaleY: 1, ease: 'none',
                 scrollTrigger: { trigger: '#how-it-works', start: 'top 60%', end: 'bottom 40%', scrub: 1 }
             });
         }
 
-        /* ── Automation section ── */
-        gsap.from('#automation .grid > div:first-child', {
-            scrollTrigger: { trigger: '#automation', start: 'top 75%' },
-            x: -60, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
-        });
-        gsap.from('#automation .grid > div:last-child', {
-            scrollTrigger: { trigger: '#automation', start: 'top 75%' },
-            x: 60, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
-        });
+        /* ── Automation — heading + both grid halves slide in together ── */
+        sectionTl('#automation')
+            .from('#automation .grid > div:first-child', { x: -40, opacity: 0, duration: 0.8 })
+            .from('#automation .grid > div:last-child', { x: 40, opacity: 0, duration: 0.8 }, '-=0.7');
 
-        /* ── Audience cards ── */
-        gsap.from('#audience .glass-card', {
-            scrollTrigger: { trigger: '#audience .grid', start: 'top 80%' },
-            y: 50, opacity: 0, duration: 0.6, stagger: 0.15, ease: 'power2.out', immediateRender: false
-        });
+        /* ── Audience — heading + cards ── */
+        sectionTl('#audience')
+            .from('#audience .text-center', { y: 30, opacity: 0 })
+            .from('#audience .glass-card', { y: 36, opacity: 0, stagger: 0.1 }, '-=0.3');
 
-        /* ── Product moments — images ── */
-        gsap.from('#product-moments .grid:first-child > div', {
-            scrollTrigger: { trigger: '#product-moments', start: 'top 75%' },
-            y: 60, opacity: 0, scale: 0.96, duration: 0.8, stagger: 0.2, ease: 'power2.out', immediateRender: false
-        });
-        gsap.from('#product-moments .grid:last-child > div', {
-            scrollTrigger: { trigger: '#product-moments .grid:last-child', start: 'top 82%' },
-            y: 40, opacity: 0, duration: 0.5, stagger: 0.12, ease: 'power2.out', immediateRender: false
-        });
+        /* ── Product moments — two image grids staggered ── */
+        sectionTl('#product-moments')
+            .from('#product-moments .grid:first-of-type > div', { y: 36, opacity: 0, scale: 0.98, stagger: 0.15, duration: 0.8 })
+            .from('#product-moments .grid:last-of-type > div', { y: 30, opacity: 0, stagger: 0.1, duration: 0.6 }, '-=0.4');
 
-        /* ── CTA section ── */
-        gsap.from('#cta h2', {
-            scrollTrigger: { trigger: '#cta', start: 'top 75%' },
-            y: 50, opacity: 0, duration: 0.8, ease: 'power2.out', immediateRender: false
-        });
-        gsap.from('#cta p', {
-            scrollTrigger: { trigger: '#cta', start: 'top 70%' },
-            y: 30, opacity: 0, duration: 0.6, delay: 0.2, ease: 'power2.out', immediateRender: false
-        });
-        gsap.from('#cta .flex', {
-            scrollTrigger: { trigger: '#cta', start: 'top 65%' },
-            y: 30, opacity: 0, duration: 0.5, delay: 0.35, ease: 'power2.out', immediateRender: false
-        });
+        /* ── CTA — single coordinated reveal ── */
+        sectionTl('#cta', 'top 78%')
+            .from('#cta h2', { y: 30, opacity: 0, duration: 0.8 })
+            .from('#cta p', { y: 20, opacity: 0, duration: 0.5 }, '-=0.4')
+            .from('#cta .flex', { y: 20, opacity: 0, duration: 0.5 }, '-=0.3')
+            .from('#cta .mt-8', { opacity: 0, duration: 0.4 }, '-=0.2');
 
         /* ── Footer ── */
         gsap.from('#footer > div', {
             scrollTrigger: { trigger: '#footer', start: 'top 90%' },
-            y: 30, opacity: 0, duration: 0.7, ease: 'power2.out', immediateRender: false
+            y: 20, opacity: 0, duration: 0.6, ease: 'power3.out', immediateRender: false
         });
 
         /* ── Parallax glow orbs ── */
