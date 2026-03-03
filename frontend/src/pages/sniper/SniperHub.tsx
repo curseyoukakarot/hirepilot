@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabaseClient';
 import MissionsPanel from './MissionsPanel';
 import ActivityPanel from './ActivityPanel';
 import SettingsPanel from './SettingsPanel';
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -57,8 +61,9 @@ export default function SniperHub() {
     setSearchParams(sp);
   };
 
-  /* ---- Connection status ---- */
+  /* ---- Connection & engine status ---- */
   const [conn, setConn] = useState<ConnectionStatus>({ connected: false });
+  const [engineEnabled, setEngineEnabled] = useState<boolean | null>(null);
 
   const API_BASE = (import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}` : '').replace(/\/$/, '');
   const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
@@ -67,6 +72,8 @@ export default function SniperHub() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
+
+      // Fetch LinkedIn auth status
       const res = await fetch(`${API_ROOT}/sniper/linkedin/auth/status`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -77,6 +84,15 @@ export default function SniperHub() {
           profileId: data.profile_id,
           lastAuthAt: data.last_auth_at,
         });
+      }
+
+      // Fetch engine settings
+      const settingsRes = await fetch(`${API_ROOT}/sniper/settings`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (settingsRes.ok) {
+        const s = await settingsRes.json();
+        setEngineEnabled(Boolean(s?.cloud_engine_enabled));
       }
     } catch {}
   };
@@ -91,8 +107,17 @@ export default function SniperHub() {
         <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/70">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between py-4">
-              {/* Left: Icon + Title */}
+              {/* Left: Back + Icon + Title */}
               <div className="flex items-center gap-3">
+                <Link
+                  to="/agent"
+                  className="hidden sm:inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  title="Back to Agent Center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </Link>
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <circle cx="12" cy="12" r="10" strokeWidth="2" />
@@ -148,8 +173,47 @@ export default function SniperHub() {
           </div>
         </header>
 
+        {/* ═══ Status Strip ═══ */}
+        <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Engine status */}
+            <div className={cx(
+              'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+              engineEnabled === true
+                ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200'
+                : engineEnabled === false
+                  ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500',
+            )}>
+              <span className={cx(
+                'h-2 w-2 rounded-full',
+                engineEnabled === true ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600',
+              )} />
+              {engineEnabled === true ? 'Engine Online' : engineEnabled === false ? 'Engine Off' : 'Loading...'}
+            </div>
+
+            {/* LinkedIn status */}
+            <div className={cx(
+              'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+              conn.connected
+                ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200'
+                : 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200',
+            )}>
+              <span className={cx('h-2 w-2 rounded-full', conn.connected ? 'bg-emerald-500' : 'bg-amber-500')} />
+              {conn.connected ? 'LinkedIn Connected' : 'LinkedIn Not Connected'}
+            </div>
+
+            {/* Profile ID */}
+            {conn.profileId && (
+              <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {String(conn.profileId).length > 25 ? `${String(conn.profileId).slice(0, 25)}...` : conn.profileId}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ═══ Main Content ═══ */}
-        <main className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
           {activeTab === 'missions' && <MissionsPanel conn={conn} onNavigate={setActiveTab} />}
           {activeTab === 'activity' && <ActivityPanel />}
           {activeTab === 'settings' && <SettingsPanel conn={conn} onStatusChange={fetchStatus} />}
