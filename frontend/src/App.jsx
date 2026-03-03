@@ -66,6 +66,7 @@ import FreeForever from './screens/FreeForever';
 import DfyDashboard from './screens/DfyDashboard';
 import WorkspacesPage from './pages/WorkspacesPage';
 import SniperTargets from './screens/SniperTargets';
+import SniperHub from './pages/sniper/SniperHub';
 import SniperRequirementsGate from './components/SniperRequirementsGate';
 import { flags } from './config/flags';
 import PartnersDashboard from './pages/partners/AffiliateDashboard';
@@ -864,15 +865,13 @@ function InnerApp() {
               <Route path="/apply/:jobId" element={<ApplyForm />} />
               <Route path="/apply/:jobId/*" element={<ApplyForm />} />
               <Route path="/apply/:jobId/success" element={<ApplySuccess />} />
-              <Route path="/sniper" element={<SniperRequirementsGate><SniperTargets /></SniperRequirementsGate>} />
-              <Route path="/sniper/settings" element={<SniperRequirementsGate><SniperSettings /></SniperRequirementsGate>} />
-              <Route path="/sniper/results" element={<SniperRequirementsGate><SniperResults /></SniperRequirementsGate>} />
-              {flags.sniperV1 && (
-                <Route
-                  path="/sniper/activity"
-                  element={<SniperRequirementsGate><SniperActivity /></SniperRequirementsGate>}
-                />
-              )}
+              {/* Cloud Engine (Sniper) — single hub with tabs */}
+              <Route path="/sniper" element={<SniperRequirementsGate><SniperHub /></SniperRequirementsGate>} />
+              <Route path="/sniper/settings" element={<Navigate to="/sniper?tab=settings" replace />} />
+              <Route path="/sniper/results" element={<Navigate to="/sniper?tab=activity" replace />} />
+              <Route path="/sniper/activity" element={<Navigate to="/sniper?tab=activity" replace />} />
+              {/* Legacy Sniper routes (kept for direct access if needed) */}
+              <Route path="/sniper/legacy" element={<SniperRequirementsGate><SniperTargets /></SniperRequirementsGate>} />
               {flags.sniperIntelligence && !flags.sniperV1 && (
                 <Route
                   path="/sniper-intelligence"
