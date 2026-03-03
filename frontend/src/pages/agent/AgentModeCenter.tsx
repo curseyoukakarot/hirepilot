@@ -564,24 +564,27 @@ export default function AgentModeCenter() {
                       </div>
                     </a>
 
-                    {/* Sniper Tile */}
+                    {/* Cloud Engine Tile */}
                     <a
                       href="/sniper"
                       className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-sm">
-                          🎯
+                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
+                          ⚡
                         </div>
                         <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200">
                           Open →
                         </span>
                       </div>
-                      <h3 className="mt-4 text-base font-bold">Sniper</h3>
+                      <h3 className="mt-4 text-base font-bold">Cloud Engine</h3>
                       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                        Extract Leads and send messages on LinkedIn and Sales Navigator at scale
+                        Automate LinkedIn sourcing, outreach, and multi-step campaigns at scale
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800">
+                          Sequences
+                        </span>
                         <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800">
                           Risk controls
                         </span>
