@@ -18,5 +18,6 @@ export const sniperV1Queue = new Queue('sniper:v1', { connection });
 export const jobseekerAgentQueue = new Queue('jobseeker:agent', { connection });
 export const rex2RunQueue = new Queue('rex2:run', { connection });
 export const candidateEnrichQueue = new Queue('candidate:enrich', { connection });
+export const sniperCampaignTickerQueue = new Queue('sniper:campaign_ticker', { connection });
 export const LINKEDIN_REMOTE_ACTION_QUEUE = 'linkedin:remote_action';
 export const linkedinRemoteActionQueue = new Queue(LINKEDIN_REMOTE_ACTION_QUEUE, { connection });
