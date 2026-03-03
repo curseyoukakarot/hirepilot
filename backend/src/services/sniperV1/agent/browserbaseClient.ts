@@ -90,6 +90,7 @@ export async function createSession(opts?: {
 
   const createOpts: any = {
     projectId: getProjectId(),
+    proxies: true, // Use Browserbase residential proxies to avoid LinkedIn CAPTCHA loops
   };
 
   if (opts?.contextId) {
