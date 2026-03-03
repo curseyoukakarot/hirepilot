@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MissionCard from './MissionCard';
 import MissionDrawer from './MissionDrawer';
+import CampaignBuilder from './CampaignBuilder';
 import type { MissionDef } from './MissionCard';
 
 /* ------------------------------------------------------------------ */
@@ -53,8 +54,8 @@ const MISSIONS: MissionDef[] = [
     emoji: '\uD83D\uDD17',
     title: 'Sequences',
     description: 'Multi-step campaigns with connect, message, and follow-up.',
-    color: 'bg-slate-500',
-    status: 'coming_soon',
+    color: 'bg-gradient-to-br from-indigo-500 to-violet-600',
+    status: 'implemented',
   },
 ];
 
@@ -73,9 +74,23 @@ type Props = {
 
 export default function MissionsPanel({ conn, onNavigate }: Props) {
   const [activeMission, setActiveMission] = useState<MissionDef | null>(null);
+  const [showCampaigns, setShowCampaigns] = useState(false);
+
+  const handleMissionClick = (m: MissionDef) => {
+    if (m.id === 'sequences') {
+      setShowCampaigns(true);
+    } else {
+      setActiveMission(m);
+    }
+  };
 
   return (
     <>
+      {/* Campaign Builder overlay */}
+      {showCampaigns && (
+        <CampaignBuilder onClose={() => setShowCampaigns(false)} />
+      )}
+
       {/* Mission Drawer overlay */}
       {activeMission && (
         <MissionDrawer
@@ -103,7 +118,7 @@ export default function MissionsPanel({ conn, onNavigate }: Props) {
                 <MissionCard
                   key={m.id}
                   mission={m}
-                  onClick={() => setActiveMission(m)}
+                  onClick={() => handleMissionClick(m)}
                 />
               ))}
             </div>
