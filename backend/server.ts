@@ -186,7 +186,9 @@ import sniperDiscoveryApiRouter from './src/routes/sniper.discovery.api';
 import sniperSettingsRouter from './src/routes/sniper.settings';
 import { sniperJobsWorker } from './src/workers/sniper.jobs.worker';
 import sniperV1Router from './src/routes/sniper.v1';
+import sniperCampaignsRouter from './src/routes/sniper.campaigns';
 import { sniperV1Worker } from './src/workers/sniper.v1.worker';
+import { sniperCampaignTickerWorker } from './src/workers/sniper.campaign.ticker';
 import jobseekerAgentRouter from './src/routes/jobseeker.agent';
 import { jobseekerAgentWorker } from './src/workers/jobseeker.agent.worker';
 import rex2RunsRouter from './src/routes/rex2.runs';
@@ -675,7 +677,9 @@ app.post('/api/agent/send-message', requireAuthFlag, async (req: any, res) => {
   // Sniper v1 routes/workers (feature-flagged)
   if (SNIPER_V1_ENABLED) {
     app.use('/api/sniper', sniperV1Router);
+    app.use('/api/sniper/campaigns', sniperCampaignsRouter);
     void sniperV1Worker;
+    void sniperCampaignTickerWorker;
   } else {
     // Legacy Sniper routes
   registerSniperRoutes(app);
