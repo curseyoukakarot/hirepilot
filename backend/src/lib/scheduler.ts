@@ -21,10 +21,11 @@ export function computeNextRun(job: ScheduleRow): string | null {
   return null; // one-time jobs have no next run after execution
 }
 
-export async function markRun(jobId: string, opts: { ranAt: Date; nextRunAt: Date | null; runResult: any }) {
+export async function markRun(jobId: string, opts: { ranAt: Date; nextRunAt: Date | null; runResult: any; status?: string }) {
+  const status = opts.status || (opts.nextRunAt ? 'active' : 'completed');
   const { error } = await supabaseAdmin
     .from('schedules')
-    .update({ last_run_at: opts.ranAt.toISOString(), next_run_at: opts.nextRunAt, status: opts.nextRunAt ? 'active' : 'completed', updated_at: new Date().toISOString() })
+    .update({ last_run_at: opts.ranAt.toISOString(), next_run_at: opts.nextRunAt, status, updated_at: new Date().toISOString() })
     .eq('id', jobId);
   if (error) throw new Error(error.message);
 }

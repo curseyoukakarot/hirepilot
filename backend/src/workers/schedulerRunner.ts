@@ -41,7 +41,11 @@ async function tick() {
         console.log(JSON.stringify({ event: 'run_start', job_id: job.id, when: now.toISOString() }));
         const result = await executeAction(job);
         const next = computeNextRun(job);
-        await markRun(job.id, { ranAt: now, nextRunAt: next ? new Date(next) : null, runResult: result });
+        // For one-time jobs (next is null), mark as 'failed' when the action returned ok:false
+        // so the user sees the real outcome instead of a misleading 'completed' status.
+        const actionFailed = result && (result as any).ok === false;
+        const status = next ? 'active' : (actionFailed ? 'failed' : 'completed');
+        await markRun(job.id, { ranAt: now, nextRunAt: next ? new Date(next) : null, runResult: result, status });
         // If the action returned a scheduler run log id, attach next_run_at and queue notifications async.
         try {
           const runLogId = (result as any)?.run_log_id as string | undefined;

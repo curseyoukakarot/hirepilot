@@ -1,16 +1,9 @@
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { sniperSupabaseDb } from '../services/sniperV1/supabase';
 import { createJob, insertJobItems } from '../services/sniperV1/db';
 import { fetchSniperV1Settings } from '../services/sniperV1/settings';
 import { sniperV1Queue } from '../queues/redis';
-
-function dayStringInTimezone(now: Date, tz: string): string {
-  // Use en-CA for YYYY-MM-DD format.
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' });
-  return fmt.format(now); // YYYY-MM-DD
-}
 
 async function resolveWorkspaceIdForUser(userId: string): Promise<string> {
   try {
@@ -69,60 +62,11 @@ export const sniperRunJobTool = {
     const provider = 'airtop' as any;
     const jobType = payload.job_type;
 
-    // Daily quota reservation for connect requests (matches /api/sniper/actions/connect behavior)
-    if (jobType === 'send_connect_requests') {
-      const urls = payload.profile_urls || [];
-      const tz = settings.timezone || 'UTC';
-      const day = dayStringInTimezone(new Date(), tz);
-      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
-        p_user_id: userId,
-        p_workspace_id: workspaceId,
-        p_day: day,
-        p_connect_delta: 0,
-        p_connect_limit: settings.max_connects_per_day,
-        p_workspace_connect_limit: settings.max_workspace_connects_per_day,
-        p_message_limit: settings.max_messages_per_day,
-        p_workspace_message_limit: settings.max_workspace_messages_per_day,
-        p_profile_limit: settings.max_page_interactions_per_day,
-        p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
-        p_job_page_limit: settings.max_page_interactions_per_day,
-        p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
-      } as any);
-      if (error) throw error;
-      const row: any = Array.isArray(data) ? data[0] : data;
-      const usedUser = Number(row?.user_connects || 0);
-      const usedWorkspace = Number(row?.workspace_connects || 0);
-      if (usedUser + urls.length > settings.max_connects_per_day || usedWorkspace + urls.length > settings.max_workspace_connects_per_day) {
-        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'daily_connect_limit_exceeded' }) }] } as any;
-      }
-    }
-
-    if (jobType === 'send_messages') {
-      const urls = payload.profile_urls || [];
-      const tz = settings.timezone || 'UTC';
-      const day = dayStringInTimezone(new Date(), tz);
-      const { data, error } = await sniperSupabaseDb.rpc('sniper_reserve_action_usage', {
-        p_user_id: userId,
-        p_workspace_id: workspaceId,
-        p_day: day,
-        p_message_delta: 0,
-        p_connect_limit: settings.max_connects_per_day,
-        p_workspace_connect_limit: settings.max_workspace_connects_per_day,
-        p_message_limit: settings.max_messages_per_day,
-        p_workspace_message_limit: settings.max_workspace_messages_per_day,
-        p_profile_limit: settings.max_page_interactions_per_day,
-        p_workspace_profile_limit: settings.max_workspace_page_interactions_per_day,
-        p_job_page_limit: settings.max_page_interactions_per_day,
-        p_workspace_job_page_limit: settings.max_workspace_page_interactions_per_day
-      } as any);
-      if (error) throw error;
-      const row: any = Array.isArray(data) ? data[0] : data;
-      const usedUser = Number(row?.user_messages || 0);
-      const usedWorkspace = Number(row?.workspace_messages || 0);
-      if (usedUser + urls.length > settings.max_messages_per_day || usedWorkspace + urls.length > settings.max_workspace_messages_per_day) {
-        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'daily_message_limit_exceeded' }) }] } as any;
-      }
-    }
+    // NOTE: No upfront batch-size quota check here. The worker enforces daily
+    // caps per-item and will pause (paused_throttled) when the limit is hit,
+    // then automatically resume the next day to process remaining items.
+    // This allows batches larger than the daily cap (e.g. 25 connects with a
+    // 20/day limit) to be spread across multiple days automatically.
 
     // Create the job row
     const input_json: any = {};
