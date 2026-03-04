@@ -31,6 +31,7 @@ import notificationsRouter from './src/routes/notifications';
 import slackApiRouter from './src/routes/slack';
 import outreachRouter from './api/outreach';
 import getCampaigns from './api/getCampaigns';
+import getLeads from './api/getLeads';
 import deleteCampaign from './api/deleteCampaign';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
@@ -505,6 +506,7 @@ console.table(listEndpoints(app).filter((r: any) => r.path.includes('sendgrid/so
 app.use('/api', debugRuntimeRouter);
 app.use('/api/outreach', outreachRouter);
 app.get('/api/getCampaigns', requireAuthFlag, getCampaigns);
+app.get('/api/getLeads', requireAuthFlag, getLeads);
 app.delete('/api/deleteCampaign', deleteCampaign);
 app.use('/api/sendgrid', sendgridValidateRouter);
 app.use('/api/sendgrid', sendgridSaveRouter);
