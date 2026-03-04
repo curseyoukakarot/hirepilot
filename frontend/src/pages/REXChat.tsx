@@ -200,16 +200,6 @@ function humanizeToolName(raw: string): string {
   return map[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-const DEFAULT_STEP_BLUEPRINT: Array<{ title: string; description: string; category: string }> = [
-  { title: 'Source candidates from LinkedIn + Indeed', description: 'Search with filters: React, TypeScript, Next.js, 5+ years, North America', category: 'sourcing' },
-  { title: 'Extract and enrich profiles', description: 'Pull resumes, work history, skills, and contact information', category: 'enrichment' },
-  { title: 'Score against job requirements', description: 'AI-powered matching based on skills, experience, and location', category: 'scoring' },
-  { title: 'Store as leads in pipeline', description: 'Create "Senior React Dev" campaign with segmented lists', category: 'crm' },
-  { title: 'Schedule recurring refinement', description: 'Weekly search for new candidates matching criteria', category: 'workflow' },
-  { title: 'Draft outreach sequence', description: 'Personalized 3-email sequence with role details', category: 'messaging' },
-  { title: 'Monitor replies and engagement', description: 'Track opens, clicks, and responses with notifications', category: 'analytics' }
-];
-
 function makeId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 11)}`;
 }
@@ -222,15 +212,96 @@ function toDurationLabel(seconds: number) {
   return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
 }
 
+// ---------------------------------------------------------------------------
+// Dynamic plan parsing helpers
+// ---------------------------------------------------------------------------
+
+type ExtractedStep = { title: string; description: string };
+
+const NUMBERED_LINE_RE = /^\s*(\d+)[\)\.\-:]\s*(.+)$/;
+const INLINE_DELIM_RE = /\s[—–]\s|\s-\s(?!-)|\:\s(?!\/\/)/;
+
+function extractStepsFromText(reply: string): ExtractedStep[] {
+  const lines = String(reply || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const steps: ExtractedStep[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(NUMBERED_LINE_RE);
+    if (!m) continue;
+
+    const raw = (m[2] || '').trim().replace(/^\*\*(.+?)\*\*/, '$1');
+    const delimMatch = raw.match(INLINE_DELIM_RE);
+    let title: string;
+    let description: string;
+
+    if (delimMatch && delimMatch.index !== undefined) {
+      title = raw.slice(0, delimMatch.index).trim();
+      description = raw.slice(delimMatch.index + delimMatch[0].length).trim();
+    } else {
+      title = raw;
+      description = '';
+    }
+
+    // Check next non-numbered line(s) as continuation description
+    if (!description) {
+      const cont: string[] = [];
+      for (let j = i + 1; j < lines.length && cont.length < 2; j++) {
+        if (NUMBERED_LINE_RE.test(lines[j])) break;
+        const c = lines[j].trim();
+        if (c.length < 3 || /^[#\-=*]{2,}/.test(c)) break;
+        cont.push(c);
+      }
+      if (cont.length) description = cont.join(' ');
+    }
+
+    title = title.replace(/^\*\*(.+?)\*\*$/, '$1').trim();
+    description = description.replace(/^\*\*(.+?)\*\*$/, '$1').trim();
+    steps.push({ title, description });
+  }
+
+  return steps;
+}
+
+function inferCategory(title: string, description: string): string {
+  const text = `${title} ${description}`.toLowerCase();
+  const rules: Array<{ pattern: RegExp; category: string }> = [
+    { pattern: /outreach|message|sequence|email|draft|template|send/, category: 'messaging' },
+    { pattern: /score|match|rank|evaluate|qualify|fit/, category: 'scoring' },
+    { pattern: /enrich|profile|contact|resume|work history|phone|verify/, category: 'enrichment' },
+    { pattern: /source|linkedin|indeed|apollo|candidate|lead|search|find|discover/, category: 'sourcing' },
+    { pattern: /pipeline|crm|store|save|campaign|segment|list|import/, category: 'crm' },
+    { pattern: /schedule|recurring|automate|cadence|weekly|daily|monitor|cron/, category: 'workflow' },
+    { pattern: /track|report|analytics|engage|metrics|open|click|reply/, category: 'analytics' },
+  ];
+  for (const r of rules) {
+    if (r.pattern.test(text)) return r.category;
+  }
+  return 'other';
+}
+
+function categoryFallbackDescription(category: string): string {
+  const map: Record<string, string> = {
+    sourcing: 'Search for and collect candidate profiles from available sources.',
+    enrichment: 'Enrich profiles with contact information and work history.',
+    scoring: 'Score and rank candidates against requirements.',
+    crm: 'Store leads in the pipeline and organize campaign lists.',
+    workflow: 'Set up scheduling and automation for recurring actions.',
+    messaging: 'Draft and send personalized outreach messages.',
+    analytics: 'Track engagement metrics and monitor responses.',
+  };
+  return map[category] || 'Execute this phase of the recruiting workflow.';
+}
+
 function estimateDraftPlan(prompt: string, steps: PlanStep[]) {
   const text = `${prompt} ${(steps || []).map((s) => `${s.title} ${s.description}`).join(' ')}`.toLowerCase();
-  const countMatch = text.match(/\b(\d{1,4})\s+(?:lead|leads|candidate|candidates|profiles?)\b/);
+  const countMatch = text.match(/\b(\d{1,4})\s+(?:lead|leads|candidate|candidates|profiles?|devs?|developers?|engineers?|sdrs?|recruiters?)\b/);
   const targetLeads = Math.max(10, Math.min(1000, Number(countMatch?.[1] || 50)));
-  const hasEnrich = steps.some((s) => /enrich|profile|contact|email/i.test(`${s.title} ${s.description}`));
-  const hasSource = steps.some((s) => /source|linkedin|indeed|apollo|candidate/i.test(`${s.title} ${s.description}`));
-  const hasOutreach = steps.some((s) => /outreach|message|sequence|reply/i.test(`${s.title} ${s.description}`));
+  const hasEnrich = steps.some((s) => s.category === 'enrichment' || /enrich|profile|contact|email/i.test(`${s.title} ${s.description}`));
+  const hasSource = steps.some((s) => s.category === 'sourcing' || /source|linkedin|indeed|apollo|candidate/i.test(`${s.title} ${s.description}`));
+  const hasOutreach = steps.some((s) => s.category === 'messaging' || /outreach|message|sequence|reply/i.test(`${s.title} ${s.description}`));
   const enhancedExplicit = /enhanced|deep enrich|advanced enrich/i.test(text);
   const enhancedCount = hasEnrich ? Math.round(targetLeads * (enhancedExplicit ? 0.5 : 0.25)) : 0;
+  const bulkMultiplier = /bulk|recurring|weekly|daily|continuous/i.test(text) ? 1.3 : 1.0;
 
   const leadCredits = targetLeads * 1;
   const enrichCredits = hasEnrich ? targetLeads * 1 : 0;
@@ -239,43 +310,40 @@ function estimateDraftPlan(prompt: string, steps: PlanStep[]) {
   const apolloActionCredits = (hasSource ? Math.max(1, Math.ceil(targetLeads / 50) * 2) : 0) * 0.25;
   const messagingActionCredits = (hasOutreach ? Math.max(1, Math.ceil(targetLeads / 40)) : 0) * 0.2;
 
-  const expected = leadCredits + enrichCredits + enhancedCredits + linkedinActionCredits + apolloActionCredits + messagingActionCredits;
+  const rawExpected = leadCredits + enrichCredits + enhancedCredits + linkedinActionCredits + apolloActionCredits + messagingActionCredits;
+  const expected = rawExpected * bulkMultiplier;
   const min = Math.max(1, Math.round(expected * 0.85));
   const max = Math.max(min, Math.round(expected * 1.15));
-  const timeMin = Math.max(5, Math.round(targetLeads / 8));
-  const timeMax = Math.max(timeMin + 5, Math.round(targetLeads / 4));
-  const risk = targetLeads > 250 ? 'medium' : 'low';
+  const baseTimePerLead = hasOutreach ? 1 / 6 : 1 / 8;
+  const timeMin = Math.max(5, Math.round(targetLeads * baseTimePerLead));
+  const timeMax = Math.max(timeMin + 5, Math.round(targetLeads * baseTimePerLead * 2));
+  const risk = targetLeads > 250 ? 'medium' : (steps.length > 5 ? 'medium' : 'low');
 
   return { min, max, expected: Math.round(expected), timeMin, timeMax, risk };
 }
 
+// ---------------------------------------------------------------------------
+// Build a PlanJson from the model's response (returns null for conversational replies)
+// ---------------------------------------------------------------------------
+
 function buildPlanFromText(prompt: string, reply: string, conversationId: string | null): PlanJson | null {
-  const lines = String(reply || '')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const extracted = extractStepsFromText(reply);
 
-  const extracted = lines
-    .map((line) => {
-      const m = line.match(/^\s*(\d+)[\)\.\-:]\s*(.+)$/);
-      if (!m) return null;
-      return m[2]?.trim() || '';
-    })
-    .filter(Boolean) as string[];
-
-  // Only build a plan when the response contains at least 2 numbered steps —
-  // otherwise this is a conversational reply, not an actionable workflow.
+  // Only build a plan when the response contains at least 2 actionable steps.
   if (extracted.length < 2) return null;
 
   const steps = extracted
     .slice(0, 7)
-    .map((title, idx) => ({
-      step_id: `step_${idx + 1}`,
-      title,
-      description: DEFAULT_STEP_BLUEPRINT[idx]?.description || 'Execute this phase of the recruiting workflow.',
-      category: DEFAULT_STEP_BLUEPRINT[idx]?.category || 'other',
-      status: 'queued' as const
-    }));
+    .map((item, idx) => {
+      const category = inferCategory(item.title, item.description);
+      return {
+        step_id: `step_${idx + 1}`,
+        title: item.title,
+        description: item.description || categoryFallbackDescription(category),
+        category,
+        status: 'queued' as const,
+      };
+    });
   const estimate = estimateDraftPlan(prompt, steps);
 
   return {
@@ -307,7 +375,7 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
         min: estimate.min,
         max: estimate.max,
         unit: 'credits',
-        notes: 'Low-cost model: 1 credit/lead, +1 basic enrich, +1 enhanced enrich, plus lightweight tool actions.'
+        notes: 'Estimated based on step content and target lead volume.'
       },
       time: { min_minutes: estimate.timeMin, max_minutes: estimate.timeMax, notes: 'Depends on sourcing target volume and queue throughput.' },
       risk: { level: estimate.risk as 'low' | 'medium' | 'high', notes: estimate.risk === 'medium' ? 'Higher volume run detected.' : 'Low-risk standard recruiting flow.' }
