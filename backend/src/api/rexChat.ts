@@ -361,7 +361,7 @@ export default async function rexChat(req: Request, res: Response) {
     }
 
     const contextMessage = {
-      role: ‘system’,
+      role: 'system',
       content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
 
 Be conversational and concise — answer like a sharp colleague, not a manual. Use markdown formatting (bold, lists, headers) to keep responses scannable.
@@ -375,7 +375,7 @@ Key behaviors:
 - **Sequences**: If timing isn’t provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
 - **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don’t dump all questions at once.
 
-Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ‘’}`
+Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
     } as any;
 
     let completion = await withTimeout(openai.chat.completions.create({
