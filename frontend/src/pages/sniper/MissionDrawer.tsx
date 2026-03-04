@@ -687,14 +687,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     Optional connect note (max 300 chars)
                   </label>
-                  <a
-                    href="/messages"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-xs font-semibold text-indigo-500 hover:bg-indigo-600/20 transition-colors"
-                  >
-                    <span>📝</span> Use Template
-                  </a>
+                  <TemplatePicker onSelect={(body) => setConnectNote(body.slice(0, 300))} />
                 </div>
                 <textarea
                   value={connectNote}
@@ -742,14 +735,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     Message (required, max 3000 chars)
                   </label>
-                  <a
-                    href="/messages"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-xs font-semibold text-indigo-500 hover:bg-indigo-600/20 transition-colors"
-                  >
-                    <span>📝</span> Use Template
-                  </a>
+                  <TemplatePicker onSelect={(body) => setMessageText(body.slice(0, 3000))} />
                 </div>
                 <textarea
                   value={messageText}
@@ -857,6 +843,137 @@ function LeadsSection({ profileUrls, onAddLeads, onClear }: {
               <div className="text-xs text-slate-400">+ {profileUrls.length - 5} more...</div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TemplatePicker                                                     */
+/* ------------------------------------------------------------------ */
+
+function TemplatePicker({ onSelect }: { onSelect: (body: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [sequences, setSequences] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const fetchTemplates = async () => {
+    if (sequences.length) { setOpen(true); return; }
+    setLoading(true);
+    setOpen(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const API_BASE = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+      const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
+      const res = await fetch(`${API_ROOT}/sequences?include_steps=1`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSequences(Array.isArray(data) ? data.filter((s: any) => !s.is_archived) : []);
+      }
+    } catch {}
+    setLoading(false);
+  };
+
+  const pickStep = (body: string) => {
+    onSelect(body);
+    setOpen(false);
+  };
+
+  // Strip basic HTML for display
+  const stripHtml = (html: string) =>
+    html?.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() || '';
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={fetchTemplates}
+        className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-xs font-semibold text-indigo-500 hover:bg-indigo-600/20 transition-colors"
+      >
+        <span>📝</span> Use Template
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-[9999] mt-1 w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          {loading ? (
+            <div className="p-4 text-center text-xs text-slate-500">Loading templates...</div>
+          ) : sequences.length === 0 ? (
+            <div className="p-4 text-center">
+              <p className="text-xs text-slate-500">No templates found.</p>
+              <a
+                href="/messages"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs font-semibold text-indigo-500 hover:text-indigo-400"
+              >
+                Create one in Messages →
+              </a>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {sequences.map((seq: any) => (
+                <div key={seq.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expandedId === seq.id ? null : seq.id)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{seq.name}</div>
+                      {seq.steps?.length > 0 && (
+                        <div className="text-[10px] text-slate-400">{seq.steps.length} step{seq.steps.length === 1 ? '' : 's'}</div>
+                      )}
+                    </div>
+                    <span className="ml-2 text-xs text-slate-400">{expandedId === seq.id ? '▼' : '▸'}</span>
+                  </button>
+
+                  {expandedId === seq.id && seq.steps?.length > 0 && (
+                    <div className="border-t border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/50">
+                      {[...seq.steps]
+                        .sort((a: any, b: any) => (a.step_order || 0) - (b.step_order || 0))
+                        .map((step: any, i: number) => (
+                          <button
+                            key={step.id || i}
+                            type="button"
+                            onClick={() => pickStep(stripHtml(step.body || ''))}
+                            className="w-full text-left px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors border-b border-slate-100/50 dark:border-slate-800/50 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                {step.subject && (
+                                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{step.subject}</div>
+                                )}
+                                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{stripHtml(step.body || '').slice(0, 80)}{stripHtml(step.body || '').length > 80 ? '…' : ''}</div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
