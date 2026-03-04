@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { markIntentionalSignOut } from '../../auth/sessionExpiry';
 import { motion } from 'framer-motion';
 
 type NavItem = {
@@ -30,6 +31,7 @@ export function JobsSidebar({
 
   const handleSignOut = useCallback(async () => {
     try {
+      markIntentionalSignOut();
       await supabase.auth.signOut();
     } catch (e) {
       console.error('signout error', e);

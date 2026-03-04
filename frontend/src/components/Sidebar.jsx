@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard, FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH, FaPlug, FaBell, FaUsers, FaTerminal, FaTable, FaWpforms, FaHeartbeat, FaGlobe, FaTasks } from 'react-icons/fa';
 import { supabase } from '../lib/supabaseClient';
 import { usePlan } from '../context/PlanContext';
+import { markIntentionalSignOut } from '../auth/sessionExpiry';
 
 const baseLinks = [
   { to: '/messages', label: 'Messages', icon: <FaEnvelope /> },
@@ -100,6 +101,7 @@ export default function Sidebar() {
 
   const handleSignOut = async () => {
     try {
+      markIntentionalSignOut();
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Error signing out:', error.message);

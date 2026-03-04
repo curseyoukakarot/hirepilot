@@ -83,7 +83,28 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
     credentials: 'include'
   });
 
-  // Handle response
+  // Handle 401 — attempt one token refresh before giving up
+  if (response.status === 401 && requireAuth) {
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshData?.session) {
+      // Refresh failed — session is truly dead. Force local sign-out so
+      // AuthQuerySync picks up the SIGNED_OUT event and redirects to /login.
+      await supabase.auth.signOut({ scope: 'local' });
+      throw new Error('Session expired');
+    }
+    // Retry the original request once with the fresh token
+    headers.set('Authorization', `Bearer ${refreshData.session.access_token}`);
+    const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...fetchOptions, headers, credentials: 'include'
+    });
+    if (!retryResponse.ok) {
+      const retryErr = await retryResponse.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(retryErr.error || retryErr.message || `${retryResponse.status} ${retryResponse.statusText}`);
+    }
+    return retryResponse.json();
+  }
+
+  // Handle other non-OK responses
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }));
     throw new Error(error.error || error.message || `${response.status} ${response.statusText}`);
