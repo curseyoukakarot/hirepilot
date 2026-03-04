@@ -27,6 +27,7 @@ import { canAttemptLinkedinConnect } from '../services/sniperV1/connectThrottle'
 import { recordActionUsage } from '../services/sniperV1/throttle';
 import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/connectNotifications';
 import { normalizeLinkedinProfileUrl } from '../utils/linkedinUrl';
+import { generateMessages, DEFAULT_CONNECT_NOTE_TEMPLATE, DEFAULT_MESSAGE_TEMPLATE } from '../services/sniperV1/messageGenerator';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -859,6 +860,58 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_queue_messages' });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/*  AI Message Generator                                               */
+/* ------------------------------------------------------------------ */
+
+sniperV1Router.post('/actions/generate-messages', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+
+    const schema = z.object({
+      profiles: z.array(z.object({
+        profile_url: z.string().min(1),
+        name: z.string().optional().nullable(),
+        headline: z.string().optional().nullable(),
+        company_name: z.string().optional().nullable(),
+      })).min(1).max(50),
+      prompt_template: z.string().min(1).max(5000),
+      user_context: z.string().max(2000).default(''),
+      mode: z.enum(['connect_note', 'message']),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'openai_not_configured', message: 'OpenAI API key is not configured.' });
+    }
+
+    const results = await generateMessages({
+      profiles: parsed.data.profiles,
+      promptTemplate: parsed.data.prompt_template,
+      userContext: parsed.data.user_context,
+      mode: parsed.data.mode,
+    });
+
+    return res.json({
+      ok: true,
+      messages: results,
+      count: results.length,
+    });
+  } catch (e: any) {
+    console.error('[sniper] generate-messages error', e);
+    return res.status(500).json({ error: e?.message || 'failed_to_generate_messages' });
+  }
+});
+
+sniperV1Router.get('/actions/generate-messages/defaults', async (_req: ApiRequest, res: Response) => {
+  return res.json({
+    connect_note_template: DEFAULT_CONNECT_NOTE_TEMPLATE,
+    message_template: DEFAULT_MESSAGE_TEMPLATE,
+  });
 });
 
 sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Response) => {

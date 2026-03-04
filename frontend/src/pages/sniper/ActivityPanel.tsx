@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
 import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 import { useCampaignOptions } from '../../hooks/useCampaignOptions';
+import AIMessageModal from './AIMessageModal';
+import type { ProfileForAI } from './AIMessageModal';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -165,6 +167,12 @@ export default function ActivityPanel() {
   const [messageText, setMessageText] = useState('');
   const [importingLeads, setImportingLeads] = useState(false);
 
+  /* ---- AI Message Generator ---- */
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalMode, setAiModalMode] = useState<'connect_note' | 'message'>('connect_note');
+  const [perProfileNotes, setPerProfileNotes] = useState<Map<string, string>>(new Map());
+  const [perProfileMessages, setPerProfileMessages] = useState<Map<string, string>>(new Map());
+
   /* ---- Campaign options ---- */
   const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -227,8 +235,18 @@ export default function ActivityPanel() {
   const queueConnect = async () => {
     if (!selectedList.length) return showToast('Select at least 1 profile', 'error');
     try {
-      const resp = await apiPost('/api/sniper/actions/connect', { profile_urls: selectedList, note: connectNote || null }) as Record<string, unknown>;
-      showToast('Queued connection requests', 'success');
+      // Use per-profile notes if AI-generated, otherwise use the single note for all
+      const hasPerProfile = perProfileNotes.size > 0;
+      const payload = hasPerProfile
+        ? {
+            requests: selectedList.map((url) => ({
+              profile_url: url,
+              note: perProfileNotes.get(url) || connectNote || null,
+            })),
+          }
+        : { profile_urls: selectedList, note: connectNote || null };
+      const resp = await apiPost('/api/sniper/actions/connect', payload) as Record<string, unknown>;
+      showToast(hasPerProfile ? 'Queued personalized connection requests' : 'Queued connection requests', 'success');
       if (resp.job_id) { await loadJobs(); setSelectedJobId(String(resp.job_id)); }
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to queue connects', 'error'); }
   };
@@ -241,6 +259,39 @@ export default function ActivityPanel() {
       showToast('Queued messages', 'success');
       if (resp.job_id) { await loadJobs(); setSelectedJobId(String(resp.job_id)); }
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to queue messages', 'error'); }
+  };
+
+  /* ---- AI helpers ---- */
+  const openAIModal = (mode: 'connect_note' | 'message') => {
+    setAiModalMode(mode);
+    setAiModalOpen(true);
+  };
+
+  const selectedProfiles: ProfileForAI[] = useMemo(() => {
+    return extractItems
+      .filter((it) => selectedUrls.has(it.profile_url))
+      .map((it) => {
+        const rj = (it.result_json || {}) as Record<string, unknown>;
+        return {
+          profile_url: it.profile_url,
+          name: rj.name ? String(rj.name) : null,
+          headline: rj.headline ? String(rj.headline) : null,
+          company_name: rj.company_name ? String(rj.company_name) : (rj.company ? String(rj.company) : null),
+        };
+      });
+  }, [extractItems, selectedUrls]);
+
+  const handleAIApply = (messages: Map<string, string>) => {
+    if (aiModalMode === 'connect_note') {
+      setPerProfileNotes(messages);
+      // Set the first message as the visible note text (for preview)
+      const first = messages.values().next().value;
+      if (first) setConnectNote(first);
+    } else {
+      setPerProfileMessages(messages);
+      const first = messages.values().next().value;
+      if (first) setMessageText(first);
+    }
   };
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedJobId) || null, [jobs, selectedJobId]);
@@ -332,6 +383,15 @@ export default function ActivityPanel() {
   return (
     <div>
       <Toast show={toast.show} message={toast.message} type={toast.type} />
+
+      {/* AI Message Generator Modal */}
+      <AIMessageModal
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        profiles={selectedProfiles}
+        mode={aiModalMode}
+        onApply={handleAIApply}
+      />
 
       {/* Edit Schedule Modal */}
       {editingSchedule && (
@@ -550,13 +610,42 @@ export default function ActivityPanel() {
                   <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
                     {/* Connect */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">Connect request</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">Connect request</div>
+                        <button
+                          type="button"
+                          onClick={() => openAIModal('connect_note')}
+                          disabled={!selectedList.length}
+                          className={cx(
+                            'text-[11px] font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400',
+                            !selectedList.length && 'opacity-40 cursor-not-allowed',
+                          )}
+                        >
+                          ✨ AI Generate
+                        </button>
+                      </div>
+                      {perProfileNotes.size > 0 && (
+                        <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1.5 dark:border-violet-800/50 dark:bg-violet-950/20">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                              ✨ {perProfileNotes.size} personalized note{perProfileNotes.size !== 1 ? 's' : ''} ready
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPerProfileNotes(new Map())}
+                              className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <textarea
                         className={cx(inputCls, 'mt-2')}
                         rows={3}
                         value={connectNote}
-                        onChange={(e) => setConnectNote(e.target.value)}
-                        placeholder="Optional note..."
+                        onChange={(e) => { setConnectNote(e.target.value); setPerProfileNotes(new Map()); }}
+                        placeholder={perProfileNotes.size > 0 ? 'AI-generated per-profile notes will be used' : 'Optional note...'}
                       />
                       <button
                         type="button"
@@ -567,13 +656,26 @@ export default function ActivityPanel() {
                           !selectedList.length && 'opacity-50 cursor-not-allowed',
                         )}
                       >
-                        Queue Connect
+                        {perProfileNotes.size > 0 ? `Queue ${perProfileNotes.size} Personalized Connect${perProfileNotes.size !== 1 ? 's' : ''}` : 'Queue Connect'}
                       </button>
                     </div>
 
                     {/* Message */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message (1st-degree)</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message (1st-degree)</div>
+                        <button
+                          type="button"
+                          onClick={() => openAIModal('message')}
+                          disabled={!selectedList.length}
+                          className={cx(
+                            'text-[11px] font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400',
+                            !selectedList.length && 'opacity-40 cursor-not-allowed',
+                          )}
+                        >
+                          ✨ AI Generate
+                        </button>
+                      </div>
                       <textarea
                         className={cx(inputCls, 'mt-2')}
                         rows={3}

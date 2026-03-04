@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { MissionDef } from './MissionCard';
+import AIMessageModal from './AIMessageModal';
+import type { ProfileForAI } from './AIMessageModal';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -207,6 +209,31 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
 
   const [addLeadsOpen, setAddLeadsOpen] = useState(false);
 
+  /* ---- AI Message Generator state ---- */
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalMode, setAiModalMode] = useState<'connect_note' | 'message'>('connect_note');
+  const [perProfileNotes, setPerProfileNotes] = useState<Map<string, string>>(new Map());
+
+  const profilesForAI: ProfileForAI[] = useMemo(() => {
+    return profileUrls.map((url) => ({
+      profile_url: url,
+      name: null,
+      headline: null,
+      company_name: null,
+    }));
+  }, [profileUrls]);
+
+  const handleAIApply = (messages: Map<string, string>) => {
+    if (aiModalMode === 'connect_note') {
+      setPerProfileNotes(messages);
+      const first = messages.values().next().value;
+      if (first) setConnectNote(first);
+    } else {
+      const first = messages.values().next().value;
+      if (first) setMessageText(first);
+    }
+  };
+
   /* ---- Saved targets (post engagement only) ---- */
   const [targets, setTargets] = useState<Array<{
     id: string; post_url: string; status: string;
@@ -356,8 +383,18 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
     if (note.length > 300) return showToast('Connect note must be 300 characters or less.', 'error');
     setWorkingId('connect');
     try {
-      await apiPost('/api/sniper/actions/connect', { profile_urls: profileUrls, note: note || null });
-      showToast('Queued connection requests. Track progress in Activity.', 'success');
+      // Use per-profile notes if AI-generated
+      const hasPerProfile = perProfileNotes.size > 0;
+      const payload = hasPerProfile
+        ? {
+            requests: profileUrls.map((url) => ({
+              profile_url: url,
+              note: perProfileNotes.get(url) || note || null,
+            })),
+          }
+        : { profile_urls: profileUrls, note: note || null };
+      await apiPost('/api/sniper/actions/connect', payload);
+      showToast(hasPerProfile ? 'Queued personalized connection requests. Track progress in Activity.' : 'Queued connection requests. Track progress in Activity.', 'success');
       setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to queue connection requests', 'error');
@@ -506,6 +543,13 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
           setProfileUrls((prev) => Array.from(new Set([...prev, ...urls])));
           setAddLeadsOpen(false);
         }}
+      />
+      <AIMessageModal
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        profiles={profilesForAI}
+        mode={aiModalMode}
+        onApply={handleAIApply}
       />
 
       <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
@@ -770,14 +814,43 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     Optional connect note (max 300 chars)
                   </label>
-                  <TemplatePicker onSelect={(body) => setConnectNote(body.slice(0, 300))} />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setAiModalMode('connect_note'); setAiModalOpen(true); }}
+                      disabled={!profileUrls.length}
+                      className={cx(
+                        'text-[11px] font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400',
+                        !profileUrls.length && 'opacity-40 cursor-not-allowed',
+                      )}
+                    >
+                      ✨ AI Generate
+                    </button>
+                    <TemplatePicker onSelect={(body) => setConnectNote(body.slice(0, 300))} />
+                  </div>
                 </div>
+                {perProfileNotes.size > 0 && (
+                  <div className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-800/50 dark:bg-violet-950/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                        ✨ {perProfileNotes.size} personalized note{perProfileNotes.size !== 1 ? 's' : ''} ready
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPerProfileNotes(new Map())}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <textarea
                   value={connectNote}
-                  onChange={(e) => setConnectNote(e.target.value)}
+                  onChange={(e) => { setConnectNote(e.target.value); setPerProfileNotes(new Map()); }}
                   rows={3}
                   maxLength={300}
-                  placeholder="Optional note to include with the connection request."
+                  placeholder={perProfileNotes.size > 0 ? 'AI-generated per-profile notes will be used' : 'Optional note to include with the connection request.'}
                   className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <div className="mt-1 text-xs text-slate-500">{String(connectNote || '').length}/300</div>
@@ -799,7 +872,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                     (!cloudEnabled || !profileUrls.length || workingId === 'connect') && 'opacity-70 cursor-not-allowed',
                   )}
                 >
-                  {workingId === 'connect' ? 'Queuing...' : 'Run now'}
+                  {workingId === 'connect'
+                    ? 'Queuing...'
+                    : perProfileNotes.size > 0
+                      ? `Queue ${perProfileNotes.size} Personalized`
+                      : 'Run now'}
                 </button>
               </div>
             </>
@@ -818,7 +895,20 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     Message (required, max 3000 chars)
                   </label>
-                  <TemplatePicker onSelect={(body) => setMessageText(body.slice(0, 3000))} />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setAiModalMode('message'); setAiModalOpen(true); }}
+                      disabled={!profileUrls.length}
+                      className={cx(
+                        'text-[11px] font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400',
+                        !profileUrls.length && 'opacity-40 cursor-not-allowed',
+                      )}
+                    >
+                      ✨ AI Generate
+                    </button>
+                    <TemplatePicker onSelect={(body) => setMessageText(body.slice(0, 3000))} />
+                  </div>
                 </div>
                 <textarea
                   value={messageText}
