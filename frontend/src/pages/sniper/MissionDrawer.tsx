@@ -855,9 +855,8 @@ function LeadsSection({ profileUrls, onAddLeads, onClear }: {
 
 function TemplatePicker({ onSelect }: { onSelect: (body: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [sequences, setSequences] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -871,27 +870,25 @@ function TemplatePicker({ onSelect }: { onSelect: (body: string) => void }) {
   }, [open]);
 
   const fetchTemplates = async () => {
-    if (sequences.length) { setOpen(true); return; }
+    if (templates.length) { setOpen(true); return; }
     setLoading(true);
     setOpen(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const API_BASE = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
-      const API_ROOT = API_BASE ? `${API_BASE}/api` : '/api';
-      const res = await fetch(`${API_ROOT}/sequences?include_steps=1`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSequences(Array.isArray(data) ? data.filter((s: any) => !s.is_archived) : []);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('email_templates')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        setTemplates(data || []);
       }
     } catch {}
     setLoading(false);
   };
 
-  const pickStep = (body: string) => {
+  const pick = (tpl: any) => {
+    const body = stripHtml(tpl.content || '');
     onSelect(body);
     setOpen(false);
   };
@@ -914,7 +911,7 @@ function TemplatePicker({ onSelect }: { onSelect: (body: string) => void }) {
         <div className="absolute right-0 top-full z-[9999] mt-1 w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
           {loading ? (
             <div className="p-4 text-center text-xs text-slate-500">Loading templates...</div>
-          ) : sequences.length === 0 ? (
+          ) : templates.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-xs text-slate-500">No templates found.</p>
               <a
@@ -928,49 +925,21 @@ function TemplatePicker({ onSelect }: { onSelect: (body: string) => void }) {
             </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {sequences.map((seq: any) => (
-                <div key={seq.id}>
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(expandedId === seq.id ? null : seq.id)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{seq.name}</div>
-                      {seq.steps?.length > 0 && (
-                        <div className="text-[10px] text-slate-400">{seq.steps.length} step{seq.steps.length === 1 ? '' : 's'}</div>
-                      )}
-                    </div>
-                    <span className="ml-2 text-xs text-slate-400">{expandedId === seq.id ? '▼' : '▸'}</span>
-                  </button>
-
-                  {expandedId === seq.id && seq.steps?.length > 0 && (
-                    <div className="border-t border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/50">
-                      {[...seq.steps]
-                        .sort((a: any, b: any) => (a.step_order || 0) - (b.step_order || 0))
-                        .map((step: any, i: number) => (
-                          <button
-                            key={step.id || i}
-                            type="button"
-                            onClick={() => pickStep(stripHtml(step.body || ''))}
-                            className="w-full text-left px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors border-b border-slate-100/50 dark:border-slate-800/50 last:border-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
-                                {i + 1}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                {step.subject && (
-                                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{step.subject}</div>
-                                )}
-                                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{stripHtml(step.body || '').slice(0, 80)}{stripHtml(step.body || '').length > 80 ? '…' : ''}</div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                    </div>
+              {templates.map((tpl: any) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => pick(tpl)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                >
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{tpl.name}</div>
+                  {tpl.subject && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{tpl.subject}</div>
                   )}
-                </div>
+                  <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
+                    {stripHtml(tpl.content || '').slice(0, 90)}{stripHtml(tpl.content || '').length > 90 ? '…' : ''}
+                  </div>
+                </button>
               ))}
             </div>
           )}
