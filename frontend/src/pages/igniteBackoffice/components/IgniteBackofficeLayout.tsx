@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabaseClient';
+import { markIntentionalSignOut } from '../../../auth/sessionExpiry';
 
 type IgniteBackofficeLayoutProps = {
   children: React.ReactNode;
@@ -66,6 +67,7 @@ export default function IgniteBackofficeLayout({ children }: IgniteBackofficeLay
 
   const handleSignOut = async () => {
     try {
+      markIntentionalSignOut();
       await supabase.auth.signOut();
     } finally {
       navigate('/login', { replace: true });

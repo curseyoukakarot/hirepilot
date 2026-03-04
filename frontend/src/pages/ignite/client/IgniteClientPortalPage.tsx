@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../../../lib/api';
 import { supabase } from '../../../lib/supabaseClient';
+import { markIntentionalSignOut } from '../../../auth/sessionExpiry';
 import { useNavigate } from 'react-router-dom';
 
 type Proposal = {
@@ -96,6 +97,7 @@ export default function IgniteClientPortalPage() {
   };
 
   const handleLogout = async () => {
+    markIntentionalSignOut();
     await supabase.auth.signOut();
     window.location.href = '/login';
   };

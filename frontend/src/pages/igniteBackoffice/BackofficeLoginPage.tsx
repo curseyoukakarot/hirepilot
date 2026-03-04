@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { markIntentionalSignOut } from '../../auth/sessionExpiry';
 
 function normalizeRole(value: any): string {
   return String(value || '').toLowerCase().replace(/[\s-]+/g, '_');
@@ -27,6 +28,7 @@ export default function BackofficeLoginPage() {
       const appMeta = data?.user?.app_metadata || {};
       const role = normalizeRole(meta.account_type || meta.role || appMeta.role);
       if (!ALLOWED_BACKOFFICE_ROLES.has(role)) {
+        markIntentionalSignOut();
         await supabase.auth.signOut();
         throw new Error('Your account does not have Ignite Backoffice access.');
       }
