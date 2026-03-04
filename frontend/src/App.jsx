@@ -82,6 +82,7 @@ import RexWidget from './widgets/rex/RexWidget';
 import PromoBanner from './components/PromoBanner';
 import { PlanProvider, usePlan } from './context/PlanContext';
 import { startSessionCookieSync } from './auth/sessionSync';
+import { markIntentionalSignOut } from './auth/sessionExpiry';
 import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './context/ThemeContext';
 import { useAppMode } from './lib/appMode';
@@ -1101,7 +1102,7 @@ function LandingPagesPaidRoute({ children }) {
 function SignOutRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    (async () => { await supabase.auth.signOut(); sessionStorage.removeItem('guest_mode'); navigate('/accept-guest'); })();
+    (async () => { markIntentionalSignOut(); await supabase.auth.signOut(); sessionStorage.removeItem('guest_mode'); navigate('/accept-guest'); })();
   }, [navigate]);
   return null;
 }

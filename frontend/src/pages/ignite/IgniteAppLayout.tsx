@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { markIntentionalSignOut } from '../../auth/sessionExpiry';
 
 type IgniteAppLayoutProps = {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export default function IgniteAppLayout({ children }: IgniteAppLayoutProps) {
   const [desktopCollapsed, setDesktopCollapsed] = React.useState(false);
 
   const handleSignOut = async () => {
+    markIntentionalSignOut();
     await supabase.auth.signOut();
     navigate('/login', { replace: true });
   };
