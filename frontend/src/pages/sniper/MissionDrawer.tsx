@@ -168,6 +168,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
         : toolPayload.limit;
       await apiPost('/api/schedules', {
         name: pending.scheduleName || 'Cloud Engine Mission',
+        action_type: 'launch_campaign',
         schedule_kind: 'recurring',
         cron_expr: buildDailyCronExpr(scheduleStart),
         run_at: null,
@@ -426,6 +427,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
     try {
       await apiPost('/api/schedules', {
         name: String(schedName || `Cloud Engine - ${mission.title}`),
+        action_type: 'launch_campaign',
         schedule_kind, cron_expr, run_at,
         action_tool: 'sniper.run_job',
         tool_payload: toolPayload,
