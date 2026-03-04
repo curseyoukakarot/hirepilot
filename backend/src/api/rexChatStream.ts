@@ -204,39 +204,26 @@ function applyPostProcessors(
 ): string {
   let result = content;
 
-  // Queued emails
-  if (lastToolResult && typeof lastToolResult.queued === 'number') {
-    const mode = String(lastToolResult.mode || 'draft');
-    const count = Number(lastToolResult.queued || 0);
-    const when = lastToolResult.scheduled_for ? ` Scheduled for ${lastToolResult.scheduled_for}.` : '';
-    result = `Queued ${count} emails via ${mode === 'template' ? 'template' : 'custom draft'} using SendGrid.${when} They will be sent automatically; no manual action in SendGrid is required.`;
-  }
-
-  // Missing provider
+  // Error overrides — safety-critical, fully replace model output
   if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
-    result = 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to Settings → Integrations to connect.';
+    return 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to **Settings → Integrations** to connect.';
   }
-
-  // Cloud engine disabled
   if (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help) {
-    result = String(lastToolResult.help);
+    return String(lastToolResult.help);
   }
 
-  // Campaign view links
+  // Campaign view links — append (don't replace)
   if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
-    const viewText = `\n\nView in Agent Mode: /agent-mode?campaign=${lastToolResult.campaign_id || ''}` +
-      `\nView in Leads: /leads?campaign=${lastToolResult.std_campaign_id || ''}`;
-    result += viewText;
+    result += `\n\n[View in Agent Mode](/agent-mode?campaign=${lastToolResult.campaign_id || ''}) · [View in Leads](/leads?campaign=${lastToolResult.std_campaign_id || ''})`;
   }
 
-  // Outreach nudge
+  // Outreach nudge — append (don't replace)
   if (executedSourcing && ((lastToolResult?.imported || 0) > 0)) {
     const lastUser = messages[messages.length - 1];
     const text = String(lastUser?.content || '').toLowerCase();
     const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
     if (!wantsOutreach) {
-      result = result.replace(/no leads[^\n]*/i, '').trim() +
-        '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
+      result += '\n\nWant me to start outreach to these leads? Just tell me the tone (casual, professional, etc.) and I\'ll draft the opener.';
     }
   }
 
@@ -295,41 +282,20 @@ function getToolDefinitions(): any[] {
 function buildSystemPrompt(userId: string, campaign_id?: string): any {
   return {
     role: 'system',
-    content: `You are REX, a recruiting and career agent.
-If the user asks to source leads or create a campaign with a target title/location/count and does NOT clearly specify the lead source, first ask ONE concise clarifying question: "Which lead source should I use: Apollo (fast, verified emails) or LinkedIn (connection workflow)?" and wait for their answer before calling any tools.
-If the user specifies the source, immediately call the tool 'source_leads' with { userId, campaignId: 'latest', source: '<apollo|linkedin>', filters: { title: <normalized title>, location: <city, state>, count: <N> } }.
-If the user doesn't answer the clarifying question, default to Apollo after one follow-up.
-Be concise. Do not output generic plans when a tool can fulfill the request.
-Note: If 'linkedin' is chosen and it is not available, clearly state that LinkedIn sourcing is queued and offer to proceed with Apollo.
-If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, job_id) and ETA.
-If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
-If the user asks: "send linkedin outreach to the campaign you just created" AND provides a LinkedIn request template name, call 'sniper_campaign_outreach_connect' with { userId, campaign_id: 'latest', template_name: '<name>' } and then tell them to monitor results in /sniper/activity.
-If the user asks to send a LinkedIn message to someone they are already connected to, call 'sniper_send_message_to_profile' with either { userId, lead_id } or { userId, profile_url } and include message content or template_name.
-If the user asks to change Sniper settings (e.g., "set my max connects to 30", "only run between 9am and 5pm", "add a 30 second delay", "pause sniper", "switch to agentic browser"), call 'sniper_update_settings' with the relevant fields. Confirm the changes back to the user.
-If the user asks about their Sniper status, quota, or recent jobs (e.g., "what are my sniper settings?", "how many connects do I have left?", "show my recent sniper jobs"), call 'sniper_get_status' and summarize the results.
-When the user asks to email the newly sourced campaign using a named template, do this:
-1) If they ask for a preview, call 'preview_campaign_email' with { userId, campaign_id: '<latest or given>', template_name } and return the subject/body.
-2) If they confirm sending, call 'send_campaign_email_by_template_name' with { userId, campaign_id: '<latest or given>', template_name } and report how many were queued.
-Prefer using these bulk tools instead of single-lead tools when the intent is to email a whole campaign.
-If the user asks to send using a sequence template by name (e.g., "send with sequence XYZ every 2 business days"), resolve the sequence by name and call 'enroll_campaign_in_sequence_by_name' with { userId, campaign_id: '<latest or given>', sequence_name: 'XYZ', start_time_local: '<now or provided>', timezone: 'America/Chicago' }. The business-day spacing comes from the sequence steps; do not hardcode delays.
-If the user says "send using template <NAME>" but does not provide timing for steps, ask a single follow-up question to collect step timing (e.g., "When should step 1, 2, and 3 send? (e.g., 0,2,4 business days)"), then call 'create_sequence_from_template_and_enroll' with delays_business_days like [0,2,4].
-If the user explicitly says "send from my <provider> account" where <provider> is sendgrid/google/outlook, call 'set_preferred_email_provider' with that provider before sending.
-If the user requests a recurring persona sourcing schedule that automatically enrolls new leads into a campaign ("auto track", "source 50 personas weekly and auto-email", "REX take the order"), gather details in this order with short confirmations:
-1) Persona to use (offer known personas if unclear).
-2) Outreach campaign plan: ask whether to use an existing campaign or create a new one (collect campaign name when creating).
-3) Cadence + timing (daily vs weekly, ask for day/time if weekly; capture HH:MM in user's stated timezone or default to America/Chicago then convert to UTC).
-4) Volume + safety: leads per run, whether to send immediately or delay (collect delay in hours → minutes), and optional daily send cap.
-Once you have these answers, call 'create_persona_auto_track' with the gathered values (convert hours to minutes, ensure cadence/day/time are populated). After the tool succeeds, confirm the schedule back to the user with persona, campaign, cadence, leads/run, delay, and daily cap.
-RESUME / LINKEDIN HELP:
-- If the user asks for resume or LinkedIn help, or uploads a resume/profile, use the resume tools:
-  - resume_intelligence (modes: analyze|rewrite|coach|builder_generate)
-  - resume_scoring
-  - linkedin_intelligence
-  - resume_to_outreach
-- Default to resume_intelligence mode=analyze for first pass; use rewrite when asked for a rewrite; use coach when they want strategy; use builder_generate only when asked for builder-prefill JSON.
-- When files are attached, summarize key signals first, then choose the right mode.
-Tone: first-person, hiring-manager aware, outcome-focused, no ATS keyword stuffing. Coaching first, rewriting when requested.
-CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
+    content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
+
+Be conversational and concise — answer like a sharp colleague, not a manual. Use markdown formatting (bold, lists, headers) to keep responses scannable.
+
+When you can fulfill a request with a tool, just do it. Don't describe a plan first — act, then summarize what happened. You have the tool schemas; use them directly.
+
+Key behaviors:
+- **Lead sourcing**: If the user wants leads but doesn't specify a source, ask once: "Apollo (fast, verified emails) or LinkedIn (connection workflow)?" Default to Apollo if they don't answer.
+- **Bulk actions**: Prefer campaign-level tools (send_campaign_email_auto, send_campaign_email_by_template_name) over single-lead tools when emailing a whole campaign.
+- **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
+- **Sequences**: If timing isn't provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
+- **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don't dump all questions at once.
+
+Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
   };
 }
 
@@ -576,7 +542,6 @@ export default async function rexChatStream(req: Request, res: Response) {
 
     // 7. Check if post-processor will deterministically override
     const willOverride =
-      (lastToolResult && typeof lastToolResult.queued === 'number') ||
       (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') ||
       (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help);
 

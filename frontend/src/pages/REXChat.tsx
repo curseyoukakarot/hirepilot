@@ -30,17 +30,6 @@ type UploadedAttachment = {
 
 type AgentProfile = RexAgentProfile;
 
-type ChecklistItem = {
-  title: string;
-  detail?: string;
-};
-
-type ParsedChecklist = {
-  heading: string;
-  intro?: string;
-  items: ChecklistItem[];
-};
-
 type PlanStep = {
   step_id: string;
   title: string;
@@ -290,33 +279,6 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
   };
 }
 
-function parseChecklistFromMessage(content: string): ParsedChecklist | null {
-  const text = String(content || '').trim();
-  if (!text) return null;
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const numbered = lines.filter((line) => /^\d+[\)\.\-:]\s+/.test(line));
-  const bulleted = lines.filter((line) => /^[-*]\s+/.test(line));
-  const itemLines = (numbered.length >= 3 ? numbered : bulleted.length >= 3 ? bulleted : [])
-    .slice(0, 10);
-  if (!itemLines.length) return null;
-
-  const heading = lines.find((l) => /plan|approach|checklist|workflow/i.test(l)) || "Here's how I plan to approach this";
-  const intro = lines.find((l) => l !== heading && !/^\d+[\)\.\-:]\s+/.test(l) && !/^[-*]\s+/.test(l));
-  const items = itemLines.map((line) => {
-    const body = line.replace(/^\d+[\)\.\-:]\s+/, '').replace(/^[-*]\s+/, '').trim();
-    const [titlePart, detailPart] = body.split(/\s[-:]\s/);
-    return {
-      title: titlePart?.trim() || body,
-      detail: detailPart?.trim() || undefined
-    };
-  });
-  return { heading, intro, items };
-}
-
-function messageSuggestsExecution(content: string) {
-  return /executing|running|working on|processing|in progress|workflow/i.test(String(content || ''));
-}
-
 function normalizeRoleLabel(rawRole: string) {
   const role = String(rawRole || '').trim().toLowerCase();
   if (!role) return 'Member';
@@ -408,41 +370,18 @@ const DEFAULT_AGENTS: AgentProfile[] = [
 ];
 
 function buildAgentOptimizedPrompt(userPrompt: string, agent: AgentProfile, attachments: UploadedAttachment[]) {
-  const capabilityLines = agent.capabilities.map((c) => `- ${c}`).join('\n');
-  const guideLines = agent.guides.map((g) => `- ${g}`).join('\n');
-  const recipeLines = agent.recipes.map((r) => `- ${r}`).join('\n');
-  const instructionLines = agent.instructions.map((i) => `- ${i}`).join('\n');
-  const links = agent.links.map((l) => `- ${l}`).join('\n');
-  const attachmentContext = attachments.length
-    ? attachments.map((a) => `- ${a.name}${a.text ? `\n${String(a.text).slice(0, 2500)}` : ''}`).join('\n')
-    : '- none';
+  const parts: string[] = [userPrompt];
 
-  return [
-    `[ACTIVE_AGENT] ${agent.name}`,
-    '',
-    '[CAPABILITIES]',
-    capabilityLines,
-    '',
-    '[GUIDES]',
-    guideLines,
-    '',
-    '[RECIPES]',
-    recipeLines,
-    '',
-    '[INSTRUCTIONS]',
-    instructionLines,
-    '',
-    '[PRODUCT_AREAS]',
-    links,
-    '',
-    '[ATTACHMENTS]',
-    attachmentContext,
-    '',
-    '[USER_REQUEST]',
-    userPrompt,
-    '',
-    'Respond with a practical execution plan and explicit steps tailored to the active agent.'
-  ].join('\n');
+  if (agent.capabilities.length) {
+    parts.push(`\n(Agent: ${agent.name} — ${agent.capabilities.slice(0, 3).join('; ')})`);
+  }
+
+  if (attachments.length) {
+    const attachSummary = attachments.map((a) => `- ${a.name}${a.text ? `\n${String(a.text).slice(0, 2500)}` : ''}`).join('\n');
+    parts.push(`\nAttachments:\n${attachSummary}`);
+  }
+
+  return parts.join('');
 }
 
 export default function REXChat() {
@@ -683,7 +622,7 @@ export default function REXChat() {
     const mapped: UiMessage[] = rows.map((m) => ({
       id: m.id,
       sender: m.role === 'user' ? 'user' : 'rex',
-      content: typeof m.content === 'string' ? m.content : (m.content?.text || JSON.stringify(m.content))
+      content: typeof m.content === 'string' ? m.content : (m.content?.text || '')
     }));
     setMessages(mapped);
   }
@@ -1101,75 +1040,6 @@ export default function REXChat() {
   }
 
   function renderAssistantMessage(content: string, streaming?: boolean) {
-    const checklist = parseChecklistFromMessage(content);
-    if (checklist) {
-      return (
-        <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl">
-          <div className="px-5 py-4 border-b border-dark-800">
-            <div className="flex items-center gap-2 mb-3">
-              <i className="fa-solid fa-brain text-purple-400" />
-              <h3 className="text-sm font-semibold text-white">{checklist.heading}</h3>
-            </div>
-            {checklist.intro && (
-              <p className="text-sm text-gray-300 leading-relaxed mb-4">{checklist.intro}</p>
-            )}
-            <div className="space-y-2.5">
-              {checklist.items.map((item, idx) => (
-                <div key={`${item.title}_${idx}`} className="flex gap-3">
-                  <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs font-semibold text-purple-400">{idx + 1}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-200 font-medium">{item.title}</p>
-                    {item.detail && <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (messageSuggestsExecution(content)) {
-      const stepId = runningStep?.step_id || runProgress?.current_step_id || '';
-      const stepMeta = stepId ? planStepById.get(stepId) : null;
-      const stepPercent = Math.max(0, Math.min(100, Number(runningStep?.progress?.percent || stepProgressPercent || 0)));
-      return (
-        <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-white">Executing workflow...</p>
-          </div>
-          <p className="text-sm text-gray-300 leading-relaxed mb-3">
-            {stepMeta?.title ? `Working on: ${stepMeta.title}` : content}
-          </p>
-          <div className="bg-dark-800 rounded px-3 py-2 mb-3">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-gray-400">Progress</span>
-              <span className="text-xs text-white font-semibold">{stepPercent}%</span>
-            </div>
-            <div className="w-full bg-dark-700 rounded-full h-1.5">
-              <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${stepPercent}%` }} />
-            </div>
-          </div>
-          {recentToolCalls.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {recentToolCalls.map((tc) => {
-                const isRunning = tc.status === 'running';
-                const chipCls = isRunning ? 'bg-purple-500/20 text-purple-300' : tc.status === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-dark-700 text-gray-300';
-                return (
-                  <span key={tc.toolcall_id} className={`px-2 py-1 text-[11px] rounded ${chipCls}`}>
-                    {tc.tool?.display_name || tc.tool?.tool_id || 'Tool'}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      );
-    }
-
     return (
       <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
         <MarkdownContent content={content} streaming={streaming} />
