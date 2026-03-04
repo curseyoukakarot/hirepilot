@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  chatStreamSse,
   createConversation,
   fetchMessages,
   fetchRex2Agents,
@@ -10,11 +11,13 @@ import {
 } from '../lib/rexApi';
 import { supabase } from '../lib/supabaseClient';
 import '../styles/rex.css';
+import MarkdownContent from '../components/rex/MarkdownContent';
 
 type UiMessage = {
   id: string;
   sender: 'user' | 'rex';
   content: string;
+  streaming?: boolean;
 };
 
 type UploadedAttachment = {
@@ -465,9 +468,13 @@ export default function REXChat() {
   const [activeConsoleTab, setActiveConsoleTab] = useState<'plan' | 'execution' | 'artifacts'>('plan');
   const [userCreditsRemaining, setUserCreditsRemaining] = useState<number | null>(null);
   const [rexThinking, setRexThinking] = useState(false);
+  const [streamingPhase, setStreamingPhase] = useState<'idle' | 'thinking' | 'tools' | 'responding'>('idle');
+  const [activeToolName, setActiveToolName] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileConsoleOpen, setMobileConsoleOpen] = useState(false);
 
+  const streamAbortRef = useRef<AbortController | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -751,9 +758,9 @@ export default function REXChat() {
   useEffect(() => {
     messagesScrollerRef.current?.scrollTo({
       top: messagesScrollerRef.current.scrollHeight,
-      behavior: 'smooth'
+      behavior: isStreaming ? 'auto' : 'smooth'
     });
-  }, [messages, planJson, runProgress, toolCalls, runArtifacts]);
+  }, [messages, planJson, runProgress, toolCalls, runArtifacts, isStreaming]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -781,6 +788,8 @@ export default function REXChat() {
     if (!text || sending || uploadingAttachment) return;
     setSending(true);
     setRexThinking(true);
+    setStreamingPhase('thinking');
+    setIsStreaming(false);
     setInput('');
 
     const userMsg: UiMessage = {
@@ -790,9 +799,13 @@ export default function REXChat() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
+    const streamMsgId = makeId('m_rex_stream');
+
     try {
       const conversationId = await ensureConversation(text);
       const optimizedPrompt = buildAgentOptimizedPrompt(text, selectedAgent, attachments);
+
+      // Persist user message
       await postMessage(conversationId, 'user', {
         text,
         agent_mode: selectedAgent.id,
@@ -805,37 +818,112 @@ export default function REXChat() {
           size: a.size || null
         }))
       });
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const { data: { session } } = await supabase.auth.getSession();
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
 
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/rex/chat`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          userId: user?.id,
-          conversationId,
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.sender === 'user' ? 'user' : 'assistant',
-            content: m.sender === 'user' && m.id === userMsg.id ? optimizedPrompt : m.content
-          })),
-          metadata: {
-            activeAgent: selectedAgent.id,
-            activeAgentName: selectedAgent.name,
-            attachments: attachments.map((a) => ({ name: a.name, url: a.url || null }))
+      let accumulated = '';
+      let finalContent = '';
+      let receivedFirstToken = false;
+
+      const eventStream = chatStreamSse(
+        user?.id || '',
+        conversationId,
+        [...messages, userMsg].map((m) => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.sender === 'user' && m.id === userMsg.id ? optimizedPrompt : m.content
+        })),
+        {
+          activeAgent: selectedAgent.id,
+          activeAgentName: selectedAgent.name,
+          attachments: attachments.map((a) => ({ name: a.name, url: a.url || null }))
+        }
+      );
+
+      for await (const { event, data } of eventStream) {
+        switch (event) {
+          case 'status': {
+            setStreamingPhase(data.phase || 'thinking');
+            if (data.phase === 'tools') {
+              // Show thinking indicator again during tool execution
+              setRexThinking(true);
+              setIsStreaming(false);
+            }
+            break;
           }
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      const assistantReply = typeof data?.reply?.content === 'string'
-        ? data.reply.content
-        : (data?.reply?.content?.text || data?.error || 'I can build a recruiting run plan for that request.');
-      const rexMsg: UiMessage = { id: makeId('m_rex'), sender: 'rex', content: assistantReply };
-      setMessages((prev) => [...prev, rexMsg]);
-      await postMessage(conversationId, 'assistant', { text: assistantReply, agent_mode: selectedAgent.id });
+          case 'token': {
+            if (!receivedFirstToken) {
+              receivedFirstToken = true;
+              setRexThinking(false);
+              setIsStreaming(true);
+              setMessages((prev) => [...prev, {
+                id: streamMsgId,
+                sender: 'rex',
+                content: data.t,
+                streaming: true,
+              }]);
+            } else {
+              setMessages((prev) => prev.map((m) =>
+                m.id === streamMsgId
+                  ? { ...m, content: m.content + data.t }
+                  : m
+              ));
+            }
+            accumulated += data.t;
+            break;
+          }
+          case 'tool_start': {
+            setActiveToolName(data.name || null);
+            break;
+          }
+          case 'tool_end': {
+            setActiveToolName(null);
+            break;
+          }
+          case 'replace': {
+            finalContent = data.full_content;
+            if (receivedFirstToken) {
+              setMessages((prev) => prev.map((m) =>
+                m.id === streamMsgId
+                  ? { ...m, content: data.full_content, streaming: false }
+                  : m
+              ));
+            }
+            break;
+          }
+          case 'done': {
+            finalContent = data.full_content || accumulated;
+            setMessages((prev) => {
+              if (!receivedFirstToken) {
+                return [...prev, {
+                  id: streamMsgId,
+                  sender: 'rex' as const,
+                  content: finalContent,
+                  streaming: false,
+                }];
+              }
+              return prev.map((m) =>
+                m.id === streamMsgId
+                  ? { ...m, content: finalContent, streaming: false }
+                  : m
+              );
+            });
+            break;
+          }
+          case 'error': {
+            setMessages((prev) => [...prev, {
+              id: makeId('m_err'),
+              sender: 'rex' as const,
+              content: data.message || 'Something went wrong.',
+            }]);
+            break;
+          }
+        }
+      }
 
-      setPlanJson(buildPlanFromText(text, assistantReply, conversationId));
+      // Backend persists the message; also persist from frontend for the agent_mode metadata
+      await postMessage(conversationId, 'assistant', { text: finalContent, agent_mode: selectedAgent.id }).catch(() => {});
+
+      setPlanJson(buildPlanFromText(text, finalContent, conversationId));
       setActiveConsoleTab('plan');
       setRunId(null);
       setRunStatus('idle');
@@ -849,6 +937,10 @@ export default function REXChat() {
     } finally {
       setSending(false);
       setRexThinking(false);
+      setIsStreaming(false);
+      setStreamingPhase('idle');
+      setActiveToolName(null);
+      streamAbortRef.current = null;
       await loadConversations().catch(() => {});
     }
   }
@@ -1008,7 +1100,7 @@ export default function REXChat() {
     }
   }
 
-  function renderAssistantMessage(content: string) {
+  function renderAssistantMessage(content: string, streaming?: boolean) {
     const checklist = parseChecklistFromMessage(content);
     if (checklist) {
       return (
@@ -1080,7 +1172,7 @@ export default function REXChat() {
 
     return (
       <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
-        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{content}</p>
+        <MarkdownContent content={content} streaming={streaming} />
       </div>
     );
   }
@@ -1282,14 +1374,14 @@ export default function REXChat() {
                     <i className="fa-solid fa-robot text-white text-sm" />
                   </div>
                   <div className="flex-1 max-w-3xl">
-                    {renderAssistantMessage(m.content)}
+                    {renderAssistantMessage(m.content, m.streaming)}
                   </div>
                 </div>
               )}
             </div>
           ))}
 
-          {rexThinking && (
+          {rexThinking && !isStreaming && (
             <div className="message-group mb-8">
               <div className="flex gap-3 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
@@ -1299,10 +1391,16 @@ export default function REXChat() {
                   <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm font-medium text-white">REX is working...</p>
+                      <p className="text-sm font-medium text-white">
+                        {streamingPhase === 'tools'
+                          ? `Using tool${activeToolName ? `: ${activeToolName}` : ''}...`
+                          : streamingPhase === 'responding'
+                            ? 'Composing response...'
+                            : 'REX is thinking...'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <span>Thinking</span>
+                      <span>{streamingPhase === 'tools' ? 'Executing' : 'Thinking'}</span>
                       <span className="inline-flex items-end gap-1">
                         <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
                         <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />

@@ -88,7 +88,7 @@ export async function fetchRex2Agents(): Promise<RexAgentProfile[]> {
 
 
 // v2 streaming API (frontend contract)
-import { streamFetch } from '../hooks/useStream'
+import { streamFetch, streamSse, type SseEvent } from '../hooks/useStream'
 
 export type ChatPart = { role: 'user'|'assistant'; content: string }
 
@@ -109,6 +109,27 @@ export async function* chatStream(parts: ChatPart[]) {
       await new Promise(r=>setTimeout(r, 12))
       yield ch
     }
+  }
+}
+
+// SSE streaming API for REX chat (Phase 1: streaming responses)
+export async function* chatStreamSse(
+  userId: string,
+  conversationId: string,
+  messages: Array<{ role: string; content: string }>,
+  metadata?: any
+): AsyncGenerator<SseEvent> {
+  const base = import.meta.env.VITE_BACKEND_URL || '';
+  const url = `${base}/api/rex/chat/stream`;
+  const headers = await authHeaders();
+
+  for await (const event of streamSse(url, {
+    userId,
+    conversationId,
+    messages,
+    metadata,
+  }, { headers })) {
+    yield event;
   }
 }
 

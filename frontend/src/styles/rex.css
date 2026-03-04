@@ -69,4 +69,48 @@ html:not(.dark) #rex-container textarea::placeholder {
   color: #6c757d !important;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Markdown content in REX chat                                               */
+/* -------------------------------------------------------------------------- */
+.rex-markdown h1:first-child,
+.rex-markdown h2:first-child,
+.rex-markdown h3:first-child,
+.rex-markdown h4:first-child {
+  margin-top: 0;
+}
+
+.rex-markdown pre {
+  margin: 0.5rem 0;
+}
+
+.rex-markdown ul,
+.rex-markdown ol {
+  padding-left: 0;
+}
+
+.rex-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Light mode markdown overrides */
+html:not(.dark) #rex-container .rex-markdown {
+  color: #495057 !important;
+}
+html:not(.dark) #rex-container .rex-markdown strong {
+  color: #212529 !important;
+}
+html:not(.dark) #rex-container .rex-markdown em {
+  color: #343a40 !important;
+}
+html:not(.dark) #rex-container .rex-markdown code {
+  background-color: #e9ecef !important;
+  color: #7c3aed !important;
+}
+html:not(.dark) #rex-container .rex-markdown pre {
+  background-color: #f8f9fa !important;
+}
+html:not(.dark) #rex-container .rex-markdown a {
+  color: #7c3aed !important;
+}
+
 

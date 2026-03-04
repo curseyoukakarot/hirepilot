@@ -123,6 +123,7 @@ import adminRouter from './routes/admin';
 import campaignPerformance from './api/campaignPerformance';
 import leadsApolloRouter from './api/leadsApollo';
 import rexChat from './src/api/rexChat';
+import rexChatStream from './src/api/rexChatStream';
 import rexToolsHandler, { linkedinConnectHandler } from './src/api/rexTools';
 import slackToggle from './src/api/slackToggle';
 import slackConnect from './src/api/slack/connect';
@@ -696,6 +697,7 @@ app.get('/api/campaigns/all/performance', requireAuthFlag, (req, res) => {
   return campaignPerformance(req, res);
 });
 app.post('/api/rex/chat', rexChat);
+app.post('/api/rex/chat/stream', rexChatStream);
 app.post('/api/rex/tools', rexToolsHandler);
 app.post('/api/rex/tools/linkedin_connect', linkedinConnectHandler);
 // REX tools (structured)
