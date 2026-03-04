@@ -249,7 +249,7 @@ function estimateDraftPlan(prompt: string, steps: PlanStep[]) {
   return { min, max, expected: Math.round(expected), timeMin, timeMax, risk };
 }
 
-function buildPlanFromText(prompt: string, reply: string, conversationId: string | null): PlanJson {
+function buildPlanFromText(prompt: string, reply: string, conversationId: string | null): PlanJson | null {
   const lines = String(reply || '')
     .split('\n')
     .map((l) => l.trim())
@@ -261,9 +261,13 @@ function buildPlanFromText(prompt: string, reply: string, conversationId: string
       if (!m) return null;
       return m[2]?.trim() || '';
     })
-    .filter(Boolean);
+    .filter(Boolean) as string[];
 
-  const steps = (extracted.length ? extracted : DEFAULT_STEP_BLUEPRINT.map((x) => x.title))
+  // Only build a plan when the response contains at least 2 numbered steps —
+  // otherwise this is a conversational reply, not an actionable workflow.
+  if (extracted.length < 2) return null;
+
+  const steps = extracted
     .slice(0, 7)
     .map((title, idx) => ({
       step_id: `step_${idx + 1}`,
@@ -920,8 +924,9 @@ export default function REXChat() {
       // Backend persists the message; also persist from frontend for the agent_mode metadata
       await postMessage(conversationId, 'assistant', { text: finalContent, agent_mode: selectedAgent.id }).catch(() => {});
 
-      setPlanJson(buildPlanFromText(text, finalContent, conversationId));
-      setActiveConsoleTab('plan');
+      const plan = buildPlanFromText(text, finalContent, conversationId);
+      setPlanJson(plan);
+      if (plan) setActiveConsoleTab('plan');
       setRunId(null);
       setRunStatus('idle');
       setRunProgress(null);
