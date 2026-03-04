@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
+import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 import { useCampaignOptions } from '../../hooks/useCampaignOptions';
 
 /* ------------------------------------------------------------------ */
@@ -75,6 +76,46 @@ function StatusPill({ status }: { status: string }) {
   return (
     <span className={cx('inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold', cls)}>
       {s}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Schedule types + pills                                             */
+/* ------------------------------------------------------------------ */
+
+type CloudSchedule = {
+  id: string;
+  name: string;
+  status: string;
+  schedule_kind: string;
+  cron_expr: string | null;
+  run_at: string | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  created_at: string;
+  payload: {
+    action_tool?: string;
+    tool_payload?: {
+      job_type?: string;
+      profile_urls?: string[];
+      note?: string | null;
+      message?: string;
+      post_url?: string;
+      search_url?: string;
+      limit?: number;
+      timezone?: string;
+    };
+  };
+};
+
+function ScheduleKindPill({ kind }: { kind: string }) {
+  const cls = kind === 'recurring'
+    ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-950/30 dark:text-violet-200'
+    : 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-950/30 dark:text-sky-200';
+  return (
+    <span className={cx('inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold', cls)}>
+      {kind === 'recurring' ? 'recurring' : 'one-time'}
     </span>
   );
 }
@@ -216,6 +257,42 @@ export default function ActivityPanel() {
     }
   };
 
+  /* ---- Scheduled Campaigns ---- */
+  const [schedules, setSchedules] = useState<CloudSchedule[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(true);
+  const [editingSchedule, setEditingSchedule] = useState<CloudSchedule | null>(null);
+
+  const loadSchedules = async () => {
+    setLoadingSchedules(true);
+    try {
+      const all = await listSchedules();
+      const cloudOnly = (Array.isArray(all) ? all : []).filter(
+        (s: any) => s.payload?.action_tool === 'sniper.run_job'
+      );
+      setSchedules(cloudOnly as CloudSchedule[]);
+    } catch {} finally { setLoadingSchedules(false); }
+  };
+
+  useEffect(() => { loadSchedules(); }, []);
+
+  const handleToggleSchedule = async (sched: CloudSchedule) => {
+    const newStatus = sched.status === 'active' ? 'paused' : 'active';
+    try {
+      await updateSchedule(sched.id, { status: newStatus });
+      showToast(`Schedule ${newStatus === 'active' ? 'resumed' : 'paused'}`, 'success');
+      loadSchedules();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to update', 'error'); }
+  };
+
+  const handleDeleteSchedule = async (sched: CloudSchedule) => {
+    if (!window.confirm(`Delete "${sched.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteSchedule(sched.id);
+      showToast('Schedule deleted', 'success');
+      loadSchedules();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to delete', 'error'); }
+  };
+
   /* ---- Input classes ---- */
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
   const btnOutline = 'rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800';
@@ -224,6 +301,82 @@ export default function ActivityPanel() {
   return (
     <div>
       <Toast show={toast.show} message={toast.message} type={toast.type} />
+
+      {/* Edit Schedule Modal */}
+      {editingSchedule && (
+        <EditScheduleModal
+          schedule={editingSchedule}
+          onClose={() => setEditingSchedule(null)}
+          onSaved={() => { setEditingSchedule(null); loadSchedules(); }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* ═══ Scheduled Campaigns ═══ */}
+      <div className="mb-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold">Scheduled Campaigns</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Queued Cloud Engine missions waiting to fire.
+            </p>
+          </div>
+          <button type="button" onClick={loadSchedules} disabled={loadingSchedules} className={btnOutline}>
+            {loadingSchedules ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+          {loadingSchedules ? (
+            <div className="p-4 text-sm text-slate-500">Loading schedules...</div>
+          ) : schedules.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl dark:bg-slate-800">📅</div>
+              <div className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-300">No scheduled campaigns</div>
+              <div className="mt-1 text-xs text-slate-400">Schedule a mission from the Missions tab to see it here.</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {schedules.map((s) => {
+                const tp = s.payload?.tool_payload || {};
+                const meta = jobLabel(tp.job_type || '');
+                const leadCount = tp.profile_urls?.length || 0;
+                return (
+                  <div key={s.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm">{meta.emoji}</span>
+                        <span className="text-sm font-semibold truncate">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusPill status={s.status} />
+                        <ScheduleKindPill kind={s.schedule_kind} />
+                      </div>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                      <span>Next: {formatDate(s.next_run_at)}</span>
+                      {leadCount > 0 && <span>{leadCount} lead{leadCount === 1 ? '' : 's'}</span>}
+                      {tp.note && <span className="truncate max-w-[200px]">Note: {tp.note}</span>}
+                      {tp.message && <span className="truncate max-w-[200px]">Msg: {tp.message.slice(0, 40)}…</span>}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button type="button" onClick={() => setEditingSchedule(s)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
+                        ✏️ Edit
+                      </button>
+                      <button type="button" onClick={() => handleToggleSchedule(s)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 dark:border-slate-800 dark:bg-slate-900 dark:text-indigo-400 dark:hover:bg-indigo-950/30">
+                        {s.status === 'active' ? '⏸ Pause' : '▶️ Resume'}
+                      </button>
+                      <button type="button" onClick={() => handleDeleteSchedule(s)} className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800/50 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-950/30">
+                        🗑 Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -498,6 +651,195 @@ export default function ActivityPanel() {
               )}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Edit Schedule Modal                                                */
+/* ------------------------------------------------------------------ */
+
+function EditScheduleModal({ schedule, onClose, onSaved, showToast }: {
+  schedule: CloudSchedule;
+  onClose: () => void;
+  onSaved: () => void;
+  showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+}) {
+  const tp = schedule.payload?.tool_payload || {};
+  const meta = JOB_TYPE_LABELS[tp.job_type || ''] || { emoji: '⚙️', label: tp.job_type || 'Unknown' };
+  const isActionJob = tp.job_type === 'send_connect_requests' || tp.job_type === 'send_messages';
+
+  const [name, setName] = useState(schedule.name);
+  const [profileUrls, setProfileUrls] = useState<string[]>(tp.profile_urls || []);
+  const [note, setNote] = useState(tp.note || '');
+  const [message, setMessage] = useState(tp.message || '');
+  const [addUrlsText, setAddUrlsText] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+  const btnOutline = 'rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800';
+
+  const removeUrl = (url: string) => setProfileUrls((prev) => prev.filter((u) => u !== url));
+
+  const addUrls = () => {
+    const newUrls = addUrlsText
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u && /linkedin\.com/i.test(u));
+    if (newUrls.length) {
+      setProfileUrls((prev) => Array.from(new Set([...prev, ...newUrls])));
+      setAddUrlsText('');
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updates: Record<string, any> = {};
+      if (name !== schedule.name) updates.name = name;
+
+      const toolPayloadUpdates: Record<string, any> = {};
+      if (isActionJob) {
+        toolPayloadUpdates.profile_urls = profileUrls;
+        if (tp.job_type === 'send_connect_requests') toolPayloadUpdates.note = note.trim() || null;
+        if (tp.job_type === 'send_messages') toolPayloadUpdates.message = message.trim();
+      }
+
+      if (Object.keys(toolPayloadUpdates).length > 0) updates.tool_payload = toolPayloadUpdates;
+
+      await updateSchedule(schedule.id, updates);
+      showToast('Schedule updated', 'success');
+      onSaved();
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to update schedule', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+          <div>
+            <div className="text-lg font-bold text-slate-900 dark:text-slate-100">Edit Schedule</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Modify this campaign before it fires.</div>
+          </div>
+          <button type="button" onClick={onClose} className={btnOutline}>Close</button>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-4 px-5 py-4">
+          {/* Schedule name */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Schedule name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className={cx(inputCls, 'mt-1')} />
+          </div>
+
+          {/* Job info (read-only) */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex items-center gap-2">
+              <span>{meta.emoji}</span>
+              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{meta.label}</span>
+              <ScheduleKindPill kind={schedule.schedule_kind} />
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Next run: {schedule.next_run_at ? new Date(schedule.next_run_at).toLocaleString() : '—'}
+              {schedule.cron_expr && <span> · Cron: {schedule.cron_expr}</span>}
+            </div>
+          </div>
+
+          {/* Leads (for action jobs) */}
+          {isActionJob && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Leads ({profileUrls.length})
+                </label>
+              </div>
+              {profileUrls.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-auto space-y-1">
+                  {profileUrls.map((url) => (
+                    <div key={url} className="flex items-center justify-between gap-2 rounded-lg bg-white px-2 py-1 dark:bg-slate-900">
+                      <span className="text-xs text-indigo-600 dark:text-indigo-400 truncate flex-1">{url}</span>
+                      <button type="button" onClick={() => removeUrl(url)} className="text-xs text-rose-500 hover:text-rose-400 font-bold flex-shrink-0">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3">
+                <textarea
+                  value={addUrlsText}
+                  onChange={(e) => setAddUrlsText(e.target.value)}
+                  rows={2}
+                  placeholder="Paste LinkedIn URLs to add (one per line)..."
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={addUrls}
+                  disabled={!addUrlsText.trim()}
+                  className={cx(
+                    'mt-2 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500',
+                    !addUrlsText.trim() && 'opacity-50 cursor-not-allowed',
+                  )}
+                >
+                  Add URLs
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Connect note */}
+          {tp.job_type === 'send_connect_requests' && (
+            <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Connect note (max 300 chars)</label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                maxLength={300}
+                placeholder="Optional note to include with the connection request."
+                className={cx(inputCls, 'mt-1')}
+              />
+              <div className="mt-1 text-xs text-slate-500">{note.length}/300</div>
+            </div>
+          )}
+
+          {/* Message */}
+          {tp.job_type === 'send_messages' && (
+            <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message (max 3000 chars)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={5}
+                maxLength={3000}
+                placeholder="Write the message to send..."
+                className={cx(inputCls, 'mt-1')}
+              />
+              <div className="mt-1 text-xs text-slate-500">{message.length}/3000</div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+          <button type="button" onClick={onClose} className={btnOutline}>Cancel</button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={cx(
+              'rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
+              saving && 'opacity-70 cursor-not-allowed',
+            )}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
     </div>

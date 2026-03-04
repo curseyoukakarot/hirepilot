@@ -142,9 +142,32 @@ router.get('/api/schedules', async (req, res) => {
 router.patch('/api/schedules/:id', async (req, res) => {
   const userId = requireUser(req, res); if (!userId) return;
   const id = req.params.id;
-  const body = z.object({ name: z.string().optional(), status: z.enum(['active','paused']).optional() }).safeParse(req.body);
+  const body = z.object({
+    name: z.string().optional(),
+    status: z.enum(['active','paused']).optional(),
+    tool_payload: z.record(z.any()).optional(),
+  }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.flatten() });
-  const { data, error } = await supabaseAdmin.from('schedules').update({ ...body.data }).eq('id', id).eq('user_id', userId).select('*').single();
+
+  const updateFields: Record<string, any> = {};
+  if (body.data.name !== undefined) updateFields.name = body.data.name;
+  if (body.data.status !== undefined) updateFields.status = body.data.status;
+
+  // Merge tool_payload into existing payload (preserves action_tool)
+  if (body.data.tool_payload !== undefined) {
+    const { data: existing, error: fetchErr } = await supabaseAdmin
+      .from('schedules').select('payload').eq('id', id).eq('user_id', userId).single();
+    if (fetchErr || !existing) return res.status(404).json({ error: 'schedule_not_found' });
+    const currentPayload = (existing as any).payload || {};
+    updateFields.payload = {
+      ...currentPayload,
+      tool_payload: { ...(currentPayload.tool_payload || {}), ...body.data.tool_payload },
+    };
+  }
+
+  if (Object.keys(updateFields).length === 0) return res.status(400).json({ error: 'no_fields_to_update' });
+
+  const { data, error } = await supabaseAdmin.from('schedules').update(updateFields).eq('id', id).eq('user_id', userId).select('*').single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
