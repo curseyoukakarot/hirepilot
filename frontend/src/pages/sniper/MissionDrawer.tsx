@@ -683,9 +683,19 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                 onClear={() => setProfileUrls([])}
               />
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Optional connect note (max 300 chars)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    Optional connect note (max 300 chars)
+                  </label>
+                  <a
+                    href="/messages"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-xs font-semibold text-indigo-500 hover:bg-indigo-600/20 transition-colors"
+                  >
+                    <span>📝</span> Use Template
+                  </a>
+                </div>
                 <textarea
                   value={connectNote}
                   onChange={(e) => setConnectNote(e.target.value)}
@@ -728,9 +738,19 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                 onClear={() => setProfileUrls([])}
               />
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Message (required, max 3000 chars)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    Message (required, max 3000 chars)
+                  </label>
+                  <a
+                    href="/messages"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-xs font-semibold text-indigo-500 hover:bg-indigo-600/20 transition-colors"
+                  >
+                    <span>📝</span> Use Template
+                  </a>
+                </div>
                 <textarea
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
