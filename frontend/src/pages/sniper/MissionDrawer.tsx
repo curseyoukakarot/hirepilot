@@ -177,6 +177,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
       });
       showToast('Daily schedule created. It will run automatically.', 'success');
       setSchedulePrompt((p) => ({ ...p, open: false }));
+      setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to create schedule', 'error');
     } finally {
@@ -330,6 +331,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
     try {
       await apiPost('/api/sniper/actions/connect', { profile_urls: profileUrls, note: note || null });
       showToast('Queued connection requests. Track progress in Activity.', 'success');
+      setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to queue connection requests', 'error');
     } finally {
@@ -347,6 +349,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
     try {
       await apiPost('/api/sniper/actions/message', { profile_urls: profileUrls, message: msg });
       showToast('Queued messages. Track progress in Activity.', 'success');
+      setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to queue messages', 'error');
     } finally {
@@ -433,6 +436,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
         tool_payload: toolPayload,
       });
       showToast('Schedule saved. It will run automatically.', 'success');
+      setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to create schedule', 'error');
     } finally {
