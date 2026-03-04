@@ -19,7 +19,7 @@ const ToolPayloadSchema = z.object({
   // If provided, overrides auto workspace resolution (team_id fallback).
   workspace_id: z.string().uuid().optional(),
 
-  job_type: z.enum(['prospect_post_engagers', 'people_search', 'jobs_intent', 'send_connect_requests', 'send_messages']),
+  job_type: z.enum(['prospect_post_engagers', 'people_search', 'jobs_intent', 'send_connect_requests', 'send_messages', 'decision_maker_lookup']),
 
   // discovery jobs
   post_url: z.string().url().optional(),
@@ -30,6 +30,14 @@ const ToolPayloadSchema = z.object({
   profile_urls: z.array(z.string().url()).min(1).max(2000).optional(),
   note: z.string().max(300).optional().nullable(),
   message: z.string().min(1).max(3000).optional(),
+
+  // decision maker lookup
+  companies: z.array(z.object({
+    company_url: z.string().url(),
+    company_name: z.string().optional(),
+    job_title: z.string().optional(),
+  })).min(1).max(100).optional(),
+  limit_per_company: z.number().int().min(1).max(10).optional(),
 
   // Optional scheduling hints (for audit/debug; scheduler already controls timing)
   timezone: z.string().optional(),
@@ -84,12 +92,17 @@ export const sniperRunJobTool = {
     if (jobType === 'send_messages') {
       input_json.message = payload.message;
     }
+    if (jobType === 'decision_maker_lookup') {
+      input_json.companies = payload.companies;
+      input_json.limit_per_company = payload.limit_per_company ?? 3;
+    }
 
     // Minimal validation per job type
     if (jobType === 'prospect_post_engagers' && !input_json.post_url) throw new Error('missing_post_url');
     if ((jobType === 'people_search' || jobType === 'jobs_intent') && !input_json.search_url) throw new Error('missing_search_url');
     if (jobType === 'send_connect_requests' && !(payload.profile_urls || []).length) throw new Error('missing_profile_urls');
     if (jobType === 'send_messages' && (!(payload.profile_urls || []).length || !input_json.message)) throw new Error('missing_message_or_profile_urls');
+    if (jobType === 'decision_maker_lookup' && !(payload.companies || []).length) throw new Error('missing_companies');
 
     const job = await createJob({
       workspace_id: workspaceId,

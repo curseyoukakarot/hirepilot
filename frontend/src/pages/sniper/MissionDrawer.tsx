@@ -202,6 +202,9 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
   const [connectNote, setConnectNote] = useState('');
   const [messageText, setMessageText] = useState('');
 
+  const [companyUrls, setCompanyUrls] = useState('');
+  const [limitPerCompany, setLimitPerCompany] = useState(3);
+
   const [addLeadsOpen, setAddLeadsOpen] = useState(false);
 
   /* ---- Saved targets (post engagement only) ---- */
@@ -320,6 +323,30 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
         }
       },
     });
+  };
+
+  const queueDecisionMakerLookup = async () => {
+    if (!cloudEnabled) return showToast('Enable Cloud Engine in Settings to run this mission.', 'info');
+    const urls = companyUrls
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u && /linkedin\.com\/company\//i.test(u));
+    if (!urls.length) return showToast('Paste at least one LinkedIn company URL.', 'info');
+    const companies = urls.map((url) => ({ company_url: url.split('?')[0].replace(/\/+$/, '') }));
+    setWorkingId('decision_maker_lookup');
+    try {
+      await apiPost('/api/sniper/jobs', {
+        target_id: null,
+        job_type: 'decision_maker_lookup',
+        input_json: { companies, limit_per_company: limitPerCompany },
+      });
+      showToast('Decision Maker Lookup queued. Track progress in Activity.', 'success');
+      onNavigate('activity');
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to queue Decision Maker Lookup', 'error');
+    } finally {
+      setWorkingId(null);
+    }
   };
 
   const queueConnectRequests = async () => {
@@ -675,6 +702,56 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   )}
                 >
                   {workingId === 'jobs_intent' ? 'Queuing...' : 'Run now'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ═══ DECISION MAKER LOOKUP ═══ */}
+          {mission.id === 'decision_maker_lookup' && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Company URLs</label>
+                <textarea
+                  value={companyUrls}
+                  onChange={(e) => setCompanyUrls(e.target.value)}
+                  rows={5}
+                  placeholder={"https://www.linkedin.com/company/acme-corp/\nhttps://www.linkedin.com/company/example-inc/"}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-2 text-xs text-slate-500">
+                  Paste LinkedIn company URLs, one per line. Tip: Use results from Jobs Intent Miner for best results.
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Profiles per company</label>
+                <input
+                  type="number" min={1} max={10} value={limitPerCompany}
+                  onChange={(e) => setLimitPerCompany(Math.max(1, Math.min(10, Number(e.target.value) || 3)))}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Number of decision makers to find at each company (1-10).
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('activity')}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  View Activity
+                </button>
+                <button
+                  type="button"
+                  disabled={!cloudEnabled || workingId === 'decision_maker_lookup'}
+                  onClick={queueDecisionMakerLookup}
+                  className={cx(
+                    'rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-teal-500',
+                    (!cloudEnabled || workingId === 'decision_maker_lookup') && 'opacity-70 cursor-not-allowed',
+                  )}
+                >
+                  {workingId === 'decision_maker_lookup' ? 'Queuing...' : 'Run now'}
                 </button>
               </div>
             </>

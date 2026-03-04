@@ -235,7 +235,7 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
 
     const schema = z.object({
       target_id: z.string().uuid().nullable().optional(),
-      job_type: z.enum(['prospect_post_engagers', 'send_connect_requests', 'send_messages', 'people_search', 'jobs_intent']),
+      job_type: z.enum(['prospect_post_engagers', 'send_connect_requests', 'send_messages', 'people_search', 'jobs_intent', 'decision_maker_lookup']),
       provider: z.enum(['airtop', 'local_playwright']).optional(),
       input_json: z.record(z.any()).default({})
     });

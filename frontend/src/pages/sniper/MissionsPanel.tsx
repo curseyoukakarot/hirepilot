@@ -34,6 +34,14 @@ const MISSIONS: MissionDef[] = [
     status: 'implemented',
   },
   {
+    id: 'decision_maker_lookup',
+    emoji: '\uD83C\uDFAF',
+    title: 'Decision Maker Lookup',
+    description: 'Find key contacts at companies from LinkedIn company pages.',
+    color: 'bg-teal-600',
+    status: 'implemented',
+  },
+  {
     id: 'connect_requests',
     emoji: '\uD83E\uDD1D',
     title: 'Connect Requests',

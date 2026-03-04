@@ -483,6 +483,114 @@ export async function prospectJobsFromSearchOnPage(page: Page, searchUrl: string
   return out.slice(0, limit);
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Decision Maker Lookup                                                      */
+/* -------------------------------------------------------------------------- */
+
+const TITLE_KEYWORDS: Array<{ pattern: RegExp; searchTerms: string[] }> = [
+  { pattern: /engineer|developer|software|backend|frontend|fullstack|devops|sre|platform|infrastructure/i, searchTerms: ['VP Engineering', 'Engineering Manager', 'CTO', 'Head of Engineering', 'Director Engineering'] },
+  { pattern: /sales|account executive|business development|bdr|sdr/i, searchTerms: ['VP Sales', 'Head of Sales', 'Director Sales', 'Sales Manager', 'CRO'] },
+  { pattern: /marketing|growth|content|brand|demand gen/i, searchTerms: ['VP Marketing', 'CMO', 'Head of Marketing', 'Director Marketing'] },
+  { pattern: /product|pm|product manager/i, searchTerms: ['VP Product', 'Head of Product', 'CPO', 'Director Product'] },
+  { pattern: /design|ux|ui|creative/i, searchTerms: ['VP Design', 'Head of Design', 'Design Director'] },
+  { pattern: /data|analytics|machine learning|ai|ml/i, searchTerms: ['VP Data', 'Head of Data', 'Chief Data Officer', 'Director Analytics'] },
+  { pattern: /finance|accounting|controller/i, searchTerms: ['CFO', 'VP Finance', 'Head of Finance', 'Controller'] },
+  { pattern: /operations|ops|supply chain/i, searchTerms: ['COO', 'VP Operations', 'Head of Operations', 'Director Operations'] },
+];
+const DEFAULT_SEARCH_TERMS = ['Head of Talent', 'VP People', 'Talent Acquisition', 'Hiring Manager', 'HR Director', 'Recruiter'];
+
+function inferSearchTerms(jobTitle?: string | null): string[] {
+  if (!jobTitle) return DEFAULT_SEARCH_TERMS;
+  for (const entry of TITLE_KEYWORDS) {
+    if (entry.pattern.test(jobTitle)) return entry.searchTerms;
+  }
+  return DEFAULT_SEARCH_TERMS;
+}
+
+export async function prospectDecisionMakersOnPage(
+  page: Page,
+  companyUrl: string,
+  opts: { companyName?: string | null; jobTitle?: string | null; limit: number }
+): Promise<Array<{ profile_url: string; name?: string | null; headline?: string | null }>> {
+  const raw = String(companyUrl || '').trim().replace(/\/+$/, '');
+  if (!/linkedin\.com\/company\//i.test(raw)) return [];
+
+  const peopleUrl = raw + '/people/';
+  await page.goto(peopleUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500).catch(() => {});
+
+  // Try to use the people page keyword search input
+  const searchTerms = inferSearchTerms(opts.jobTitle);
+  const searchQuery = searchTerms.slice(0, 3).join(' OR ');
+  try {
+    // LinkedIn company people page has a search input with placeholder like "Search employees..."
+    const searchInput = page.locator('input[placeholder*="earch"]').first();
+    if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await searchInput.click();
+      await searchInput.fill(searchQuery);
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(2000).catch(() => {});
+    }
+  } catch {
+    // If search input not found, continue with unfiltered people list
+  }
+
+  const seen = new Set<string>();
+  const out: Array<{ profile_url: string; name?: string | null; headline?: string | null }> = [];
+
+  async function collectOnce() {
+    const batch = await page
+      .evaluate(() => {
+        const results: Array<{ profile_url: string; name?: string | null; headline?: string | null }> = [];
+        const anchors = Array.from(document.querySelectorAll('a[href*="/in/"]')) as HTMLAnchorElement[];
+        for (const a of anchors) {
+          const href = (a.href || '').split('?')[0].split('#')[0];
+          if (!href || !href.includes('/in/')) continue;
+          const card = (a.closest('li') || a.closest('div[data-view-name]') || a.closest('div')) as HTMLElement | null;
+          const nameEl = card?.querySelector('span[aria-hidden="true"]') as HTMLElement | null;
+          const name = nameEl?.innerText?.trim() || (a.textContent || '').trim() || null;
+          // Headline is typically in a sibling or child div with the person's title
+          const headlineEl = card?.querySelector('.artdeco-entity-lockup__subtitle') as HTMLElement | null;
+          const headline = headlineEl?.innerText?.trim() || null;
+          results.push({ profile_url: href, name, headline });
+        }
+        return results;
+      })
+      .catch(() => []);
+
+    for (const it of batch as any[]) {
+      const href = String(it?.profile_url || '').trim();
+      if (!href || !href.includes('/in/')) continue;
+      const normalized = href.split('?')[0].split('#')[0];
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push({
+        profile_url: normalized,
+        name: it?.name ?? null,
+        headline: it?.headline ?? null,
+      });
+      if (out.length >= opts.limit) break;
+    }
+  }
+
+  const maxScrolls = 15;
+  let stableCycles = 0;
+  for (let i = 0; i < maxScrolls && out.length < opts.limit; i++) {
+    const before = out.length;
+    await collectOnce();
+    if (out.length >= opts.limit) break;
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
+    await page.waitForTimeout(900).catch(() => {});
+
+    if (out.length === before) stableCycles += 1;
+    else stableCycles = 0;
+    if (stableCycles >= 3) break;
+  }
+
+  return out.slice(0, opts.limit);
+}
+
 export async function sendConnectionRequestOnPage(
   page: Page,
   profileUrl: string,

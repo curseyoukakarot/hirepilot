@@ -18,7 +18,8 @@ export type SniperJobType =
   | 'send_connect_requests'
   | 'send_messages'
   | 'people_search'
-  | 'jobs_intent';
+  | 'jobs_intent'
+  | 'decision_maker_lookup';
 export type SniperProvider = 'airtop' | 'local_playwright';
 export type SniperJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'partially_succeeded' | 'canceled' | 'paused_throttled' | 'paused_cooldown';
 

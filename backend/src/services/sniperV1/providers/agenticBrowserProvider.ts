@@ -1,5 +1,5 @@
 import type { Page, Browser } from 'playwright';
-import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, JobListing } from './types';
+import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, JobListing, DecisionMakerResult } from './types';
 import type { ProspectProfile } from './linkedinActions';
 
 import {
@@ -15,6 +15,7 @@ import {
   getProspectPostEngagersPrompt,
   getProspectPeopleSearchPrompt,
   getProspectJobsIntentPrompt,
+  getProspectDecisionMakersPrompt,
   getSendConnectionRequestPrompt,
   getSendMessagePrompt,
 } from '../agent/prompts';
@@ -331,6 +332,46 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     }
 
     return jobs.slice(0, limit);
+  },
+
+  // =========================================================================
+  // Prospect: decision maker lookup
+  // =========================================================================
+  async prospectDecisionMakers({ userId, workspaceId, companyUrl, companyName, jobTitle, limit }): Promise<DecisionMakerResult[]> {
+    const llm = createLLMClient();
+    const instruction = getProspectDecisionMakersPrompt(companyUrl, companyName, jobTitle, limit);
+    const peopleUrl = companyUrl.replace(/\/+$/, '') + '/people/';
+
+    const result = await runWithSession(userId, workspaceId, async (page) => {
+      return executeAgentTask(page, {
+        instruction,
+        maxSteps: Math.min(DEFAULT_MAX_STEPS * 2, 40),
+        timeoutMs: DEFAULT_TIMEOUT_MS * 2,
+      }, llm);
+    }, { navigateTo: peopleUrl });
+
+    await logAgentRun({ workspaceId, taskType: 'prospect_decision_makers', result });
+
+    if (!result.success) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    const profiles: DecisionMakerResult[] = [];
+    const rawProfiles = result.data?.profiles || [];
+
+    for (const p of rawProfiles) {
+      if (p.profile_url && p.profile_url.includes('linkedin.com/in/')) {
+        profiles.push({
+          profile_url: p.profile_url,
+          name: p.name || null,
+          headline: p.headline || null,
+          company_name: companyName || null,
+          company_url: companyUrl,
+        });
+      }
+    }
+
+    return profiles.slice(0, limit);
   },
 
   // =========================================================================

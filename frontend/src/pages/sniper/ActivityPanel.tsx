@@ -128,6 +128,7 @@ const JOB_TYPE_LABELS: Record<string, { emoji: string; label: string }> = {
   prospect_post_engagers: { emoji: '\uD83D\uDD25', label: 'Post Engagement' },
   people_search: { emoji: '\uD83D\uDD0D', label: 'People Search' },
   jobs_intent: { emoji: '\uD83D\uDCBC', label: 'Jobs Intent' },
+  decision_maker_lookup: { emoji: '\uD83C\uDFAF', label: 'Decision Makers' },
   send_connect_requests: { emoji: '\uD83E\uDD1D', label: 'Connect Requests' },
   send_messages: { emoji: '\uD83D\uDCAC', label: 'Send Message' },
 };
@@ -240,6 +241,36 @@ export default function ActivityPanel() {
       showToast('Queued messages', 'success');
       if (resp.job_id) { await loadJobs(); setSelectedJobId(String(resp.job_id)); }
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to queue messages', 'error'); }
+  };
+
+  const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedJobId) || null, [jobs, selectedJobId]);
+
+  const queueDecisionMakerLookup = async () => {
+    if (!selectedList.length) return showToast('Select at least 1 company', 'error');
+    const companies = extractItems
+      .filter((it) => selectedUrls.has(it.profile_url))
+      .map((it) => {
+        const rj = (it.result_json || {}) as Record<string, unknown>;
+        return {
+          company_url: String(rj.company_url || ''),
+          company_name: String(rj.company || ''),
+          job_title: String(rj.title || ''),
+        };
+      })
+      .filter((c) => c.company_url);
+    if (!companies.length) return showToast('Selected items have no company URLs', 'error');
+    try {
+      const resp = await apiPost('/api/sniper/jobs', {
+        target_id: null,
+        job_type: 'decision_maker_lookup',
+        input_json: { companies, limit_per_company: 3 },
+      }) as Record<string, unknown>;
+      showToast(`Queued decision maker lookup for ${companies.length} companies`, 'success');
+      const jobId = (resp as any)?.job?.id;
+      if (jobId) { await loadJobs(); setSelectedJobId(String(jobId)); }
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to queue decision maker lookup', 'error');
+    }
   };
 
   const importToLeads = async () => {
@@ -500,6 +531,8 @@ export default function ActivityPanel() {
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {it.status}
                             {(it.result_json as Record<string, unknown>)?.name ? ` \u00B7 ${String((it.result_json as Record<string, unknown>).name)}` : ''}
+                            {(it.result_json as Record<string, unknown>)?.headline ? ` \u2014 ${String((it.result_json as Record<string, unknown>).headline)}` : ''}
+                            {(it.result_json as Record<string, unknown>)?.company_name ? ` @ ${String((it.result_json as Record<string, unknown>).company_name)}` : ''}
                           </div>
                         </div>
                       </label>
@@ -592,6 +625,25 @@ export default function ActivityPanel() {
                         {importingLeads ? 'Adding...' : 'Add to Leads'}
                       </button>
                     </div>
+
+                    {/* Find Decision Makers — only for jobs_intent */}
+                    {selectedJob?.job_type === 'jobs_intent' && (
+                      <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950">
+                        <div className="text-xs font-semibold text-teal-700 dark:text-teal-300">{'\uD83C\uDFAF'} Find Decision Makers</div>
+                        <div className="mt-1 text-xs text-teal-600 dark:text-teal-400">Look up key contacts at selected companies.</div>
+                        <button
+                          type="button"
+                          onClick={queueDecisionMakerLookup}
+                          disabled={!selectedList.length}
+                          className={cx(
+                            'mt-2 w-full rounded-xl bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-500',
+                            !selectedList.length && 'opacity-50 cursor-not-allowed',
+                          )}
+                        >
+                          Find Decision Makers ({selectedList.length})
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

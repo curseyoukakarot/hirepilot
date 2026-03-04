@@ -10,6 +10,14 @@ export type JobListing = {
   location?: string | null;
 };
 
+export type DecisionMakerResult = {
+  profile_url: string;
+  name?: string | null;
+  headline?: string | null;
+  company_name?: string | null;
+  company_url?: string | null;
+};
+
 export type LinkedInAuthStartResult =
   | {
       provider: 'airtop';
@@ -43,6 +51,7 @@ export interface SniperExecutionProvider {
   prospectPostEngagers(args: { userId: string; workspaceId: string; postUrl: string; limit: number }): Promise<ProspectProfile[]>;
   prospectPeopleSearch(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<ProspectProfile[]>;
   prospectJobsIntent(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<JobListing[]>;
+  prospectDecisionMakers(args: { userId: string; workspaceId: string; companyUrl: string; companyName?: string | null; jobTitle?: string | null; limit: number }): Promise<DecisionMakerResult[]>;
   sendConnectionRequest(args: { userId: string; workspaceId: string; profileUrl: string; note?: string | null; debug?: ActionDebugContext }): Promise<SendConnectResult>;
   sendMessage(args: { userId: string; workspaceId: string; profileUrl: string; message: string; debug?: ActionDebugContext }): Promise<SendMessageResult>;
 }

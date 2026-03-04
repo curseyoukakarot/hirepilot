@@ -133,6 +133,48 @@ Maximum jobs to extract: ${limit}
 }`;
 }
 
+export function getProspectDecisionMakersPrompt(
+  companyUrl: string,
+  companyName: string | null | undefined,
+  jobTitle: string | null | undefined,
+  limit: number
+): string {
+  const companyDesc = companyName ? `"${companyName}"` : 'this company';
+  const roleHint = jobTitle
+    ? `The company is hiring for "${jobTitle}", so look for decision makers related to that function (e.g., VP/Head/Director of the relevant department).`
+    : 'Look for senior leaders: VP Engineering, Head of Talent, CTO, VP People, Hiring Manager, etc.';
+
+  return `${BASE_SYSTEM_PROMPT}
+
+## Task: Find Decision Makers at a Company
+Navigate to the company's LinkedIn people page and find key decision makers.
+
+Company URL: ${companyUrl}
+Company Name: ${companyName || 'Unknown'}
+${roleHint}
+Maximum profiles to extract: ${limit}
+
+## Steps
+1. Navigate to ${companyUrl.replace(/\/+$/, '')}/people/ (the company's people tab)
+2. If there is a search/filter input on the people page, use it to search for relevant titles (VP, Head of, Director, Manager, CTO, etc.)
+3. Extract profile URLs, names, and headlines from the visible people cards
+4. If fewer than ${limit} results, try additional title searches
+5. Continue until you reach ${limit} profiles or exhaust results
+
+## Expected done result
+{
+  "reasoning": "Found N decision makers at ${companyDesc}",
+  "action": {
+    "type": "done",
+    "result": {
+      "profiles": [
+        { "profile_url": "https://www.linkedin.com/in/...", "name": "Full Name", "headline": "Their headline/title" }
+      ]
+    }
+  }
+}`;
+}
+
 export function getSendConnectionRequestPrompt(profileUrl: string, note?: string | null): string {
   const noteInstruction = note
     ? `After clicking Connect, if a modal appears with an "Add a note" option, click it and type this note:\n"${note}"\nThen click "Send".`
