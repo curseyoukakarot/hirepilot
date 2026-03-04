@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   chatStreamSse,
   createConversation,
@@ -160,6 +161,44 @@ type RunStats = {
   };
   toolcalls?: ToolCall[];
 };
+
+const SUGGESTED_PROMPTS = [
+  { label: 'Find 50 SDRs in Austin', text: 'Find 50 SDRs in Austin, TX', icon: 'fa-magnifying-glass' },
+  { label: 'Analyze my resume', text: 'Analyze my resume and suggest improvements', icon: 'fa-file-lines' },
+  { label: 'Set up an email campaign', text: 'Set up a 3-step outreach email campaign', icon: 'fa-envelope' },
+  { label: 'Pull LinkedIn post likers', text: 'Pull the list of people who liked my latest LinkedIn post', icon: 'fa-thumbs-up' },
+  { label: 'Check my Sniper status', text: 'Check the status of my active Sniper campaigns', icon: 'fa-crosshairs' },
+  { label: 'Help me write outreach', text: 'Help me write a personalized outreach sequence for product managers', icon: 'fa-pen-to-square' },
+];
+
+function humanizeToolName(raw: string): string {
+  const map: Record<string, string> = {
+    source_leads: 'Sourcing leads',
+    filter_leads: 'Filtering leads',
+    enrich_lead: 'Enriching profile',
+    send_campaign_email_auto: 'Sending emails',
+    send_campaign_email_by_template_name: 'Sending template emails',
+    send_campaign_email_draft: 'Sending draft emails',
+    send_email: 'Sending email',
+    send_email_to_lead: 'Emailing lead',
+    send_template_email: 'Sending template',
+    list_email_templates: 'Loading templates',
+    preview_campaign_email: 'Previewing email',
+    schedule_campaign: 'Scheduling campaign',
+    get_campaign_metrics: 'Loading metrics',
+    sniper_collect_post: 'Collecting post data',
+    sniper_poll_leads: 'Polling leads',
+    sniper_campaign_outreach_connect: 'Queuing outreach',
+    sniper_get_status: 'Checking Sniper',
+    sniper_update_settings: 'Updating settings',
+    resume_intelligence: 'Analyzing resume',
+    resume_scoring: 'Scoring resume',
+    linkedin_intelligence: 'Analyzing LinkedIn',
+    view_pipeline: 'Loading pipeline',
+    convert_lead_to_candidate: 'Converting lead',
+  };
+  return map[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 const DEFAULT_STEP_BLUEPRINT: Array<{ title: string; description: string; category: string }> = [
   { title: 'Source candidates from LinkedIn + Indeed', description: 'Search with filters: React, TypeScript, Next.js, 5+ years, North America', category: 'sourcing' },
@@ -412,6 +451,8 @@ export default function REXChat() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileConsoleOpen, setMobileConsoleOpen] = useState(false);
+  const [completedTools, setCompletedTools] = useState<Array<{ name: string; id: string }>>([]);
+  const [showScrollFab, setShowScrollFab] = useState(false);
 
   const streamAbortRef = useRef<AbortController | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -695,11 +736,27 @@ export default function REXChat() {
   }, [activeConversationId]);
 
   useEffect(() => {
-    messagesScrollerRef.current?.scrollTo({
-      top: messagesScrollerRef.current.scrollHeight,
-      behavior: isStreaming ? 'auto' : 'smooth'
-    });
+    const el = messagesScrollerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distFromBottom < 200 || isStreaming) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: isStreaming ? 'auto' : 'smooth'
+      });
+    }
   }, [messages, planJson, runProgress, toolCalls, runArtifacts, isStreaming]);
+
+  useEffect(() => {
+    const el = messagesScrollerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollFab(dist > 200);
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -815,6 +872,7 @@ export default function REXChat() {
             break;
           }
           case 'tool_end': {
+            setCompletedTools(prev => [...prev, { name: data.name || 'tool', id: makeId('tc') }]);
             setActiveToolName(null);
             break;
           }
@@ -879,6 +937,7 @@ export default function REXChat() {
       setIsStreaming(false);
       setStreamingPhase('idle');
       setActiveToolName(null);
+      setCompletedTools([]);
       streamAbortRef.current = null;
       await loadConversations().catch(() => {});
     }
@@ -1194,7 +1253,7 @@ export default function REXChat() {
         </div>
       </aside>
 
-      <main id="chat-panel" className="flex-1 flex flex-col bg-dark-950 min-w-0">
+      <main id="chat-panel" className="flex-1 flex flex-col bg-dark-950 min-w-0 relative">
         <header id="chat-header" className="h-16 border-b border-dark-800 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -1230,145 +1289,264 @@ export default function REXChat() {
         </header>
 
         <div id="chat-messages" className="flex-1 overflow-y-auto px-6 py-6" ref={messagesScrollerRef}>
-          {messages.map((m) => (
-            <div key={m.id} className="message-group mb-8">
-              {m.sender === 'user' ? (
-                <div className="flex justify-end mb-4">
-                  <div className="max-w-2xl bg-purple-600 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-lg">
-                    <p className="text-sm leading-relaxed">{m.content}</p>
-                  </div>
+          <AnimatePresence mode="wait">
+            {messages.length === 0 && !rexThinking ? (
+              <motion.div
+                key="welcome"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="flex flex-col items-center justify-center h-full text-center px-4"
+              >
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20">
+                  <i className="fa-solid fa-robot text-white text-2xl" />
                 </div>
-              ) : (
-                <div className="flex gap-3 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <i className="fa-solid fa-robot text-white text-sm" />
-                  </div>
-                  <div className="flex-1 max-w-3xl">
-                    {renderAssistantMessage(m.content, m.streaming)}
-                  </div>
+                <h2 className="text-xl font-semibold text-white mb-2">
+                  Hey {userName.split(' ')[0]}, what can I help with?
+                </h2>
+                <p className="text-sm text-gray-400 mb-8 max-w-md">
+                  I can source candidates, set up campaigns, analyze resumes, and automate your recruiting workflows.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
+                  {SUGGESTED_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt.label}
+                      className="text-left px-4 py-3 bg-dark-900 border border-dark-700 hover:border-purple-500/40 rounded-xl text-sm text-gray-300 hover:text-white transition-all duration-200 group"
+                      onClick={() => setInput(prompt.text)}
+                    >
+                      <i className={`fa-solid ${prompt.icon} text-purple-400 mr-2 group-hover:text-purple-300`} />
+                      {prompt.label}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="messages"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.25 }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {messages.map((m) => (
+                    <motion.div
+                      key={m.id}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="message-group mb-8"
+                    >
+                      {m.sender === 'user' ? (
+                        <div className="flex justify-end mb-4">
+                          <div className="max-w-2xl bg-purple-600 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-lg">
+                            <p className="text-sm leading-relaxed">{m.content}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3 mb-4">
+                          <div className={`w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1${m.streaming ? ' animate-pulse' : ''}`}>
+                            <i className="fa-solid fa-robot text-white text-sm" />
+                          </div>
+                          <div className="flex-1 max-w-3xl">
+                            {renderAssistantMessage(m.content, m.streaming)}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
-          {rexThinking && !isStreaming && (
-            <div className="message-group mb-8">
-              <div className="flex gap-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <i className="fa-solid fa-robot text-white text-sm" />
-                </div>
-                <div className="flex-1 max-w-3xl">
-                  <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm font-medium text-white">
-                        {streamingPhase === 'tools'
-                          ? `Using tool${activeToolName ? `: ${activeToolName}` : ''}...`
-                          : streamingPhase === 'responding'
-                            ? 'Composing response...'
-                            : 'REX is thinking...'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <span>{streamingPhase === 'tools' ? 'Executing' : 'Thinking'}</span>
-                      <span className="inline-flex items-end gap-1">
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />
-                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }} />
-                      </span>
-                      <span className="text-purple-400 animate-pulse">|</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {planJson && (
-            <div className="message-group mb-8">
-              <div className="flex gap-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <i className="fa-solid fa-robot text-white text-sm" />
-                </div>
-                <div className="flex-1 max-w-3xl">
-                  <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl">
-                    <div className="px-5 py-4 border-b border-dark-800">
-                      <div className="flex items-center gap-2 mb-3">
-                        <i className="fa-solid fa-brain text-purple-400" />
-                        <h3 className="text-sm font-semibold text-white">Here&apos;s how I plan to approach this</h3>
-                      </div>
-                      <p className="text-sm text-gray-300 leading-relaxed mb-4">{planJson.goal.description}</p>
-                      <div className="space-y-2.5">
-                        {planJson.steps.map((step, idx) => (
-                          <div key={step.step_id} className="flex gap-3">
-                            <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-xs font-semibold text-purple-400">{idx + 1}</span>
+                <AnimatePresence>
+                  {rexThinking && !isStreaming && (
+                    <motion.div
+                      key="rex-thinking"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="message-group mb-8"
+                    >
+                      <div className="flex gap-3 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1 animate-pulse">
+                          <i className="fa-solid fa-robot text-white text-sm" />
+                        </div>
+                        <div className="flex-1 max-w-3xl">
+                          <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl px-5 py-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                              <p className="text-sm font-medium text-white">
+                                {streamingPhase === 'tools'
+                                  ? 'Running tools...'
+                                  : streamingPhase === 'responding'
+                                    ? 'Composing response...'
+                                    : 'REX is thinking...'}
+                              </p>
                             </div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-200 font-medium">{step.title}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">{step.description}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-300">
+                              <span>{streamingPhase === 'tools' ? 'Executing' : 'Thinking'}</span>
+                              <span className="inline-flex items-end gap-1">
+                                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
+                                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />
+                                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }} />
+                              </span>
+                              <span className="text-purple-400 animate-pulse">|</span>
+                            </div>
+                            {(activeToolName || completedTools.length > 0) && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                <AnimatePresence>
+                                  {completedTools.slice(-3).map((tool) => (
+                                    <motion.span
+                                      key={tool.id}
+                                      initial={{ opacity: 0, scale: 0.8 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-xs text-green-400"
+                                    >
+                                      <i className="fa-solid fa-circle-check" />
+                                      {humanizeToolName(tool.name)}
+                                    </motion.span>
+                                  ))}
+                                  {activeToolName && (
+                                    <motion.span
+                                      key={`active-${activeToolName}`}
+                                      initial={{ opacity: 0, scale: 0.8 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      exit={{ opacity: 0, scale: 0.8 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs text-purple-300"
+                                    >
+                                      <div className="w-3 h-3 border-[1.5px] border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                      {humanizeToolName(activeToolName)}
+                                    </motion.span>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {planJson && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="message-group mb-8"
+                  >
+                    <div className="flex gap-3 mb-4">
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <i className="fa-solid fa-robot text-white text-sm" />
+                      </div>
+                      <div className="flex-1 max-w-3xl">
+                        <div className="bg-dark-900 border border-dark-800 rounded-2xl rounded-tl-sm shadow-xl">
+                          <div className="px-5 py-4 border-b border-dark-800">
+                            <div className="flex items-center gap-2 mb-3">
+                              <i className="fa-solid fa-brain text-purple-400" />
+                              <h3 className="text-sm font-semibold text-white">Here&apos;s how I plan to approach this</h3>
+                            </div>
+                            <p className="text-sm text-gray-300 leading-relaxed mb-4">{planJson.goal.description}</p>
+                            <div className="space-y-2.5">
+                              {planJson.steps.map((step, idx) => (
+                                <div key={step.step_id} className="flex gap-3">
+                                  <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-xs font-semibold text-purple-400">{idx + 1}</span>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-200 font-medium">{step.title}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{step.description}</p>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        ))}
+                          <div className="px-5 py-4 bg-dark-800/30">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <i className="fa-solid fa-coins text-amber-400" />
+                                <span>
+                                  Est. Credits: <span className="text-white font-semibold">~{planJson.estimates.credits.max}</span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <i className="fa-solid fa-clock text-blue-400" />
+                                <span>
+                                  Est. Time: <span className="text-white font-semibold">~{planJson.estimates.time.max_minutes} min</span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <i className="fa-solid fa-shield-halved text-green-400" />
+                                <span>
+                                  Risk: <span className="text-green-400 font-semibold">{planJson.estimates.risk.level}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-3">
+                              <button
+                                disabled={sending || runStatus === 'running'}
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-60 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20"
+                                onClick={approvePlan}
+                              >
+                                <i className="fa-solid fa-check mr-2" />
+                                Approve Plan
+                              </button>
+                              <button className="px-4 py-2.5 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-medium text-sm transition-all duration-200 border border-dark-600">
+                                <i className="fa-solid fa-pen mr-2" />
+                                Edit Plan
+                              </button>
+                              <button
+                                className="px-4 py-2.5 bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-lg font-medium text-sm transition-all duration-200 border border-dark-600"
+                                onClick={() => {
+                                  setPlanJson(null);
+                                  setRunId(null);
+                                  setRunStatus('idle');
+                                  setRunProgress(null);
+                                  setRunArtifacts([]);
+                                  setToolCalls([]);
+                                  setRunStats(null);
+                                  cleanupStream();
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="px-5 py-4 bg-dark-800/30">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <i className="fa-solid fa-coins text-amber-400" />
-                          <span>
-                            Est. Credits: <span className="text-white font-semibold">~{planJson.estimates.credits.max}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <i className="fa-solid fa-clock text-blue-400" />
-                          <span>
-                            Est. Time: <span className="text-white font-semibold">~{planJson.estimates.time.max_minutes} min</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <i className="fa-solid fa-shield-halved text-green-400" />
-                          <span>
-                            Risk: <span className="text-green-400 font-semibold">{planJson.estimates.risk.level}</span>
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          disabled={sending || runStatus === 'running'}
-                          className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-60 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20"
-                          onClick={approvePlan}
-                        >
-                          <i className="fa-solid fa-check mr-2" />
-                          Approve Plan
-                        </button>
-                        <button className="px-4 py-2.5 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-medium text-sm transition-all duration-200 border border-dark-600">
-                          <i className="fa-solid fa-pen mr-2" />
-                          Edit Plan
-                        </button>
-                        <button
-                          className="px-4 py-2.5 bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-lg font-medium text-sm transition-all duration-200 border border-dark-600"
-                          onClick={() => {
-                            setPlanJson(null);
-                            setRunId(null);
-                            setRunStatus('idle');
-                            setRunProgress(null);
-                            setRunArtifacts([]);
-                            setToolCalls([]);
-                            setRunStats(null);
-                            cleanupStream();
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
+        {/* Scroll-to-bottom FAB */}
+        <AnimatePresence>
+          {showScrollFab && (
+            <motion.button
+              key="scroll-fab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                messagesScrollerRef.current?.scrollTo({
+                  top: messagesScrollerRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }}
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-dark-800 border border-dark-700 hover:border-purple-500/40 rounded-full shadow-lg text-sm text-gray-300 hover:text-white transition-all duration-200 flex items-center gap-2"
+            >
+              <i className="fa-solid fa-arrow-down text-purple-400" />
+              Jump to latest
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <div id="chat-input-container" className="border-t border-dark-800 p-4 flex-shrink-0">
           <div className="max-w-4xl mx-auto">
