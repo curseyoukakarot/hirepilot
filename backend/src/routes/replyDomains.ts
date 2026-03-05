@@ -37,6 +37,18 @@ function validateDomain(domain: string) {
   return true;
 }
 
+/**
+ * Extract root domain from a subdomain.
+ * "reply.ignitegtm.com" → "ignitegtm.com"
+ * "reply.company.co.uk" → "company.co.uk"
+ * "ignitegtm.com" → "ignitegtm.com"
+ */
+function extractRootDomain(domain: string): string {
+  const parts = domain.split('.');
+  if (parts.length > 2) return parts.slice(1).join('.');
+  return domain;
+}
+
 function generateVerificationToken() {
   return crypto.randomBytes(18).toString('base64url');
 }
@@ -48,6 +60,8 @@ async function resolveMxWithTimeout(domain: string, timeoutMs = 5000): Promise<d
   const lookup = dnsPromises.resolveMx(domain);
   return (await Promise.race([lookup, timer])) as dns.MxRecord[];
 }
+
+// ─── SendGrid Inbound Parse helpers ─────────────────────────────────────────
 
 async function registerSendgridInboundParse(hostname: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.SENDGRID_API_KEY;
@@ -103,6 +117,131 @@ async function removeSendgridInboundParse(hostname: string): Promise<{ ok: boole
   }
 }
 
+// ─── SendGrid Domain Authentication helpers ─────────────────────────────────
+
+async function createSendgridDomainAuth(rootDomain: string): Promise<{
+  ok: boolean;
+  id?: number;
+  dns?: Record<string, any>;
+  error?: string;
+}> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
+
+  try {
+    const resp = await fetch('https://api.sendgrid.com/v3/whitelabel/domains', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        domain: rootDomain,
+        subdomain: 'em', // Must NOT be "reply" — avoids CNAME/MX conflict
+        automatic_security: true,
+      }),
+    });
+
+    const body = await resp.json().catch(() => ({}));
+
+    if (resp.ok) {
+      return { ok: true, id: body.id, dns: body.dns };
+    }
+
+    // Handle 409 / "already exists" — find and reuse the existing auth
+    const errMsg = String(body?.errors?.[0]?.message || '').toLowerCase();
+    if (resp.status === 409 || errMsg.includes('already') || errMsg.includes('exists')) {
+      const existing = await findExistingSendgridDomainAuth(rootDomain);
+      if (existing) return { ok: true, id: existing.id, dns: existing.dns };
+      return { ok: false, error: 'Domain auth already exists in SendGrid but could not retrieve it' };
+    }
+
+    return { ok: false, error: `SendGrid domain auth error (${resp.status}): ${JSON.stringify(body)}` };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'SendGrid domain auth request failed' };
+  }
+}
+
+async function findExistingSendgridDomainAuth(rootDomain: string): Promise<{
+  id: number;
+  dns: Record<string, any>;
+} | null> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const resp = await fetch(
+      `https://api.sendgrid.com/v3/whitelabel/domains?domain=${encodeURIComponent(rootDomain)}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+    if (!resp.ok) return null;
+
+    const list = await resp.json();
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    const match = list.find((d: any) => d.domain === rootDomain);
+    if (match) return { id: match.id, dns: match.dns };
+    return { id: list[0].id, dns: list[0].dns };
+  } catch {
+    return null;
+  }
+}
+
+async function validateSendgridDomainAuth(domainAuthId: number): Promise<{
+  ok: boolean;
+  valid: boolean;
+  results?: Record<string, any>;
+  error?: string;
+}> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) return { ok: false, valid: false, error: 'SENDGRID_API_KEY not configured' };
+
+  try {
+    const resp = await fetch(
+      `https://api.sendgrid.com/v3/whitelabel/domains/${domainAuthId}/validate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }
+    );
+
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      return { ok: false, valid: false, error: `SendGrid validate error (${resp.status}): ${JSON.stringify(body)}` };
+    }
+
+    return {
+      ok: true,
+      valid: body.valid === true,
+      results: body.validation_results,
+    };
+  } catch (e: any) {
+    return { ok: false, valid: false, error: e?.message || 'Validation request failed' };
+  }
+}
+
+async function deleteSendgridDomainAuth(domainAuthId: number): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) return { ok: false, error: 'SENDGRID_API_KEY not configured' };
+
+  try {
+    const resp = await fetch(
+      `https://api.sendgrid.com/v3/whitelabel/domains/${domainAuthId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }
+    );
+
+    if (resp.ok || resp.status === 404) return { ok: true };
+    return { ok: false, error: `SendGrid API error (${resp.status})` };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'SendGrid domain auth delete failed' };
+  }
+}
+
+// ─── Routes ─────────────────────────────────────────────────────────────────
+
 // GET /api/settings/reply-domain
 router.get('/', requireAuthUnified as any, async (req: Request, res: Response) => {
   try {
@@ -111,7 +250,7 @@ router.get('/', requireAuthUnified as any, async (req: Request, res: Response) =
 
     const { data, error } = await supabase
       .from('custom_reply_domains')
-      .select('id,domain,status,mx_verified,sendgrid_registered,created_at,updated_at,verified_at')
+      .select('id,domain,status,mx_verified,sendgrid_registered,sendgrid_domain_auth_id,dns_records,created_at,updated_at,verified_at')
       .eq('user_id', userId)
       .maybeSingle();
     if (error) {
@@ -149,6 +288,53 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
       return res.status(409).json({ error: 'domain_taken', message: 'This domain is already registered by another user.' });
     }
 
+    // Clean up old SendGrid resources if user is changing domains
+    const { data: oldRow } = await supabase
+      .from('custom_reply_domains')
+      .select('sendgrid_domain_auth_id,domain,sendgrid_registered')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (oldRow && (oldRow as any).domain !== domain) {
+      if ((oldRow as any).sendgrid_domain_auth_id) {
+        await deleteSendgridDomainAuth((oldRow as any).sendgrid_domain_auth_id).catch(() => {});
+      }
+      if ((oldRow as any).sendgrid_registered) {
+        await removeSendgridInboundParse((oldRow as any).domain).catch(() => {});
+      }
+    }
+
+    // Create SendGrid Domain Authentication for the root domain
+    const rootDomain = extractRootDomain(domain);
+    const sgAuth = await createSendgridDomainAuth(rootDomain);
+    if (!sgAuth.ok) {
+      console.error('[replyDomains] POST domain auth failed:', sgAuth.error);
+      return res.status(500).json({
+        error: 'domain_auth_failed',
+        message: 'Failed to create domain authentication with SendGrid. Please try again.',
+        details: sgAuth.error,
+      });
+    }
+
+    // Build the 4 DNS records: 1 MX + 3 CNAMEs
+    const dnsRecords = {
+      mx: { type: 'MX', host: domain, value: 'mx.sendgrid.net', priority: 10 },
+      mail_cname: {
+        type: 'CNAME',
+        host: sgAuth.dns?.mail_cname?.host || `em.${rootDomain}`,
+        value: sgAuth.dns?.mail_cname?.data || '',
+      },
+      dkim1: {
+        type: 'CNAME',
+        host: sgAuth.dns?.dkim1?.host || `s1._domainkey.${rootDomain}`,
+        value: sgAuth.dns?.dkim1?.data || '',
+      },
+      dkim2: {
+        type: 'CNAME',
+        host: sgAuth.dns?.dkim2?.host || `s2._domainkey.${rootDomain}`,
+        value: sgAuth.dns?.dkim2?.data || '',
+      },
+    };
+
     const token = generateVerificationToken();
     const workspaceId = (req as any)?.workspaceId || null;
 
@@ -163,27 +349,30 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
           verification_token: token,
           mx_verified: false,
           sendgrid_registered: false,
+          sendgrid_domain_auth_id: sgAuth.id,
+          dns_records: dnsRecords,
           verified_at: null,
           updated_at: new Date().toISOString(),
         } as any,
         { onConflict: 'user_id' }
       )
-      .select('id,domain,status,created_at,updated_at')
+      .select('id,domain,status,dns_records,sendgrid_domain_auth_id,created_at,updated_at')
       .single();
     if (error) {
       console.error('[replyDomains] POST upsert failed:', error);
       return res.status(500).json({ error: error.message || 'create_failed' });
     }
 
+    // Return instructions as an array of 4 DNS records
     return res.json({
       domain: created,
-      instructions: {
-        type: 'MX',
-        host: domain,
-        value: 'mx.sendgrid.net',
-        priority: 10,
-        note: 'Add this MX record to your DNS, then click Verify. DNS propagation may take up to 48 hours.',
-      },
+      instructions: [
+        dnsRecords.mx,
+        dnsRecords.mail_cname,
+        dnsRecords.dkim1,
+        dnsRecords.dkim2,
+      ],
+      note: 'Add all 4 DNS records, then click Verify. DNS propagation may take up to 48 hours.',
     });
   } catch (e: any) {
     console.error('[replyDomains] POST unexpected error:', e);
@@ -199,7 +388,7 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
 
     const { data: row, error: rowErr } = await supabase
       .from('custom_reply_domains')
-      .select('id,domain,status,user_id')
+      .select('id,domain,status,user_id,sendgrid_domain_auth_id,dns_records')
       .eq('user_id', userId)
       .maybeSingle();
     if (rowErr) {
@@ -209,8 +398,33 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
     if (!row) return res.status(404).json({ error: 'no_domain_configured' });
 
     const domain = (row as any).domain;
+    const domainAuthId = (row as any).sendgrid_domain_auth_id as number | null;
 
-    // Step 1: DNS MX verification
+    // Step 1: Validate SendGrid Domain Authentication (CNAME records)
+    if (domainAuthId) {
+      const authResult = await validateSendgridDomainAuth(domainAuthId);
+      if (!authResult.ok) {
+        console.error('[replyDomains] VERIFY domain auth validation request failed:', authResult.error);
+        return res.status(500).json({
+          error: 'domain_auth_validation_failed',
+          message: 'Failed to validate domain authentication with SendGrid. Please try again.',
+          details: authResult.error,
+        });
+      }
+      if (!authResult.valid) {
+        await supabase
+          .from('custom_reply_domains')
+          .update({ updated_at: new Date().toISOString() } as any)
+          .eq('id', (row as any).id);
+        return res.status(400).json({
+          error: 'domain_auth_not_valid',
+          message: 'Domain authentication CNAME records have not propagated yet. Please check your DNS configuration and try again.',
+          validation_results: authResult.results,
+        });
+      }
+    }
+
+    // Step 2: DNS MX verification
     let mxRecords: dns.MxRecord[] = [];
     try {
       mxRecords = await resolveMxWithTimeout(domain);
@@ -241,7 +455,7 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       });
     }
 
-    // Step 2: Register with SendGrid Inbound Parse
+    // Step 3: Register with SendGrid Inbound Parse
     const sgResult = await registerSendgridInboundParse(domain);
     if (!sgResult.ok) {
       await supabase
@@ -255,7 +469,7 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       });
     }
 
-    // Step 3: Mark as verified
+    // Step 4: Mark as verified
     const nowIso = new Date().toISOString();
     const { data: updated, error } = await supabase
       .from('custom_reply_domains')
@@ -290,7 +504,7 @@ router.delete('/', requireAuthUnified as any, async (req: Request, res: Response
 
     const { data: row, error: rowErr } = await supabase
       .from('custom_reply_domains')
-      .select('id,domain,sendgrid_registered,user_id')
+      .select('id,domain,sendgrid_registered,sendgrid_domain_auth_id,user_id')
       .eq('user_id', userId)
       .maybeSingle();
     if (rowErr) {
@@ -304,6 +518,15 @@ router.delete('/', requireAuthUnified as any, async (req: Request, res: Response
       const sgResult = await removeSendgridInboundParse((row as any).domain);
       if (!sgResult.ok) {
         console.warn(`[replyDomains] Failed to remove SendGrid inbound parse for ${(row as any).domain}:`, sgResult.error);
+      }
+    }
+
+    // Best-effort: remove SendGrid domain authentication
+    const domainAuthId = (row as any).sendgrid_domain_auth_id as number | null;
+    if (domainAuthId) {
+      const authResult = await deleteSendgridDomainAuth(domainAuthId);
+      if (!authResult.ok) {
+        console.warn(`[replyDomains] Failed to delete SendGrid domain auth ${domainAuthId}:`, authResult.error);
       }
     }
 
