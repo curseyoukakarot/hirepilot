@@ -370,6 +370,50 @@ function selectDbClient(hasGlobalAdmin: boolean) {
   return supabase as any;
 }
 
+type MutationContext = {
+  userId: string;
+  workspaceId: string;
+  globalRole: string | null;
+  hasGlobalAdmin: boolean;
+  resolved: { task: any; workspaceId: string; membershipRole: string | null };
+  dbClient: any;
+};
+
+async function resolveMutationContext(
+  req: Request,
+  res: Response,
+  taskId: string,
+  opts: { permCheck?: 'update' | 'delete' } = {},
+): Promise<MutationContext | null> {
+  const userId = (req as any)?.user?.id as string | undefined;
+  if (!userId) { res.status(401).json({ error: 'unauthorized' }); return null; }
+  const workspaceId = resolveWorkspaceId(req);
+  const globalRole = await resolveEffectiveGlobalRole(userId, (req as any)?.user?.role);
+  const hasGlobalAdmin = isWorkspaceAdminRole(globalRole);
+
+  if (!workspaceId && !hasGlobalAdmin) { res.status(400).json({ error: 'workspace_required' }); return null; }
+
+  let membership: Membership | null = null;
+  if (workspaceId) membership = await getMembership(userId, workspaceId);
+  if (!membership && !hasGlobalAdmin) { res.status(403).json({ error: 'workspace_forbidden' }); return null; }
+
+  const resolved = await getTaskForUser(taskId, userId, workspaceId || '', globalRole);
+  if (!resolved) { res.status(404).json({ error: 'task_not_found' }); return null; }
+
+  const permFn = opts.permCheck === 'delete' ? canDeleteTask : canUpdateTask;
+  const hasPermFromRole = hasGlobalAdmin || permFn(resolved.task, userId, resolved.membershipRole);
+  if (!hasPermFromRole) { res.status(403).json({ error: 'forbidden' }); return null; }
+
+  return {
+    userId,
+    workspaceId: resolved.workspaceId,
+    globalRole,
+    hasGlobalAdmin,
+    resolved,
+    dbClient: selectDbClient(hasGlobalAdmin),
+  };
+}
+
 const statusesHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id as string | undefined;
@@ -883,17 +927,10 @@ router.post('/from-note', requireTaskApiKeyScope('tasks:write'), async (req: Req
 router.patch(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+    const ctx = await resolveMutationContext(req, res, req.params.id);
+    if (!ctx) return;
+    const { userId, workspaceId, dbClient, resolved } = ctx;
+    const task = resolved.task;
 
     const payload = req.body || {};
     const updates: any = {};
@@ -933,7 +970,7 @@ router.patch(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), as
       updates.completed_at = nextStatus === 'completed' ? new Date().toISOString() : null;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tasks')
       .update(updates)
       .eq('id', req.params.id)
@@ -978,17 +1015,10 @@ router.patch(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), as
 router.patch(`/${UUID_PARAM_PATTERN}/status`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+    const ctx = await resolveMutationContext(req, res, req.params.id);
+    if (!ctx) return;
+    const { workspaceId, dbClient, resolved } = ctx;
+    const task = resolved.task;
 
     const status = String((req.body || {}).status || '').trim();
     if (!status) return res.status(400).json({ error: 'status_required' });
@@ -999,7 +1029,7 @@ router.patch(`/${UUID_PARAM_PATTERN}/status`, requireTaskApiKeyScope('tasks:writ
       completed_at: normalized === 'completed' ? new Date().toISOString() : null,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tasks')
       .update(updates)
       .eq('id', req.params.id)
@@ -1101,17 +1131,10 @@ router.post('/bulk/status', requireTaskApiKeyScope('tasks:write'), async (req: R
 router.post(`/${UUID_PARAM_PATTERN}/follow-up`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
-
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const sourceTask = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!sourceTask) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(sourceTask, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
+    const ctx = await resolveMutationContext(req, res, req.params.id);
+    if (!ctx) return;
+    const { userId, workspaceId, dbClient, resolved } = ctx;
+    const sourceTask = resolved.task;
 
     const payload = req.body || {};
     const assignedTo =
@@ -1163,7 +1186,7 @@ router.post(`/${UUID_PARAM_PATTERN}/follow-up`, requireTaskApiKeyScope('tasks:wr
       related_id: relatedId,
     };
 
-    const { data, error } = await supabase.from('tasks').insert(insertPayload).select('*').single();
+    const { data, error } = await dbClient.from('tasks').insert(insertPayload).select('*').single();
     if (error) return res.status(500).json({ error: error.message || 'task_follow_up_failed' });
 
     return res.status(201).json({
@@ -1178,19 +1201,12 @@ router.post(`/${UUID_PARAM_PATTERN}/follow-up`, requireTaskApiKeyScope('tasks:wr
 router.post(`/${UUID_PARAM_PATTERN}/complete`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const ctx = await resolveMutationContext(req, res, req.params.id);
+    if (!ctx) return;
+    const { workspaceId, dbClient, resolved } = ctx;
+    const task = resolved.task;
 
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tasks')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', req.params.id)
@@ -1217,19 +1233,11 @@ router.post(`/${UUID_PARAM_PATTERN}/complete`, requireTaskApiKeyScope('tasks:wri
 router.post(`/${UUID_PARAM_PATTERN}/reopen`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const ctx = await resolveMutationContext(req, res, req.params.id);
+    if (!ctx) return;
+    const { workspaceId, dbClient } = ctx;
 
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canUpdateTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tasks')
       .update({ status: 'open', completed_at: null })
       .eq('id', req.params.id)
@@ -1261,7 +1269,8 @@ router.get('/:id/comments', requireTaskApiKeyScope('tasks:read'), async (req: Re
     const resolved = await getTaskForUser(taskId, userId, workspaceId, globalRole);
     if (!resolved) return res.json({ comments: [] });
 
-    const { data, error } = await supabase
+    const commentsClient = hasGlobalAdmin ? getBypassClient() : supabase;
+    const { data, error } = await commentsClient
       .from('task_comments')
       .select('id,workspace_id,task_id,user_id,body,created_at')
       .eq('workspace_id', resolved.workspaceId)
@@ -1295,7 +1304,8 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
     const body = String((req.body || {}).body || '').trim();
     if (!body) return res.status(400).json({ error: 'comment_body_required' });
 
-    const { data, error } = await supabase
+    const commentsClient = hasGlobalAdmin ? getBypassClient() : supabase;
+    const { data, error } = await commentsClient
       .from('task_comments')
       .insert({
         workspace_id: resolved.workspaceId,
@@ -1325,19 +1335,11 @@ router.post('/:id/comments', requireTaskApiKeyScope('tasks:write'), async (req: 
 router.delete(`/${UUID_PARAM_PATTERN}`, requireTaskApiKeyScope('tasks:write'), async (req: Request, res: Response) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'task_id_invalid' });
-    const userId = (req as any)?.user?.id as string | undefined;
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
-    const workspaceId = resolveWorkspaceId(req);
-    if (!workspaceId) return res.status(400).json({ error: 'workspace_required' });
+    const ctx = await resolveMutationContext(req, res, req.params.id, { permCheck: 'delete' });
+    if (!ctx) return;
+    const { workspaceId, dbClient } = ctx;
 
-    const membership = await getMembership(userId, workspaceId);
-    if (!membership) return res.status(403).json({ error: 'workspace_forbidden' });
-
-    const task = await getTaskForWorkspace(req.params.id, workspaceId);
-    if (!task) return res.status(404).json({ error: 'task_not_found' });
-    if (!canDeleteTask(task, userId, membership.role)) return res.status(403).json({ error: 'forbidden' });
-
-    const { error } = await supabase.from('tasks').delete().eq('id', req.params.id).eq('workspace_id', workspaceId);
+    const { error } = await dbClient.from('tasks').delete().eq('id', req.params.id).eq('workspace_id', workspaceId);
     if (error) return res.status(500).json({ error: error.message || 'task_delete_failed' });
     return res.json({ ok: true });
   } catch (e: any) {
