@@ -11,6 +11,7 @@ export type ProfileContext = {
   name?: string | null;
   headline?: string | null;
   company_name?: string | null;
+  open_jobs?: string[] | null;
 };
 
 export type GenerateMessagesArgs = {
@@ -70,11 +71,16 @@ Guidelines:
 /* ------------------------------------------------------------------ */
 
 function fillTemplate(template: string, profile: ProfileContext, userContext: string): string {
+  const openJobsText = profile.open_jobs?.length
+    ? profile.open_jobs.join(', ')
+    : 'Not available';
+
   return template
     .replace(/\{\{user_context\}\}/gi, userContext || 'Not provided')
     .replace(/\{\{name\}\}/gi, profile.name || 'Unknown')
     .replace(/\{\{headline\}\}/gi, profile.headline || 'Not available')
     .replace(/\{\{company\}\}/gi, profile.company_name || 'Not available')
+    .replace(/\{\{open_jobs\}\}/gi, openJobsText)
     .replace(/\{\{profile_url\}\}/gi, profile.profile_url || '');
 }
 
@@ -119,7 +125,9 @@ async function generateBatch(
 
   // For multiple profiles, batch into a single API call
   const profileDescriptions = profiles.map((p, i) => {
-    return `[${i + 1}] Name: ${p.name || 'Unknown'} | Headline: ${p.headline || 'N/A'} | Company: ${p.company_name || 'N/A'} | URL: ${p.profile_url}`;
+    let desc = `[${i + 1}] Name: ${p.name || 'Unknown'} | Headline: ${p.headline || 'N/A'} | Company: ${p.company_name || 'N/A'} | URL: ${p.profile_url}`;
+    if (p.open_jobs?.length) desc += ` | Open Jobs: ${p.open_jobs.join(', ')}`;
+    return desc;
   }).join('\n');
 
   const filledTemplate = promptTemplate
@@ -127,6 +135,7 @@ async function generateBatch(
     .replace(/\{\{name\}\}/gi, '(see each profile below)')
     .replace(/\{\{headline\}\}/gi, '(see each profile below)')
     .replace(/\{\{company\}\}/gi, '(see each profile below)')
+    .replace(/\{\{open_jobs\}\}/gi, '(see each profile below)')
     .replace(/\{\{profile_url\}\}/gi, '(see each profile below)');
 
   const resp = await openai.chat.completions.create({

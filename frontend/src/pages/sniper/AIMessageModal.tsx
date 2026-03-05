@@ -18,6 +18,7 @@ export type ProfileForAI = {
   name?: string | null;
   headline?: string | null;
   company_name?: string | null;
+  open_jobs?: string[] | null;
 };
 
 type GeneratedMsg = {
@@ -82,6 +83,7 @@ const AVAILABLE_VARIABLES = [
   { variable: '{{name}}', description: 'Prospect\'s full name' },
   { variable: '{{headline}}', description: 'LinkedIn headline / job title' },
   { variable: '{{company}}', description: 'Company name' },
+  { variable: '{{open_jobs}}', description: 'Company\'s open job postings (from Reveal)' },
   { variable: '{{profile_url}}', description: 'LinkedIn profile URL' },
   { variable: '{{user_context}}', description: 'Your custom context (below)' },
 ];

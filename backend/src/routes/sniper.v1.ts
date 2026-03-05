@@ -28,6 +28,7 @@ import { recordActionUsage } from '../services/sniperV1/throttle';
 import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/connectNotifications';
 import { normalizeLinkedinProfileUrl } from '../utils/linkedinUrl';
 import { generateMessages, DEFAULT_CONNECT_NOTE_TEMPLATE, DEFAULT_MESSAGE_TEMPLATE } from '../services/sniperV1/messageGenerator';
+import { batchRevealCompanyOpenJobs, deriveCompanyKey } from '../services/sniperV1/companyJobsReveal';
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -1009,6 +1010,79 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
     return res.json({ inserted, updated });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_import_to_leads' });
+  }
+});
+
+// ---------------- Reveal Open Jobs (Apollo) ----------------
+
+sniperV1Router.post('/actions/reveal_open_jobs', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const schema = z.object({
+      companies: z.array(z.object({
+        company_name: z.string().min(1).max(500),
+        company_url: z.string().max(1000).optional().nullable(),
+      })).min(1).max(25),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const { results, totalCreditsCharged, usingPersonalKey } = await batchRevealCompanyOpenJobs({
+      userId,
+      workspaceId,
+      companies: parsed.data.companies,
+    });
+
+    return res.json({
+      ok: true,
+      results,
+      total_credits_charged: totalCreditsCharged,
+      using_personal_key: usingPersonalKey,
+    });
+  } catch (e: any) {
+    if (e?.statusCode === 402 || e?.message === 'Insufficient credits') {
+      return res.status(402).json({
+        error: 'insufficient_credits',
+        required: e?.required,
+        remaining: e?.remaining,
+        new_companies_count: e?.new_companies_count,
+      });
+    }
+    console.error('[sniper] reveal_open_jobs error', e);
+    return res.status(500).json({ error: e?.message || 'failed_to_reveal_jobs' });
+  }
+});
+
+sniperV1Router.get('/actions/company_open_jobs', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const rawKeys = String(req.query.company_keys || '');
+    const companyKeys = rawKeys.split(',').map((k) => k.trim()).filter(Boolean).slice(0, 100);
+
+    if (!companyKeys.length) {
+      return res.json({ jobs: {} });
+    }
+
+    const { data } = await sniperSupabaseDb
+      .from('company_open_jobs')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('company_key', companyKeys);
+
+    const jobs: Record<string, any> = {};
+    for (const row of data || []) {
+      jobs[row.company_key] = row;
+    }
+
+    return res.json({ jobs });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_company_jobs' });
   }
 });
 

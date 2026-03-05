@@ -173,6 +173,11 @@ export default function ActivityPanel() {
   const [perProfileNotes, setPerProfileNotes] = useState<Map<string, string>>(new Map());
   const [perProfileMessages, setPerProfileMessages] = useState<Map<string, string>>(new Map());
 
+  /* ---- Open Jobs Reveal ---- */
+  const [revealingJobs, setRevealingJobs] = useState(false);
+  const [revealedJobs, setRevealedJobs] = useState<Map<string, any>>(new Map());
+  const [expandedCompanyJobs, setExpandedCompanyJobs] = useState<string | null>(null);
+
   /* ---- Campaign options ---- */
   const { options: campaignOptions, loading: campaignsLoading, error: campaignsError } = useCampaignOptions();
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -200,8 +205,11 @@ export default function ActivityPanel() {
     setLoadingItems(true);
     try {
       const resp = await apiGet(`/api/sniper/jobs/${jobId}/items?limit=2000`);
-      setItems(Array.isArray(resp) ? resp as JobItem[] : ((resp as Record<string, unknown>)?.items as JobItem[] || []));
+      const loaded = Array.isArray(resp) ? resp as JobItem[] : ((resp as Record<string, unknown>)?.items as JobItem[] || []);
+      setItems(loaded);
       setSelectedUrls(new Set());
+      // Check for already-revealed open jobs
+      checkRevealedJobs(loaded).catch(() => {});
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to load job items', 'error');
     } finally {
@@ -230,6 +238,76 @@ export default function ActivityPanel() {
   };
 
   const clearSelection = () => setSelectedUrls(new Set());
+
+  /* ---- Open Jobs helpers ---- */
+  const deriveCompanyKeyFE = (companyName: string, companyUrl: string): string => {
+    if (companyUrl) {
+      const match = companyUrl.match(/linkedin\.com\/company\/([^/?#]+)/i);
+      if (match) return `li:${match[1].toLowerCase()}`;
+    }
+    return `name:${companyName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+  };
+
+  const checkRevealedJobs = async (jobItems: JobItem[]) => {
+    const keys = jobItems
+      .filter((it) => it.action_type === 'extract')
+      .map((it) => {
+        const rj = (it.result_json || {}) as Record<string, unknown>;
+        const name = String(rj.company || rj.company_name || '');
+        const url = String(rj.company_url || '');
+        return name ? deriveCompanyKeyFE(name, url) : '';
+      })
+      .filter(Boolean);
+    const uniqueKeys = [...new Set(keys)];
+    if (!uniqueKeys.length) return;
+    try {
+      const resp = await apiGet(`/api/sniper/actions/company_open_jobs?company_keys=${uniqueKeys.join(',')}`);
+      const jobs = (resp as any)?.jobs || {};
+      setRevealedJobs(new Map(Object.entries(jobs)));
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const revealOpenJobs = async () => {
+    if (!selectedList.length) return showToast('Select at least 1 result', 'error');
+    setRevealingJobs(true);
+    try {
+      const companies = extractItems
+        .filter((it) => selectedUrls.has(it.profile_url))
+        .map((it) => {
+          const rj = (it.result_json || {}) as Record<string, unknown>;
+          return {
+            company_name: String(rj.company || rj.company_name || ''),
+            company_url: String(rj.company_url || '') || null,
+          };
+        })
+        .filter((c) => c.company_name);
+      // Deduplicate by company name
+      const unique = [...new Map(companies.map((c) => [c.company_name.toLowerCase(), c])).values()];
+      if (!unique.length) return showToast('No companies found in selection', 'error');
+
+      const resp = await apiPost('/api/sniper/actions/reveal_open_jobs', { companies: unique }) as any;
+      if (resp.ok) {
+        const revealed = (resp.results || []).filter((r: any) => !r.error);
+        const errors = (resp.results || []).filter((r: any) => r.error && !r.already_revealed);
+        let msg = `Revealed open jobs for ${revealed.length} companies`;
+        if (resp.total_credits_charged > 0) msg += ` (${resp.total_credits_charged} credits)`;
+        else if (resp.using_personal_key) msg += ' (free — personal key)';
+        if (errors.length > 0) msg += `. ${errors.length} not found.`;
+        showToast(msg, errors.length > 0 ? 'info' : 'success');
+        await checkRevealedJobs(items);
+      }
+    } catch (e: any) {
+      if (e?.status === 402 || String(e?.message).includes('Insufficient credits')) {
+        showToast('Insufficient credits for job reveal', 'error');
+      } else {
+        showToast((e as Error)?.message || 'Failed to reveal open jobs', 'error');
+      }
+    } finally {
+      setRevealingJobs(false);
+    }
+  };
 
   /* ---- Actions ---- */
   const queueConnect = async () => {
@@ -272,14 +350,21 @@ export default function ActivityPanel() {
       .filter((it) => selectedUrls.has(it.profile_url))
       .map((it) => {
         const rj = (it.result_json || {}) as Record<string, unknown>;
+        const companyName = rj.company_name ? String(rj.company_name) : (rj.company ? String(rj.company) : null);
+        const companyUrl = String(rj.company_url || '');
+        // Look up revealed jobs for this company
+        const key = companyName ? deriveCompanyKeyFE(companyName, companyUrl) : '';
+        const revealed = key ? revealedJobs.get(key) : null;
+        const openJobs = revealed?.job_postings?.map((jp: any) => jp.title).filter(Boolean).slice(0, 10) || null;
         return {
           profile_url: it.profile_url,
           name: rj.name ? String(rj.name) : null,
           headline: rj.headline ? String(rj.headline) : null,
-          company_name: rj.company_name ? String(rj.company_name) : (rj.company ? String(rj.company) : null),
+          company_name: companyName,
+          open_jobs: openJobs,
         };
       });
-  }, [extractItems, selectedUrls]);
+  }, [extractItems, selectedUrls, revealedJobs]);
 
   const handleAIApply = (messages: Map<string, string>) => {
     if (aiModalMode === 'connect_note') {
@@ -594,6 +679,47 @@ export default function ActivityPanel() {
                             {(it.result_json as Record<string, unknown>)?.headline ? ` \u2014 ${String((it.result_json as Record<string, unknown>).headline)}` : ''}
                             {(it.result_json as Record<string, unknown>)?.company_name ? ` @ ${String((it.result_json as Record<string, unknown>).company_name)}` : ''}
                           </div>
+                          {/* Inline revealed open jobs */}
+                          {(() => {
+                            const rj = (it.result_json || {}) as Record<string, unknown>;
+                            const cn = String(rj.company || rj.company_name || '');
+                            const cu = String(rj.company_url || '');
+                            if (!cn) return null;
+                            const key = deriveCompanyKeyFE(cn, cu);
+                            const revealed = revealedJobs.get(key);
+                            if (!revealed) return null;
+                            const postings = (revealed.job_postings || []) as any[];
+                            if (!postings.length) return (
+                              <div className="text-[10px] text-amber-500 dark:text-amber-400 mt-0.5">{'\uD83D\uDCCB'} No open jobs found</div>
+                            );
+                            return (
+                              <div className="mt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedCompanyJobs(expandedCompanyJobs === key ? null : key); }}
+                                  className="text-[11px] font-semibold text-amber-600 hover:text-amber-500 dark:text-amber-400"
+                                >
+                                  {'\uD83D\uDCCB'} {postings.length} open job{postings.length !== 1 ? 's' : ''} {expandedCompanyJobs === key ? '\u25B2' : '\u25BC'}
+                                </button>
+                                {expandedCompanyJobs === key && (
+                                  <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-800/30 dark:bg-amber-950/20">
+                                    {postings.slice(0, 10).map((jp: any, idx: number) => (
+                                      <div key={idx} className="flex items-start gap-1 py-0.5 text-[11px] text-slate-600 dark:text-slate-400">
+                                        <span className="shrink-0 text-amber-500">{'\u2022'}</span>
+                                        <span>
+                                          <span className="font-medium">{jp.title || 'Untitled'}</span>
+                                          {jp.location && <span className="text-slate-400 dark:text-slate-500"> — {jp.location}</span>}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {postings.length > 10 && (
+                                      <div className="text-[10px] text-slate-400 mt-1">+{postings.length - 10} more</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </label>
                     ))}
@@ -743,6 +869,50 @@ export default function ActivityPanel() {
                           )}
                         >
                           Find Decision Makers ({selectedList.length})
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Reveal Open Jobs — for jobs_intent AND decision_maker_lookup */}
+                    {(selectedJob?.job_type === 'jobs_intent' || selectedJob?.job_type === 'decision_maker_lookup') && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
+                        <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">{'\uD83D\uDCCB'} Reveal Open Jobs</div>
+                        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">View all job postings at selected companies via Apollo. 2 credits/company.</div>
+                        {/* Show already-revealed count from selection */}
+                        {selectedList.length > 0 && (() => {
+                          const selectedCompanyKeys = extractItems
+                            .filter((it) => selectedUrls.has(it.profile_url))
+                            .map((it) => {
+                              const rj = (it.result_json || {}) as Record<string, unknown>;
+                              const cn = String(rj.company || rj.company_name || '');
+                              const cu = String(rj.company_url || '');
+                              return cn ? deriveCompanyKeyFE(cn, cu) : '';
+                            })
+                            .filter(Boolean);
+                          const uniqueKeys = [...new Set(selectedCompanyKeys)];
+                          const alreadyCount = uniqueKeys.filter((k) => revealedJobs.has(k)).length;
+                          const newCount = uniqueKeys.length - alreadyCount;
+                          if (!alreadyCount && !newCount) return null;
+                          return (
+                            <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-100/50 px-2 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/30">
+                              <span className="text-[11px] text-amber-700 dark:text-amber-300">
+                                {alreadyCount > 0 && `${alreadyCount} already revealed`}
+                                {alreadyCount > 0 && newCount > 0 && ', '}
+                                {newCount > 0 && `${newCount} new (${newCount * 2} credits)`}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <button
+                          type="button"
+                          onClick={revealOpenJobs}
+                          disabled={!selectedList.length || revealingJobs}
+                          className={cx(
+                            'mt-2 w-full rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500',
+                            (!selectedList.length || revealingJobs) && 'opacity-50 cursor-not-allowed',
+                          )}
+                        >
+                          {revealingJobs ? 'Revealing...' : `Reveal Open Jobs (${selectedList.length})`}
                         </button>
                       </div>
                     )}
