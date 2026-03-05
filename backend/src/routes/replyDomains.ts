@@ -114,10 +114,14 @@ router.get('/', requireAuthUnified as any, async (req: Request, res: Response) =
       .select('id,domain,status,mx_verified,sendgrid_registered,created_at,updated_at,verified_at')
       .eq('user_id', userId)
       .maybeSingle();
-    if (error) return res.status(500).json({ error: error.message || 'lookup_failed' });
+    if (error) {
+      console.error('[replyDomains] GET lookup failed:', error);
+      return res.status(500).json({ error: error.message || 'lookup_failed' });
+    }
 
     return res.json({ domain: data || null });
   } catch (e: any) {
+    console.error('[replyDomains] GET unexpected error:', e);
     return res.status(500).json({ error: e?.message || 'lookup_failed' });
   }
 });
@@ -132,11 +136,15 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
     if (!validateDomain(domain)) return res.status(400).json({ error: 'domain_invalid' });
 
     // Check if another user owns this domain
-    const { data: existing } = await supabase
+    const { data: existing, error: checkErr } = await supabase
       .from('custom_reply_domains')
       .select('id,user_id')
       .eq('domain', domain)
       .maybeSingle();
+    if (checkErr) {
+      console.error('[replyDomains] POST ownership check failed:', checkErr);
+      return res.status(500).json({ error: checkErr.message || 'ownership_check_failed' });
+    }
     if (existing && (existing as any).user_id !== userId) {
       return res.status(409).json({ error: 'domain_taken', message: 'This domain is already registered by another user.' });
     }
@@ -162,7 +170,10 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
       )
       .select('id,domain,status,created_at,updated_at')
       .single();
-    if (error) return res.status(500).json({ error: error.message || 'create_failed' });
+    if (error) {
+      console.error('[replyDomains] POST upsert failed:', error);
+      return res.status(500).json({ error: error.message || 'create_failed' });
+    }
 
     return res.json({
       domain: created,
@@ -175,6 +186,7 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
       },
     });
   } catch (e: any) {
+    console.error('[replyDomains] POST unexpected error:', e);
     return res.status(500).json({ error: e?.message || 'create_failed' });
   }
 });
@@ -190,7 +202,10 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       .select('id,domain,status,user_id')
       .eq('user_id', userId)
       .maybeSingle();
-    if (rowErr) return res.status(500).json({ error: rowErr.message || 'lookup_failed' });
+    if (rowErr) {
+      console.error('[replyDomains] VERIFY lookup failed:', rowErr);
+      return res.status(500).json({ error: rowErr.message || 'lookup_failed' });
+    }
     if (!row) return res.status(404).json({ error: 'no_domain_configured' });
 
     const domain = (row as any).domain;
@@ -254,11 +269,15 @@ router.post('/verify', requireAuthUnified as any, async (req: Request, res: Resp
       .eq('id', (row as any).id)
       .select('id,domain,status,mx_verified,sendgrid_registered,verified_at')
       .single();
-    if (error) return res.status(500).json({ error: error.message || 'verify_failed' });
+    if (error) {
+      console.error('[replyDomains] VERIFY update failed:', error);
+      return res.status(500).json({ error: error.message || 'verify_failed' });
+    }
 
     invalidateReplyDomainCache(userId);
     return res.json({ ok: true, domain: updated });
   } catch (e: any) {
+    console.error('[replyDomains] VERIFY unexpected error:', e);
     return res.status(500).json({ error: e?.message || 'verify_failed' });
   }
 });
@@ -274,7 +293,10 @@ router.delete('/', requireAuthUnified as any, async (req: Request, res: Response
       .select('id,domain,sendgrid_registered,user_id')
       .eq('user_id', userId)
       .maybeSingle();
-    if (rowErr) return res.status(500).json({ error: rowErr.message || 'lookup_failed' });
+    if (rowErr) {
+      console.error('[replyDomains] DELETE lookup failed:', rowErr);
+      return res.status(500).json({ error: rowErr.message || 'lookup_failed' });
+    }
     if (!row) return res.status(404).json({ error: 'not_found' });
 
     // Best-effort: remove from SendGrid Inbound Parse
@@ -290,11 +312,15 @@ router.delete('/', requireAuthUnified as any, async (req: Request, res: Response
       .delete()
       .eq('id', (row as any).id)
       .eq('user_id', userId);
-    if (error) return res.status(500).json({ error: error.message || 'delete_failed' });
+    if (error) {
+      console.error('[replyDomains] DELETE failed:', error);
+      return res.status(500).json({ error: error.message || 'delete_failed' });
+    }
 
     invalidateReplyDomainCache(userId);
     return res.json({ ok: true });
   } catch (e: any) {
+    console.error('[replyDomains] DELETE unexpected error:', e);
     return res.status(500).json({ error: e?.message || 'delete_failed' });
   }
 });
