@@ -6,6 +6,7 @@ import { notifySlack } from '../lib/slack';
 import sgMail from '@sendgrid/mail';
 import { searchAndEnrichPeople } from '../utils/apolloApi';
 import { enrichLead as apolloEnrichLead } from '../services/apollo/enrichLead';
+import { toApolloGeoString } from '../utils/locationNormalizer';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { personalizeMessage } from '../utils/messageUtils';
@@ -158,11 +159,19 @@ export async function sourceLeads({
     per_page: Math.min(100, desiredCount)
   };
   // Normalize common senior title synonyms to improve hit rate
-  const rawTitle = String(filters?.title || filters?.jobTitle || filters?.keywords || '').trim();
+  // Accept many possible field names the LLM might use for title/location
+  const rawTitle = String(
+    filters?.title || filters?.jobTitle || filters?.job_title || filters?.person_titles ||
+    filters?.person_title || filters?.role || filters?.keywords || ''
+  ).trim();
   const titleInput = rawTitle
     .replace(/\bvp\b/gi, 'Vice President')
     .replace(/\bhead of\b/gi, 'Head of') || '';
-  const locationInput = String(filters?.location || filters?.person_locations || '').trim();
+  const locationInput = String(
+    filters?.location || filters?.person_locations || filters?.person_location ||
+    filters?.city || filters?.geo || filters?.region || ''
+  ).trim();
+
   if (filters?.booleanSearch && titleInput) {
     // Boolean query placed into person_titles for Apollo native OR
     searchParams.person_titles = [titleInput];
@@ -170,9 +179,16 @@ export async function sourceLeads({
     searchParams.person_titles = [titleInput];
   }
   if (locationInput) {
-    searchParams.person_locations = [locationInput];
+    searchParams.person_locations = [toApolloGeoString(locationInput)];
   }
   if (filters?.q_keywords) searchParams.q_keywords = filters.q_keywords;
+
+  console.log('[sourceLeads] Apollo search params:', {
+    person_titles: searchParams.person_titles,
+    person_locations: searchParams.person_locations,
+    q_keywords: searchParams.q_keywords,
+    raw_filters: filters,
+  });
 
   // 3. Search & enrich people
   // Fetch multiple pages if needed to reach desiredCount

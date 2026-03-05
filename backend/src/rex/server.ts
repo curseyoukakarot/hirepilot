@@ -1504,8 +1504,8 @@ server.registerCapabilities({
       parameters: {
         userId: { type:'string' },
         campaignId:{ type:'string' },
-        source:{ type:'string' },
-        filters:{ type:'object' }
+        source:{ type:'string', description:'Lead source: "apollo" (default, fast) or "linkedin"' },
+        filters:{ type:'object', description:'Search criteria', properties:{ title:{type:'string',description:'Job title (e.g. "CISO", "VP Engineering")'}, location:{type:'string',description:'Location (e.g. "San Francisco", "New York, NY")'}, keywords:{type:'string',description:'Additional keywords'}, count:{type:'number',description:'Number of leads (default 25, max 200)'}, booleanSearch:{type:'boolean',description:'Use Boolean syntax in title'}}, required:['title','location'] }
       },
       handler: async ({ userId, campaignId, source, filters }) => {
         // Temporarily allow all plans
