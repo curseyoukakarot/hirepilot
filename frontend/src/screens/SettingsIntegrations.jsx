@@ -440,6 +440,11 @@ export default function SettingsIntegrations() {
             } else {
               setReplyDomainStep('dns');
               setReplyDomainInput(rdResp.domain.domain);
+              // Restore DNS records from saved data for the DNS step display
+              if (rdResp.domain.dns_records) {
+                const dr = rdResp.domain.dns_records;
+                setReplyDomainInstructions([dr.mx, dr.mail_cname, dr.dkim1, dr.dkim2].filter(Boolean));
+              }
             }
           }
         } catch (e) {
@@ -1164,27 +1169,36 @@ export default function SettingsIntegrations() {
             {replyDomainStep === 'dns' && (
               <>
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add this MX record to your DNS:</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Type:</span>
-                      <span className="font-mono text-gray-900 dark:text-gray-100">MX</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Host:</span>
-                      <span className="font-mono text-gray-900 dark:text-gray-100">{replyDomainInput}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Value:</span>
-                      <span className="font-mono text-gray-900 dark:text-gray-100">mx.sendgrid.net</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Priority:</span>
-                      <span className="font-mono text-gray-900 dark:text-gray-100">10</span>
-                    </div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add these DNS records to your domain:</p>
+                  <div className="space-y-3">
+                    {(Array.isArray(replyDomainInstructions) ? replyDomainInstructions : replyDomainInstructions ? [replyDomainInstructions] : []).filter(Boolean).map((rec, idx) => (
+                      <div key={idx}>
+                        {idx > 0 && <hr className="border-gray-200 dark:border-gray-700 mb-3" />}
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">Type:</span>
+                            <span className="font-mono text-gray-900 dark:text-gray-100">{rec.type}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-gray-500 dark:text-gray-400 shrink-0">Host:</span>
+                            <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.host}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-gray-500 dark:text-gray-400 shrink-0">{rec.type === 'MX' ? 'Value:' : 'Points to:'}</span>
+                            <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.value || rec.data}</span>
+                          </div>
+                          {rec.priority !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500 dark:text-gray-400">Priority:</span>
+                              <span className="font-mono text-gray-900 dark:text-gray-100">{rec.priority}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-4">DNS propagation may take up to 48 hours. If verification fails, please wait and try again.</p>
+                <p className="text-xs text-gray-400 mb-4">Add all {Array.isArray(replyDomainInstructions) ? replyDomainInstructions.length : 1} DNS records above, then click Verify. DNS propagation may take up to 48 hours.</p>
                 {replyDomainError && <p className="text-red-500 text-sm mb-3">{replyDomainError}</p>}
                 <div className="flex justify-end gap-2 pt-2">
                   <button onClick={() => setShowReplyDomainModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Close</button>
