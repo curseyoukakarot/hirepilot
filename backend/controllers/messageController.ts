@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
 import { EmailEventService } from '../services/emailEventService';
+import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
 // Helper function to generate avatar URL
 const getAvatarUrl = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
@@ -413,7 +414,7 @@ async function sendViaSendGrid(integration: any, { to, subject, html, attachment
         user_id: integration.user_id,
         message_id: trackingMessageId
       },
-      replyTo: `msg_${trackingMessageId}.u_${integration.user_id}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`,
+      replyTo: `msg_${trackingMessageId}.u_${integration.user_id}.c_none@${await resolveReplyDomain(integration.user_id)}`,
       attachments: attachments?.map(attachment => ({
         content: attachment.content.toString('base64'),
         filename: attachment.filename,

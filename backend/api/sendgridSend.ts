@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 import { newReplyToken } from '../lib/replyToken';
+import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -42,7 +43,7 @@ router.post('/sendgrid/send', async (req, res) => {
 
     // 3a. Prepare reply routing via short token
     const token = newReplyToken();
-    const domain = process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com';
+    const domain = await resolveReplyDomain(user_id);
     const shortReplyAddress = `reply+${token}@${domain}`;
 
     // 3b. Persist reply token mapping to messages (create minimal message row if needed)

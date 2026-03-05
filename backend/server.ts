@@ -104,6 +104,7 @@ import resumeTemplatesRouter from './src/routes/resumeTemplates';
 import landingThemesRouter from './src/routes/landingThemes';
 import landingPagesRouter from './src/routes/landingPages';
 import landingDomainsRouter from './src/routes/landingDomains';
+import replyDomainsRouter from './src/routes/replyDomains';
 import onboardingRouter from './src/routes/onboarding';
 import appOnboardingRouter from './src/routes/appOnboarding';
 import zapierActionsRouter from './src/routes/zapierActions';
@@ -556,6 +557,7 @@ app.use('/api/landing-themes', landingThemesRouter);
 // Job seeker landing pages + custom domains
 app.use('/api/landing-pages', landingPagesRouter);
 app.use('/api/landing-domains', landingDomainsRouter);
+app.use('/api/settings/reply-domain', replyDomainsRouter);
 app.use('/api/jobs/onboarding', onboardingRouter);
 app.use('/api/app/onboarding', appOnboardingRouter);
 app.use('/api/tasks', tasksRouter);

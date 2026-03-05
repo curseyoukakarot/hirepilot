@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { sendEmail } from '../services/emailProviderService';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
+import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
 function normalizeBccList(value?: string | string[] | null): string[] {
   if (!value) return [];
@@ -129,7 +130,7 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
         message_id: trackingMessageId
       },
       // Include lead id in Reply-To to enable robust parsing downstream
-      replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}.l_${lead.id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+      replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}.l_${lead.id}@${await resolveReplyDomain(userId)}`
     };
 
     if (bccList && bccList.length) {
