@@ -1,6 +1,7 @@
 import sg from '@sendgrid/mail';
 import { supabase as db } from '../lib/supabase';
 import crypto from 'crypto';
+import { resolveReplyDomain } from '../../utils/generateReplyAddress';
 
 /**
  * SendGrid email sender that prefers the user's own API key and default sender.
@@ -57,7 +58,7 @@ export async function sendEmail(
     const leadId = String(getHeader('X-Lead-Id') || '').trim();
     const hasContext = !!userId && (!!campaignId || !!leadId);
     if (hasContext) {
-      const domain = (process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com').trim();
+      const domain = await resolveReplyDomain(userId);
       const trackingMessageId = crypto.randomUUID();
       replyTo = `msg_${trackingMessageId}.u_${userId}.c_${campaignId || 'none'}.l_${leadId || 'none'}@${domain}`;
       // Safe SendGrid event attribution: only set hp_user_id + message_id (avoid invalid FK writes for campaign/lead).

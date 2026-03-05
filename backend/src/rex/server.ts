@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { launchQueue } from '../../api/campaigns/launch';
 import sgMail from '@sendgrid/mail';
 import { personalizeMessage } from '../../utils/messageUtils';
+import { resolveReplyDomain } from '../../utils/generateReplyAddress';
 import { canonicalFlows, searchSupport, whitelistPages } from './knowledge.widget';
 import { widgetTools } from './widgetTools';
 import { buildLinkedinTools } from './agents-mcp/linkedin.tools';
@@ -831,7 +832,7 @@ server.registerCapabilities({
             html: htmlBody,
             trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
             customArgs: { user_id: userId, message_id: trackingMessageId },
-            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${await resolveReplyDomain(userId)}`
           } as any);
           return { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
                  } else if (selectedSender.provider === 'google') {
@@ -1041,7 +1042,7 @@ server.registerCapabilities({
             html: htmlBody,
             trackingSettings: { clickTracking: { enable: true }, openTracking: { enable: true } },
             customArgs: { user_id: userId, message_id: trackingMessageId, lead_id: leadRow.id },
-            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+            replyTo: `msg_${trackingMessageId}.u_${userId}.c_none@${await resolveReplyDomain(userId)}`
           } as any);
           result = { messageId: resp.headers['x-message-id'], provider: 'sendgrid', from: data.default_sender };
         } else if (selectedSender.provider === 'google') {

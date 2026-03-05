@@ -283,6 +283,15 @@ export default function SettingsIntegrations() {
   // Apollo modal
   const [showApolloModal, setShowApolloModal] = useState(false);
 
+  // Whitelabel Reply Domain state
+  const [showReplyDomainModal, setShowReplyDomainModal] = useState(false);
+  const [replyDomainData, setReplyDomainData] = useState(null);
+  const [replyDomainInput, setReplyDomainInput] = useState('');
+  const [replyDomainLoading, setReplyDomainLoading] = useState(false);
+  const [replyDomainError, setReplyDomainError] = useState('');
+  const [replyDomainStep, setReplyDomainStep] = useState('input'); // 'input' | 'dns' | 'verified'
+  const [replyDomainInstructions, setReplyDomainInstructions] = useState(null);
+
   const markEmailConnected = useCallback(async (source) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -314,6 +323,7 @@ export default function SettingsIntegrations() {
       stripeIsConnected,
       hunterConnected,
       skrappConnected,
+      replyDomainData?.status === 'verified',
     ]
       .filter(Boolean).length;
   }, [
@@ -326,6 +336,7 @@ export default function SettingsIntegrations() {
     stripeConnected,
     hunterConnected,
     skrappConnected,
+    replyDomainData,
   ]);
 
   useEffect(() => {
@@ -416,6 +427,23 @@ export default function SettingsIntegrations() {
           }
         } catch (e) {
           console.log('Failed to load enrichment integrations', e);
+        }
+
+        // Load whitelabel reply domain
+        try {
+          const rdResp = await api('/api/settings/reply-domain');
+          if (rdResp?.domain) {
+            setReplyDomainData(rdResp.domain);
+            if (rdResp.domain.status === 'verified') {
+              setReplyDomainStep('verified');
+              setReplyDomainInput(rdResp.domain.domain);
+            } else {
+              setReplyDomainStep('dns');
+              setReplyDomainInput(rdResp.domain.domain);
+            }
+          }
+        } catch (e) {
+          console.log('Failed to load reply domain', e);
         }
       } finally {
         setLoading(false);
@@ -530,6 +558,80 @@ export default function SettingsIntegrations() {
     } catch {
       toast.error('Failed to disconnect SendGrid');
     }
+  };
+
+  // Whitelabel Reply Domain handlers
+  const saveReplyDomain = async () => {
+    try {
+      setReplyDomainLoading(true);
+      setReplyDomainError('');
+      const resp = await api('/api/settings/reply-domain', {
+        method: 'POST',
+        body: JSON.stringify({ domain: replyDomainInput }),
+      });
+      if (resp?.error) {
+        setReplyDomainError(resp.message || resp.error);
+        return;
+      }
+      setReplyDomainData(resp.domain);
+      setReplyDomainInstructions(resp.instructions);
+      setReplyDomainStep('dns');
+    } catch (e) {
+      setReplyDomainError(e?.message || 'Failed to save domain');
+    } finally {
+      setReplyDomainLoading(false);
+    }
+  };
+
+  const verifyReplyDomain = async () => {
+    try {
+      setReplyDomainLoading(true);
+      setReplyDomainError('');
+      const resp = await api('/api/settings/reply-domain/verify', { method: 'POST' });
+      if (resp?.error) {
+        setReplyDomainError(resp.message || resp.error);
+        return;
+      }
+      setReplyDomainData(resp.domain);
+      setReplyDomainStep('verified');
+      toast.success('Reply domain verified!');
+    } catch (e) {
+      setReplyDomainError(e?.message || 'Verification failed');
+    } finally {
+      setReplyDomainLoading(false);
+    }
+  };
+
+  const removeReplyDomain = async () => {
+    if (!window.confirm('Removing your custom domain will prevent replies to emails sent with this domain from being tracked. Are you sure?')) return;
+    try {
+      setReplyDomainLoading(true);
+      await api('/api/settings/reply-domain', { method: 'DELETE' });
+      setReplyDomainData(null);
+      setReplyDomainInput('');
+      setReplyDomainStep('input');
+      setReplyDomainInstructions(null);
+      setReplyDomainError('');
+      setShowReplyDomainModal(false);
+      toast.success('Reply domain removed');
+    } catch (e) {
+      toast.error(e?.message || 'Failed to remove domain');
+    } finally {
+      setReplyDomainLoading(false);
+    }
+  };
+
+  const openReplyDomainModal = () => {
+    if (replyDomainData?.status === 'verified') {
+      setReplyDomainStep('verified');
+    } else if (replyDomainData) {
+      setReplyDomainStep('dns');
+    } else {
+      setReplyDomainStep('input');
+      setReplyDomainInput('');
+    }
+    setReplyDomainError('');
+    setShowReplyDomainModal(true);
   };
 
   // SendGrid modal handlers
@@ -860,6 +962,14 @@ export default function SettingsIntegrations() {
                   extraTitle="Change default sender"
                   onExtraClick={openSendGridSenderPicker}
                 />
+                <Card
+                  iconClass="fa-solid fa-globe text-teal-600"
+                  name="Whitelabel Reply Domain"
+                  status={replyDomainData?.status === 'verified' ? 'Connected' : replyDomainData ? 'Pending' : 'Not Connected'}
+                  onConnect={() => requirePaid(openReplyDomainModal, 'Whitelabel Reply Domain')}
+                  onDisconnect={removeReplyDomain}
+                  connectLabel={replyDomainData ? 'Manage' : 'Configure'}
+                />
               </div>
             </div>
           )}
@@ -1015,6 +1125,102 @@ export default function SettingsIntegrations() {
       </div>
 
       {/* SendGrid Modal */}
+      {/* Whitelabel Reply Domain Modal */}
+      {showReplyDomainModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md shadow-lg relative">
+            <button
+              onClick={() => setShowReplyDomainModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">Whitelabel Reply Domain</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Use your own domain for reply tracking instead of reply.thehirepilot.com</p>
+
+            {replyDomainStep === 'input' && (
+              <>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reply Subdomain</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 mb-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  placeholder="e.g. reply.yourdomain.com"
+                  value={replyDomainInput}
+                  onChange={e => setReplyDomainInput(e.target.value)}
+                />
+                <p className="text-xs text-gray-400 mb-4">We recommend using a subdomain like reply.yourdomain.com</p>
+                {replyDomainError && <p className="text-red-500 text-sm mb-3">{replyDomainError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setShowReplyDomainModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
+                  <button
+                    onClick={saveReplyDomain}
+                    disabled={replyDomainLoading || !replyDomainInput.trim()}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+                  >{replyDomainLoading ? 'Saving...' : 'Save & Get DNS Instructions'}</button>
+                </div>
+              </>
+            )}
+
+            {replyDomainStep === 'dns' && (
+              <>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add this MX record to your DNS:</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Type:</span>
+                      <span className="font-mono text-gray-900 dark:text-gray-100">MX</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Host:</span>
+                      <span className="font-mono text-gray-900 dark:text-gray-100">{replyDomainInput}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Value:</span>
+                      <span className="font-mono text-gray-900 dark:text-gray-100">mx.sendgrid.net</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Priority:</span>
+                      <span className="font-mono text-gray-900 dark:text-gray-100">10</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-4">DNS propagation may take up to 48 hours. If verification fails, please wait and try again.</p>
+                {replyDomainError && <p className="text-red-500 text-sm mb-3">{replyDomainError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setShowReplyDomainModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Close</button>
+                  <button
+                    onClick={verifyReplyDomain}
+                    disabled={replyDomainLoading}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+                  >{replyDomainLoading ? 'Verifying...' : 'Verify'}</button>
+                </div>
+              </>
+            )}
+
+            {replyDomainStep === 'verified' && (
+              <>
+                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
+                  <i className="fa-solid fa-circle-check text-green-600 text-xl"></i>
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-300">Domain Verified</p>
+                    <p className="text-sm text-green-600 dark:text-green-400 font-mono">{replyDomainData?.domain}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">All outbound emails will use this domain for reply tracking.</p>
+                <div className="flex justify-between pt-2">
+                  <button
+                    onClick={removeReplyDomain}
+                    disabled={replyDomainLoading}
+                    className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+                  >{replyDomainLoading ? 'Removing...' : 'Remove Domain'}</button>
+                  <button onClick={() => setShowReplyDomainModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Close</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {showSendGridModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-lg">

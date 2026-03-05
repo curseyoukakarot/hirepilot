@@ -16,6 +16,13 @@ function extractToken(toAddr: string) {
   return m?.[1] || null;
 }
 
+// Pattern-based check for reply tracking addresses (works with any domain, no DB lookup needed)
+function isReplyAddress(email: string): boolean {
+  if (!email) return false;
+  const local = (email.split('@')[0] || '').toLowerCase();
+  return /^(reply\+|msg_)/.test(local);
+}
+
 async function resolveRoutingFromAddress(toHeader: string) {
   // toHeader can include name + angle brackets; get the addr
   const addr = toHeader.match(/<([^>]+)>/)?.[1] || toHeader;
@@ -185,13 +192,13 @@ async function computeForwardRecipients(userId: string): Promise<string[]> {
     
     // Add CC recipients if configured
     if (prefs?.cc_recipients && Array.isArray(prefs.cc_recipients)) {
-      recipients.push(...prefs.cc_recipients.filter(email => 
-        email && !email.includes('@reply.thehirepilot.com')
+      recipients.push(...prefs.cc_recipients.filter(email =>
+        email && !isReplyAddress(email)
       ));
     }
 
-    // Filter out any reply.thehirepilot.com addresses to prevent loops
-    return recipients.filter(email => !email.includes('@reply.thehirepilot.com'));
+    // Filter out any reply tracking addresses to prevent loops
+    return recipients.filter(email => !isReplyAddress(email));
   } catch (error) {
     console.error('[computeForwardRecipients] Error:', error);
     return [];

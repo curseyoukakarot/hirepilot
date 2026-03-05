@@ -2,7 +2,7 @@ import { google } from 'googleapis';
 import { supabase } from '../lib/supabaseClient';
 import { EmailEventService } from './emailEventService';
 import { getGoogleAccessToken, forceRefreshGoogleAccessToken } from './googleTokenHelper';
-import { generateUniqueReplyToken, buildReplyToAddress } from '../utils/generateReplyAddress';
+import { generateUniqueReplyToken, buildReplyToAddress, resolveReplyDomain } from '../utils/generateReplyAddress';
 import { buildGmailRawMessage } from './gmailMime';
 
 type SendOptions = {
@@ -65,12 +65,12 @@ export class GmailTrackingService {
     // Generate reply token/address
     const replyToken = generateUniqueReplyToken(12);
     // For sourcing sends, use VERP-style Reply-To so inbound parsing can recover campaign+lead.
+    const replyDomain = await resolveReplyDomain(userId);
     const replyToAddress = (() => {
       if (opts?.sourcingCampaignId && opts?.sourcingLeadId) {
-        const domain = process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com';
-        return `msg_${trackingMessageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${domain}`;
+        return `msg_${trackingMessageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${replyDomain}`;
       }
-      return buildReplyToAddress(replyToken);
+      return buildReplyToAddress(replyToken, replyDomain);
     })();
 
     // We don't know "from" for the user; Gmail will use the authenticated account.

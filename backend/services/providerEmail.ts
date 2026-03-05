@@ -3,6 +3,7 @@ import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
+import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
 export async function sendViaProvider(
   provider: 'sendgrid' | 'google' | 'gmail' | 'outlook',
@@ -37,7 +38,7 @@ export async function sendViaProvider(
           lead_id: lead.id,
           message_id: trackingMessageId
         },
-        replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com'}`
+        replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${await resolveReplyDomain(userId)}`
       };
       if (bccList && bccList.length) {
         msg.bcc = bccList;

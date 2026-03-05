@@ -4,6 +4,7 @@ import { EmailEventService } from './emailEventService';
 import { getOutlookAccessToken } from './outlookTokenHelper';
 import { SourcingNotifications } from '../src/lib/notifications';
 import { postToSlack } from '../src/lib/slackPoster';
+import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
 type SendOptions = {
   sourcingCampaignId?: string;
@@ -57,10 +58,10 @@ export class OutlookTrackingService {
       const htmlWithTracking = this.addTrackingPixel(html, messageId);
 
       // Create email message
+      const replyDomain = await resolveReplyDomain(userId);
       const replyToAddress = (() => {
         if (opts?.sourcingCampaignId && opts?.sourcingLeadId) {
-          const domain = process.env.INBOUND_PARSE_DOMAIN || 'reply.thehirepilot.com';
-          return `msg_${messageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${domain}`;
+          return `msg_${messageId}.u_${userId}.c_${opts.sourcingCampaignId}.l_${opts.sourcingLeadId}@${replyDomain}`;
         }
         return null;
       })();
