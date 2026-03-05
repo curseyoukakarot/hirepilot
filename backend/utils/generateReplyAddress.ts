@@ -47,7 +47,7 @@ export async function resolveReplyDomain(userId: string): Promise<string> {
       .eq('status', 'verified')
       .maybeSingle();
 
-    const domain = data?.domain || REPLY_DOMAIN;
+    const domain: string = (data as any)?.domain || REPLY_DOMAIN;
     domainCache.set(userId, { domain, expiry: Date.now() + 60_000 });
     return domain;
   } catch {
