@@ -566,13 +566,14 @@ export default function SettingsIntegrations() {
   };
 
   // Whitelabel Reply Domain handlers
-  const saveReplyDomain = async () => {
+  const saveReplyDomain = async (overrideDomain) => {
     try {
       setReplyDomainLoading(true);
       setReplyDomainError('');
+      const domainToSave = overrideDomain || replyDomainInput;
       const resp = await api('/api/settings/reply-domain', {
         method: 'POST',
-        body: JSON.stringify({ domain: replyDomainInput }),
+        body: JSON.stringify({ domain: domainToSave }),
       });
       if (resp?.error) {
         setReplyDomainError(resp.message || resp.error);
@@ -1168,43 +1169,67 @@ export default function SettingsIntegrations() {
 
             {replyDomainStep === 'dns' && (
               <>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add these DNS records to your domain:</p>
-                  <div className="space-y-3">
-                    {(Array.isArray(replyDomainInstructions) ? replyDomainInstructions : replyDomainInstructions ? [replyDomainInstructions] : []).filter(Boolean).map((rec, idx) => (
-                      <div key={idx}>
-                        {idx > 0 && <hr className="border-gray-200 dark:border-gray-700 mb-3" />}
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">Type:</span>
-                            <span className="font-mono text-gray-900 dark:text-gray-100">{rec.type}</span>
-                          </div>
-                          <div className="flex justify-between gap-4">
-                            <span className="text-gray-500 dark:text-gray-400 shrink-0">Host:</span>
-                            <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.host}</span>
-                          </div>
-                          <div className="flex justify-between gap-4">
-                            <span className="text-gray-500 dark:text-gray-400 shrink-0">{rec.type === 'MX' ? 'Value:' : 'Points to:'}</span>
-                            <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.value || rec.data}</span>
-                          </div>
-                          {rec.priority !== undefined && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-500 dark:text-gray-400">Priority:</span>
-                              <span className="font-mono text-gray-900 dark:text-gray-100">{rec.priority}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Domain: <span className="font-mono font-medium text-gray-900 dark:text-gray-100">{replyDomainData?.domain || replyDomainInput}</span>
+                  </p>
+                  <button
+                    onClick={() => { setReplyDomainStep('input'); setReplyDomainError(''); setReplyDomainInput(replyDomainData?.domain || replyDomainInput); }}
+                    className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                  >Change</button>
                 </div>
-                <p className="text-xs text-gray-400 mb-4">Add all {Array.isArray(replyDomainInstructions) ? replyDomainInstructions.length : 1} DNS records above, then click Verify. DNS propagation may take up to 48 hours.</p>
+                {replyDomainInstructions && (Array.isArray(replyDomainInstructions) ? replyDomainInstructions : [replyDomainInstructions]).filter(Boolean).length > 0 ? (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add these DNS records to your domain:</p>
+                    <div className="space-y-3">
+                      {(Array.isArray(replyDomainInstructions) ? replyDomainInstructions : [replyDomainInstructions]).filter(Boolean).map((rec, idx) => (
+                        <div key={idx}>
+                          {idx > 0 && <hr className="border-gray-200 dark:border-gray-700 mb-3" />}
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500 dark:text-gray-400">Type:</span>
+                              <span className="font-mono text-gray-900 dark:text-gray-100">{rec.type}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">Host:</span>
+                              <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.host}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">{rec.type === 'MX' ? 'Value:' : 'Points to:'}</span>
+                              <span className="font-mono text-gray-900 dark:text-gray-100 text-right break-all">{rec.value || rec.data}</span>
+                            </div>
+                            {rec.priority !== undefined && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Priority:</span>
+                                <span className="font-mono text-gray-900 dark:text-gray-100">{rec.priority}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 mb-4 border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">DNS records not available. Click "Refresh" to regenerate them.</p>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 mb-4">
+                  {replyDomainInstructions ? `Add all ${Array.isArray(replyDomainInstructions) ? replyDomainInstructions.length : 1} DNS records above, then click Verify.` : ''} DNS propagation may take up to 48 hours.
+                </p>
                 {replyDomainError && <p className="text-red-500 text-sm mb-3">{replyDomainError}</p>}
                 <div className="flex justify-end gap-2 pt-2">
                   <button onClick={() => setShowReplyDomainModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Close</button>
+                  {!replyDomainInstructions && (
+                    <button
+                      onClick={() => saveReplyDomain(replyDomainData?.domain)}
+                      disabled={replyDomainLoading}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50"
+                    >{replyDomainLoading ? 'Refreshing...' : 'Refresh'}</button>
+                  )}
                   <button
                     onClick={verifyReplyDomain}
-                    disabled={replyDomainLoading}
+                    disabled={replyDomainLoading || !replyDomainInstructions}
                     className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
                   >{replyDomainLoading ? 'Verifying...' : 'Verify'}</button>
                 </div>
