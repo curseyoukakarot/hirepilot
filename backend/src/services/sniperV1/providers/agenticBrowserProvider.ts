@@ -329,20 +329,32 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
       throw new Error(`Agent failed: ${result.error}`);
     }
 
+    // Merge jobs from all extract batches + final done result
     const jobs: JobListing[] = [];
-    const rawJobs = result.data?.jobs || [];
+    const seen = new Set<string>();
 
-    for (const j of rawJobs) {
-      if (j.job_url) {
-        jobs.push({
-          job_url: j.job_url,
-          title: j.title || null,
-          company: j.company || null,
-          company_url: j.company_url || null,
-          location: j.location || null,
-        });
+    const addJobs = (rawJobs: any[]) => {
+      for (const j of rawJobs) {
+        if (j.job_url && !seen.has(j.job_url)) {
+          seen.add(j.job_url);
+          jobs.push({
+            job_url: j.job_url,
+            title: j.title || null,
+            company: j.company || null,
+            company_url: j.company_url || null,
+            location: j.location || null,
+          });
+        }
       }
+    };
+
+    // 1. Jobs from extract actions (batched extraction)
+    for (const batch of (result.extractedData || [])) {
+      addJobs(batch?.jobs || []);
     }
+
+    // 2. Jobs from final done result
+    addJobs(result.data?.jobs || []);
 
     return jobs.slice(0, limit);
   },
