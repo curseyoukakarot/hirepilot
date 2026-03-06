@@ -570,7 +570,7 @@ export default function SettingsIntegrations() {
     try {
       setReplyDomainLoading(true);
       setReplyDomainError('');
-      const domainToSave = overrideDomain || replyDomainInput;
+      const domainToSave = (typeof overrideDomain === 'string' && overrideDomain) || replyDomainInput;
       const resp = await api('/api/settings/reply-domain', {
         method: 'POST',
         body: JSON.stringify({ domain: domainToSave }),
