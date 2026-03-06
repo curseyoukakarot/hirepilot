@@ -89,10 +89,80 @@ export async function executeAction(page: Page, action: AgentAction): Promise<st
         const direction = action.direction || 'down';
         const amount = Math.min(Math.abs(action.amount || DEFAULT_SCROLL_AMOUNT), 2000);
         const pixels = direction === 'up' ? -amount : amount;
+        const scrollSelector = (action as any).selector as string | undefined;
 
-        await page.evaluate((px) => window.scrollBy(0, px), pixels);
-        await page.waitForTimeout(500);
-        return `Scrolled ${direction} by ${amount}px`;
+        const scrollResult = await page.evaluate(({ px, selector }) => {
+          // Helper: scroll a specific element
+          function scrollElement(el: Element, delta: number): string {
+            const before = el.scrollTop;
+            el.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+            const after = el.scrollTop;
+            const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+            return `Scrolled container (${el.tagName}.${el.className.toString().slice(0, 40)}) by ${after - before}px (scrollTop: ${Math.round(before)} → ${Math.round(after)}, scrollHeight: ${el.scrollHeight}${atBottom ? ', AT_BOTTOM' : ''})`;
+          }
+
+          // 1. If a CSS selector was provided, scroll that element
+          if (selector) {
+            const target = document.querySelector(selector);
+            if (target) {
+              return scrollElement(target, px);
+            }
+            return `SELECTOR_NOT_FOUND:${selector}`;
+          }
+
+          // 2. Auto-detect: look for a visible modal/overlay with scrollable content
+          // LinkedIn modals use these common patterns
+          const modalSelectors = [
+            '.artdeco-modal__content',           // LinkedIn artdeco modal body
+            '.scaffold-finite-scroll__content',   // LinkedIn finite scroll container
+            '[role="dialog"] [class*="scroll"]',  // Generic dialog scroll area
+            '[role="dialog"]',                    // Dialog itself
+            '.artdeco-modal',                     // LinkedIn modal
+            '.social-details-reactors-modal__content', // Reactions modal specifically
+            '.msg-overlay-list-bubble',           // Message overlay
+          ];
+
+          for (const sel of modalSelectors) {
+            const els = document.querySelectorAll(sel);
+            for (const el of els) {
+              const style = window.getComputedStyle(el);
+              const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+              const isScrollable = el.scrollHeight > el.clientHeight + 10;
+              if (isVisible && isScrollable) {
+                return scrollElement(el, px);
+              }
+            }
+          }
+
+          // 3. Broader fallback: find ANY visible element with overflow-y scroll/auto
+          //    that has scrollable content (scrollHeight > clientHeight)
+          const allElements = document.querySelectorAll('*');
+          for (const el of allElements) {
+            const style = window.getComputedStyle(el);
+            const overflowY = style.overflowY;
+            if ((overflowY === 'scroll' || overflowY === 'auto') &&
+                el.scrollHeight > el.clientHeight + 50 &&
+                style.display !== 'none' && style.visibility !== 'hidden') {
+              // Skip the <html> and <body> elements (those are page-level scroll)
+              if (el.tagName === 'HTML' || el.tagName === 'BODY') continue;
+              return scrollElement(el, px);
+            }
+          }
+
+          // 4. Final fallback: scroll the page
+          window.scrollBy(0, px);
+          return `PAGE_SCROLL:${px}`;
+        }, { px: pixels, selector: scrollSelector });
+
+        await page.waitForTimeout(800); // Slightly longer wait for lazy-loaded content
+
+        if (scrollResult.startsWith('SELECTOR_NOT_FOUND:')) {
+          return `Scroll warning: selector "${scrollSelector}" not found, no scroll performed. Try scrolling without a selector.`;
+        }
+        if (scrollResult.startsWith('PAGE_SCROLL:')) {
+          return `Scrolled page ${direction} by ${amount}px (no modal/overlay detected)`;
+        }
+        return `Scrolled ${direction} by ${amount}px — ${scrollResult}`;
       }
 
       case 'wait': {
