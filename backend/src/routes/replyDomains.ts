@@ -149,11 +149,34 @@ async function createSendgridDomainAuth(rootDomain: string): Promise<{
       return { ok: true, id: body.id, dns: body.dns };
     }
 
-    // Handle 409 / "already exists" — find and reuse the existing auth
+    // Handle 409 / "already exists" — delete old auth and retry with correct settings
     const errMsg = String(body?.errors?.[0]?.message || '').toLowerCase();
     if (resp.status === 409 || errMsg.includes('already') || errMsg.includes('exists')) {
       const existing = await findExistingSendgridDomainAuth(rootDomain);
-      if (existing) return { ok: true, id: existing.id, dns: existing.dns };
+      if (existing) {
+        // Delete the old domain auth so we can recreate with correct DKIM selector
+        await deleteSendgridDomainAuth(existing.id).catch(() => {});
+        // Retry creation with the correct settings
+        const retryResp = await fetch('https://api.sendgrid.com/v3/whitelabel/domains', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            domain: rootDomain,
+            subdomain: 'em',
+            automatic_security: true,
+            custom_dkim_selector: 'hp',
+          }),
+        });
+        const retryBody = await retryResp.json().catch(() => ({}));
+        if (retryResp.ok) {
+          return { ok: true, id: retryBody.id, dns: retryBody.dns };
+        }
+        // If retry also fails, return the existing auth as fallback
+        return { ok: true, id: existing.id, dns: existing.dns };
+      }
       return { ok: false, error: 'Domain auth already exists in SendGrid but could not retrieve it' };
     }
 
