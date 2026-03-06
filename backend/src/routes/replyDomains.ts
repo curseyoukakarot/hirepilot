@@ -139,6 +139,7 @@ async function createSendgridDomainAuth(rootDomain: string): Promise<{
         domain: rootDomain,
         subdomain: 'em', // Must NOT be "reply" — avoids CNAME/MX conflict
         automatic_security: true,
+        custom_dkim_selector: 'hp', // Avoids conflict with user's own s1/s2 DKIM records
       }),
     });
 
@@ -288,17 +289,19 @@ router.post('/', requireAuthUnified as any, async (req: Request, res: Response) 
       return res.status(409).json({ error: 'domain_taken', message: 'This domain is already registered by another user.' });
     }
 
-    // Clean up old SendGrid resources if user is changing domains
+    // Clean up old SendGrid resources if user already has a domain configured
     const { data: oldRow } = await supabase
       .from('custom_reply_domains')
       .select('sendgrid_domain_auth_id,domain,sendgrid_registered')
       .eq('user_id', userId)
       .maybeSingle();
-    if (oldRow && (oldRow as any).domain !== domain) {
+    if (oldRow) {
+      // Always clean up old domain auth (may need to recreate with new settings)
       if ((oldRow as any).sendgrid_domain_auth_id) {
         await deleteSendgridDomainAuth((oldRow as any).sendgrid_domain_auth_id).catch(() => {});
       }
-      if ((oldRow as any).sendgrid_registered) {
+      // Only clean up inbound parse if domain is changing
+      if ((oldRow as any).domain !== domain && (oldRow as any).sendgrid_registered) {
         await removeSendgridInboundParse((oldRow as any).domain).catch(() => {});
       }
     }
