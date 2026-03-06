@@ -10,13 +10,22 @@ import { GmailTrackingService } from '../services/gmailTrackingService';
 import { OutlookTrackingService } from '../services/outlookTrackingService';
 import { resolveReplyDomain } from '../utils/generateReplyAddress';
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function normalizeBccList(value?: string | string[] | null): string[] {
   if (!value) return [];
-  const raw = Array.isArray(value) ? value : String(value).split(/[,;\n]/);
+  const raw = Array.isArray(value) ? value : String(value).split(/[,;\s\n]+/);
   const cleaned = raw
     .map(item => item.trim())
-    .filter(Boolean);
+    .filter(addr => addr && isValidEmail(addr));
   return Array.from(new Set(cleaned));
+}
+
+function filterBccAgainstRecipient(bccList: string[], recipientEmail: string): string[] {
+  const to = recipientEmail.toLowerCase();
+  return bccList.filter(addr => addr.toLowerCase() !== to);
 }
 
 // Helper function to generate avatar URL
@@ -133,11 +142,12 @@ async function sendViaSendGrid(lead: any, content: string, userId: string, templ
       replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}.l_${lead.id}@${await resolveReplyDomain(userId)}`
     };
 
-    if (bccList && bccList.length) {
-      msg.bcc = bccList;
+    const safeBcc = filterBccAgainstRecipient(bccList || [], lead.email);
+    if (safeBcc.length) {
+      msg.bcc = safeBcc;
     }
 
-    console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}`);
+    console.log(`[sendViaSendGrid] Sending email to ${lead.email} from ${data.default_sender} with subject: ${subject}${safeBcc.length ? ` (bcc: ${safeBcc.join(', ')})` : ''}`);
     const [response] = await sgMail.send(msg);
     
     // Store the message in our database with UI-friendly fields
@@ -245,7 +255,8 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
     const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
     if (!looksLikeHtml(body)) body = body.replace(/\n/g, '<br/>');
 
-    console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}`);
+    const safeBcc = filterBccAgainstRecipient(bccList || [], lead.email);
+    console.log(`[sendViaGoogle] Sending email to ${lead.email} with subject: ${subject}${safeBcc.length ? ` (bcc: ${safeBcc.join(', ')})` : ''}`);
 
     // Send via Gmail with reply token/meta
     const meta = await GmailTrackingService.sendEmailWithReplyMeta(
@@ -255,7 +266,7 @@ async function sendViaGoogle(lead: any, content: string, userId: string, templat
       body,
       lead.campaign_id,
       lead.id,
-      bccList
+      safeBcc.length ? safeBcc : undefined
     );
 
     // Store the message in our database with UI-friendly fields
@@ -379,7 +390,8 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
     const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
     if (!looksLikeHtml(body)) body = body.replace(/\n/g, '<br/>');
 
-    console.log(`[sendViaOutlook] Sending email to ${lead.email} with subject: ${subject}`);
+    const safeBcc = filterBccAgainstRecipient(bccList || [], lead.email);
+    console.log(`[sendViaOutlook] Sending email to ${lead.email} with subject: ${subject}${safeBcc.length ? ` (bcc: ${safeBcc.join(', ')})` : ''}`);
     
     // Use OutlookTrackingService for proper tracking with campaign attribution
     const messageId = await OutlookTrackingService.sendEmail(
@@ -387,9 +399,9 @@ async function sendViaOutlook(lead: any, content: string, userId: string, templa
       lead.email,
       subject,
       body,
-      lead.campaign_id, // Fix: Pass campaign_id instead of undefined
-      lead.id,    // leadId
-      bccList
+      lead.campaign_id,
+      lead.id,
+      safeBcc.length ? safeBcc : undefined
     );
 
     // Store the message in our database with UI-friendly fields

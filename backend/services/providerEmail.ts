@@ -14,7 +14,8 @@ export async function sendViaProvider(
   options?: { bcc?: string[] }
 ): Promise<boolean> {
   try {
-    const bccList = options?.bcc?.filter(addr => !!addr?.trim());
+    const rawBcc = options?.bcc?.filter(addr => !!addr?.trim());
+    const bccList = rawBcc?.filter(addr => addr.toLowerCase() !== (lead.email || '').toLowerCase());
 
     if (provider === 'sendgrid') {
       // Get user's SendGrid API key and default sender

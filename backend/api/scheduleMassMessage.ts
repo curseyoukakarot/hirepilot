@@ -4,8 +4,9 @@ import { createZapEvent, EVENT_TYPES } from '../src/lib/events';
 
 function normalizeBccString(value?: string | string[] | null): string | null {
   if (!value) return null;
-  const raw = Array.isArray(value) ? value : String(value).split(/[,;\n]/);
-  const deduped = Array.from(new Set(raw.map(v => v.trim()).filter(Boolean)));
+  const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  const raw = Array.isArray(value) ? value : String(value).split(/[,;\s\n]+/);
+  const deduped = Array.from(new Set(raw.map(v => v.trim()).filter(v => v && isEmail(v))));
   return deduped.length ? deduped.join(',') : null;
 }
 

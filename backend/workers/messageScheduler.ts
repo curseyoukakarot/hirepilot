@@ -126,12 +126,12 @@ export class MessageScheduler {
       const personalizedBody = personalizeMessage(rawBody, lead as any);
       const htmlBody = looksLikeHtml(personalizedBody) ? personalizedBody : personalizedBody.replace(/\n/g, '<br/>');
       const bccList = (message.bcc || '')
-        .split(/[,;\n]/)
+        .split(/[,;\s\n]+/)
         .map(addr => addr.trim())
-        .filter(Boolean);
+        .filter(addr => addr && addr.toLowerCase() !== (lead.email || '').toLowerCase());
       const ok = await sendViaProvider(
         (message.channel as any),
-        { ...lead }, // expects lead-like object with id, email, campaign_id
+        { ...lead },
         htmlBody,
         message.user_id,
         subject,
