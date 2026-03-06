@@ -45,26 +45,52 @@ Maximum profiles to extract: ${limit}
 1. Navigate to the post URL
 2. The post page should load showing the post content and reactions
 3. Click on the reactions count (e.g., "123 reactions") to open the reactions modal/list
-4. Scroll through the reactions list to load more profiles
-5. Extract profile URLs, names, and headlines from the visible profiles
-6. If you see a "Comments" section, also extract commenters' profile information
-7. Continue scrolling and extracting until you reach ${limit} profiles or run out
+4. Wait for the reactions list/modal to load
+5. Extract the currently visible profiles using an "extract" action (batch of 5-10 at a time)
+6. Scroll DOWN inside the reactions modal to load more profiles
+7. Extract the next batch of visible profiles with another "extract" action
+8. Repeat steps 6-7 until you have ${limit} profiles or no new profiles appear
+9. If you see a "Comments" section below the post, scroll to it and extract commenters too
+10. When finished, use "done" with any remaining profiles
 
-## Expected done result
-When finished, respond with:
+## CRITICAL: Use batched extraction
+Do NOT try to return all profiles in a single response. Instead:
+- Use "extract" actions to save profiles in small batches (5-10 per batch)
+- After each extract, scroll to load more and extract the next batch
+- Each extract should contain ONLY NEW profiles you haven't extracted yet
+- The system accumulates all your extract batches automatically
+
+## Extract action format (use this repeatedly):
 {
-  "reasoning": "Extracted N profiles from reactions and comments",
+  "reasoning": "Extracting batch of N visible profiles from reactions list",
   "action": {
-    "type": "done",
-    "result": {
+    "type": "extract",
+    "data": {
       "profiles": [
-        { "profile_url": "https://www.linkedin.com/in/...", "name": "Full Name", "headline": "Their headline" }
+        { "profile_url": "https://www.linkedin.com/in/username", "name": "Full Name", "headline": "Their headline" }
       ]
     }
   }
 }
 
-If you need to extract data from what you see on the page, use the "extract" action with the data.`;
+## Scrolling inside modals
+The reactions list is inside a modal/overlay. To scroll it, try:
+- Scroll down (the page scroll should move the modal content)
+- Wait briefly for new profiles to load after scrolling
+- If scrolling doesn't load new profiles after 2 attempts, you've reached the end
+
+## Done action (when finished):
+{
+  "reasoning": "Finished extracting. Collected N total profiles across M batches.",
+  "action": {
+    "type": "done",
+    "result": {
+      "profiles": []
+    }
+  }
+}
+
+Note: Put any final remaining profiles in the done result, or use an empty array if you already extracted everything via extract actions.`;
 }
 
 export function getProspectPeopleSearchPrompt(searchUrl: string, limit: number): string {

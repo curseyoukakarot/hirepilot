@@ -241,19 +241,30 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
       throw new Error(`Agent failed: ${result.error}`);
     }
 
-    // Parse profiles from agent result
+    // Merge profiles from all extract batches + final done result
     const profiles: ProspectProfile[] = [];
-    const rawProfiles = result.data?.profiles || [];
+    const seen = new Set<string>();
 
-    for (const p of rawProfiles) {
-      if (p.profile_url && p.profile_url.includes('linkedin.com/in/')) {
-        profiles.push({
-          profile_url: p.profile_url,
-          name: p.name || null,
-          headline: p.headline || null,
-        });
+    const addProfiles = (rawProfiles: any[]) => {
+      for (const p of rawProfiles) {
+        if (p.profile_url && p.profile_url.includes('linkedin.com/in/') && !seen.has(p.profile_url)) {
+          seen.add(p.profile_url);
+          profiles.push({
+            profile_url: p.profile_url,
+            name: p.name || null,
+            headline: p.headline || null,
+          });
+        }
       }
+    };
+
+    // 1. Profiles from extract actions (batched extraction)
+    for (const batch of (result.extractedData || [])) {
+      addProfiles(batch?.profiles || []);
     }
+
+    // 2. Profiles from final done result
+    addProfiles(result.data?.profiles || []);
 
     return profiles.slice(0, limit);
   },
@@ -279,18 +290,21 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
       throw new Error(`Agent failed: ${result.error}`);
     }
 
+    // Merge profiles from extract batches + final done result
     const profiles: ProspectProfile[] = [];
-    const rawProfiles = result.data?.profiles || [];
+    const seen = new Set<string>();
 
-    for (const p of rawProfiles) {
-      if (p.profile_url && p.profile_url.includes('linkedin.com/in/')) {
-        profiles.push({
-          profile_url: p.profile_url,
-          name: p.name || null,
-          headline: p.headline || null,
-        });
+    const addProfiles = (rawProfiles: any[]) => {
+      for (const p of rawProfiles) {
+        if (p.profile_url && p.profile_url.includes('linkedin.com/in/') && !seen.has(p.profile_url)) {
+          seen.add(p.profile_url);
+          profiles.push({ profile_url: p.profile_url, name: p.name || null, headline: p.headline || null });
+        }
       }
-    }
+    };
+
+    for (const batch of (result.extractedData || [])) addProfiles(batch?.profiles || []);
+    addProfiles(result.data?.profiles || []);
 
     return profiles.slice(0, limit);
   },

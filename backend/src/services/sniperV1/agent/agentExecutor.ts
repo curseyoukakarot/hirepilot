@@ -35,6 +35,7 @@ export type AgentResult = {
   totalTokensUsed: number;
   durationMs: number;
   error?: string;
+  extractedData: any[];  // Accumulated data from extract actions
 };
 
 // ---------------------------------------------------------------------------
@@ -139,6 +140,7 @@ export async function executeAgentTask(
   const timeoutMs = task.timeoutMs || DEFAULT_TIMEOUT_MS;
 
   const steps: AgentStep[] = [];
+  const extractedData: any[] = [];
   let totalTokensUsed = 0;
 
   for (let stepNum = 1; stepNum <= maxSteps; stepNum++) {
@@ -148,6 +150,7 @@ export async function executeAgentTask(
         success: false,
         data: null,
         steps,
+        extractedData,
         totalTokensUsed,
         durationMs: Date.now() - startTime,
         error: `Agent timed out after ${timeoutMs}ms (${stepNum - 1} steps completed)`,
@@ -163,6 +166,7 @@ export async function executeAgentTask(
         success: false,
         data: null,
         steps,
+        extractedData,
         totalTokensUsed,
         durationMs: Date.now() - startTime,
         error: `Failed to capture observation at step ${stepNum}: ${e.message}`,
@@ -224,6 +228,7 @@ export async function executeAgentTask(
         success: true,
         data: action.result,
         steps,
+        extractedData,
         totalTokensUsed,
         durationMs: Date.now() - startTime,
       };
@@ -249,10 +254,16 @@ export async function executeAgentTask(
         success: false,
         data: null,
         steps,
+        extractedData,
         totalTokensUsed,
         durationMs: Date.now() - startTime,
         error: action.message,
       };
+    }
+
+    // 3b. Accumulate extract data
+    if (action.type === 'extract' && action.data) {
+      extractedData.push(action.data);
     }
 
     // 4. Execute the action
@@ -274,13 +285,16 @@ export async function executeAgentTask(
     });
   }
 
-  // Max steps exceeded
+  // Max steps exceeded — but still return partial extracted data
   return {
-    success: false,
-    data: null,
+    success: extractedData.length > 0,
+    data: extractedData.length > 0 ? { profiles: [] } : null,
     steps,
+    extractedData,
     totalTokensUsed,
     durationMs: Date.now() - startTime,
-    error: `Agent exceeded max steps (${maxSteps}) without completing the task`,
+    error: extractedData.length > 0
+      ? undefined
+      : `Agent exceeded max steps (${maxSteps}) without completing the task`,
   };
 }
