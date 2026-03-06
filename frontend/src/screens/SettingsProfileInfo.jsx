@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { apiGet, apiPatch } from '../lib/api';
+import { apiGet, apiPatch, apiPost } from '../lib/api';
 import AdvancedInfoCard from '../components/settings/AdvancedInfoCard';
 import ThemeToggle from '../components/settings/ThemeToggle';
 
@@ -141,31 +141,29 @@ export default function SettingsProfileInfo() {
     e.preventDefault();
     setModalLoading(true);
     setEmailError('');
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setEmailError('User not found.');
       setModalLoading(false);
       return;
     }
-    // Re-authenticate user (Supabase does not require re-auth for email change, but we can check password by signIn)
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
     if (signInError) {
       setEmailError('Incorrect password.');
       setModalLoading(false);
       return;
     }
-    // Update email
-    const { error: updateError } = await supabase.auth.updateUser({ email: newEmail });
-    if (updateError) {
-      setEmailError(updateError.message || 'Failed to update email.');
+    try {
+      await apiPost('/api/user/change-email', { userId: user.id, newEmail });
+    } catch (err) {
+      setEmailError(err.message || 'Failed to update email.');
       setModalLoading(false);
       return;
     }
-    await supabase.from('users').update({ email: newEmail }).eq('id', user.id);
     setFormData(prev => ({ ...prev, email: newEmail }));
     setShowEmailModal(false);
     setModalLoading(false);
-    alert('Email updated! Please check your inbox to confirm the new email.');
+    alert('Email updated successfully!');
   };
 
   const handlePasswordChange = async (e) => {
