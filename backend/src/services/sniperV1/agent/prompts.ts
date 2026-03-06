@@ -73,11 +73,30 @@ Do NOT try to return all profiles in a single response. Instead:
   }
 }
 
-## Scrolling inside modals
-The reactions list is inside a modal/overlay. To scroll it, try:
-- Scroll down (the page scroll should move the modal content)
-- Wait briefly for new profiles to load after scrolling
-- If scrolling doesn't load new profiles after 2 attempts, you've reached the end
+## IMPORTANT: Scrolling inside modals
+The reactions list is inside a modal/overlay with its own scroll container.
+Regular page scrolling will NOT work — you must scroll the modal container itself.
+
+To scroll the reactions modal, use scroll with a selector:
+{
+  "reasoning": "Scrolling the reactions modal to load more profiles",
+  "action": {
+    "type": "scroll",
+    "direction": "down",
+    "amount": 600,
+    "selector": ".artdeco-modal__content"
+  }
+}
+
+If that selector doesn't work, try these alternatives:
+- ".social-details-reactors-modal__content"
+- "[role=\"dialog\"]"
+- Or just omit the selector — the system will auto-detect the scrollable modal
+
+After each scroll:
+- Wait 1-2 seconds for new profiles to load (use a "wait" action with ms: 1500)
+- Then extract the newly visible profiles
+- If scrolling doesn't reveal new profiles after 2-3 attempts, you've reached the end
 
 ## Done action (when finished):
 {

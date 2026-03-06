@@ -18,7 +18,7 @@ export type AgentAction =
   | { type: 'navigate'; url: string }
   | { type: 'click'; selector: string; description?: string }
   | { type: 'fill'; selector: string; value: string }
-  | { type: 'scroll'; direction: 'up' | 'down'; amount?: number }
+  | { type: 'scroll'; direction: 'up' | 'down'; amount?: number; selector?: string }
   | { type: 'wait'; ms: number }
   | { type: 'extract'; data: any }
   | { type: 'done'; result: any }
@@ -75,7 +75,7 @@ export const ACTION_JSON_SCHEMA = `{
     // For navigate: "url": "string"
     // For click: "selector": "string", "description": "string" (optional)
     // For fill: "selector": "string", "value": "string"
-    // For scroll: "direction": "up" | "down", "amount": number (pixels, optional, default 600)
+    // For scroll: "direction": "up" | "down", "amount": number (pixels, optional, default 600), "selector": "string" (optional — CSS selector of a scrollable container, e.g. a modal. If omitted, scrolls the page or auto-detects a visible modal.)
     // For wait: "ms": number (max 5000)
     // For extract: "data": any (extracted data from the page)
     // For done: "result": any (final result of the task)

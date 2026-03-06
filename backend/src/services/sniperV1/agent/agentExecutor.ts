@@ -197,6 +197,7 @@ export async function executeAgentTask(
           success: false,
           data: null,
           steps,
+          extractedData,
           totalTokensUsed,
           durationMs: Date.now() - startTime,
           error: `LLM error at step ${stepNum}: ${e.message}`,

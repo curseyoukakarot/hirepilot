@@ -229,8 +229,8 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     const result = await runWithSession(userId, workspaceId, async (page) => {
       return executeAgentTask(page, {
         instruction,
-        maxSteps: Math.min(DEFAULT_MAX_STEPS * 2, 40), // Extraction tasks may need more steps
-        timeoutMs: DEFAULT_TIMEOUT_MS * 2,
+        maxSteps: Math.min(DEFAULT_MAX_STEPS * 3, 60), // Post engagers need many scroll+extract cycles
+        timeoutMs: DEFAULT_TIMEOUT_MS * 3, // 6 min timeout for large reaction lists
       }, llm);
     }, { navigateTo: postUrl });
 
