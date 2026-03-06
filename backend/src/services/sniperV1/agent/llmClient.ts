@@ -113,7 +113,7 @@ class OpenAIAgentClient implements AgentLLMClient {
       model: this.model,
       messages: openaiMessages,
       response_format: { type: 'json_object' },
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.1,
     });
 
@@ -180,7 +180,7 @@ class AnthropicAgentClient implements AgentLLMClient {
 
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 1024,
+      max_tokens: 4096,
       system: systemPrompt || undefined,
       messages: conversationMessages,
       temperature: 0.1,
@@ -229,7 +229,7 @@ class XAIAgentClient implements AgentLLMClient {
       model: this.model,
       messages: openaiMessages,
       response_format: { type: 'json_object' },
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.1,
     });
 
