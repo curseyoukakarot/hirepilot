@@ -10,6 +10,16 @@ type AccountRow = {
   type: 'operating' | 'savings' | 'credit';
 };
 
+type AccountSummary = {
+  id: string;
+  name: string;
+  type: 'operating' | 'savings' | 'credit';
+  current_balance_cents: number;
+  starting_balance_cents: number;
+  last_synced_at: string | null;
+  sync_source: string;
+};
+
 type AllocationRow = {
   id: string;
   event_name: string;
@@ -82,6 +92,7 @@ export default function LedgerPage() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
   const [rows, setRows] = useState<LedgerRow[]>([]);
+  const [accountsSummary, setAccountsSummary] = useState<AccountSummary[]>([]);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [rowActionMenuId, setRowActionMenuId] = useState<string | null>(null);
@@ -150,6 +161,9 @@ export default function LedgerPage() {
     const query = params.toString();
     const response = await apiGet(`/api/ignite/backoffice/ledger${query ? `?${query}` : ''}`);
     setRows(((response as any)?.ledger || []) as LedgerRow[]);
+    if ((response as any)?.accounts_summary) {
+      setAccountsSummary((response as any).accounts_summary as AccountSummary[]);
+    }
   };
 
   const loadAll = async () => {
@@ -450,11 +464,53 @@ export default function LedgerPage() {
               <Link to="/ignite/backoffice/imports" className="text-slate-400 hover:text-white transition-colors text-sm">
                 Import
               </Link>
-              <div className="text-xs text-slate-500">Last synced: 2 min ago</div>
+              <div className="text-xs text-slate-500">
+                {accountsSummary.length > 0 && accountsSummary[0]?.last_synced_at
+                  ? `Last synced: ${new Date(accountsSummary[0].last_synced_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                  : 'Last synced: --'}
+              </div>
             </div>
           </div>
           {error ? <p className="text-xs text-red-400 mt-3">{error}</p> : null}
         </div>
+
+        {accountsSummary.length > 0 && (
+          <div id="balance-summary" className="mx-8 mt-6 grid grid-cols-3 gap-4">
+            {(['operating', 'savings', 'credit'] as const).map((acctType) => {
+              const acct = accountsSummary.find((a) => a.type === acctType);
+              if (!acct) return null;
+              const balance = (acct.current_balance_cents || 0) / 100;
+              const displayBalance = acctType === 'credit' ? -Math.abs(balance) : balance;
+              const iconMap = { operating: 'fa-building-columns', savings: 'fa-piggy-bank', credit: 'fa-credit-card' };
+              const colorMap = { operating: 'blue', savings: 'green', credit: 'orange' };
+              const color = colorMap[acctType];
+              return (
+                <div
+                  key={acctType}
+                  className={`glass-card rounded-xl p-4 border border-slate-700/50 hover:border-${color}-500/30 transition-all`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 bg-${color}-500/10 rounded-lg flex items-center justify-center`}>
+                        <i className={`fa-solid ${iconMap[acctType]} text-${color}-400 text-sm`} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">{acct.name}</p>
+                        <p className={`text-lg font-bold ${displayBalance < 0 ? 'text-red-400' : 'text-white'}`}>
+                          {formatMoney(acct.current_balance_cents)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      <span className="text-[10px] text-slate-500">Synced</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div id="filters-bar" className="glass-card mx-8 mt-6 rounded-xl p-4 sticky top-0 z-10">
           <div className="grid grid-cols-8 gap-4 items-center">

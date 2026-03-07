@@ -263,8 +263,8 @@ async function fetchLedgerRows(filters: {
   return rows;
 }
 
-function withRunningBalance(rows: LedgerRow[]) {
-  let running = 0;
+function withRunningBalance(rows: LedgerRow[], startingBalanceCents = 0) {
+  let running = startingBalanceCents;
   return rows.map((row) => {
     running += toNumber(row.net_cents, 0);
     return {
@@ -272,6 +272,45 @@ function withRunningBalance(rows: LedgerRow[]) {
       running_balance_cents: running,
     };
   });
+}
+
+async function syncAccountBalance(accountId: string): Promise<void> {
+  const { data: account, error: acctErr } = await supabase
+    .from('ignite_accounts')
+    .select('starting_balance_cents')
+    .eq('id', accountId)
+    .maybeSingle();
+  if (acctErr || !account) return;
+
+  const { data: txRows, error: txErr } = await supabase
+    .from('ignite_ledger_transactions')
+    .select('net_cents')
+    .eq('account_id', accountId)
+    .eq('status', 'paid');
+
+  const paidSum = txErr ? 0 : (txRows || []).reduce((sum: number, r: any) => sum + toNumber(r.net_cents, 0), 0);
+  const startingBalance = toNumber((account as any).starting_balance_cents, 0);
+
+  await supabase
+    .from('ignite_accounts')
+    .update({
+      current_balance_cents: startingBalance + paidSum,
+      last_synced_at: new Date().toISOString(),
+    } as any)
+    .eq('id', accountId);
+}
+
+async function getStartingBalancesForAccounts(accountIds: string[]): Promise<Map<string, number>> {
+  if (!accountIds.length) return new Map();
+  const { data } = await supabase
+    .from('ignite_accounts')
+    .select('id,starting_balance_cents')
+    .in('id', accountIds);
+  const map = new Map<string, number>();
+  for (const row of (data || []) as any[]) {
+    map.set(row.id, toNumber(row.starting_balance_cents, 0));
+  }
+  return map;
 }
 
 router.post('/webhooks/zapier/quickbooks/balances', async (req: Request, res: Response) => {
@@ -359,7 +398,10 @@ router.get('/dashboard', async (_req: ApiRequest, res: Response) => {
     const netCashCents = operatingBalance + savingsBalance - creditBalance;
     const operatingAvailableCents = operatingBalance - totalHeldCents;
 
-    let running = 0;
+    const totalStartingBalance = accounts.reduce(
+      (sum: number, row: any) => sum + toNumber(row.starting_balance_cents, 0), 0
+    );
+    let running = totalStartingBalance;
     const timelineMap = new Map<string, number>();
     for (const row of ledgerRows) {
       running += toNumber((row as any).net_cents, 0);
@@ -419,16 +461,40 @@ router.get('/dashboard', async (_req: ApiRequest, res: Response) => {
 
 router.get('/ledger', async (req: ApiRequest, res: Response) => {
   try {
+    const filterAccountId = req.query.account_id ? String(req.query.account_id) : undefined;
     const rows = await fetchLedgerRows({
       dateFrom: req.query.date_from ? String(req.query.date_from) : undefined,
       dateTo: req.query.date_to ? String(req.query.date_to) : undefined,
       status: req.query.status ? String(req.query.status) : undefined,
-      accountId: req.query.account_id ? String(req.query.account_id) : undefined,
+      accountId: filterAccountId,
       type: req.query.type ? String(req.query.type) : undefined,
       search: req.query.search ? String(req.query.search) : undefined,
       eventTag: req.query.event_tag ? String(req.query.event_tag) : undefined,
     });
-    return res.json({ ledger: withRunningBalance(rows) });
+
+    const accountIds = filterAccountId && filterAccountId !== 'all'
+      ? [filterAccountId]
+      : [...new Set(rows.map((r) => r.account_id))];
+    const startingBalances = await getStartingBalancesForAccounts(accountIds);
+    const totalStarting = Array.from(startingBalances.values()).reduce((sum, v) => sum + v, 0);
+
+    const { data: accountRows } = await supabase
+      .from('ignite_accounts')
+      .select('id,name,type,current_balance_cents,starting_balance_cents,last_synced_at,sync_source,notes')
+      .order('type', { ascending: true });
+
+    return res.json({
+      ledger: withRunningBalance(rows, totalStarting),
+      accounts_summary: (accountRows || []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        current_balance_cents: toNumber(a.current_balance_cents, 0),
+        starting_balance_cents: toNumber(a.starting_balance_cents, 0),
+        last_synced_at: a.last_synced_at,
+        sync_source: a.sync_source,
+      })),
+    });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_list_ledger' });
   }
@@ -456,6 +522,9 @@ router.post('/ledger', async (req: ApiRequest, res: Response) => {
 
     const { data, error } = await supabase.from('ignite_ledger_transactions').insert(payload as any).select('*').maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
+    if (payload.status === 'paid' && payload.account_id) {
+      await syncAccountBalance(payload.account_id);
+    }
     return res.status(201).json({ transaction: data });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_create_ledger_transaction' });
@@ -464,6 +533,15 @@ router.post('/ledger', async (req: ApiRequest, res: Response) => {
 
 router.patch('/ledger/:id', async (req: ApiRequest, res: Response) => {
   try {
+    const txId = String(req.params.id);
+    const { data: oldRow } = await supabase
+      .from('ignite_ledger_transactions')
+      .select('account_id,status')
+      .eq('id', txId)
+      .maybeSingle();
+    const oldAccountId = (oldRow as any)?.account_id as string | undefined;
+    const oldStatus = (oldRow as any)?.status as string | undefined;
+
     const body = req.body || {};
     const patch: Record<string, any> = {};
     const allowed = [
@@ -491,11 +569,24 @@ router.patch('/ledger/:id', async (req: ApiRequest, res: Response) => {
     const { data, error } = await supabase
       .from('ignite_ledger_transactions')
       .update(patch as any)
-      .eq('id', String(req.params.id))
+      .eq('id', txId)
       .select('*')
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: 'transaction_not_found' });
+
+    const newAccountId = (data as any)?.account_id as string | undefined;
+    const newStatus = (data as any)?.status as string | undefined;
+    const balanceRelevant =
+      oldStatus === 'paid' || newStatus === 'paid' ||
+      patch.inbound_cents !== undefined || patch.outbound_cents !== undefined;
+    if (balanceRelevant) {
+      const accountsToSync = new Set<string>();
+      if (oldAccountId) accountsToSync.add(oldAccountId);
+      if (newAccountId) accountsToSync.add(newAccountId);
+      await Promise.all(Array.from(accountsToSync).map(syncAccountBalance));
+    }
+
     return res.json({ transaction: data });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_update_ledger_transaction' });
@@ -505,8 +596,20 @@ router.patch('/ledger/:id', async (req: ApiRequest, res: Response) => {
 router.delete('/ledger/:id', async (req: ApiRequest, res: Response) => {
   try {
     const id = String(req.params.id || '');
+    const { data: oldRow } = await supabase
+      .from('ignite_ledger_transactions')
+      .select('account_id,status')
+      .eq('id', id)
+      .maybeSingle();
+    const oldAccountId = (oldRow as any)?.account_id as string | undefined;
+    const wasPaid = (oldRow as any)?.status === 'paid';
+
     const { error } = await supabase.from('ignite_ledger_transactions').delete().eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
+
+    if (wasPaid && oldAccountId) {
+      await syncAccountBalance(oldAccountId);
+    }
     return res.json({ ok: true });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_delete_ledger_transaction' });
@@ -554,6 +657,9 @@ router.post('/ledger/transfer', async (req: ApiRequest, res: Response) => {
 
     const { data, error } = await supabase.from('ignite_ledger_transactions').insert(rows as any).select('*');
     if (error) return res.status(500).json({ error: error.message });
+
+    await Promise.all([syncAccountBalance(fromAccountId), syncAccountBalance(toAccountId)]);
+
     return res.status(201).json({ transfer_group_id: transferGroupId, transactions: data || [] });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_create_transfer' });
@@ -782,6 +888,7 @@ router.patch('/settings', async (req: ApiRequest, res: Response) => {
 
 router.patch('/accounts/:id', async (req: ApiRequest, res: Response) => {
   try {
+    const accountId = String(req.params.id);
     const body = req.body || {};
     const patch: Record<string, any> = {
       sync_source: 'manual',
@@ -794,16 +901,25 @@ router.patch('/accounts/:id', async (req: ApiRequest, res: Response) => {
       patch.last_synced_at = body.last_synced_at ? new Date(String(body.last_synced_at)).toISOString() : new Date().toISOString();
     }
     if (Object.prototype.hasOwnProperty.call(body, 'current_balance_cents')) {
-      patch.current_balance_cents = toNumber(body.current_balance_cents, 0);
+      const desiredBalance = toNumber(body.current_balance_cents, 0);
+      patch.current_balance_cents = desiredBalance;
       if (!Object.prototype.hasOwnProperty.call(body, 'last_synced_at')) {
         patch.last_synced_at = new Date().toISOString();
       }
+
+      const { data: txRows, error: txErr } = await supabase
+        .from('ignite_ledger_transactions')
+        .select('net_cents')
+        .eq('account_id', accountId)
+        .eq('status', 'paid');
+      const paidSum = txErr ? 0 : (txRows || []).reduce((sum: number, r: any) => sum + toNumber(r.net_cents, 0), 0);
+      patch.starting_balance_cents = desiredBalance - paidSum;
     }
 
     const { data, error } = await supabase
       .from('ignite_accounts')
       .update(patch as any)
-      .eq('id', String(req.params.id))
+      .eq('id', accountId)
       .select('*')
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
@@ -822,15 +938,20 @@ router.post('/accounts/sync', async (req: ApiRequest, res: Response) => {
       name: String(entry?.name || normalizeRole(entry?.type) || 'Account'),
       type: normalizeRole(entry?.type || 'operating'),
       current_balance_cents: toNumber(entry?.current_balance_cents, 0),
+      starting_balance_cents: toNumber(entry?.current_balance_cents, 0),
       currency: String(entry?.currency || 'USD').toUpperCase(),
       last_synced_at: entry?.last_synced_at ? new Date(String(entry.last_synced_at)).toISOString() : new Date().toISOString(),
       sync_source: normalizeRole(entry?.sync_source || 'zapier'),
       notes: entry?.notes ? String(entry.notes) : null,
     }));
-    const { error } = await supabase.from('ignite_accounts').upsert(upserts as any, {
+    const { data: upserted, error } = await supabase.from('ignite_accounts').upsert(upserts as any, {
       onConflict: 'type,name',
-    } as any);
+    } as any).select('id');
     if (error) return res.status(500).json({ error: error.message });
+
+    const syncedIds = (upserted || []).map((r: any) => String(r.id));
+    await Promise.all(syncedIds.map(syncAccountBalance));
+
     return res.json({ ok: true, synced_accounts: upserts.length });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_sync_accounts' });
@@ -1011,6 +1132,13 @@ router.post('/imports/:batchId/commit', async (req: ApiRequest, res: Response) =
       } as any)
       .eq('id', batchId);
 
+    const affectedAccountIds = new Set(
+      rowsToInsert
+        .filter((r: any) => r.status === 'paid' && r.account_id)
+        .map((r: any) => r.account_id as string)
+    );
+    await Promise.all(Array.from(affectedAccountIds).map(syncAccountBalance));
+
     return res.json({ ok: true, imported: inserted?.length || 0 });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_commit_import_batch' });
@@ -1030,7 +1158,16 @@ router.post('/imports/:batchId/rollback', async (_req: ApiRequest, res: Response
       .filter((value: any) => !!value)
       .map((value: any) => String(value));
 
+    let affectedAccountIds = new Set<string>();
     if (txIds.length) {
+      const { data: txRows } = await supabase
+        .from('ignite_ledger_transactions')
+        .select('account_id,status')
+        .in('id', txIds);
+      for (const tx of (txRows || []) as any[]) {
+        if (tx.status === 'paid' && tx.account_id) affectedAccountIds.add(tx.account_id);
+      }
+
       const { error: deleteError } = await supabase.from('ignite_ledger_transactions').delete().in('id', txIds);
       if (deleteError) return res.status(500).json({ error: deleteError.message });
     }
@@ -1043,6 +1180,8 @@ router.post('/imports/:batchId/rollback', async (_req: ApiRequest, res: Response
       } as any)
       .eq('id', batchId);
     if (batchError) return res.status(500).json({ error: batchError.message });
+
+    await Promise.all(Array.from(affectedAccountIds).map(syncAccountBalance));
 
     return res.json({ ok: true, rolled_back_transactions: txIds.length });
   } catch (e: any) {

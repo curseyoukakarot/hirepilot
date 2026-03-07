@@ -7,6 +7,8 @@ type AccountState = {
   id: string | null;
   name: string;
   balance: number;
+  startingBalance: number;
+  ledgerActivity: number;
   notes: string;
   lastUpdated: string;
   source: string;
@@ -27,6 +29,8 @@ const initialAccounts: Record<AccountKey, AccountState> = {
     id: null,
     name: 'Operating Account',
     balance: 0,
+    startingBalance: 0,
+    ledgerActivity: 0,
     notes: '',
     lastUpdated: '-',
     source: 'Manual',
@@ -35,6 +39,8 @@ const initialAccounts: Record<AccountKey, AccountState> = {
     id: null,
     name: 'Savings Account',
     balance: 0,
+    startingBalance: 0,
+    ledgerActivity: 0,
     notes: '',
     lastUpdated: '-',
     source: 'Manual',
@@ -43,6 +49,8 @@ const initialAccounts: Record<AccountKey, AccountState> = {
     id: null,
     name: 'Credit Card Float',
     balance: 0,
+    startingBalance: 0,
+    ledgerActivity: 0,
     notes: '',
     lastUpdated: '-',
     source: 'Manual',
@@ -131,6 +139,7 @@ export default function AccountsPage() {
         name: string;
         type: AccountKey;
         current_balance_cents: number;
+        starting_balance_cents?: number;
         sync_source?: string;
         last_synced_at?: string | null;
         notes?: string | null;
@@ -140,11 +149,16 @@ export default function AccountsPage() {
       for (const row of list) {
         const key = row.type as AccountKey;
         if (!next[key]) continue;
+        const currentCents = Number(row.current_balance_cents || 0);
+        const startingCents = Number(row.starting_balance_cents || 0);
+        const activityCents = currentCents - startingCents;
         next[key] = {
           ...next[key],
           id: row.id,
           name: row.name || next[key].name,
-          balance: storedCentsToBalance(key, Number(row.current_balance_cents || 0)),
+          balance: storedCentsToBalance(key, currentCents),
+          startingBalance: storedCentsToBalance(key, startingCents),
+          ledgerActivity: activityCents / 100,
           notes: row.notes ? String(row.notes) : next[key].notes,
           source: syncSourceLabel(row.sync_source),
           lastUpdated: row.last_synced_at ? formatDateTime(row.last_synced_at) : next[key].lastUpdated,
@@ -313,88 +327,69 @@ export default function AccountsPage() {
           <main id="main-content" className="px-8 py-6">
             <section id="account-cards-section" className="mb-8">
               <div className="grid grid-cols-3 gap-6">
-                <div
-                  id="operating-account-card"
-                  className="bg-gray-900 rounded-xl border border-gray-800 p-6 hover:shadow-xl hover:shadow-blue-500/10 transition-all hover:border-gray-700"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mr-3">
-                        <i className="fa-solid fa-building-columns text-blue-400 text-lg" />
+                {(
+                  [
+                    { key: 'operating' as AccountKey, icon: 'fa-building-columns', color: 'blue' },
+                    { key: 'savings' as AccountKey, icon: 'fa-piggy-bank', color: 'green' },
+                    { key: 'credit' as AccountKey, icon: 'fa-credit-card', color: 'orange' },
+                  ] as const
+                ).map(({ key, icon, color }) => {
+                  const acct = accounts[key];
+                  const hasLedgerActivity = acct.ledgerActivity !== 0;
+                  return (
+                    <div
+                      key={key}
+                      className={`bg-gray-900 rounded-xl border border-gray-800 p-6 hover:shadow-xl hover:shadow-${color}-500/10 transition-all hover:border-gray-700`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center">
+                          <div className={`w-12 h-12 bg-${color}-500/10 rounded-lg flex items-center justify-center mr-3`}>
+                            <i className={`fa-solid ${icon} text-${color}-400 text-lg`} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-white">{acct.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-gray-500">{acct.source}</p>
+                              {hasLedgerActivity && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-full">
+                                  <i className="fa-solid fa-link text-[8px]" />
+                                  Ledger-synced
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => openEditModal(key)} className="text-gray-500 hover:text-gray-300">
+                          <i className="fa-solid fa-pen text-sm" />
+                        </button>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{accounts.operating.name}</h3>
-                        <p className="text-sm text-gray-500">{accounts.operating.source}</p>
+                      <div className="mb-3">
+                        <div className={`text-3xl font-bold mb-1 ${acct.balance < 0 ? 'text-red-400' : 'text-white'}`}>
+                          {formatMoney(acct.balance)}
+                        </div>
+                        <p className="text-sm text-gray-500">Last updated: {acct.lastUpdated}</p>
                       </div>
+                      {hasLedgerActivity ? (
+                        <div className="text-xs text-gray-500 border-t border-gray-800 pt-3 mt-1 space-y-1">
+                          <div className="flex justify-between">
+                            <span>Starting balance</span>
+                            <span className="text-gray-400">{formatMoney(acct.startingBalance)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Ledger activity</span>
+                            <span className={acct.ledgerActivity >= 0 ? 'text-green-400' : 'text-red-400'}>
+                              {acct.ledgerActivity >= 0 ? '+' : ''}{formatMoney(acct.ledgerActivity)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-400">
+                          <p>Notes: {acct.notes}</p>
+                        </div>
+                      )}
                     </div>
-                    <button type="button" onClick={() => openEditModal('operating')} className="text-gray-500 hover:text-gray-300">
-                      <i className="fa-solid fa-pen text-sm" />
-                    </button>
-                  </div>
-                  <div className="mb-3">
-                    <div className="text-3xl font-bold text-white mb-1">{formatMoney(accounts.operating.balance)}</div>
-                    <p className="text-sm text-gray-500">Last updated: {accounts.operating.lastUpdated}</p>
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    <p>Notes: {accounts.operating.notes}</p>
-                  </div>
-                </div>
-
-                <div
-                  id="savings-account-card"
-                  className="bg-gray-900 rounded-xl border border-gray-800 p-6 hover:shadow-xl hover:shadow-green-500/10 transition-all hover:border-gray-700"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center mr-3">
-                        <i className="fa-solid fa-piggy-bank text-green-400 text-lg" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{accounts.savings.name}</h3>
-                        <p className="text-sm text-gray-500">{accounts.savings.source}</p>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => openEditModal('savings')} className="text-gray-500 hover:text-gray-300">
-                      <i className="fa-solid fa-pen text-sm" />
-                    </button>
-                  </div>
-                  <div className="mb-3">
-                    <div className="text-3xl font-bold text-white mb-1">{formatMoney(accounts.savings.balance)}</div>
-                    <p className="text-sm text-gray-500">Last updated: {accounts.savings.lastUpdated}</p>
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    <p>Notes: {accounts.savings.notes}</p>
-                  </div>
-                </div>
-
-                <div
-                  id="credit-card-card"
-                  className="bg-gray-900 rounded-xl border border-gray-800 p-6 hover:shadow-xl hover:shadow-orange-500/10 transition-all hover:border-gray-700"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-orange-500/10 rounded-lg flex items-center justify-center mr-3">
-                        <i className="fa-solid fa-credit-card text-orange-400 text-lg" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{accounts.credit.name}</h3>
-                        <p className="text-sm text-gray-500">{accounts.credit.source}</p>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => openEditModal('credit')} className="text-gray-500 hover:text-gray-300">
-                      <i className="fa-solid fa-pen text-sm" />
-                    </button>
-                  </div>
-                  <div className="mb-3">
-                    <div className={`text-3xl font-bold mb-1 ${accounts.credit.balance < 0 ? 'text-red-400' : 'text-white'}`}>
-                      {formatMoney(accounts.credit.balance)}
-                    </div>
-                    <p className="text-sm text-gray-500">Last updated: {accounts.credit.lastUpdated}</p>
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    <p>Notes: {accounts.credit.notes}</p>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </section>
 
