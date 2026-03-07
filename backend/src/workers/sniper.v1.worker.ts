@@ -107,30 +107,42 @@ export const sniperV1Worker = new Worker(
         if (!effectivePostUrl) throw new Error('missing_post_url');
         const limit = clamp(Number(jobRow.input_json?.limit || 200), 1, 1000);
 
+        // Check for existing items from previous attempts (dedup + resume)
+        const existingItems = await listJobItems(jobId, 5000);
+        const existingUrls = new Set(existingItems.map((i: any) => i.profile_url));
+        const remainingLimit = Math.max(1, limit - existingItems.length);
+
         const profiles = await provider.prospectPostEngagers({
           userId: jobRow.created_by,
           workspaceId: jobRow.workspace_id,
           postUrl: effectivePostUrl,
-          limit
+          limit: remainingLimit
         });
         try {
           await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'job_page' });
         } catch {}
 
-        await insertJobItems(
-          profiles.map((p) => ({
-            job_id: jobId,
-            workspace_id: jobRow.workspace_id,
-            profile_url: p.profile_url,
-            action_type: 'extract',
-            status: 'succeeded_verified',
-            result_json: { name: p.name || null, headline: p.headline || null }
-          }))
-        );
+        // Dedup against already-saved profiles from prior attempts
+        const newProfiles = profiles.filter((p) => !existingUrls.has(p.profile_url));
 
-        await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        if (newProfiles.length > 0) {
+          await insertJobItems(
+            newProfiles.map((p) => ({
+              job_id: jobId,
+              workspace_id: jobRow.workspace_id,
+              profile_url: p.profile_url,
+              action_type: 'extract',
+              status: 'succeeded_verified',
+              result_json: { name: p.name || null, headline: p.headline || null }
+            }))
+          );
+        }
+
+        const totalExtracted = existingItems.length + newProfiles.length;
+        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
+        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         try { await notifySniperJobFinished(jobId); } catch {}
-        return { ok: true, discovered: profiles.length };
+        return { ok: true, discovered: totalExtracted, newThisRun: newProfiles.length, previouslyCaptured: existingItems.length };
       }
 
       if (jobRow.job_type === 'people_search') {
@@ -138,30 +150,41 @@ export const sniperV1Worker = new Worker(
         if (!searchUrl) throw new Error('missing_search_url');
         const limit = clamp(Number(jobRow.input_json?.limit || 200), 1, 2000);
 
+        // Check for existing items from previous attempts (dedup + resume)
+        const existingItems = await listJobItems(jobId, 5000);
+        const existingUrls = new Set(existingItems.map((i: any) => i.profile_url));
+        const remainingLimit = Math.max(1, limit - existingItems.length);
+
         const profiles = await provider.prospectPeopleSearch({
           userId: jobRow.created_by,
           workspaceId: jobRow.workspace_id,
           searchUrl,
-          limit
+          limit: remainingLimit
         });
         try {
           await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'job_page' });
         } catch {}
 
-        await insertJobItems(
-          profiles.map((p) => ({
-            job_id: jobId,
-            workspace_id: jobRow.workspace_id,
-            profile_url: p.profile_url,
-            action_type: 'extract',
-            status: 'succeeded_verified',
-            result_json: { name: p.name || null, headline: p.headline || null, source: 'people_search', search_url: searchUrl }
-          }))
-        );
+        const newProfiles = profiles.filter((p) => !existingUrls.has(p.profile_url));
 
-        await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        if (newProfiles.length > 0) {
+          await insertJobItems(
+            newProfiles.map((p) => ({
+              job_id: jobId,
+              workspace_id: jobRow.workspace_id,
+              profile_url: p.profile_url,
+              action_type: 'extract',
+              status: 'succeeded_verified',
+              result_json: { name: p.name || null, headline: p.headline || null, source: 'people_search', search_url: searchUrl }
+            }))
+          );
+        }
+
+        const totalExtracted = existingItems.length + newProfiles.length;
+        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
+        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         try { await notifySniperJobFinished(jobId); } catch {}
-        return { ok: true, extracted: profiles.length };
+        return { ok: true, extracted: totalExtracted, newThisRun: newProfiles.length, previouslyCaptured: existingItems.length };
       }
 
       if (jobRow.job_type === 'jobs_intent') {
@@ -169,38 +192,48 @@ export const sniperV1Worker = new Worker(
         if (!searchUrl) throw new Error('missing_search_url');
         const limit = clamp(Number(jobRow.input_json?.limit || 100), 1, 2000);
 
+        // Check for existing items from previous attempts (dedup + resume)
+        const existingItems = await listJobItems(jobId, 5000);
+        const existingUrls = new Set(existingItems.map((i: any) => i.profile_url));
+        const remainingLimit = Math.max(1, limit - existingItems.length);
+
         const jobs = await provider.prospectJobsIntent({
           userId: jobRow.created_by,
           workspaceId: jobRow.workspace_id,
           searchUrl,
-          limit
+          limit: remainingLimit
         });
         try {
           await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'job_page' });
         } catch {}
 
-        await insertJobItems(
-          jobs.map((j) => ({
-            job_id: jobId,
-            workspace_id: jobRow.workspace_id,
-            // job_url stored in profile_url for now; results view will interpret by job_type
-            profile_url: String(j.job_url || ''),
-            action_type: 'extract',
-            status: 'succeeded_verified',
-            result_json: {
-              source: 'jobs_intent',
-              search_url: searchUrl,
-              title: j.title || null,
-              company: j.company || null,
-              company_url: j.company_url || null,
-              location: j.location || null
-            }
-          }))
-        );
+        const newJobs = jobs.filter((j) => !existingUrls.has(String(j.job_url || '')));
 
-        await updateJob(jobId, { status: 'succeeded', finished_at: new Date().toISOString() } as any);
+        if (newJobs.length > 0) {
+          await insertJobItems(
+            newJobs.map((j) => ({
+              job_id: jobId,
+              workspace_id: jobRow.workspace_id,
+              profile_url: String(j.job_url || ''),
+              action_type: 'extract',
+              status: 'succeeded_verified',
+              result_json: {
+                source: 'jobs_intent',
+                search_url: searchUrl,
+                title: j.title || null,
+                company: j.company || null,
+                company_url: j.company_url || null,
+                location: j.location || null
+              }
+            }))
+          );
+        }
+
+        const totalExtracted = existingItems.length + newJobs.length;
+        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
+        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         try { await notifySniperJobFinished(jobId); } catch {}
-        return { ok: true, extracted: jobs.length };
+        return { ok: true, extracted: totalExtracted, newThisRun: newJobs.length, previouslyCaptured: existingItems.length };
       }
 
       if (jobRow.job_type === 'decision_maker_lookup') {

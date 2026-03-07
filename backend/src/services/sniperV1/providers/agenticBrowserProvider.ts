@@ -237,10 +237,6 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     await logAgentRun({ workspaceId, taskType: 'prospect_post_engagers', result });
 
-    if (!result.success) {
-      throw new Error(`Agent failed: ${result.error}`);
-    }
-
     // Merge profiles from all extract batches + final done result
     const profiles: ProspectProfile[] = [];
     const seen = new Set<string>();
@@ -266,6 +262,15 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     // 2. Profiles from final done result
     addProfiles(result.data?.profiles || []);
 
+    // If agent failed AND we have zero partial data, throw so the worker can retry
+    if (!result.success && profiles.length === 0) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    if (!result.success && profiles.length > 0) {
+      console.warn(`[agentic_browser] prospect_post_engagers partially succeeded: ${profiles.length} profiles recovered from ${(result.extractedData || []).length} extract batches. Error: ${result.error}`);
+    }
+
     return profiles.slice(0, limit);
   },
 
@@ -286,10 +291,6 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     await logAgentRun({ workspaceId, taskType: 'prospect_people_search', result });
 
-    if (!result.success) {
-      throw new Error(`Agent failed: ${result.error}`);
-    }
-
     // Merge profiles from extract batches + final done result
     const profiles: ProspectProfile[] = [];
     const seen = new Set<string>();
@@ -305,6 +306,14 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     for (const batch of (result.extractedData || [])) addProfiles(batch?.profiles || []);
     addProfiles(result.data?.profiles || []);
+
+    if (!result.success && profiles.length === 0) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    if (!result.success && profiles.length > 0) {
+      console.warn(`[agentic_browser] prospect_people_search partially succeeded: ${profiles.length} profiles recovered. Error: ${result.error}`);
+    }
 
     return profiles.slice(0, limit);
   },
@@ -325,10 +334,6 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     }, { navigateTo: searchUrl });
 
     await logAgentRun({ workspaceId, taskType: 'prospect_jobs_intent', result });
-
-    if (!result.success) {
-      throw new Error(`Agent failed: ${result.error}`);
-    }
 
     // Merge jobs from all extract batches + final done result
     const jobs: JobListing[] = [];
@@ -356,6 +361,14 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     // 2. Jobs from final done result
     addJobs(result.data?.jobs || []);
+
+    if (!result.success && jobs.length === 0) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    if (!result.success && jobs.length > 0) {
+      console.warn(`[agentic_browser] prospect_jobs_intent partially succeeded: ${jobs.length} jobs recovered. Error: ${result.error}`);
+    }
 
     return jobs.slice(0, limit);
   },
