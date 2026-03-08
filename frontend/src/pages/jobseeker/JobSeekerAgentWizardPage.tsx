@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import MissionCard from '../sniper/MissionCard';
+import MissionDrawer from '../sniper/MissionDrawer';
+import type { MissionDef } from '../sniper/MissionCard';
 
 type JobSeekerRun = {
   id: string;
@@ -32,6 +35,33 @@ function resolveApiBase() {
   return 'http://localhost:8080';
 }
 
+const JOB_SEEKER_MISSIONS: MissionDef[] = [
+  {
+    id: 'jobs_intent',
+    emoji: '\uD83D\uDCBC',
+    title: 'Job Intent Miner',
+    description: 'Extract job postings and hiring signals from LinkedIn Jobs.',
+    color: 'bg-emerald-600',
+    status: 'implemented',
+  },
+  {
+    id: 'decision_maker_lookup',
+    emoji: '\uD83C\uDFAF',
+    title: 'Decision Maker Lookup',
+    description: 'Find hiring managers at target companies.',
+    color: 'bg-purple-600',
+    status: 'implemented',
+  },
+  {
+    id: 'connect_requests',
+    emoji: '\uD83E\uDD1D',
+    title: 'Connect Requests',
+    description: 'Send personalized LinkedIn connection requests.',
+    color: 'bg-sky-600',
+    status: 'implemented',
+  },
+];
+
 export default function JobSeekerAgentWizardPage() {
   const navigate = useNavigate();
   const apiBase = useMemo(() => resolveApiBase(), []);
@@ -47,6 +77,11 @@ export default function JobSeekerAgentWizardPage() {
   const [selectedTargets, setSelectedTargets] = useState<Record<string, boolean>>({});
   const [userRole, setUserRole] = useState<string | null>(null);
   const [agentModeEnabled, setAgentModeEnabled] = useState<boolean | null>(null);
+
+  // Mission Hub state
+  const [activeMission, setActiveMission] = useState<MissionDef | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<{ connected: boolean; profileId?: string }>({ connected: false });
+  const [preSelectedProfileUrls, setPreSelectedProfileUrls] = useState<string[]>([]);
 
   const roleLower = useMemo(() => String(userRole || '').toLowerCase(), [userRole]);
   const isEligibleRole = useMemo(() => ['job_seeker_pro', 'job_seeker_elite'].includes(roleLower), [roleLower]);
@@ -128,6 +163,19 @@ export default function JobSeekerAgentWizardPage() {
     })();
   }, [apiFetch]);
 
+  // Check LinkedIn connection status for Cloud Engine missions
+  useEffect(() => {
+    (async () => {
+      try {
+        const status = await apiFetch('/api/sniper/linkedin/auth/status');
+        setConnectionStatus({
+          connected: Boolean(status?.connected),
+          profileId: status?.browserbase_context_id || status?.profile_id || undefined
+        });
+      } catch {}
+    })();
+  }, [apiFetch]);
+
   useEffect(() => {
     if (activeTab === 'live-activity' || activeTab === 'results') {
       loadRuns().catch(() => {});
@@ -154,22 +202,23 @@ export default function JobSeekerAgentWizardPage() {
       window.alert('Agent Mode must be enabled before launching Job Seeker Agent.');
       return;
     }
+    if (!connectionStatus.connected) {
+      window.alert('LinkedIn is not connected. Go to Settings > Cloud Engine to connect.');
+      return;
+    }
     setWorking(true);
     try {
-      const payload = {
-        search_url: jobSearchUrl,
-        job_limit: Number(jobLimit || 100),
-        priority,
-        context: jobContext
-      };
-      const out = await apiFetch('/api/jobseeker/agent/runs', {
+      await apiFetch('/api/sniper/jobs', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          target_id: null,
+          job_type: 'jobs_intent',
+          input_json: {
+            search_url: jobSearchUrl,
+            limit: Number(jobLimit || 100),
+          }
+        })
       });
-      const run = out?.run;
-      if (run?.id) {
-        setSelectedRunId(run.id);
-      }
       setActiveTab('live-activity');
       await loadRuns();
     } catch (e: any) {
@@ -188,6 +237,22 @@ export default function JobSeekerAgentWizardPage() {
         ::-webkit-scrollbar { display: none;}
         * { font-family: 'Inter', sans-serif; }
       `}</style>
+
+      {/* Mission Drawer overlay (for Decision Maker Lookup & Connect Requests) */}
+      {activeMission && (
+        <MissionDrawer
+          mission={activeMission}
+          conn={connectionStatus}
+          onClose={() => { setActiveMission(null); setPreSelectedProfileUrls([]); }}
+          onNavigate={(tab: string) => {
+            setActiveMission(null);
+            setPreSelectedProfileUrls([]);
+            if (tab === 'activity') setActiveTab('live-activity');
+            if (tab === 'settings') navigate('/settings/cloud-engine');
+          }}
+          initialProfileUrls={preSelectedProfileUrls}
+        />
+      )}
 
       {!isEligibleRole && roleLower && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
@@ -383,57 +448,49 @@ Example: I'm looking for a Senior Product Manager role in fintech or SaaS compan
             </div>
 
             <div className="col-span-1">
-              <section id="campaign-stats" className="bg-slate-900 rounded-xl shadow-xl border border-slate-800 p-6 mb-6">
-                <h3 className="text-lg font-bold text-white mb-4">Campaign Overview</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-lg border border-blue-500/30">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/50">
-                        <i className="fa-solid fa-briefcase text-white"></i>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 font-medium">Jobs to Extract</p>
-                        <p className="text-2xl font-bold text-white">{jobLimit}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50">
-                        <i className="fa-solid fa-user-tie text-white"></i>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 font-medium">Est. Managers</p>
-                        <p className="text-2xl font-bold text-white">~{Math.max(1, Math.round(Number(jobLimit || 0) * 5))}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/30">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/50">
-                        <i className="fa-solid fa-clock text-white"></i>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 font-medium">Est. Duration</p>
-                        <p className="text-2xl font-bold text-white">{priority === 'urgent' ? '10m' : priority === 'high' ? '30m' : '2h'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-lg border border-amber-500/30">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/50">
-                        <i className="fa-solid fa-coins text-white"></i>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 font-medium">Credits Used</p>
-                        <p className="text-2xl font-bold text-white">{Math.max(1, Math.round(Number(jobLimit || 0) * 2.5))}</p>
-                      </div>
-                    </div>
-                  </div>
+              {/* Cloud Engine Missions Hub */}
+              <section className="bg-slate-900 rounded-xl shadow-xl border border-slate-800 p-6 mb-6">
+                <h3 className="text-lg font-bold text-white mb-2">Cloud Engine Missions</h3>
+                <p className="text-sm text-slate-400 mb-4">Pick a mission to extract leads, find decision makers, or send connect requests.</p>
+                <div className="space-y-3">
+                  {JOB_SEEKER_MISSIONS.map((m) => (
+                    <MissionCard
+                      key={m.id}
+                      mission={m}
+                      onClick={() => {
+                        if (m.id === 'jobs_intent') {
+                          document.getElementById('job-search-input')?.scrollIntoView({ behavior: 'smooth' });
+                        } else {
+                          setActiveMission(m);
+                        }
+                      }}
+                    />
+                  ))}
                 </div>
               </section>
 
-              <section id="tips-panel" className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl shadow-2xl shadow-purple-500/30 p-6 text-white">
+              {/* LinkedIn Connection Status */}
+              <section className="bg-slate-900 rounded-xl shadow-xl border border-slate-800 p-6 mb-6">
+                <h3 className="text-sm font-bold text-white mb-3">LinkedIn Connection</h3>
+                <div className={`flex items-center gap-2 text-sm ${connectionStatus.connected ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <div className={`w-2.5 h-2.5 rounded-full ${connectionStatus.connected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                  <span className="font-semibold">{connectionStatus.connected ? 'Connected' : 'Not connected'}</span>
+                </div>
+                {connectionStatus.profileId && (
+                  <p className="mt-1 text-xs text-slate-500 truncate">ID: {connectionStatus.profileId}</p>
+                )}
+                {!connectionStatus.connected && (
+                  <button
+                    onClick={() => navigate('/settings/cloud-engine')}
+                    className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition"
+                  >
+                    <i className="fa-solid fa-plug mr-2"></i>Connect LinkedIn
+                  </button>
+                )}
+              </section>
+
+              {/* Pro Tips */}
+              <section className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl shadow-2xl shadow-purple-500/30 p-6 text-white">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                     <i className="fa-solid fa-lightbulb text-xl"></i>
@@ -443,19 +500,15 @@ Example: I'm looking for a Senior Product Manager role in fintech or SaaS compan
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-start space-x-2">
                     <i className="fa-solid fa-star text-amber-300 mt-1"></i>
-                    <span>Use specific job titles and locations for better targeting</span>
+                    <span>Use Job Intent Miner to find companies hiring for your target roles</span>
                   </li>
                   <li className="flex items-start space-x-2">
                     <i className="fa-solid fa-star text-amber-300 mt-1"></i>
-                    <span>Provide detailed context about your experience and preferences</span>
+                    <span>Run Decision Maker Lookup to find hiring managers at those companies</span>
                   </li>
                   <li className="flex items-start space-x-2">
                     <i className="fa-solid fa-star text-amber-300 mt-1"></i>
-                    <span>Review results in the Results tab before launching outreach</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <i className="fa-solid fa-star text-amber-300 mt-1"></i>
-                    <span>Set up notifications to act on high-priority matches quickly</span>
+                    <span>Then send personalized Connect Requests to get in front of the right people</span>
                   </li>
                 </ul>
               </section>
@@ -738,8 +791,17 @@ Example: I'm looking for a Senior Product Manager role in fintech or SaaS compan
                       </div>
                     </div>
                     <div className="flex flex-col items-end space-y-2">
-                      <button className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:shadow-xl hover:shadow-indigo-500/50 transition-all">
-                        <i className="fa-solid fa-paper-plane mr-2"></i>Launch Outreach
+                      <button
+                        onClick={() => {
+                          if (t.target_profile_url) {
+                            setPreSelectedProfileUrls([t.target_profile_url]);
+                            const connectMission = JOB_SEEKER_MISSIONS.find(m => m.id === 'connect_requests');
+                            if (connectMission) setActiveMission(connectMission);
+                          }
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:shadow-xl hover:shadow-indigo-500/50 transition-all"
+                      >
+                        <i className="fa-solid fa-user-plus mr-2"></i>Send Connect
                       </button>
                       <button className="px-4 py-2 bg-green-500/20 text-green-300 text-sm font-medium rounded-lg hover:bg-green-500/30 transition-colors border border-green-500/30">
                         <i className="fa-solid fa-plus mr-2"></i>Add to Leads
@@ -756,8 +818,23 @@ Example: I'm looking for a Senior Product Manager role in fintech or SaaS compan
                   <button className="px-4 py-2 bg-slate-800 text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-700 hover:text-white border border-slate-700">
                     <i className="fa-solid fa-plus mr-2"></i>Add Selected to Leads ({Object.values(selectedTargets).filter(Boolean).length})
                   </button>
-                  <button className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:shadow-xl hover:shadow-indigo-500/50">
-                    <i className="fa-solid fa-paper-plane mr-2"></i>Launch Outreach Campaign
+                  <button
+                    onClick={() => {
+                      const selectedUrls = targets
+                        .filter(t => selectedTargets[t.id])
+                        .map(t => t.target_profile_url)
+                        .filter(Boolean) as string[];
+                      if (!selectedUrls.length) {
+                        window.alert('Select at least one target to send connect requests.');
+                        return;
+                      }
+                      setPreSelectedProfileUrls(selectedUrls);
+                      const connectMission = JOB_SEEKER_MISSIONS.find(m => m.id === 'connect_requests');
+                      if (connectMission) setActiveMission(connectMission);
+                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:shadow-xl hover:shadow-indigo-500/50"
+                  >
+                    <i className="fa-solid fa-user-plus mr-2"></i>Send Connect Requests ({Object.values(selectedTargets).filter(Boolean).length})
                   </button>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-slate-400">

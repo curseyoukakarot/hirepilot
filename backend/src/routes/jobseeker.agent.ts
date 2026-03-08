@@ -12,6 +12,7 @@ import {
 } from '../services/jobseekerAgent/db';
 import { getProvider } from '../services/sniperV1/providers';
 import { getUserLinkedinAuth } from '../services/sniperV1/linkedinAuth';
+import { fetchSniperV1Settings, upsertSniperV1Settings } from '../services/sniperV1/settings';
 
 type ApiRequest = Request & { user?: { id: string } };
 
@@ -115,13 +116,23 @@ jobseekerAgentRouter.get('/settings/cloud-engine', async (req: ApiRequest, res: 
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: 'unauthorized' });
     const workspaceId = getWorkspaceId(userId);
+
+    // Auto-init sniper settings for job seekers (ensures worker finds cloud_engine_enabled)
+    const sniperSettings = await fetchSniperV1Settings(workspaceId);
+    if (!sniperSettings.cloud_engine_enabled) {
+      await upsertSniperV1Settings(workspaceId, {
+        cloud_engine_enabled: true,
+        provider: 'agentic_browser' as any,
+      });
+    }
+
     const settings = await fetchCloudEngineSettings(userId, workspaceId);
     const auth = await getUserLinkedinAuth(userId, workspaceId).catch(() => null);
-    const connected = Boolean(auth?.status === 'ok' && auth?.airtop_profile_id);
+    const connected = Boolean(auth?.status === 'ok' && auth?.browserbase_context_id);
     return res.json({
       settings,
       connected,
-      profile_id: auth?.airtop_profile_id || settings.airtop_profile_id || null
+      profile_id: auth?.browserbase_context_id || null
     });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_get_settings' });
@@ -162,7 +173,9 @@ jobseekerAgentRouter.post('/settings/cloud-engine/connect', async (req: ApiReque
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
-    const provider = getProvider('airtop');
+    const provider = getProvider('agentic_browser');
+
+    // Complete flow — user clicked "I'm logged in"
     if (parsed.data.auth_session_id) {
       if (!provider.completeLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
       const out = await provider.completeLinkedInAuth({
@@ -171,32 +184,27 @@ jobseekerAgentRouter.post('/settings/cloud-engine/connect', async (req: ApiReque
         authSessionId: parsed.data.auth_session_id
       });
       await upsertCloudEngineSettings(userId, workspaceId, {
-        airtop_profile_id: out.airtop_profile_id,
         status: 'ok',
         connected_at: new Date().toISOString()
       } as any);
       return res.json(out);
     }
 
+    // Start flow — launch Browserbase session with LinkedIn login page
     if (!provider.startLinkedInAuth) return res.status(400).json({ error: 'provider_does_not_support_embedded_auth' });
     const out = await provider.startLinkedInAuth({ userId, workspaceId });
-    await upsertCloudEngineSettings(userId, workspaceId, {
-      airtop_profile_id: (out as any).airtop_profile_id || null,
-      status: 'needs_reauth'
-    } as any);
-    return res.json({ url: out.live_view_url, auth_session_id: out.auth_session_id, profile_id: (out as any).airtop_profile_id || null });
+    return res.json({
+      live_view_url: out.live_view_url,
+      auth_session_id: out.auth_session_id,
+      browserbase_session_id: (out as any).browserbase_session_id || null,
+      browserbase_context_id: (out as any).browserbase_context_id || null
+    });
   } catch (e: any) {
     const msg = String(e?.message || '');
-    if (msg.includes('AIRTOP provider disabled')) {
+    if (msg.includes('BROWSERBASE provider disabled') || msg.includes('BROWSERBASE_API_KEY')) {
       return res.status(503).json({
-        error: 'AIRTOP provider disabled',
-        hint: 'Set AIRTOP_PROVIDER_ENABLED=true and AIRTOP_API_KEY on the API service.'
-      });
-    }
-    if (msg.includes('AIRTOP_API_KEY missing')) {
-      return res.status(503).json({
-        error: 'AIRTOP_API_KEY missing',
-        hint: 'Set AIRTOP_API_KEY on the API service.'
+        error: 'Browserbase provider disabled',
+        hint: 'Set BROWSERBASE_PROVIDER_ENABLED=true, BROWSERBASE_API_KEY, and BROWSERBASE_PROJECT_ID on the API service.'
       });
     }
     return res.status(500).json({ error: msg || 'failed_to_connect' });

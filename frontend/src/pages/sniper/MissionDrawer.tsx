@@ -82,13 +82,14 @@ type Props = {
   conn: { connected: boolean; profileId?: string };
   onClose: () => void;
   onNavigate: (tab: string) => void;
+  initialProfileUrls?: string[];
 };
 
 /* ------------------------------------------------------------------ */
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Props) {
+export default function MissionDrawer({ mission, conn, onClose, onNavigate, initialProfileUrls }: Props) {
   /* ---- Shared state ---- */
   const [toast, setToast] = useState<ToastT>({ show: false, message: '', type: 'info' });
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -200,7 +201,9 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
   const [searchUrl, setSearchUrl] = useState('');
   const [searchLimit, setSearchLimit] = useState(mission.id === 'jobs_intent' ? 100 : 200);
 
-  const [profileUrls, setProfileUrls] = useState<string[]>([]);
+  const [profileUrls, setProfileUrls] = useState<string[]>(
+    initialProfileUrls?.length ? Array.from(new Set(initialProfileUrls)) : []
+  );
   const [connectNote, setConnectNote] = useState('');
   const [messageText, setMessageText] = useState('');
   const [inmailSubject, setInmailSubject] = useState('');
