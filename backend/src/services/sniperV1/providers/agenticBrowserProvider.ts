@@ -95,17 +95,32 @@ async function runWithSession<T>(
 
     // Navigate to LinkedIn first to verify auth.
     // Sales Navigator and company pages are heavy SPAs — use `load` and a longer settle.
+    // Profile pages via residential proxy can be slow — use 60s timeout + retry on timeout.
     if (opts?.navigateTo) {
       const isSalesNav = opts.navigateTo.includes('/sales/');
       const isCompanyPage = opts.navigateTo.includes('/company/');
       const isHeavyPage = isSalesNav || isCompanyPage;
-      await page.goto(opts.navigateTo, {
-        waitUntil: isHeavyPage ? 'load' : 'domcontentloaded',
-        timeout: isHeavyPage ? 60_000 : 30_000,
-      });
-      await page.waitForTimeout(isHeavyPage ? 5000 : 2000);
+      const navTimeout = isHeavyPage ? 60_000 : 60_000; // 60s for all pages (residential proxy adds latency)
+      const waitUntil = isHeavyPage ? 'load' as const : 'domcontentloaded' as const;
+      const settleMs = isHeavyPage ? 5000 : 2000;
+
+      // Retry once on navigation timeout — residential proxies can be flaky
+      try {
+        await page.goto(opts.navigateTo, { waitUntil, timeout: navTimeout });
+      } catch (navErr: any) {
+        const isTimeout = String(navErr?.message || '').includes('Timeout');
+        if (isTimeout) {
+          console.warn(`[agentic-browser] Initial page.goto timed out (${navTimeout}ms), retrying with commit strategy...`);
+          await page.goto(opts.navigateTo, { waitUntil: 'commit', timeout: navTimeout });
+          // After commit, wait for DOM to settle since we skipped full load
+          await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+        } else {
+          throw navErr;
+        }
+      }
+      await page.waitForTimeout(settleMs);
     } else {
-      await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       await page.waitForTimeout(2000);
     }
 

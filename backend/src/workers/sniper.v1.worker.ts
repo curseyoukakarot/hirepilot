@@ -405,7 +405,21 @@ export const sniperV1Worker = new Worker(
                 strategy_used: (res as any)?.details?.strategy || null,
               } as any);
             } catch (e: any) {
-              await updateJobItem(it.id, { status: 'failed', error_message: String(e?.message || e) } as any);
+              const errMsg = String(e?.message || e);
+              const isTimeout = errMsg.includes('Timeout') || errMsg.includes('timeout');
+              const retryCount = Number((it as any).result_json?.retry_count || 0);
+
+              if (isTimeout && retryCount < 1) {
+                // Timeout on first attempt — re-queue for retry instead of permanent failure
+                console.warn(`[sniper-connect] Timeout on item ${it.id}, re-queuing for retry (attempt ${retryCount + 1})`);
+                await updateJobItem(it.id, {
+                  status: 'queued',
+                  error_message: `Timeout (will retry) — ${errMsg.slice(0, 120)}`,
+                  result_json: { ...(it.result_json || {}), retry_count: retryCount + 1 },
+                } as any);
+              } else {
+                await updateJobItem(it.id, { status: 'failed', error_message: errMsg } as any);
+              }
             }
 
             const delaySec = clamp(

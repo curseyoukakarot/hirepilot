@@ -30,11 +30,24 @@ export async function executeAction(page: Page, action: AgentAction): Promise<st
         }
 
         // Sales Navigator pages are heavy SPAs that need full load + extra settle
+        // Profile pages via residential proxy need longer timeouts
         const isSalesNav = url.includes('/sales/');
-        await page.goto(url, {
-          waitUntil: isSalesNav ? 'load' : 'domcontentloaded',
-          timeout: isSalesNav ? 45_000 : 30_000,
-        });
+        const navTimeout = isSalesNav ? 60_000 : 45_000;
+        try {
+          await page.goto(url, {
+            waitUntil: isSalesNav ? 'load' : 'domcontentloaded',
+            timeout: navTimeout,
+          });
+        } catch (navErr: any) {
+          const isTimeout = String(navErr?.message || '').includes('Timeout');
+          if (isTimeout) {
+            // Retry with commit strategy — get the page loaded even if assets are slow
+            await page.goto(url, { waitUntil: 'commit', timeout: navTimeout });
+            await page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+          } else {
+            throw navErr;
+          }
+        }
         await page.waitForTimeout(isSalesNav ? 3000 : 1000);
         return `Navigated to ${page.url()}`;
       }
