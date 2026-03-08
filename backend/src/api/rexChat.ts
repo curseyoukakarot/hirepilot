@@ -183,8 +183,8 @@ export default async function rexChat(req: Request, res: Response) {
             catch (e:any) { return { error: String(e?.message || e) }; }
           })();
           const summary = queued?.error
-            ? `Sniper queue failed: ${queued.error}`
-            : `Sniper queued capture for this post. target_id=${queued?.target_id || ''} job_id=${queued?.job_id || ''} (ETA ~${queued?.eta_seconds || 60}s). Say: "poll sniper ${queued?.target_id}" to fetch results.`;
+            ? `Cloud Engine queue failed: ${queued.error}`
+            : `Cloud Engine queued capture for this post. target_id=${queued?.target_id || ''} job_id=${queued?.job_id || ''} (ETA ~${queued?.eta_seconds || 60}s). Say: "poll results ${queued?.target_id}" to fetch results.`;
           return res.status(200).json({ reply: { role: 'assistant', content: summary } });
         }
       }
@@ -209,7 +209,7 @@ export default async function rexChat(req: Request, res: Response) {
             ? String(result.help)
             : result?.error
               ? `LinkedIn outreach failed: ${result.error}`
-            : `Queued LinkedIn connect requests for campaign (template: "${templateName}"). job_id=${result?.job_id || ''} requested=${result?.requested || 0}. Track in /sniper/activity.`;
+            : `Queued LinkedIn connect requests for campaign (template: "${templateName}"). job_id=${result?.job_id || ''} requested=${result?.requested || 0}. Track in /cloud-engine/activity.`;
           return res.status(200).json({ reply: { role: 'assistant', content: summary } });
         }
       }
@@ -391,7 +391,7 @@ Key behaviors:
 - **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
 - **Sequences**: If timing isn’t provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
 - **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don’t dump all questions at once.
-- **Cloud Engine missions**: You can queue LinkedIn automation missions. These are async -- after queuing, tell the user the job is running and they can check progress in /sniper/activity. Available missions:
+- **Cloud Engine missions**: You can queue LinkedIn automation missions. These are async -- after queuing, tell the user the job is running and they can check progress in /cloud-engine/activity. Available missions:
   - sniper_decision_makers -- find decision makers at a company (accepts optional criteria like "VP Engineering who controls the AI budget")
   - sniper_people_search -- run a LinkedIn people search URL
   - sniper_sn_lead_search -- run a Sales Navigator search URL
@@ -596,7 +596,7 @@ Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current camp
           const tool = capabilities?.tools?.['sniper_collect_post'];
           if (tool?.handler) {
             const toolResultAny: any = await withTimeout(tool.handler({ userId, post_url: postUrl, limit: 0 }), 45000);
-            const summary = `Sniper queued capture for this post. target_id=${toolResultAny?.target_id || ''} job_id=${toolResultAny?.job_id || ''} (ETA ~${toolResultAny?.eta_seconds || 60}s). Say: "poll sniper ${toolResultAny?.target_id}" to fetch results.`;
+            const summary = `Cloud Engine queued capture for this post. target_id=${toolResultAny?.target_id || ''} job_id=${toolResultAny?.job_id || ''} (ETA ~${toolResultAny?.eta_seconds || 60}s). Say: "poll results ${toolResultAny?.target_id}" to fetch results.`;
             assistantMessage = { role: 'assistant', content: summary } as any;
           }
         }
