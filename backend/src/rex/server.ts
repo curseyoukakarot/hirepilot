@@ -132,6 +132,41 @@ async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<
   }
 }
 
+async function ensureLinkedInConnectedOrExplain(userId: string): Promise<null | { ok: false; error_code: string; help: string }> {
+  try {
+    const s: any = await apiAsUser(userId, '/api/v1/sniper/linkedin/auth/status', { method: 'GET' });
+    if (!s?.connected) {
+      return {
+        ok: false,
+        error_code: 'LINKEDIN_NOT_CONNECTED',
+        help: [
+          'LinkedIn is not connected to Cloud Engine yet, so I can\'t run browser-based missions.',
+          '',
+          'Connect it here:',
+          '1) Go to **Sniper Settings** (`/sniper/settings`)',
+          '2) Click the **Sniper Control Center** tab',
+          '3) Make sure **Cloud Engine** is ON',
+          '4) Click **Connect** and log into LinkedIn in the popup',
+          '5) Click **Check** to verify the connection',
+          '',
+          'Once connected, tell me "retry" and I\'ll queue it again.'
+        ].join('\n')
+      };
+    }
+    return null;
+  } catch {
+    return null; // fail open
+  }
+}
+
+async function ensureSniperReady(userId: string): Promise<null | { ok: false; error_code: string; help: string }> {
+  const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
+  if (cloudGate) return cloudGate;
+  const linkedInGate = await ensureLinkedInConnectedOrExplain(userId);
+  if (linkedInGate) return linkedInGate;
+  return null;
+}
+
 function parseTimeUtc(time: string) {
   if (!time || typeof time !== 'string' || !/^\d{2}:\d{2}$/.test(time)) {
     throw new Error('time_utc must be HH:MM');
@@ -482,8 +517,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, post_url, limit }) => {
         await assertPremium(userId);
-        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
-        if (cloudGate) return cloudGate;
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
         if (!/^https?:\/\//i.test(String(post_url))) throw new Error('post_url must be a valid URL');
 
         // Sniper v1: create+run a target (likers/commenters) via Cloud Engine
@@ -580,8 +615,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, campaign_id, template_name, max_count }) => {
         await assertPremium(userId);
-        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
-        if (cloudGate) return cloudGate;
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { personalizeMessage } = require('../../utils/messageUtils');
 
@@ -659,8 +694,8 @@ server.registerCapabilities({
       },
       handler: async ({ userId, profile_url, lead_id, template_name, message }) => {
         await assertPremium(userId);
-        const cloudGate = await ensureSniperCloudEngineEnabledOrExplain(userId);
-        if (cloudGate) return cloudGate;
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { personalizeMessage } = require('../../utils/messageUtils');
 
@@ -2157,6 +2192,270 @@ server.registerCapabilities({
           quota,
           current_job: job,
           recent_jobs: recentJobs
+        };
+      }
+    },
+    // ── Sniper v1 Cloud Engine mission tools ──────────────────────────
+    sniper_decision_makers: {
+      parameters: {
+        userId: { type: 'string' },
+        company_url: { type: 'string' },
+        company_name: { type: 'string', optional: true },
+        criteria: { type: 'string', optional: true },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, company_url, company_name, criteria, limit }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/jobs', {
+          method: 'POST',
+          body: JSON.stringify({
+            job_type: 'decision_maker_lookup',
+            input_json: {
+              companies: [{ company_url, company_name: company_name || null }],
+              limit_per_company: Math.min(Number(limit || 10), 25),
+              criteria: criteria || null
+            }
+          })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job?.id || null,
+          message: `Decision maker lookup queued for ${company_name || company_url}. Use sniper_poll_leads with the job_id to check results.`
+        };
+      }
+    },
+    sniper_people_search: {
+      parameters: {
+        userId: { type: 'string' },
+        search_url: { type: 'string' },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, search_url, limit }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/jobs', {
+          method: 'POST',
+          body: JSON.stringify({
+            job_type: 'people_search',
+            input_json: { search_url, limit: Math.min(Number(limit || 25), 100) }
+          })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job?.id || null,
+          message: 'LinkedIn people search queued. Use sniper_poll_leads with the job_id to check results.'
+        };
+      }
+    },
+    sniper_sn_lead_search: {
+      parameters: {
+        userId: { type: 'string' },
+        search_url: { type: 'string' },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, search_url, limit }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/jobs', {
+          method: 'POST',
+          body: JSON.stringify({
+            job_type: 'sn_lead_search',
+            input_json: { search_url, limit: Math.min(Number(limit || 25), 100) }
+          })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job?.id || null,
+          message: 'Sales Navigator lead search queued. Use sniper_poll_leads with the job_id to check results.'
+        };
+      }
+    },
+    sniper_jobs_intent: {
+      parameters: {
+        userId: { type: 'string' },
+        search_url: { type: 'string' },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, search_url, limit }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/jobs', {
+          method: 'POST',
+          body: JSON.stringify({
+            job_type: 'jobs_intent',
+            input_json: { search_url, limit: Math.min(Number(limit || 25), 50) }
+          })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job?.id || null,
+          message: 'Jobs intent search queued. Use sniper_poll_leads with the job_id to check results.'
+        };
+      }
+    },
+    sniper_sn_connect: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_urls: { type: 'array' },
+        note: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, profile_urls, note }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const urls = (Array.isArray(profile_urls) ? profile_urls : []).slice(0, 500);
+        if (!urls.length) throw new Error('profile_urls is required (1-500 URLs)');
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/actions/sn-connect', {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: urls, note: note || null })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job_id || null,
+          requested: urls.length,
+          message: `Queued ${urls.length} Sales Navigator connect request(s).`
+        };
+      }
+    },
+    sniper_sn_inmail: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_urls: { type: 'array' },
+        subject: { type: 'string' },
+        message: { type: 'string' }
+      },
+      handler: async ({ userId, profile_urls, subject, message }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const urls = (Array.isArray(profile_urls) ? profile_urls : []).slice(0, 500);
+        if (!urls.length) throw new Error('profile_urls is required');
+        if (!subject?.trim()) throw new Error('subject is required');
+        if (!message?.trim()) throw new Error('message is required');
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/actions/sn-inmail', {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: urls, subject, message })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job_id || null,
+          requested: urls.length,
+          message: `Queued ${urls.length} InMail(s).`
+        };
+      }
+    },
+    sniper_sn_message: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_urls: { type: 'array' },
+        message: { type: 'string' }
+      },
+      handler: async ({ userId, profile_urls, message }) => {
+        await assertPremium(userId);
+        const gate = await ensureSniperReady(userId);
+        if (gate) return gate;
+
+        const urls = (Array.isArray(profile_urls) ? profile_urls : []).slice(0, 500);
+        if (!urls.length) throw new Error('profile_urls is required');
+        if (!message?.trim()) throw new Error('message is required');
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/actions/sn-message', {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: urls, message })
+        });
+        return {
+          queued: true,
+          job_id: (resp as any)?.job_id || null,
+          requested: urls.length,
+          message: `Queued ${urls.length} Sales Navigator message(s).`
+        };
+      }
+    },
+    sniper_import_to_leads: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_urls: { type: 'array' },
+        campaign_id: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, profile_urls, campaign_id }) => {
+        await assertPremium(userId);
+        // No ensureSniperReady — import is DB-only, doesn't need Cloud Engine or LinkedIn
+
+        const urls = (Array.isArray(profile_urls) ? profile_urls : []).slice(0, 2000);
+        if (!urls.length) throw new Error('profile_urls is required');
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/actions/import_to_leads', {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: urls, campaign_id: campaign_id || null })
+        });
+        return {
+          ok: true,
+          inserted: (resp as any)?.inserted || 0,
+          updated: (resp as any)?.updated || 0,
+          message: `Imported ${(resp as any)?.inserted || 0} profiles to leads.`
+        };
+      }
+    },
+    sniper_add_to_table: {
+      parameters: {
+        userId: { type: 'string' },
+        profile_urls: { type: 'array' },
+        table_id: { type: 'string' }
+      },
+      handler: async ({ userId, profile_urls, table_id }) => {
+        await assertPremium(userId);
+        // No ensureSniperReady — table add is DB-only
+
+        const urls = (Array.isArray(profile_urls) ? profile_urls : []).slice(0, 2000);
+        if (!urls.length) throw new Error('profile_urls is required');
+        if (!table_id?.trim()) throw new Error('table_id is required');
+
+        const resp = await apiAsUser(userId, '/api/v1/sniper/actions/add-to-table', {
+          method: 'POST',
+          body: JSON.stringify({ profile_urls: urls, table_id })
+        });
+        return {
+          ok: true,
+          added: (resp as any)?.added || 0,
+          skipped: (resp as any)?.skipped || 0,
+          message: `Added ${(resp as any)?.added || 0} profiles to table.`
+        };
+      }
+    },
+    sniper_list_jobs: {
+      parameters: {
+        userId: { type: 'string' },
+        limit: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, limit }) => {
+        await assertPremium(userId);
+
+        const max = Math.min(Number(limit || 20), 200);
+        const resp = await apiAsUser(userId, `/api/v1/sniper/jobs?limit=${max}`, { method: 'GET' });
+        const arr = Array.isArray(resp) ? resp : ((resp as any)?.jobs || []);
+        return {
+          jobs: arr.map((j: any) => ({
+            id: j.id,
+            job_type: j.job_type,
+            status: j.status,
+            created_at: j.created_at,
+            input_json: j.input_json,
+            items_count: j.items_count || null
+          })),
+          total: arr.length
         };
       }
     },

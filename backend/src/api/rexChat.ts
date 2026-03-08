@@ -324,7 +324,18 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'sniper_send_message_to_profile', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_url:{type:'string'}, lead_id:{type:'string'}, template_name:{type:'string'}, message:{type:'string'} }, required:['userId'] } } },
       // Sniper V2: Agentic browser settings & status tools
       { type:'function', function:{ name:'sniper_update_settings', parameters:{ type:'object', properties:{ userId:{type:'string'}, max_connects_per_day:{type:'number'}, max_messages_per_day:{type:'number'}, min_delay_seconds:{type:'number'}, max_delay_seconds:{type:'number'}, active_hours_start:{type:'string'}, active_hours_end:{type:'string'}, active_hours_days:{type:'string'}, timezone:{type:'string'}, safety_mode:{type:'boolean'}, provider:{type:'string'}, cloud_engine_enabled:{type:'boolean'}, max_actions_per_day:{type:'number'}, max_actions_per_hour:{type:'number'}, cooldown_minutes:{type:'number'} }, required:['userId'] } } },
-      { type:'function', function:{ name:'sniper_get_status', parameters:{ type:'object', properties:{ userId:{type:'string'}, job_id:{type:'string'} }, required:['userId'] } } }
+      { type:'function', function:{ name:'sniper_get_status', parameters:{ type:'object', properties:{ userId:{type:'string'}, job_id:{type:'string'} }, required:['userId'] } } },
+      // Sniper v1 Cloud Engine mission tools
+      { type:'function', function:{ name:'sniper_decision_makers', description:'Find decision makers at a company. Queues a Cloud Engine mission.', parameters:{ type:'object', properties:{ userId:{type:'string'}, company_url:{type:'string',description:'LinkedIn company URL (e.g. https://www.linkedin.com/company/nebius/)'}, company_name:{type:'string',description:'Company name for display'}, criteria:{type:'string',description:'Who to look for, e.g. "VP Engineering who would buy our AI platform"'}, limit:{type:'number',description:'Max profiles to return (default 10)'} }, required:['userId','company_url'] } } },
+      { type:'function', function:{ name:'sniper_people_search', description:'Run a LinkedIn People Search URL through Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'LinkedIn people search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_sn_lead_search', description:'Run a Sales Navigator lead search URL through Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'Sales Navigator lead search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_jobs_intent', description:'Find companies with open job listings matching a LinkedIn Jobs search URL.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'LinkedIn Jobs search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_sn_connect', description:'Send Sales Navigator connect requests to profile URLs.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'},description:'LinkedIn profile URLs'}, note:{type:'string',description:'Optional connect note (max 300 chars)'} }, required:['userId','profile_urls'] } } },
+      { type:'function', function:{ name:'sniper_sn_inmail', description:'Send Sales Navigator InMail to profile URLs.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, subject:{type:'string'}, message:{type:'string'} }, required:['userId','profile_urls','subject','message'] } } },
+      { type:'function', function:{ name:'sniper_sn_message', description:'Send Sales Navigator direct messages to connected profiles.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, message:{type:'string'} }, required:['userId','profile_urls','message'] } } },
+      { type:'function', function:{ name:'sniper_import_to_leads', description:'Import LinkedIn profile URLs into the leads table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, campaign_id:{type:'string',description:'Optional campaign to attach leads to'} }, required:['userId','profile_urls'] } } },
+      { type:'function', function:{ name:'sniper_add_to_table', description:'Add LinkedIn profile URLs to a custom table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, table_id:{type:'string'} }, required:['userId','profile_urls','table_id'] } } },
+      { type:'function', function:{ name:'sniper_list_jobs', description:'List recent Cloud Engine jobs with status. Useful for checking mission progress.', parameters:{ type:'object', properties:{ userId:{type:'string'}, limit:{type:'number'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -374,6 +385,24 @@ Key behaviors:
 - **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
 - **Sequences**: If timing isn’t provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
 - **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don’t dump all questions at once.
+- **Cloud Engine missions**: You can queue LinkedIn automation missions. These are async -- after queuing, tell the user the job is running and they can check progress in /sniper/activity. Available missions:
+  - sniper_decision_makers -- find decision makers at a company (accepts optional criteria like "VP Engineering who controls the AI budget")
+  - sniper_people_search -- run a LinkedIn people search URL
+  - sniper_sn_lead_search -- run a Sales Navigator search URL
+  - sniper_jobs_intent -- find companies with open jobs matching a search URL
+  - sniper_collect_post -- extract engagers from a LinkedIn post
+- **Outreach actions**: After collecting profiles, chain with outreach:
+  - sniper_campaign_outreach_connect -- batch connect using a template
+  - sniper_sn_connect -- Sales Nav connect requests
+  - sniper_sn_inmail -- Sales Nav InMail
+  - sniper_sn_message -- Sales Nav direct messages
+  - sniper_send_message_to_profile -- message a single profile
+- **Data actions**: Move results into leads or custom tables:
+  - sniper_import_to_leads -- import profiles to leads (DB only, no Cloud Engine needed)
+  - sniper_add_to_table -- add profiles to a custom table
+- **Status and polling**: Use sniper_list_jobs to see recent jobs, sniper_poll_leads to get extracted profiles from a job, sniper_get_status for quick status.
+- **Multi-mission chaining**: When a user describes a pipeline (e.g. "find companies hiring for AI, find their decision makers, then connect"), queue each step and explain the chain. Each mission is async -- guide the user to check back or use sniper_poll_leads.
+- **Guardrails**: If Cloud Engine is off or LinkedIn is not connected, the tools will return a help message with setup instructions. Do not retry -- just show the user the instructions.
 
 Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
     } as any;
