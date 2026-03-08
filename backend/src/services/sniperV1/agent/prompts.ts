@@ -121,6 +121,9 @@ Navigate to this LinkedIn search URL and extract profile URLs from the results.
 Search URL: ${searchUrl}
 Maximum profiles to extract: ${limit}
 
+## CRITICAL: NEVER fabricate URLs
+You MUST extract REAL URLs from the DOM snapshot. Every profile_url you extract MUST be copied EXACTLY from an href attribute visible in the "Interactive elements" section. Look for <a> elements with href containing "/in/" — those are real profile links. NEVER invent or guess URLs.
+
 ## Steps
 1. Navigate to the search URL
 2. The search results page should load with people cards
@@ -356,15 +359,23 @@ Navigate to this Sales Navigator search URL and extract lead profile URLs from t
 Search URL: ${searchUrl}
 Maximum profiles to extract: ${limit}
 
+## CRITICAL: NEVER fabricate URLs
+You MUST extract REAL URLs that you can see in the DOM snapshot or visible text.
+- Every profile_url you extract MUST be copied EXACTLY from an href attribute shown in the "Interactive elements" section of the observation.
+- Look for <a> elements with href containing "/sales/lead/" or "/in/" — those are the real profile links.
+- NEVER invent, guess, or fabricate URLs. If you cannot find real URLs in the DOM, use a "wait" action and try again, or report an error.
+- URLs like "/sales/lead/987654321" with simple sequential numbers are FAKE. Real Sales Navigator URLs have long alphanumeric IDs like "/sales/lead/ACwAAAJCz5sBm8..." or "/sales/lead/3a7f2e1d..."
+
 ## Steps
 1. Navigate to the search URL (it should be a Sales Navigator URL like /sales/search/people?...)
-2. The search results page should load with lead cards
-3. Extract profile data from the visible lead cards using an "extract" action (batch of 5-10)
-4. Scroll down to see more results on the current page
-5. Extract the next batch of visible leads with another "extract" action
-6. When you reach the bottom of the page, look for a "Next" button or pagination to go to the next page
-7. Repeat steps 3-6 until you have ${limit} profiles or run out of results
-8. When finished, use "done" with an empty profiles array
+2. Wait for the search results page to fully load with lead cards
+3. Look through the DOM snapshot's interactive elements list for <a> links with "/sales/lead/" or "/in/" in the href
+4. Extract profile data from visible lead cards using an "extract" action (batch of 5-10). Copy URLs directly from the DOM.
+5. Scroll down to see more results on the current page
+6. Extract the next batch of visible leads with another "extract" action
+7. When you reach the bottom of the page, look for a "Next" button or pagination to go to the next page
+8. Repeat steps 3-7 until you have ${limit} profiles or run out of results
+9. When finished, use "done" with an empty profiles array
 
 ## CRITICAL: Use batched extraction
 Do NOT try to return all profiles in a single response. Instead:
@@ -373,25 +384,33 @@ Do NOT try to return all profiles in a single response. Instead:
 - Each extract should contain ONLY NEW profiles you haven't extracted yet
 - The system accumulates all your extract batches automatically
 
+## How to find profile URLs in the DOM
+The DOM snapshot lists interactive elements with their CSS selectors. Look for entries like:
+  [a] "Person Name" href="https://www.linkedin.com/sales/lead/ACwAA..." -> selector
+  [a] "Person Name" href="https://www.linkedin.com/in/personname" -> selector
+
+These href values are the REAL profile URLs. Copy them exactly into your extract action.
+
+Sales Navigator uses different URL patterns:
+- \`/sales/lead/...\` — a Sales Navigator lead URL (long alphanumeric ID)
+- \`/sales/people/...\` — another SN format
+- \`/in/...\` — canonical LinkedIn profile URL
+
+IMPORTANT: Always prefer the \`/in/...\` URL if visible, as it works across all LinkedIn. If only a \`/sales/lead/...\` URL is available, use that.
+
 ## Sales Navigator DOM Structure
-Sales Navigator uses a different layout than regular LinkedIn:
 - Lead cards are typically in an ordered list: \`ol.artdeco-list\` or \`.search-results__result-list\`
-- Each card contains the lead's name, headline, company, and a link
-- Profile URLs on Sales Navigator may be:
-  - \`/sales/lead/...\` format — extract these
-  - \`/sales/people/...\` format — extract these
-  - Sometimes a regular \`/in/...\` URL is also shown — extract that too if visible
-- IMPORTANT: Always prefer extracting the \`/in/...\` URL if visible, as it's the canonical profile URL.
-  If only a \`/sales/lead/...\` URL is available, extract that instead.
+- Each card contains the lead's name (as a clickable link with the profile URL), headline, and company
+- The name link's href is the profile URL you need to extract
 
 ## Extract action format (use this repeatedly):
 {
-  "reasoning": "Extracting batch of N visible leads from SN search results",
+  "reasoning": "Extracting batch of N visible leads. URLs copied from DOM href attributes.",
   "action": {
     "type": "extract",
     "data": {
       "profiles": [
-        { "profile_url": "https://www.linkedin.com/in/username", "name": "Full Name", "headline": "Their headline" }
+        { "profile_url": "<REAL URL from DOM href>", "name": "Name from the card", "headline": "Headline from the card" }
       ]
     }
   }
