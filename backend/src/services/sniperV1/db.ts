@@ -19,7 +19,11 @@ export type SniperJobType =
   | 'send_messages'
   | 'people_search'
   | 'jobs_intent'
-  | 'decision_maker_lookup';
+  | 'decision_maker_lookup'
+  | 'sn_lead_search'
+  | 'sn_send_connect'
+  | 'sn_send_inmail'
+  | 'sn_send_message';
 export type SniperProvider = 'airtop' | 'local_playwright';
 export type SniperJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'partially_succeeded' | 'canceled' | 'paused_throttled' | 'paused_cooldown';
 
@@ -55,7 +59,7 @@ export type SniperJobItemStatus =
   | 'paused_cooldown'
   | 'skipped'
   | 'failed';
-export type SniperJobItemAction = 'connect' | 'message' | 'extract';
+export type SniperJobItemAction = 'connect' | 'message' | 'extract' | 'inmail';
 
 export type SniperJobItemRow = {
   id: string;

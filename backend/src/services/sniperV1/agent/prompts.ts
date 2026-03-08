@@ -343,6 +343,226 @@ When the "Send invitation" modal appears after clicking Connect, you need to:
 }`;
 }
 
+// ---------------------------------------------------------------------------
+// Sales Navigator prompts
+// ---------------------------------------------------------------------------
+
+export function getSalesNavSearchPrompt(searchUrl: string, limit: number): string {
+  return `${BASE_SYSTEM_PROMPT}
+
+## Task: Extract Leads from Sales Navigator Search
+Navigate to this Sales Navigator search URL and extract lead profile URLs from the results.
+
+Search URL: ${searchUrl}
+Maximum profiles to extract: ${limit}
+
+## Steps
+1. Navigate to the search URL (it should be a Sales Navigator URL like /sales/search/people?...)
+2. The search results page should load with lead cards
+3. Extract profile data from the visible lead cards using an "extract" action (batch of 5-10)
+4. Scroll down to see more results on the current page
+5. Extract the next batch of visible leads with another "extract" action
+6. When you reach the bottom of the page, look for a "Next" button or pagination to go to the next page
+7. Repeat steps 3-6 until you have ${limit} profiles or run out of results
+8. When finished, use "done" with an empty profiles array
+
+## CRITICAL: Use batched extraction
+Do NOT try to return all profiles in a single response. Instead:
+- Use "extract" actions to save profiles in small batches (5-10 per batch)
+- After each extract, scroll down to reveal more results and extract again
+- Each extract should contain ONLY NEW profiles you haven't extracted yet
+- The system accumulates all your extract batches automatically
+
+## Sales Navigator DOM Structure
+Sales Navigator uses a different layout than regular LinkedIn:
+- Lead cards are typically in an ordered list: \`ol.artdeco-list\` or \`.search-results__result-list\`
+- Each card contains the lead's name, headline, company, and a link
+- Profile URLs on Sales Navigator may be:
+  - \`/sales/lead/...\` format — extract these
+  - \`/sales/people/...\` format — extract these
+  - Sometimes a regular \`/in/...\` URL is also shown — extract that too if visible
+- IMPORTANT: Always prefer extracting the \`/in/...\` URL if visible, as it's the canonical profile URL.
+  If only a \`/sales/lead/...\` URL is available, extract that instead.
+
+## Extract action format (use this repeatedly):
+{
+  "reasoning": "Extracting batch of N visible leads from SN search results",
+  "action": {
+    "type": "extract",
+    "data": {
+      "profiles": [
+        { "profile_url": "https://www.linkedin.com/in/username", "name": "Full Name", "headline": "Their headline" }
+      ]
+    }
+  }
+}
+
+## Scrolling and Pagination
+- Sales Navigator shows ~25 results per page
+- Scroll down to see all results on the current page
+- Look for pagination at the bottom (e.g., "Next", page numbers)
+- Click "Next" or the next page number to load more results
+- If scrolling doesn't work, try: ".search-results__result-list" as a scroll selector
+
+## Done action (when finished):
+{
+  "reasoning": "Finished extracting. Collected N total profiles across M pages.",
+  "action": {
+    "type": "done",
+    "result": {
+      "profiles": []
+    }
+  }
+}
+
+Note: Put any final remaining profiles in the done result, or use an empty array if you already extracted everything via extract actions.`;
+}
+
+export function getSalesNavConnectPrompt(profileUrl: string, note?: string | null): string {
+  const noteInstruction = note
+    ? `After clicking Connect, a modal will appear. Click "Add a note", then type this note:\n"${note}"\nThen click "Send".`
+    : 'After clicking Connect, click "Send" directly in the modal (no note needed).';
+
+  return `${BASE_SYSTEM_PROMPT}
+
+## Task: Send Connection Request from Sales Navigator
+Navigate to a Sales Navigator lead page and send a connection request.
+
+Profile URL: ${profileUrl}
+${noteInstruction}
+
+## Steps
+1. Navigate to the profile URL (it should be a Sales Navigator URL like /sales/lead/... or /sales/people/...)
+2. Check the current connection state:
+   - If already connected (shows "Message" or "Connected"), report done with status "already_connected"
+   - If pending (shows "Pending"), report done with status "already_pending"
+   - If no Connect option visible, report done with status "restricted"
+3. Find and click the "Connect" button. On Sales Navigator pages:
+   - Look for a "Connect" button in the profile header action bar
+   - It may also be in a dropdown — click the "More" button or "..." icon to find it
+   - Common selectors: button[data-control-name="connect"], [aria-label*="connect" i]
+4. A confirmation modal will appear — this is expected, DO NOT dismiss it:
+   - If it says "How do you know [Name]?" or asks for email (no free invite), report status "restricted"
+   - If it shows "Add a note" and "Send without a note" buttons, proceed to step 5
+${note ? `5. Click "Add a note" button in the modal
+6. Find the text area in the modal and type the note
+7. Click "Send" button in the modal` : '5. Click "Send without a note" or "Send" button in the modal'}
+8. Wait 1-2 seconds, then verify the button changed to "Pending"
+
+## IMPORTANT: Modal handling
+The connection request flow involves modals that you MUST interact with (not dismiss).
+When the "Send invitation" modal appears after clicking Connect, you need to:
+- Read the modal content to check for restrictions
+- Click the appropriate button ("Send", "Add a note", etc.)
+- The modal will close automatically after sending
+
+## Expected done result
+{
+  "reasoning": "Connection request sent successfully / Already connected / etc",
+  "action": {
+    "type": "done",
+    "result": {
+      "status": "sent_verified" | "already_connected" | "already_pending" | "restricted",
+      "details": { "strategy": "description of how connect was found" }
+    }
+  }
+}`;
+}
+
+export function getSalesNavInMailPrompt(profileUrl: string, subject: string, message: string): string {
+  return `${BASE_SYSTEM_PROMPT}
+
+## Task: Send InMail from Sales Navigator
+Navigate to a Sales Navigator lead page and send an InMail message.
+
+Profile URL: ${profileUrl}
+Subject: "${subject}"
+Message: "${message}"
+
+## Steps
+1. Navigate to the profile URL (it should be a Sales Navigator URL like /sales/lead/... or /sales/people/...)
+2. Look for the "Message" button on the lead profile page
+   - On Sales Navigator, clicking "Message" for a non-connection opens the InMail composer
+   - The button is usually in the profile header action bar
+   - If not visible, check the "More" dropdown / "..." button
+3. Click the "Message" button to open the InMail composer
+4. Wait for the InMail compose form to appear
+5. The InMail form has TWO fields:
+   a. **Subject line** — find the subject input field and type: "${subject}"
+   b. **Message body** — find the message textarea/contenteditable and type the message
+6. Fill the subject field FIRST, then the message body
+7. Click the "Send" button
+8. Wait 1-2 seconds, then verify the InMail was sent (look for "Message sent" confirmation or similar)
+
+## InMail Compose Form
+The InMail form on Sales Navigator typically has:
+- A subject input: look for input[name="subject"], .compose-form__subject-field, or an input with placeholder like "Subject (required)"
+- A message body: look for a contenteditable div, textarea, or .compose-form__message-field
+- A Send button: look for button with text "Send" or a submit button in the compose area
+
+## Edge Cases
+- If the profile shows "InMail not available" or similar, report status "not_available"
+- If it says "You've run out of InMail credits" or similar, report status "no_inmail_credits"
+- If the Message button opens a regular messaging overlay (for 1st-degree connections), you can still send — just fill in the message body (no subject needed for regular messages), report status "sent_verified"
+
+## Expected done result
+{
+  "reasoning": "InMail sent successfully / No credits / Not available / etc",
+  "action": {
+    "type": "done",
+    "result": {
+      "status": "sent_verified" | "no_inmail_credits" | "not_available" | "failed",
+      "details": { "reason": "optional detail" }
+    }
+  }
+}`;
+}
+
+export function getSalesNavMessagePrompt(profileUrl: string, message: string): string {
+  return `${BASE_SYSTEM_PROMPT}
+
+## Task: Send Message from Sales Navigator
+Navigate to a Sales Navigator lead page and send a direct message to a 1st-degree connection.
+
+Profile URL: ${profileUrl}
+Message to send:
+"${message}"
+
+## Steps
+1. Navigate to the profile URL (it should be a Sales Navigator URL like /sales/lead/... or /sales/people/...)
+2. Check if this is a 1st-degree connection (should show "Message" button prominently)
+   - If not connected (shows "Connect" instead), report status "not_1st_degree"
+3. Click the "Message" button to open the messaging overlay
+4. Wait for the messaging compose area to appear
+5. Click in the message compose area — this is likely a contenteditable div
+   - Look for: div[role="textbox"], div[contenteditable="true"], .msg-form__contenteditable
+   - You may need to click it first to focus it
+6. Use the "fill" action with the message text on the compose element
+   - If fill doesn't work, try clicking the area first, then fill again
+7. Click the "Send" button:
+   - Look for: button with text "Send", button[type="submit"], or a send icon button
+8. Wait briefly, then verify the message appears in the conversation thread
+
+## IMPORTANT: Sales Navigator Messaging
+The messaging interface on Sales Navigator may open as:
+- An overlay in the bottom-right corner (similar to regular LinkedIn)
+- A side panel or modal
+- The compose area uses a contenteditable div (not an input/textarea)
+- The "fill" action will work on contenteditable elements
+
+## Expected done result
+{
+  "reasoning": "Message sent successfully / Not a 1st-degree connection / etc",
+  "action": {
+    "type": "done",
+    "result": {
+      "status": "sent_verified" | "not_1st_degree" | "failed",
+      "details": { "reason": "optional failure reason" }
+    }
+  }
+}`;
+}
+
 export function getSendMessagePrompt(profileUrl: string, message: string): string {
   return `${BASE_SYSTEM_PROMPT}
 

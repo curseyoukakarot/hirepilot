@@ -283,7 +283,13 @@ export const airtopProvider: SniperExecutionProvider = {
         try { await terminateSession(sessionId); } catch {}
       }
     }
-  }
+  },
+
+  // Sales Navigator stubs — use agentic_browser provider for SN tasks
+  prospectSalesNavSearch: async () => { throw new Error('not_implemented: use agentic_browser provider for Sales Navigator'); },
+  sendSalesNavConnect: async () => { throw new Error('not_implemented: use agentic_browser provider for Sales Navigator'); },
+  sendSalesNavInMail: async () => { throw new Error('not_implemented: use agentic_browser provider for Sales Navigator'); },
+  sendSalesNavMessage: async () => { throw new Error('not_implemented: use agentic_browser provider for Sales Navigator'); },
 };
 
 

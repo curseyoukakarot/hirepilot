@@ -237,7 +237,7 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
 
     const schema = z.object({
       target_id: z.string().uuid().nullable().optional(),
-      job_type: z.enum(['prospect_post_engagers', 'send_connect_requests', 'send_messages', 'people_search', 'jobs_intent', 'decision_maker_lookup']),
+      job_type: z.enum(['prospect_post_engagers', 'send_connect_requests', 'send_messages', 'people_search', 'jobs_intent', 'decision_maker_lookup', 'sn_lead_search', 'sn_send_connect', 'sn_send_inmail', 'sn_send_message']),
       provider: z.enum(['airtop', 'local_playwright']).optional(),
       input_json: z.record(z.any()).default({})
     });
@@ -913,6 +913,142 @@ sniperV1Router.get('/actions/generate-messages/defaults', async (_req: ApiReques
     connect_note_template: DEFAULT_CONNECT_NOTE_TEMPLATE,
     message_template: DEFAULT_MESSAGE_TEMPLATE,
   });
+});
+
+// ─────────── Sales Navigator: Connect ───────────
+sniperV1Router.post('/actions/sn-connect', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
+
+    const schema = z.object({
+      profile_urls: z.array(z.string().min(1)).min(1).max(500),
+      note: z.string().max(300).optional().nullable(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
+
+    const job = await createJob({
+      workspace_id: workspaceId,
+      created_by: userId,
+      target_id: null,
+      job_type: 'sn_send_connect',
+      provider,
+      input_json: { note: parsed.data.note || null },
+    });
+
+    await insertJobItems(
+      parsed.data.profile_urls.map((u) => ({
+        job_id: job.id,
+        workspace_id: workspaceId,
+        profile_url: u,
+        action_type: 'connect' as const,
+        scheduled_for: null,
+        status: 'queued' as const,
+      }))
+    );
+
+    await sniperV1Queue.add('sniper_v1', { jobId: job.id });
+    return res.status(202).json({ queued: true, job_id: job.id });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_queue_sn_connect' });
+  }
+});
+
+// ─────────── Sales Navigator: InMail ───────────
+sniperV1Router.post('/actions/sn-inmail', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
+
+    const schema = z.object({
+      profile_urls: z.array(z.string().min(1)).min(1).max(500),
+      subject: z.string().min(1).max(200),
+      message: z.string().min(1).max(1900),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
+
+    const job = await createJob({
+      workspace_id: workspaceId,
+      created_by: userId,
+      target_id: null,
+      job_type: 'sn_send_inmail',
+      provider,
+      input_json: { subject: parsed.data.subject, message: parsed.data.message },
+    });
+
+    await insertJobItems(
+      parsed.data.profile_urls.map((u) => ({
+        job_id: job.id,
+        workspace_id: workspaceId,
+        profile_url: u,
+        action_type: 'inmail' as const,
+        scheduled_for: null,
+        status: 'queued' as const,
+      }))
+    );
+
+    await sniperV1Queue.add('sniper_v1', { jobId: job.id });
+    return res.status(202).json({ queued: true, job_id: job.id });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_queue_sn_inmail' });
+  }
+});
+
+// ─────────── Sales Navigator: Message ───────────
+sniperV1Router.post('/actions/sn-message', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+    if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
+
+    const schema = z.object({
+      profile_urls: z.array(z.string().url()).min(1).max(500),
+      message: z.string().min(1).max(3000),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
+
+    const job = await createJob({
+      workspace_id: workspaceId,
+      created_by: userId,
+      target_id: null,
+      job_type: 'sn_send_message',
+      provider,
+      input_json: { message: parsed.data.message },
+    });
+
+    await insertJobItems(
+      parsed.data.profile_urls.map((u) => ({
+        job_id: job.id,
+        workspace_id: workspaceId,
+        profile_url: u,
+        action_type: 'message' as const,
+        scheduled_for: null,
+        status: 'queued' as const,
+      }))
+    );
+
+    await sniperV1Queue.add('sniper_v1', { jobId: job.id });
+    return res.status(202).json({ queued: true, job_id: job.id });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_queue_sn_message' });
+  }
 });
 
 sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Response) => {

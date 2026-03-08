@@ -1,5 +1,5 @@
 import type { Page, Browser } from 'playwright';
-import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, JobListing, DecisionMakerResult } from './types';
+import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, SendInMailResult, JobListing, DecisionMakerResult } from './types';
 import type { ProspectProfile } from './linkedinActions';
 
 import {
@@ -18,6 +18,10 @@ import {
   getProspectDecisionMakersPrompt,
   getSendConnectionRequestPrompt,
   getSendMessagePrompt,
+  getSalesNavSearchPrompt,
+  getSalesNavConnectPrompt,
+  getSalesNavInMailPrompt,
+  getSalesNavMessagePrompt,
 } from '../agent/prompts';
 import {
   getUserLinkedinAuth,
@@ -481,6 +485,189 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
       jobId: debug?.jobId || undefined,
       workspaceId,
       taskType: 'send_message',
+      result,
+    });
+
+    if (!result.success) {
+      if (result.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
+        throw new Error(result.error);
+      }
+      return { status: 'failed', details: { reason: result.error, steps: result.steps.length } };
+    }
+
+    const agentStatus = result.data?.status || 'failed';
+    const statusMap: Record<string, SendMessageResult['status']> = {
+      sent_verified: 'sent_verified',
+      not_1st_degree: 'not_1st_degree',
+    };
+
+    return {
+      status: statusMap[agentStatus] || 'failed',
+      details: {
+        ...result.data?.details,
+        agent_steps: result.steps.length,
+        agent_tokens: result.totalTokensUsed,
+      },
+    };
+  },
+
+  // =========================================================================
+  // Sales Navigator: lead search
+  // =========================================================================
+  async prospectSalesNavSearch({ userId, workspaceId, searchUrl, limit }): Promise<ProspectProfile[]> {
+    const llm = createLLMClient();
+    const instruction = getSalesNavSearchPrompt(searchUrl, limit);
+
+    const result = await runWithSession(userId, workspaceId, async (page) => {
+      return executeAgentTask(page, {
+        instruction,
+        maxSteps: Math.min(DEFAULT_MAX_STEPS * 3, 60),
+        timeoutMs: DEFAULT_TIMEOUT_MS * 3,
+      }, llm);
+    }, { navigateTo: searchUrl });
+
+    await logAgentRun({ workspaceId, taskType: 'prospect_sn_search', result });
+
+    const profiles: ProspectProfile[] = [];
+    const seen = new Set<string>();
+
+    const addProfiles = (rawProfiles: any[]) => {
+      for (const p of rawProfiles) {
+        const url = p.profile_url || '';
+        // Accept both /in/ and /sales/lead/ URLs
+        if (url && (url.includes('linkedin.com/in/') || url.includes('linkedin.com/sales/')) && !seen.has(url)) {
+          seen.add(url);
+          profiles.push({ profile_url: url, name: p.name || null, headline: p.headline || null });
+        }
+      }
+    };
+
+    for (const batch of (result.extractedData || [])) addProfiles(batch?.profiles || []);
+    addProfiles(result.data?.profiles || []);
+
+    if (!result.success && profiles.length === 0) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    if (!result.success && profiles.length > 0) {
+      console.warn(`[agentic_browser] prospect_sn_search partially succeeded: ${profiles.length} profiles recovered. Error: ${result.error}`);
+    }
+
+    return profiles.slice(0, limit);
+  },
+
+  // =========================================================================
+  // Sales Navigator: send connect
+  // =========================================================================
+  async sendSalesNavConnect({ userId, workspaceId, profileUrl, note, debug }): Promise<SendConnectResult> {
+    const llm = createLLMClient();
+    const instruction = getSalesNavConnectPrompt(profileUrl, note);
+
+    const result = await runWithSession(userId, workspaceId, async (page) => {
+      return executeAgentTask(page, {
+        instruction,
+        maxSteps: DEFAULT_MAX_STEPS,
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+      }, llm);
+    }, { navigateTo: profileUrl });
+
+    await logAgentRun({
+      jobId: debug?.jobId || undefined,
+      workspaceId,
+      taskType: 'sn_send_connect',
+      result,
+    });
+
+    if (!result.success) {
+      if (result.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
+        throw new Error(result.error);
+      }
+      return { status: 'failed', details: { reason: result.error, steps: result.steps.length } };
+    }
+
+    const agentStatus = result.data?.status || 'failed';
+    const statusMap: Record<string, SendConnectResult['status']> = {
+      sent_verified: 'sent_verified',
+      already_connected: 'already_connected',
+      already_pending: 'already_pending',
+      restricted: 'restricted',
+    };
+
+    return {
+      status: statusMap[agentStatus] || 'failed',
+      details: {
+        ...result.data?.details,
+        agent_steps: result.steps.length,
+        agent_tokens: result.totalTokensUsed,
+      },
+    };
+  },
+
+  // =========================================================================
+  // Sales Navigator: send InMail
+  // =========================================================================
+  async sendSalesNavInMail({ userId, workspaceId, profileUrl, subject, message, debug }): Promise<SendInMailResult> {
+    const llm = createLLMClient();
+    const instruction = getSalesNavInMailPrompt(profileUrl, subject, message);
+
+    const result = await runWithSession(userId, workspaceId, async (page) => {
+      return executeAgentTask(page, {
+        instruction,
+        maxSteps: DEFAULT_MAX_STEPS,
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+      }, llm);
+    }, { navigateTo: profileUrl });
+
+    await logAgentRun({
+      jobId: debug?.jobId || undefined,
+      workspaceId,
+      taskType: 'sn_send_inmail',
+      result,
+    });
+
+    if (!result.success) {
+      if (result.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
+        throw new Error(result.error);
+      }
+      return { status: 'failed', details: { reason: result.error, steps: result.steps.length } };
+    }
+
+    const agentStatus = result.data?.status || 'failed';
+    const statusMap: Record<string, SendInMailResult['status']> = {
+      sent_verified: 'sent_verified',
+      no_inmail_credits: 'no_inmail_credits',
+      not_available: 'not_available',
+    };
+
+    return {
+      status: statusMap[agentStatus] || 'failed',
+      details: {
+        ...result.data?.details,
+        agent_steps: result.steps.length,
+        agent_tokens: result.totalTokensUsed,
+      },
+    };
+  },
+
+  // =========================================================================
+  // Sales Navigator: send message
+  // =========================================================================
+  async sendSalesNavMessage({ userId, workspaceId, profileUrl, message, debug }): Promise<SendMessageResult> {
+    const llm = createLLMClient();
+    const instruction = getSalesNavMessagePrompt(profileUrl, message);
+
+    const result = await runWithSession(userId, workspaceId, async (page) => {
+      return executeAgentTask(page, {
+        instruction,
+        maxSteps: DEFAULT_MAX_STEPS,
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+      }, llm);
+    }, { navigateTo: profileUrl });
+
+    await logAgentRun({
+      jobId: debug?.jobId || undefined,
+      workspaceId,
+      taskType: 'sn_send_message',
       result,
     });
 
