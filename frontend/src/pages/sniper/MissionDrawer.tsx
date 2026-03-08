@@ -201,6 +201,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
   const [profileUrls, setProfileUrls] = useState<string[]>([]);
   const [connectNote, setConnectNote] = useState('');
   const [messageText, setMessageText] = useState('');
+  const [inmailSubject, setInmailSubject] = useState('');
 
   const [addLeadsOpen, setAddLeadsOpen] = useState(false);
 
@@ -357,6 +358,96 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
     }
   };
 
+  /* ---- SN Lead Search ---- */
+  const queueSnLeadSearch = async () => {
+    if (!cloudEnabled) return showToast('Enable Cloud Engine in Settings to run this mission.', 'info');
+    const url = String(searchUrl || '').trim();
+    if (!url) return showToast('Paste a Sales Navigator search URL.', 'info');
+    const limit = Math.max(1, Math.min(Number(searchLimit) || 200, 2000));
+    promptScheduleIfNeeded({
+      limit,
+      title: 'SN Lead Search run exceeds daily cap.',
+      scheduleName: `Cloud Engine - SN Lead Search - Daily (${limit})`,
+      toolPayload: { job_type: 'sn_lead_search', search_url: url, limit },
+      onRunOnce: async () => {
+        setWorkingId('sn_lead_search');
+        try {
+          const out = await apiPost('/api/sniper/jobs', {
+            target_id: null, job_type: 'sn_lead_search', input_json: { search_url: url, limit },
+          });
+          showToast('SN Lead Search queued. Track progress in Activity.', 'success');
+          const jobId = (out as Record<string, unknown>)?.job
+            ? ((out as Record<string, unknown>).job as Record<string, unknown>)?.id
+            : (out as Record<string, unknown>)?.job_id;
+          if (jobId) onNavigate('activity');
+        } catch (e: unknown) {
+          showToast((e as Error)?.message || 'Failed to queue SN Lead Search', 'error');
+        } finally {
+          setWorkingId(null);
+        }
+      },
+    });
+  };
+
+  /* ---- SN Connect ---- */
+  const queueSnConnect = async () => {
+    if (!cloudEnabled) return showToast('Enable Cloud Engine in Settings to queue requests.', 'info');
+    if (!profileUrls.length) return showToast('Add leads first (LinkedIn profile URLs).', 'info');
+    const note = String(connectNote || '').trim();
+    if (note.length > 300) return showToast('Connect note must be 300 characters or less.', 'error');
+    setWorkingId('sn_connect');
+    try {
+      await apiPost('/api/sniper/actions/sn-connect', { profile_urls: profileUrls, note: note || null });
+      showToast('Queued SN connection requests. Track progress in Activity.', 'success');
+      setTimeout(() => onClose(), 1200);
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to queue SN connection requests', 'error');
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  /* ---- SN InMail ---- */
+  const queueSnInMail = async () => {
+    if (!cloudEnabled) return showToast('Enable Cloud Engine in Settings to queue InMails.', 'info');
+    if (!profileUrls.length) return showToast('Add leads first (LinkedIn profile URLs).', 'info');
+    const subj = String(inmailSubject || '').trim();
+    if (!subj) return showToast('Subject line is required for InMail.', 'info');
+    if (subj.length > 200) return showToast('Subject must be 200 characters or less.', 'error');
+    const msg = String(messageText || '').trim();
+    if (!msg) return showToast('Message is required.', 'info');
+    if (msg.length > 1900) return showToast('InMail message must be 1900 characters or less.', 'error');
+    setWorkingId('sn_inmail');
+    try {
+      await apiPost('/api/sniper/actions/sn-inmail', { profile_urls: profileUrls, subject: subj, message: msg });
+      showToast('Queued InMails. Track progress in Activity.', 'success');
+      setTimeout(() => onClose(), 1200);
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to queue InMails', 'error');
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  /* ---- SN Message ---- */
+  const queueSnMessage = async () => {
+    if (!cloudEnabled) return showToast('Enable Cloud Engine in Settings to queue messages.', 'info');
+    if (!profileUrls.length) return showToast('Add leads first (LinkedIn profile URLs).', 'info');
+    const msg = String(messageText || '').trim();
+    if (!msg) return showToast('Message is required.', 'info');
+    if (msg.length > 3000) return showToast('Message must be 3000 characters or less.', 'error');
+    setWorkingId('sn_message');
+    try {
+      await apiPost('/api/sniper/actions/sn-message', { profile_urls: profileUrls, message: msg });
+      showToast('Queued SN messages. Track progress in Activity.', 'success');
+      setTimeout(() => onClose(), 1200);
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to queue SN messages', 'error');
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   /* ---- Schedule Picker state ---- */
   const [schedMode, setSchedMode] = useState('manual');
   const [schedName, setSchedName] = useState(`Cloud Engine - ${mission.title}`);
@@ -394,6 +485,31 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
       case 'send_message':
         return {
           job_type: 'send_messages',
+          profile_urls: profileUrls,
+          message: String(messageText || '').trim().slice(0, 3000),
+        };
+      case 'sn_lead_search':
+        return {
+          job_type: 'sn_lead_search',
+          search_url: String(searchUrl || '').trim(),
+          limit: Math.max(1, Math.min(Number(searchLimit) || 200, 2000)),
+        };
+      case 'sn_connect':
+        return {
+          job_type: 'sn_send_connect',
+          profile_urls: profileUrls,
+          note: String(connectNote || '').trim().slice(0, 300) || null,
+        };
+      case 'sn_inmail':
+        return {
+          job_type: 'sn_send_inmail',
+          profile_urls: profileUrls,
+          subject: String(inmailSubject || '').trim().slice(0, 200),
+          message: String(messageText || '').trim().slice(0, 1900),
+        };
+      case 'sn_message':
+        return {
+          job_type: 'sn_send_message',
           profile_urls: profileUrls,
           message: String(messageText || '').trim().slice(0, 3000),
         };
@@ -771,6 +887,172 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                   )}
                 >
                   {workingId === 'message' ? 'Queuing...' : 'Run now'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ═══ SN LEAD SEARCH ═══ */}
+          {mission.id === 'sn_lead_search' && (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Sales Navigator Search URL</label>
+                <input
+                  value={searchUrl}
+                  onChange={(e) => setSearchUrl(e.target.value)}
+                  placeholder="https://www.linkedin.com/sales/search/people?..."
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-2 text-xs text-slate-500">Tip: Copy the URL from your Sales Navigator lead search page. Requires active SN subscription.</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Limit</label>
+                <input
+                  type="number" min={1} max={2000} value={searchLimit}
+                  onChange={(e) => setSearchLimit(Number(e.target.value))}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                {effectiveDailyCap ? (
+                  <div className="mt-2 text-[11px] text-slate-500">Daily cap: {effectiveDailyCap} profiles.</div>
+                ) : null}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
+                <button
+                  type="button"
+                  disabled={!cloudEnabled || workingId === 'sn_lead_search'}
+                  onClick={queueSnLeadSearch}
+                  className={cx(
+                    'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
+                    (!cloudEnabled || workingId === 'sn_lead_search') && 'opacity-70 cursor-not-allowed',
+                  )}
+                >
+                  {workingId === 'sn_lead_search' ? 'Queuing...' : 'Run now'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ═══ SN CONNECT ═══ */}
+          {mission.id === 'sn_connect' && (
+            <>
+              <LeadsSection profileUrls={profileUrls} onAddLeads={() => setAddLeadsOpen(true)} onClear={() => setProfileUrls([])} />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Optional connect note (max 300 chars)</label>
+                  <TemplatePicker onSelect={(body) => setConnectNote(body.slice(0, 300))} />
+                </div>
+                <textarea
+                  value={connectNote}
+                  onChange={(e) => setConnectNote(e.target.value)}
+                  rows={3} maxLength={300}
+                  placeholder="Optional note to include with the connection request."
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-1 text-xs text-slate-500">{String(connectNote || '').length}/300</div>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
+                <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription on your LinkedIn account.</div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
+                <button
+                  type="button"
+                  disabled={!cloudEnabled || !profileUrls.length || workingId === 'sn_connect'}
+                  onClick={queueSnConnect}
+                  className={cx(
+                    'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
+                    (!cloudEnabled || !profileUrls.length || workingId === 'sn_connect') && 'opacity-70 cursor-not-allowed',
+                  )}
+                >
+                  {workingId === 'sn_connect' ? 'Queuing...' : 'Run now'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ═══ SN INMAIL ═══ */}
+          {mission.id === 'sn_inmail' && (
+            <>
+              <LeadsSection profileUrls={profileUrls} onAddLeads={() => setAddLeadsOpen(true)} onClear={() => setProfileUrls([])} />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Subject line (required, max 200 chars)</label>
+                <input
+                  value={inmailSubject}
+                  onChange={(e) => setInmailSubject(e.target.value)}
+                  maxLength={200}
+                  placeholder="InMail subject line..."
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-1 text-xs text-slate-500">{String(inmailSubject || '').length}/200</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message (required, max 1900 chars)</label>
+                  <TemplatePicker onSelect={(body) => setMessageText(body.slice(0, 1900))} />
+                </div>
+                <textarea
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows={5} maxLength={1900}
+                  placeholder="Write your InMail message..."
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-1 text-xs text-slate-500">{String(messageText || '').length}/1900</div>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
+                <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription. Each InMail uses one credit from your SN account.</div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
+                <button
+                  type="button"
+                  disabled={!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail'}
+                  onClick={queueSnInMail}
+                  className={cx(
+                    'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
+                    (!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail') && 'opacity-70 cursor-not-allowed',
+                  )}
+                >
+                  {workingId === 'sn_inmail' ? 'Queuing...' : 'Run now'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ═══ SN MESSAGE ═══ */}
+          {mission.id === 'sn_message' && (
+            <>
+              <LeadsSection profileUrls={profileUrls} onAddLeads={() => setAddLeadsOpen(true)} onClear={() => setProfileUrls([])} />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Message (required, max 3000 chars)</label>
+                  <TemplatePicker onSelect={(body) => setMessageText(body.slice(0, 3000))} />
+                </div>
+                <textarea
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows={5} maxLength={3000}
+                  placeholder="Write your message..."
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-1 text-xs text-slate-500">{String(messageText || '').length}/3000</div>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
+                <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription. Target must be a 1st-degree connection.</div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
+                <button
+                  type="button"
+                  disabled={!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message'}
+                  onClick={queueSnMessage}
+                  className={cx(
+                    'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
+                    (!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message') && 'opacity-70 cursor-not-allowed',
+                  )}
+                >
+                  {workingId === 'sn_message' ? 'Queuing...' : 'Run now'}
                 </button>
               </div>
             </>

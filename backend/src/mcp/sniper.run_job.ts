@@ -26,7 +26,7 @@ const ToolPayloadSchema = z.object({
   // If provided, overrides auto workspace resolution (team_id fallback).
   workspace_id: z.string().uuid().optional(),
 
-  job_type: z.enum(['prospect_post_engagers', 'people_search', 'jobs_intent', 'send_connect_requests', 'send_messages']),
+  job_type: z.enum(['prospect_post_engagers', 'people_search', 'jobs_intent', 'send_connect_requests', 'send_messages', 'sn_lead_search', 'sn_send_connect', 'sn_send_inmail', 'sn_send_message']),
 
   // discovery jobs
   post_url: z.string().url().optional(),
@@ -37,6 +37,9 @@ const ToolPayloadSchema = z.object({
   profile_urls: z.array(z.string().url()).min(1).max(2000).optional(),
   note: z.string().max(300).optional().nullable(),
   message: z.string().min(1).max(3000).optional(),
+
+  // InMail-specific
+  subject: z.string().max(200).optional(),
 
   // Optional scheduling hints (for audit/debug; scheduler already controls timing)
   timezone: z.string().optional(),
@@ -130,22 +133,27 @@ export const sniperRunJobTool = {
       input_json.post_url = payload.post_url;
       input_json.limit = payload.limit ?? 200;
     }
-    if (jobType === 'people_search' || jobType === 'jobs_intent') {
+    if (jobType === 'people_search' || jobType === 'jobs_intent' || jobType === 'sn_lead_search') {
       input_json.search_url = payload.search_url;
       input_json.limit = payload.limit ?? (jobType === 'jobs_intent' ? 100 : 200);
     }
-    if (jobType === 'send_connect_requests') {
+    if (jobType === 'send_connect_requests' || jobType === 'sn_send_connect') {
       input_json.note = payload.note ?? null;
     }
-    if (jobType === 'send_messages') {
+    if (jobType === 'send_messages' || jobType === 'sn_send_message') {
+      input_json.message = payload.message;
+    }
+    if (jobType === 'sn_send_inmail') {
+      input_json.subject = payload.subject;
       input_json.message = payload.message;
     }
 
     // Minimal validation per job type
     if (jobType === 'prospect_post_engagers' && !input_json.post_url) throw new Error('missing_post_url');
-    if ((jobType === 'people_search' || jobType === 'jobs_intent') && !input_json.search_url) throw new Error('missing_search_url');
-    if (jobType === 'send_connect_requests' && !(payload.profile_urls || []).length) throw new Error('missing_profile_urls');
-    if (jobType === 'send_messages' && (!(payload.profile_urls || []).length || !input_json.message)) throw new Error('missing_message_or_profile_urls');
+    if ((jobType === 'people_search' || jobType === 'jobs_intent' || jobType === 'sn_lead_search') && !input_json.search_url) throw new Error('missing_search_url');
+    if ((jobType === 'send_connect_requests' || jobType === 'sn_send_connect') && !(payload.profile_urls || []).length) throw new Error('missing_profile_urls');
+    if ((jobType === 'send_messages' || jobType === 'sn_send_message') && (!(payload.profile_urls || []).length || !input_json.message)) throw new Error('missing_message_or_profile_urls');
+    if (jobType === 'sn_send_inmail' && (!(payload.profile_urls || []).length || !input_json.subject || !input_json.message)) throw new Error('missing_subject_message_or_profile_urls');
 
     const job = await createJob({
       workspace_id: workspaceId,
@@ -156,8 +164,8 @@ export const sniperRunJobTool = {
       input_json
     });
 
-    // Create job items for connect/message
-    if (jobType === 'send_connect_requests') {
+    // Create job items for connect/message/inmail
+    if (jobType === 'send_connect_requests' || jobType === 'sn_send_connect') {
       const urls = payload.profile_urls || [];
       await insertJobItems(
         urls.map((u) => ({
@@ -171,7 +179,7 @@ export const sniperRunJobTool = {
         }))
       );
     }
-    if (jobType === 'send_messages') {
+    if (jobType === 'send_messages' || jobType === 'sn_send_message') {
       const urls = payload.profile_urls || [];
       await insertJobItems(
         urls.map((u) => ({
@@ -179,6 +187,19 @@ export const sniperRunJobTool = {
           workspace_id: workspaceId,
           profile_url: u,
           action_type: 'message',
+          scheduled_for: null,
+          status: 'queued',
+        }))
+      );
+    }
+    if (jobType === 'sn_send_inmail') {
+      const urls = payload.profile_urls || [];
+      await insertJobItems(
+        urls.map((u) => ({
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: u,
+          action_type: 'inmail',
           scheduled_for: null,
           status: 'queued',
         }))

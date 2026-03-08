@@ -35,6 +35,9 @@ export type SendConnectResult =
 export type SendMessageResult =
   | { status: 'sent_verified' | 'not_1st_degree' | 'skipped' | 'failed' | 'failed_verification'; details?: any };
 
+export type SendInMailResult =
+  | { status: 'sent_verified' | 'no_inmail_credits' | 'not_available' | 'failed'; details?: any };
+
 export interface SniperExecutionProvider {
   name: ProviderName;
   startLinkedInAuth?(args: { userId: string; workspaceId: string }): Promise<LinkedInAuthStartResult>;
@@ -45,6 +48,12 @@ export interface SniperExecutionProvider {
   prospectJobsIntent(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<JobListing[]>;
   sendConnectionRequest(args: { userId: string; workspaceId: string; profileUrl: string; note?: string | null; debug?: ActionDebugContext }): Promise<SendConnectResult>;
   sendMessage(args: { userId: string; workspaceId: string; profileUrl: string; message: string; debug?: ActionDebugContext }): Promise<SendMessageResult>;
+
+  // Sales Navigator methods
+  prospectSalesNavSearch(args: { userId: string; workspaceId: string; searchUrl: string; limit: number }): Promise<ProspectProfile[]>;
+  sendSalesNavConnect(args: { userId: string; workspaceId: string; profileUrl: string; note?: string | null; debug?: ActionDebugContext }): Promise<SendConnectResult>;
+  sendSalesNavInMail(args: { userId: string; workspaceId: string; profileUrl: string; subject: string; message: string; debug?: ActionDebugContext }): Promise<SendInMailResult>;
+  sendSalesNavMessage(args: { userId: string; workspaceId: string; profileUrl: string; message: string; debug?: ActionDebugContext }): Promise<SendMessageResult>;
 }
 
 
