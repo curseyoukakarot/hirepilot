@@ -144,13 +144,38 @@ async function captureVisibleText(page: Page): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export async function captureObservation(page: Page): Promise<Observation> {
-  const [url, title, screenshotBase64, domSnapshot, visibleText] = await Promise.all([
-    page.url(),
-    page.title().catch(() => ''),
-    captureScreenshot(page),
-    captureDomSnapshot(page),
-    captureVisibleText(page),
-  ]);
+  // Retry logic: Sales Navigator (and other heavy SPA pages) can destroy the
+  // execution context during initial load due to client-side redirects/module
+  // bootstrapping.  If we hit "Execution context was destroyed", wait for the
+  // page to settle and retry.
+  const MAX_RETRIES = 3;
 
-  return { url, title, screenshotBase64, domSnapshot, visibleText };
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const [url, title, screenshotBase64, domSnapshot, visibleText] = await Promise.all([
+        page.url(),
+        page.title().catch(() => ''),
+        captureScreenshot(page),
+        captureDomSnapshot(page),
+        captureVisibleText(page),
+      ]);
+
+      return { url, title, screenshotBase64, domSnapshot, visibleText };
+    } catch (e: any) {
+      const isContextDestroyed =
+        e.message?.includes('Execution context was destroyed') ||
+        e.message?.includes('context was destroyed') ||
+        e.message?.includes('navigation');
+
+      if (isContextDestroyed && attempt < MAX_RETRIES) {
+        console.warn(`[observation] Context destroyed on attempt ${attempt}/${MAX_RETRIES}, waiting for page to settle…`);
+        await page.waitForTimeout(3000);
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  // TypeScript: unreachable, but keeps the compiler happy
+  throw new Error('captureObservation: exhausted retries');
 }

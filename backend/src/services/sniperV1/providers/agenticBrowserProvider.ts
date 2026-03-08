@@ -92,14 +92,20 @@ async function runWithSession<T>(
     browser = conn.browser;
     const page = conn.page;
 
-    // Navigate to LinkedIn first to verify auth
+    // Navigate to LinkedIn first to verify auth.
+    // Sales Navigator pages are heavy SPAs — use `load` and a longer settle.
     if (opts?.navigateTo) {
-      await page.goto(opts.navigateTo, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const isSalesNav = opts.navigateTo.includes('/sales/');
+      await page.goto(opts.navigateTo, {
+        waitUntil: isSalesNav ? 'load' : 'domcontentloaded',
+        timeout: isSalesNav ? 45_000 : 30_000,
+      });
+      await page.waitForTimeout(isSalesNav ? 5000 : 2000);
     } else {
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForTimeout(2000);
     }
 
-    await page.waitForTimeout(2000);
     await assertLinkedInAuthenticated(page);
 
     return await taskFn(page);

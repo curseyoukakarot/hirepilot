@@ -29,8 +29,13 @@ export async function executeAction(page: Page, action: AgentAction): Promise<st
           return `Error: navigation blocked - only linkedin.com URLs allowed, got: ${url}`;
         }
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-        await page.waitForTimeout(1000); // Brief settle time
+        // Sales Navigator pages are heavy SPAs that need full load + extra settle
+        const isSalesNav = url.includes('/sales/');
+        await page.goto(url, {
+          waitUntil: isSalesNav ? 'load' : 'domcontentloaded',
+          timeout: isSalesNav ? 45_000 : 30_000,
+        });
+        await page.waitForTimeout(isSalesNav ? 3000 : 1000);
         return `Navigated to ${page.url()}`;
       }
 
