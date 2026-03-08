@@ -877,6 +877,10 @@ function InnerApp() {
               <Route path="/sniper/settings" element={<Navigate to="/sniper?tab=settings" replace />} />
               <Route path="/sniper/results" element={<Navigate to="/sniper?tab=activity" replace />} />
               <Route path="/sniper/activity" element={<Navigate to="/sniper?tab=activity" replace />} />
+              {/* Cloud Engine aliases — user-facing branding */}
+              <Route path="/cloud-engine" element={<Navigate to="/sniper?tab=missions" replace />} />
+              <Route path="/cloud-engine/settings" element={<Navigate to="/sniper?tab=settings" replace />} />
+              <Route path="/cloud-engine/activity" element={<Navigate to="/sniper?tab=activity" replace />} />
               {/* Legacy Sniper routes (kept for direct access if needed) */}
               <Route path="/sniper/legacy" element={<SniperRequirementsGate><SniperTargets /></SniperRequirementsGate>} />
               {flags.sniperIntelligence && !flags.sniperV1 && (
