@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 
 /* ================================================================== */
 /*  Helpers                                                            */
@@ -129,6 +130,10 @@ export default function CampaignBuilder({ onClose }: Props) {
   // Enroll modal
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [enrollInput, setEnrollInput] = useState('');
+  const [enrollTab, setEnrollTab] = useState<'manual' | 'table'>('manual');
+  const [enrollTables, setEnrollTables] = useState<Array<{ id: string; name: string }>>([]);
+  const [enrollSelectedTableId, setEnrollSelectedTableId] = useState('');
+  const [enrollTablesLoading, setEnrollTablesLoading] = useState(false);
 
   const flash = useCallback((message: string, type: ToastT['type'] = 'info') => {
     setToast({ show: true, message, type });
@@ -289,6 +294,47 @@ export default function CampaignBuilder({ onClose }: Props) {
     }
   }, [detailCampaign, enrollInput, flash]);
 
+  /* ─── Fetch tables for enroll-from-table ───────────────────────── */
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      setEnrollTablesLoading(true);
+      try {
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('id, name')
+          .order('updated_at', { ascending: false });
+        const tables = (data || []) as Array<{ id: string; name: string }>;
+        setEnrollTables(tables);
+        if (tables.length > 0) setEnrollSelectedTableId(tables[0].id);
+      } catch { /* non-fatal */ }
+      setEnrollTablesLoading(false);
+    };
+    fetchTables();
+  }, []);
+
+  const enrollFromTable = useCallback(async () => {
+    if (!detailCampaign || !enrollSelectedTableId) return;
+    try {
+      setEnrollLoading(true);
+      const res = await apiPost(`/api/sniper/campaigns/${detailCampaign.id}/enroll-from-table`, {
+        table_id: enrollSelectedTableId,
+      });
+      const enrolled = res.enrolled || 0;
+      const skipped = res.skipped || 0;
+      flash(`Enrolled ${enrolled} profiles from table${skipped ? ` (${skipped} skipped/duplicates)` : ''}`, 'success');
+      setShowEnrollModal(false);
+      // Refresh enrollments
+      const enrollData = await apiGet(`/api/sniper/campaigns/${detailCampaign.id}/enrollments?limit=100`);
+      setEnrollments(enrollData.enrollments || []);
+      setEnrollTotal(enrollData.total || 0);
+    } catch (e: any) {
+      flash(e?.message || 'Failed to enroll from table', 'error');
+    } finally {
+      setEnrollLoading(false);
+    }
+  }, [detailCampaign, enrollSelectedTableId, flash]);
+
   /* ─── Toggle enrollment status ─────────────────────────────────── */
 
   const toggleEnrollment = useCallback(async (enrollment: Enrollment) => {
@@ -431,6 +477,40 @@ export default function CampaignBuilder({ onClose }: Props) {
                   </div>
                   <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
                     Created {formatDate(c.created_at)}
+                  </div>
+                  {/* Quick action: Activate / Pause */}
+                  <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {c.status === 'draft' || c.status === 'paused' ? (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await apiPatch(`/api/sniper/campaigns/${c.id}`, { status: 'active' });
+                            flash('Sequence activated! Agent will process enrollments automatically.', 'success');
+                            await fetchCampaigns();
+                          } catch (err: any) { flash(err?.message || 'Failed to activate', 'error'); }
+                        }}
+                        className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 transition"
+                      >
+                        ▶ Activate
+                      </button>
+                    ) : c.status === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await apiPatch(`/api/sniper/campaigns/${c.id}`, { status: 'paused' });
+                            flash('Sequence paused', 'info');
+                            await fetchCampaigns();
+                          } catch (err: any) { flash(err?.message || 'Failed to pause', 'error'); }
+                        }}
+                        className="rounded-lg bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-500 transition"
+                      >
+                        ⏸ Pause
+                      </button>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -864,39 +944,120 @@ export default function CampaignBuilder({ onClose }: Props) {
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowEnrollModal(false)}>
             <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-bold">Enroll Profiles</h3>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Paste LinkedIn profile URLs below, one per line.
-              </p>
-              <textarea
-                value={enrollInput}
-                onChange={(e) => setEnrollInput(e.target.value)}
-                placeholder={`https://linkedin.com/in/john-doe\nhttps://linkedin.com/in/jane-smith`}
-                rows={8}
-                className="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none resize-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-              <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                {enrollInput.split('\n').filter((l) => l.trim()).length} URLs detected
-              </div>
-              <div className="mt-4 flex justify-end gap-3">
+
+              {/* Tab switcher */}
+              <div className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
                 <button
-                  onClick={() => setShowEnrollModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={enrollProfiles}
-                  disabled={enrollLoading || !enrollInput.trim()}
+                  onClick={() => setEnrollTab('manual')}
                   className={cx(
-                    'rounded-xl px-5 py-2 text-sm font-semibold text-white transition',
-                    enrollLoading || !enrollInput.trim()
-                      ? 'bg-slate-300 cursor-not-allowed dark:bg-slate-700'
-                      : 'bg-indigo-600 hover:bg-indigo-500',
+                    'flex-1 rounded-lg px-3 py-1.5 text-sm font-semibold transition',
+                    enrollTab === 'manual'
+                      ? 'bg-white text-slate-900 shadow dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400',
                   )}
                 >
-                  {enrollLoading ? 'Enrolling...' : 'Enroll'}
+                  Manual URLs
+                </button>
+                <button
+                  onClick={() => setEnrollTab('table')}
+                  className={cx(
+                    'flex-1 rounded-lg px-3 py-1.5 text-sm font-semibold transition',
+                    enrollTab === 'table'
+                      ? 'bg-white text-slate-900 shadow dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400',
+                  )}
+                >
+                  From Table
                 </button>
               </div>
+
+              {enrollTab === 'manual' ? (
+                <>
+                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                    Paste LinkedIn profile URLs below, one per line.
+                  </p>
+                  <textarea
+                    value={enrollInput}
+                    onChange={(e) => setEnrollInput(e.target.value)}
+                    placeholder={`https://linkedin.com/in/john-doe\nhttps://linkedin.com/in/jane-smith`}
+                    rows={8}
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none resize-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                  <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    {enrollInput.split('\n').filter((l) => l.trim()).length} URLs detected
+                  </div>
+                  <div className="mt-4 flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowEnrollModal(false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={enrollProfiles}
+                      disabled={enrollLoading || !enrollInput.trim()}
+                      className={cx(
+                        'rounded-xl px-5 py-2 text-sm font-semibold text-white transition',
+                        enrollLoading || !enrollInput.trim()
+                          ? 'bg-slate-300 cursor-not-allowed dark:bg-slate-700'
+                          : 'bg-indigo-600 hover:bg-indigo-500',
+                      )}
+                    >
+                      {enrollLoading ? 'Enrolling...' : 'Enroll'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                    Select a custom table to import LinkedIn URLs from.
+                  </p>
+                  <select
+                    value={enrollSelectedTableId}
+                    onChange={(e) => setEnrollSelectedTableId(e.target.value)}
+                    disabled={enrollTablesLoading || !enrollTables.length}
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {!enrollTables.length ? (
+                      <option value="">{enrollTablesLoading ? 'Loading tables...' : 'No tables found'}</option>
+                    ) : (
+                      enrollTables.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))
+                    )}
+                  </select>
+                  {!enrollTablesLoading && !enrollTables.length && (
+                    <a
+                      href="/tables"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                    >
+                      + Create a table first
+                    </a>
+                  )}
+                  <div className="mt-4 flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowEnrollModal(false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={enrollFromTable}
+                      disabled={enrollLoading || !enrollSelectedTableId}
+                      className={cx(
+                        'rounded-xl px-5 py-2 text-sm font-semibold text-white transition',
+                        enrollLoading || !enrollSelectedTableId
+                          ? 'bg-slate-300 cursor-not-allowed dark:bg-slate-700'
+                          : 'bg-indigo-600 hover:bg-indigo-500',
+                      )}
+                    >
+                      {enrollLoading ? 'Enrolling...' : 'Enroll from Table'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

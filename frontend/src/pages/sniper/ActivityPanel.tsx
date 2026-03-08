@@ -219,6 +219,77 @@ export default function ActivityPanel() {
   const [snMessageText, setSnMessageText] = useState('');
   const [sendingToMission, setSendingToMission] = useState(false);
 
+  /* ---- Templates ---- */
+  const [linkedinTemplates, setLinkedinTemplates] = useState<Array<{ id: string; name: string; content: string }>>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedConnectTemplateId, setSelectedConnectTemplateId] = useState('');
+  const [selectedMessageTemplateId, setSelectedMessageTemplateId] = useState('');
+  const [selectedSnTemplateId, setSelectedSnTemplateId] = useState('');
+
+  /* ---- Add to Sequence ---- */
+  const [userCampaignSequences, setUserCampaignSequences] = useState<Array<{ id: string; name: string; status: string }>>([]);
+  const [selectedSequenceCampaignId, setSelectedSequenceCampaignId] = useState('');
+  const [campaignsForSeqLoading, setCampaignsForSeqLoading] = useState(false);
+  const [enrollingToSequence, setEnrollingToSequence] = useState(false);
+
+  /* ---- Textarea refs for token insertion ---- */
+  const connectNoteRef = useRef<HTMLTextAreaElement>(null);
+  const messageTextRef = useRef<HTMLTextAreaElement>(null);
+  const snNoteRef = useRef<HTMLTextAreaElement>(null);
+  const snMsgRef = useRef<HTMLTextAreaElement>(null);
+
+  /* ---- Fetch LinkedIn templates ---- */
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      setTemplatesLoading(true);
+      try {
+        const data = await apiGet('/api/templates');
+        const liTemplates = (Array.isArray(data) ? data : []).filter(
+          (t: any) => t.subject === 'linkedin_request' || t.subject === 'linkedin_message'
+        );
+        setLinkedinTemplates(liTemplates.map((t: any) => ({ id: t.id, name: t.name, content: t.content || t.body || '' })));
+      } catch { /* non-fatal */ }
+      setTemplatesLoading(false);
+    };
+    fetchTemplates();
+  }, []);
+
+  /* ---- Fetch campaigns for sequences ---- */
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      setCampaignsForSeqLoading(true);
+      try {
+        const data = await apiGet('/api/sniper/campaigns');
+        const campaigns = (Array.isArray(data) ? data : []).filter((c: any) => c.status !== 'archived');
+        setUserCampaignSequences(campaigns.map((c: any) => ({ id: c.id, name: c.name, status: c.status })));
+        if (campaigns.length > 0) setSelectedSequenceCampaignId(campaigns[0].id);
+      } catch { /* non-fatal */ }
+      setCampaignsForSeqLoading(false);
+    };
+    fetchCampaigns();
+  }, []);
+
+  /* ---- Template + Token helpers ---- */
+  const TOKEN_LIST = ['first_name', 'last_name', 'company', 'title', 'full_name'];
+
+  const applyTemplate = (templateId: string, setter: (v: string) => void, templateSetter: (v: string) => void) => {
+    templateSetter(templateId);
+    if (!templateId) return;
+    const tpl = linkedinTemplates.find((t) => t.id === templateId);
+    if (tpl) setter(tpl.content);
+  };
+
+  const insertToken = (token: string, textareaRef: React.RefObject<HTMLTextAreaElement>, setter: (v: string) => void, currentVal: string) => {
+    const ta = textareaRef.current;
+    const tokenStr = `{{${token}}}`;
+    if (!ta) { setter(currentVal + tokenStr); return; }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const newVal = currentVal.slice(0, start) + tokenStr + currentVal.slice(end);
+    setter(newVal);
+    setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + tokenStr.length; ta.focus(); }, 0);
+  };
+
   /* ---- Load jobs ---- */
   const loadJobs = async () => {
     setLoadingJobs(true);
@@ -385,6 +456,23 @@ export default function ActivityPanel() {
       showToast(`Added ${added} profile${added !== 1 ? 's' : ''} to table${skipped ? ` (${skipped} skipped)` : ''}`, 'success');
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to add to table', 'error'); }
     finally { setAddingToTable(false); }
+  };
+
+  const enrollToSequence = async () => {
+    if (!selectedList.length) return showToast('Select at least 1 profile', 'error');
+    if (!selectedSequenceCampaignId) return showToast('Select a sequence', 'error');
+    setEnrollingToSequence(true);
+    try {
+      const resp = await apiPost(`/api/sniper/campaigns/${selectedSequenceCampaignId}/enroll`, {
+        profiles: selectedList.map((url) => ({ profile_url: url })),
+      }) as any;
+      const count = resp?.enrolled?.length || resp?.count || selectedList.length;
+      showToast(`Enrolled ${count} profile${count !== 1 ? 's' : ''} into sequence`, 'success');
+    } catch (e: unknown) {
+      showToast((e as Error)?.message || 'Failed to enroll', 'error');
+    } finally {
+      setEnrollingToSequence(false);
+    }
   };
 
   const SN_MISSION_LABELS: Record<SNMissionType, string> = {
@@ -860,19 +948,51 @@ export default function ActivityPanel() {
                           </div>
                         </div>
                       )}
+                      {/* Template picker */}
+                      {linkedinTemplates.length > 0 && (
+                        <select
+                          className={cx(inputCls, 'mt-2')}
+                          value={selectedConnectTemplateId}
+                          onChange={(e) => applyTemplate(e.target.value, (v) => { setConnectNote(v); setPerProfileNotes(new Map()); }, setSelectedConnectTemplateId)}
+                        >
+                          <option value="">Select template...</option>
+                          {linkedinTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
                       <textarea
+                        ref={connectNoteRef}
                         className={cx(inputCls, 'mt-2')}
                         rows={3}
                         value={connectNote}
-                        onChange={(e) => { setConnectNote(e.target.value); setPerProfileNotes(new Map()); }}
-                        placeholder={perProfileNotes.size > 0 ? 'AI-generated per-profile notes will be used' : 'Optional note...'}
+                        onChange={(e) => { setConnectNote(e.target.value); setPerProfileNotes(new Map()); setSelectedConnectTemplateId(''); }}
+                        placeholder={perProfileNotes.size > 0 ? 'AI-generated per-profile notes will be used' : 'Optional note (supports {{tokens}})...'}
+                        maxLength={300}
                       />
+                      {/* Token chips */}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {TOKEN_LIST.map((tok) => (
+                          <button
+                            key={tok}
+                            type="button"
+                            onClick={() => insertToken(tok, connectNoteRef, (v) => { setConnectNote(v); setPerProfileNotes(new Map()); }, connectNote)}
+                            className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-indigo-600 dark:hover:text-indigo-400"
+                          >
+                            {`{{${tok}}}`}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Char counter */}
+                      <div className={cx('mt-0.5 text-right text-[10px]', connectNote.length > 280 ? 'text-rose-500' : 'text-slate-400')}>
+                        {connectNote.length}/300
+                      </div>
                       <button
                         type="button"
                         onClick={queueConnect}
                         disabled={!selectedList.length}
                         className={cx(
-                          'mt-2 w-full rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500',
+                          'mt-1 w-full rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500',
                           !selectedList.length && 'opacity-50 cursor-not-allowed',
                         )}
                       >
@@ -896,19 +1016,51 @@ export default function ActivityPanel() {
                           ✨ AI Generate
                         </button>
                       </div>
+                      {/* Template picker */}
+                      {linkedinTemplates.length > 0 && (
+                        <select
+                          className={cx(inputCls, 'mt-2')}
+                          value={selectedMessageTemplateId}
+                          onChange={(e) => applyTemplate(e.target.value, setMessageText, setSelectedMessageTemplateId)}
+                        >
+                          <option value="">Select template...</option>
+                          {linkedinTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
                       <textarea
+                        ref={messageTextRef}
                         className={cx(inputCls, 'mt-2')}
                         rows={3}
                         value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        placeholder="Write the message to send..."
+                        onChange={(e) => { setMessageText(e.target.value); setSelectedMessageTemplateId(''); }}
+                        placeholder="Write the message (supports {{tokens}})..."
+                        maxLength={3000}
                       />
+                      {/* Token chips */}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {TOKEN_LIST.map((tok) => (
+                          <button
+                            key={tok}
+                            type="button"
+                            onClick={() => insertToken(tok, messageTextRef, setMessageText, messageText)}
+                            className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-indigo-600 dark:hover:text-indigo-400"
+                          >
+                            {`{{${tok}}}`}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Char counter */}
+                      <div className={cx('mt-0.5 text-right text-[10px]', messageText.length > 2800 ? 'text-rose-500' : 'text-slate-400')}>
+                        {messageText.length}/3000
+                      </div>
                       <button
                         type="button"
                         onClick={queueMessage}
                         disabled={!selectedList.length || !messageText.trim()}
                         className={cx(
-                          'mt-2 w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500',
+                          'mt-1 w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500',
                           (!selectedList.length || !messageText.trim()) && 'opacity-50 cursor-not-allowed',
                         )}
                       >
@@ -928,15 +1080,40 @@ export default function ActivityPanel() {
                         <option value="sn_inmail">{'\uD83D\uDCE8'} SN InMail</option>
                         <option value="sn_message">{'\uD83D\uDCAC'} SN Message</option>
                       </select>
-                      {missionType === 'sn_connect' && (
-                        <textarea
+                      {/* Template picker for SN note/message */}
+                      {linkedinTemplates.length > 0 && (
+                        <select
                           className={cx(inputCls, 'mt-2')}
-                          rows={2}
-                          value={snConnectNote}
-                          onChange={(e) => setSnConnectNote(e.target.value)}
-                          placeholder="Optional connection note..."
-                          maxLength={300}
-                        />
+                          value={selectedSnTemplateId}
+                          onChange={(e) => {
+                            const setter = missionType === 'sn_connect' ? setSnConnectNote : setSnMessageText;
+                            applyTemplate(e.target.value, setter, setSelectedSnTemplateId);
+                          }}
+                        >
+                          <option value="">Select template...</option>
+                          {linkedinTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      {missionType === 'sn_connect' && (
+                        <>
+                          <textarea
+                            ref={snNoteRef}
+                            className={cx(inputCls, 'mt-2')}
+                            rows={2}
+                            value={snConnectNote}
+                            onChange={(e) => { setSnConnectNote(e.target.value); setSelectedSnTemplateId(''); }}
+                            placeholder="Optional note (supports {{tokens}})..."
+                            maxLength={300}
+                          />
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {TOKEN_LIST.map((tok) => (
+                              <button key={tok} type="button" onClick={() => insertToken(tok, snNoteRef, setSnConnectNote, snConnectNote)} className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500 hover:border-orange-300 hover:text-orange-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-orange-600 dark:hover:text-orange-400">{`{{${tok}}}`}</button>
+                            ))}
+                          </div>
+                          <div className={cx('mt-0.5 text-right text-[10px]', snConnectNote.length > 280 ? 'text-rose-500' : 'text-slate-400')}>{snConnectNote.length}/300</div>
+                        </>
                       )}
                       {missionType === 'sn_inmail' && (
                         <>
@@ -948,24 +1125,40 @@ export default function ActivityPanel() {
                             maxLength={200}
                           />
                           <textarea
+                            ref={snMsgRef}
                             className={cx(inputCls, 'mt-1.5')}
                             rows={2}
                             value={snMessageText}
-                            onChange={(e) => setSnMessageText(e.target.value)}
-                            placeholder="InMail message..."
+                            onChange={(e) => { setSnMessageText(e.target.value); setSelectedSnTemplateId(''); }}
+                            placeholder="InMail message (supports {{tokens}})..."
                             maxLength={1900}
                           />
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {TOKEN_LIST.map((tok) => (
+                              <button key={tok} type="button" onClick={() => insertToken(tok, snMsgRef, setSnMessageText, snMessageText)} className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500 hover:border-orange-300 hover:text-orange-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-orange-600 dark:hover:text-orange-400">{`{{${tok}}}`}</button>
+                            ))}
+                          </div>
+                          <div className={cx('mt-0.5 text-right text-[10px]', snMessageText.length > 1800 ? 'text-rose-500' : 'text-slate-400')}>{snMessageText.length}/1900</div>
                         </>
                       )}
                       {missionType === 'sn_message' && (
-                        <textarea
-                          className={cx(inputCls, 'mt-2')}
-                          rows={2}
-                          value={snMessageText}
-                          onChange={(e) => setSnMessageText(e.target.value)}
-                          placeholder="Message to send..."
-                          maxLength={3000}
-                        />
+                        <>
+                          <textarea
+                            ref={snMsgRef}
+                            className={cx(inputCls, 'mt-2')}
+                            rows={2}
+                            value={snMessageText}
+                            onChange={(e) => { setSnMessageText(e.target.value); setSelectedSnTemplateId(''); }}
+                            placeholder="Message (supports {{tokens}})..."
+                            maxLength={3000}
+                          />
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {TOKEN_LIST.map((tok) => (
+                              <button key={tok} type="button" onClick={() => insertToken(tok, snMsgRef, setSnMessageText, snMessageText)} className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500 hover:border-orange-300 hover:text-orange-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-orange-600 dark:hover:text-orange-400">{`{{${tok}}}`}</button>
+                            ))}
+                          </div>
+                          <div className={cx('mt-0.5 text-right text-[10px]', snMessageText.length > 2800 ? 'text-rose-500' : 'text-slate-400')}>{snMessageText.length}/3000</div>
+                        </>
                       )}
                       <button
                         type="button"
@@ -977,6 +1170,47 @@ export default function ActivityPanel() {
                         )}
                       >
                         {sendingToMission ? 'Queuing...' : `Queue ${SN_MISSION_LABELS[missionType]} (${selectedList.length})`}
+                      </button>
+                    </div>
+
+                    {/* Add to Sequence */}
+                    <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-800/50 dark:bg-violet-950/30">
+                      <div className="text-xs font-semibold text-violet-700 dark:text-violet-300">{'\uD83D\uDD04'} Add to Sequence</div>
+                      <div className="mt-1 text-xs text-violet-600 dark:text-violet-400">Enroll profiles in an automation sequence.</div>
+                      <select
+                        className={cx(inputCls, 'mt-2')}
+                        value={selectedSequenceCampaignId}
+                        onChange={(e) => setSelectedSequenceCampaignId(e.target.value)}
+                        disabled={campaignsForSeqLoading || !userCampaignSequences.length}
+                      >
+                        {!userCampaignSequences.length ? (
+                          <option value="">{campaignsForSeqLoading ? 'Loading...' : 'No sequences'}</option>
+                        ) : (
+                          userCampaignSequences.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name} ({c.status})</option>
+                          ))
+                        )}
+                      </select>
+                      {!campaignsForSeqLoading && !userCampaignSequences.length && (
+                        <a
+                          href="/sniper?tab=campaigns"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 inline-block text-[11px] font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400"
+                        >
+                          + Create a sequence first
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={enrollToSequence}
+                        disabled={!selectedList.length || enrollingToSequence || !userCampaignSequences.length}
+                        className={cx(
+                          'mt-2 w-full rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500',
+                          (!selectedList.length || enrollingToSequence || !userCampaignSequences.length) && 'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        {enrollingToSequence ? 'Enrolling...' : `Enroll (${selectedList.length})`}
                       </button>
                     </div>
 

@@ -82,6 +82,48 @@ function normalizeAirtopStatus(raw: string): { ok: boolean; status: string } {
   return { ok: false, status: s || 'FAILED' };
 }
 
+// ---------------------------------------------------------------------------
+// Token resolution for templates with {{first_name}}, {{company}}, etc.
+// ---------------------------------------------------------------------------
+
+function resolveTokens(template: string, profileData: Record<string, any>): string {
+  if (!template || !template.includes('{{')) return template;
+  return template.replace(/\{\{([^}]+)\}\}/g, (_match, key) => {
+    const k = key.trim().toLowerCase();
+    const name = String(profileData.name || profileData.full_name || '');
+    const map: Record<string, string> = {
+      first_name: name.split(' ')[0] || '',
+      last_name: name.split(' ').slice(1).join(' ') || '',
+      full_name: name,
+      company: String(profileData.company_name || profileData.company || ''),
+      title: String(profileData.headline || profileData.title || ''),
+      email: String(profileData.email || ''),
+    };
+    return map[k] !== undefined && map[k] !== '' ? map[k] : _match;
+  });
+}
+
+/**
+ * Build a URL→profileData lookup from recent extract results for the given URLs.
+ */
+async function buildProfileDataMap(urls: string[], workspaceId: string): Promise<Map<string, Record<string, any>>> {
+  if (!urls.length) return new Map();
+  const { data: rows } = await sniperSupabaseDb
+    .from('sniper_job_items')
+    .select('profile_url, result_json')
+    .in('profile_url', urls)
+    .eq('workspace_id', workspaceId)
+    .eq('action_type', 'extract')
+    .order('created_at', { ascending: false });
+  const map = new Map<string, Record<string, any>>();
+  for (const row of (rows || [])) {
+    if (!map.has(row.profile_url) && row.result_json) {
+      map.set(row.profile_url, row.result_json as Record<string, any>);
+    }
+  }
+  return map;
+}
+
 export const sniperV1Router = Router();
 sniperV1Router.use(requireAuth as any);
 
@@ -439,6 +481,14 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
       input_json: { note: parsed.data.note || null, execution_mode: isAgenticBrowser ? 'agentic_browser' : 'airtop_webhook' }
     });
 
+    // Resolve {{tokens}} in notes per-profile if template tokens are used
+    const hasTokens = processed.some((p) => p.note && p.note.includes('{{'));
+    let profileDataMap: Map<string, Record<string, any>> | null = null;
+    if (hasTokens) {
+      const validUrls = processed.filter((p) => p.normalized).map((p) => p.normalized!);
+      profileDataMap = await buildProfileDataMap(validUrls, workspaceId);
+    }
+
     await insertJobItems(
       processed.map((p) => {
         if (p.normalized === null) {
@@ -457,6 +507,12 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         if (p.profile_url !== p.normalized) {
           console.log('[sniper-connect] LinkedIn profile URL normalized', { original: p.profile_url, normalized: p.normalized });
         }
+        // Resolve tokens if note contains {{...}}
+        let resolvedNote = p.note;
+        if (resolvedNote && resolvedNote.includes('{{') && profileDataMap) {
+          const pData = profileDataMap.get(p.normalized) || {};
+          resolvedNote = resolveTokens(resolvedNote, pData);
+        }
         return {
           job_id: job.id,
           workspace_id: workspaceId,
@@ -464,7 +520,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
           action_type: 'connect' as const,
           scheduled_for: parsed.data.scheduled_for || null,
           status: 'queued' as const,
-          result_json: p.note ? { note: p.note } : null
+          result_json: resolvedNote ? { note: resolvedNote } : null
         };
       })
     );
@@ -825,24 +881,41 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
       tz
     };
 
+    const messageTemplate = parsed.data.message;
+    const msgHasTokens = messageTemplate.includes('{{');
+
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
       target_id: null,
       job_type: 'send_messages',
       provider,
-      input_json: { message: parsed.data.message }
+      input_json: { message: messageTemplate }
     });
 
+    // Resolve {{tokens}} per-profile if template tokens are used
+    let msgProfileMap: Map<string, Record<string, any>> | null = null;
+    if (msgHasTokens) {
+      msgProfileMap = await buildProfileDataMap(parsed.data.profile_urls, workspaceId);
+    }
+
     await insertJobItems(
-      parsed.data.profile_urls.map((u) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: u,
-        action_type: 'message',
-        scheduled_for: parsed.data.scheduled_for || null,
-        status: 'queued'
-      }))
+      parsed.data.profile_urls.map((u) => {
+        let resolvedMsg: string | undefined;
+        if (msgHasTokens && msgProfileMap) {
+          const pData = msgProfileMap.get(u) || {};
+          resolvedMsg = resolveTokens(messageTemplate, pData);
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: u,
+          action_type: 'message',
+          scheduled_for: parsed.data.scheduled_for || null,
+          status: 'queued',
+          result_json: resolvedMsg ? { message: resolvedMsg } : null
+        };
+      })
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
@@ -933,24 +1006,39 @@ sniperV1Router.post('/actions/sn-connect', async (req: ApiRequest, res: Response
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
+    const snConnectNote = parsed.data.note || null;
+    const snConnectHasTokens = snConnectNote && snConnectNote.includes('{{');
+
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
       target_id: null,
       job_type: 'sn_send_connect',
       provider,
-      input_json: { note: parsed.data.note || null },
+      input_json: { note: snConnectNote },
     });
 
+    let snConnectProfileMap: Map<string, Record<string, any>> | null = null;
+    if (snConnectHasTokens) {
+      snConnectProfileMap = await buildProfileDataMap(parsed.data.profile_urls, workspaceId);
+    }
+
     await insertJobItems(
-      parsed.data.profile_urls.map((u) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: u,
-        action_type: 'connect' as const,
-        scheduled_for: null,
-        status: 'queued' as const,
-      }))
+      parsed.data.profile_urls.map((u) => {
+        let resolvedNote = snConnectNote;
+        if (resolvedNote && snConnectHasTokens && snConnectProfileMap) {
+          resolvedNote = resolveTokens(resolvedNote, snConnectProfileMap.get(u) || {});
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: u,
+          action_type: 'connect' as const,
+          scheduled_for: null,
+          status: 'queued' as const,
+          result_json: resolvedNote ? { note: resolvedNote } : null,
+        };
+      })
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
@@ -979,24 +1067,47 @@ sniperV1Router.post('/actions/sn-inmail', async (req: ApiRequest, res: Response)
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
+    const inmailSubject = parsed.data.subject;
+    const inmailMessage = parsed.data.message;
+    const inmailHasTokens = inmailMessage.includes('{{') || inmailSubject.includes('{{');
+
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
       target_id: null,
       job_type: 'sn_send_inmail',
       provider,
-      input_json: { subject: parsed.data.subject, message: parsed.data.message },
+      input_json: { subject: inmailSubject, message: inmailMessage },
     });
 
+    let inmailProfileMap: Map<string, Record<string, any>> | null = null;
+    if (inmailHasTokens) {
+      inmailProfileMap = await buildProfileDataMap(parsed.data.profile_urls, workspaceId);
+    }
+
     await insertJobItems(
-      parsed.data.profile_urls.map((u) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: u,
-        action_type: 'inmail' as const,
-        scheduled_for: null,
-        status: 'queued' as const,
-      }))
+      parsed.data.profile_urls.map((u) => {
+        if (inmailHasTokens && inmailProfileMap) {
+          const pData = inmailProfileMap.get(u) || {};
+          return {
+            job_id: job.id,
+            workspace_id: workspaceId,
+            profile_url: u,
+            action_type: 'inmail' as const,
+            scheduled_for: null,
+            status: 'queued' as const,
+            result_json: { subject: resolveTokens(inmailSubject, pData), message: resolveTokens(inmailMessage, pData) },
+          };
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: u,
+          action_type: 'inmail' as const,
+          scheduled_for: null,
+          status: 'queued' as const,
+        };
+      })
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
@@ -1024,24 +1135,39 @@ sniperV1Router.post('/actions/sn-message', async (req: ApiRequest, res: Response
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
+    const snMsgTemplate = parsed.data.message;
+    const snMsgHasTokens = snMsgTemplate.includes('{{');
+
     const job = await createJob({
       workspace_id: workspaceId,
       created_by: userId,
       target_id: null,
       job_type: 'sn_send_message',
       provider,
-      input_json: { message: parsed.data.message },
+      input_json: { message: snMsgTemplate },
     });
 
+    let snMsgProfileMap: Map<string, Record<string, any>> | null = null;
+    if (snMsgHasTokens) {
+      snMsgProfileMap = await buildProfileDataMap(parsed.data.profile_urls, workspaceId);
+    }
+
     await insertJobItems(
-      parsed.data.profile_urls.map((u) => ({
-        job_id: job.id,
-        workspace_id: workspaceId,
-        profile_url: u,
-        action_type: 'message' as const,
-        scheduled_for: null,
-        status: 'queued' as const,
-      }))
+      parsed.data.profile_urls.map((u) => {
+        let resolvedMsg: string | undefined;
+        if (snMsgHasTokens && snMsgProfileMap) {
+          resolvedMsg = resolveTokens(snMsgTemplate, snMsgProfileMap.get(u) || {});
+        }
+        return {
+          job_id: job.id,
+          workspace_id: workspaceId,
+          profile_url: u,
+          action_type: 'message' as const,
+          scheduled_for: null,
+          status: 'queued' as const,
+          result_json: resolvedMsg ? { message: resolvedMsg } : null,
+        };
+      })
     );
 
     await sniperV1Queue.add('sniper_v1', { jobId: job.id });
