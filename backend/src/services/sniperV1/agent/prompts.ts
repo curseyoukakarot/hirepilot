@@ -351,44 +351,53 @@ After extracting everyone visible, review ALL extracted people and select the to
 }
 
 export function getSendConnectionRequestPrompt(profileUrl: string, note?: string | null): string {
-  const noteInstruction = note
-    ? `After clicking Connect, a modal will appear. Click "Add a note", then type this note:\n"${note}"\nThen click "Send".`
-    : 'After clicking Connect, click "Send" directly in the modal (no note needed).';
-
   return `${BASE_SYSTEM_PROMPT}
 
 ## Task: Send Connection Request
 Navigate to a LinkedIn profile and send a connection request.
 
 Profile URL: ${profileUrl}
-${noteInstruction}
-
+${note ? `\n## CONNECT NOTE (MUST be included)\n"${note}"\n` : ''}
 ## Steps
-1. Navigate to the profile URL
-2. Check the current connection state:
-   - If already connected (shows "Message" button), report done with status "already_connected"
-   - If pending (shows "Pending" button), report done with status "already_pending"
-   - If restricted or no Connect button visible after checking "More" dropdown, report done with status "restricted"
-3. Click the "Connect" button. Finding it:
-   - FIRST: Look in the top action bar for a visible "Connect" button
-   - If not visible, click the "More" button (often has aria-label "More actions" or text "More")
-   - In the dropdown menu, look for "Connect" option
-   - Common selectors: button with text "Connect", [aria-label*="connect" i], [aria-label*="Invite" i]
-4. A confirmation modal will appear — this is expected, DO NOT dismiss it:
-   - If it says "How do you know [Name]?" or asks for email (no free invite), report status "restricted"
-   - If it shows "Add a note" and "Send without a note" buttons, proceed to step 5
-${note ? `5. Click "Add a note" button in the modal
-6. Find the text area in the modal and type the note
-7. Click "Send" button in the modal` : '5. Click "Send without a note" or "Send" button in the modal'}
-8. Wait 1-2 seconds, then verify the action bar now shows "Pending" instead of "Connect"
 
-## IMPORTANT: Modal handling
-The connection request flow involves modals that you MUST interact with (not dismiss).
-When the "Send invitation" modal appears after clicking Connect, you need to:
-- Read the modal content to check for restrictions
-- Click the appropriate button ("Send", "Add a note", etc.)
-- The modal will close automatically after sending
+### Step 1: Navigate to the profile
+Go to the profile URL. Wait for the page to fully load.
 
+### Step 2: Check the current connection state
+Look at the action buttons in the profile header:
+- If you see a "Message" button (already connected) → report done with status "already_connected"
+- If you see a "Pending" button (invite already sent) → report done with status "already_pending"
+- If none of the above, proceed to Step 3
+
+### Step 3: Find and click the "Connect" button
+The Connect button can be in several places — try them IN ORDER:
+1. **Primary action bar**: Look for a visible "Connect" button next to "Message" / "Follow" in the profile header
+2. **"More" dropdown**: If no Connect button is visible, click the "More" button (three dots "..." icon, or text "More", or aria-label "More actions"). In the dropdown menu, look for "Connect"
+3. **"More" in the intro card**: Some profiles have a secondary "More" button inside the intro/hero card area
+4. If Connect is not found in any of these locations after trying all three, report done with status "restricted"
+
+### Step 4: Handle the invitation modal
+After clicking Connect, a modal will appear. Read it carefully:
+
+**If the modal says "How do you know [Name]?" or asks for an email address:**
+→ This person requires an email to connect. Report done with status "restricted"
+
+**If the modal says "Add a note to your invitation?" with buttons "Add a note" and "Send without a note":**
+${note ? `→ You MUST click the "Add a note" button (NOT "Send without a note")
+→ A text area will appear. Type the note EXACTLY as provided above into the textarea
+→ After typing the note, click the "Send" button` : `→ Click "Send without a note"`}
+
+**If the modal shows a "Send" button directly (no "Add a note" option):**
+${note ? `→ Look for a text area or "Add a note" link/button in the modal first
+→ If found, type the note. If no text area exists, just click "Send"` : `→ Click "Send"`}
+
+### Step 5: Verify
+Wait 1-2 seconds, then check that the profile action bar now shows "Pending" instead of "Connect".
+${note ? `
+## CRITICAL: The note MUST be sent
+You have a personalized message from the user. You MUST click "Add a note" and type it into the textarea.
+NEVER click "Send without a note" when a note is provided. The user composed this message specifically for this person.
+` : ''}
 ## Expected done result
 {
   "reasoning": "Connection request sent successfully / Already connected / etc",
@@ -396,7 +405,7 @@ When the "Send invitation" modal appears after clicking Connect, you need to:
     "type": "done",
     "result": {
       "status": "sent_verified" | "already_connected" | "already_pending" | "restricted",
-      "details": { "strategy": "description of how connect was found" }
+      "details": { "strategy": "description of how connect was found and note was sent" }
     }
   }
 }`;
@@ -494,43 +503,54 @@ Note: Put any final remaining profiles in the done result, or use an empty array
 }
 
 export function getSalesNavConnectPrompt(profileUrl: string, note?: string | null): string {
-  const noteInstruction = note
-    ? `After clicking Connect, a modal will appear. Click "Add a note", then type this note:\n"${note}"\nThen click "Send".`
-    : 'After clicking Connect, click "Send" directly in the modal (no note needed).';
-
   return `${BASE_SYSTEM_PROMPT}
 
 ## Task: Send Connection Request from Sales Navigator
 Navigate to a Sales Navigator lead page and send a connection request.
 
 Profile URL: ${profileUrl}
-${noteInstruction}
-
+${note ? `\n## CONNECT NOTE (MUST be included)\n"${note}"\n` : ''}
 ## Steps
-1. Navigate to the profile URL (it should be a Sales Navigator URL like /sales/lead/... or /sales/people/...)
-2. Check the current connection state:
-   - If already connected (shows "Message" or "Connected"), report done with status "already_connected"
-   - If pending (shows "Pending"), report done with status "already_pending"
-   - If no Connect option visible, report done with status "restricted"
-3. Find and click the "Connect" button. On Sales Navigator pages:
-   - Look for a "Connect" button in the profile header action bar
-   - It may also be in a dropdown — click the "More" button or "..." icon to find it
-   - Common selectors: button[data-control-name="connect"], [aria-label*="connect" i]
-4. A confirmation modal will appear — this is expected, DO NOT dismiss it:
-   - If it says "How do you know [Name]?" or asks for email (no free invite), report status "restricted"
-   - If it shows "Add a note" and "Send without a note" buttons, proceed to step 5
-${note ? `5. Click "Add a note" button in the modal
-6. Find the text area in the modal and type the note
-7. Click "Send" button in the modal` : '5. Click "Send without a note" or "Send" button in the modal'}
-8. Wait 1-2 seconds, then verify the button changed to "Pending"
 
-## IMPORTANT: Modal handling
-The connection request flow involves modals that you MUST interact with (not dismiss).
-When the "Send invitation" modal appears after clicking Connect, you need to:
-- Read the modal content to check for restrictions
-- Click the appropriate button ("Send", "Add a note", etc.)
-- The modal will close automatically after sending
+### Step 1: Navigate to the profile
+Go to the profile URL (Sales Navigator URL like /sales/lead/... or /sales/people/...). Wait for the page to fully load.
 
+### Step 2: Check the current connection state
+Look at the action buttons on the Sales Navigator profile:
+- If you see "Message" or "Connected" → report done with status "already_connected"
+- If you see "Pending" → report done with status "already_pending"
+- If none of the above, proceed to Step 3
+
+### Step 3: Find and click the "Connect" button
+The Connect button can be in several places on Sales Navigator — try them IN ORDER:
+1. **Profile header action bar**: Look for a visible "Connect" button
+2. **"More" or "..." dropdown**: Click the "More" button, three-dot icon, or "..." menu. Look for "Connect" in the dropdown
+3. **Save/action buttons area**: Some SN layouts put Connect in a secondary action area
+4. Common selectors: button[data-control-name="connect"], [aria-label*="connect" i]
+5. If Connect is not found after trying all locations, report done with status "restricted"
+
+### Step 4: Handle the invitation modal
+After clicking Connect, a modal will appear. Read it carefully:
+
+**If the modal says "How do you know [Name]?" or asks for an email address:**
+→ This person requires an email to connect. Report done with status "restricted"
+
+**If the modal says "Add a note to your invitation?" with buttons "Add a note" and "Send without a note":**
+${note ? `→ You MUST click the "Add a note" button (NOT "Send without a note")
+→ A text area will appear. Type the note EXACTLY as provided above into the textarea
+→ After typing the note, click the "Send" button` : `→ Click "Send without a note"`}
+
+**If the modal shows a "Send" button directly:**
+${note ? `→ Look for a text area or "Add a note" link/button in the modal first
+→ If found, type the note. If no text area exists, just click "Send"` : `→ Click "Send"`}
+
+### Step 5: Verify
+Wait 1-2 seconds, then check that the button changed to "Pending".
+${note ? `
+## CRITICAL: The note MUST be sent
+You have a personalized message from the user. You MUST click "Add a note" and type it into the textarea.
+NEVER click "Send without a note" when a note is provided. The user composed this message specifically for this person.
+` : ''}
 ## Expected done result
 {
   "reasoning": "Connection request sent successfully / Already connected / etc",
@@ -538,7 +558,7 @@ When the "Send invitation" modal appears after clicking Connect, you need to:
     "type": "done",
     "result": {
       "status": "sent_verified" | "already_connected" | "already_pending" | "restricted",
-      "details": { "strategy": "description of how connect was found" }
+      "details": { "strategy": "description of how connect was found and note was sent" }
     }
   }
 }`;
