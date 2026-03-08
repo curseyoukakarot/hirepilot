@@ -107,16 +107,17 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
 
 function cloudEngineEnableHelp(): string {
   return [
-    'Cloud Engine is currently OFF for your workspace, so I can’t run LinkedIn actions yet.',
-    '',
-    'Enable it here:',
-    '1) Go to **Sniper Settings** (`/sniper/settings`)',
-    '2) Click the **Sniper Control Center** tab',
-    '3) Toggle **Cloud Engine: ON**',
-    '4) Click **Connect** to log into LinkedIn, then come back and click **Check**',
-    '',
-    'Once that’s done, tell me “retry” and I’ll queue it again.'
-  ].join('\n');
+    ‘Cloud Engine is currently OFF for your workspace, so I can\’t run LinkedIn actions yet.’,
+    ‘’,
+    ‘Enable it here:’,
+    ‘1) Go to **Settings** (`/settings/integrations`)’,
+    ‘2) Find the **Collaboration** tab and select **Agent Mode** from the dropdown’,
+    ‘3) Navigate to **Cloud Engine** (`/cloud-engine/settings`)’,
+    ‘4) Toggle **Cloud Engine: ON**’,
+    ‘5) Click **Connect** to log into LinkedIn, then come back and click **Check**’,
+    ‘’,
+    ‘Once that\’s done, tell me “retry” and I\’ll queue it again.’
+  ].join(‘\n’);
 }
 
 async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<null | { ok: false; error_code: string; help: string }> {
@@ -142,12 +143,11 @@ async function ensureLinkedInConnectedOrExplain(userId: string): Promise<null | 
         help: [
           'LinkedIn is not connected to Cloud Engine yet, so I can\'t run browser-based missions.',
           '',
-          'Connect it here:',
-          '1) Go to **Sniper Settings** (`/sniper/settings`)',
-          '2) Click the **Sniper Control Center** tab',
-          '3) Make sure **Cloud Engine** is ON',
-          '4) Click **Connect** and log into LinkedIn in the popup',
-          '5) Click **Check** to verify the connection',
+          'Connect your LinkedIn account:',
+          '1) Go to **Cloud Engine** (`/cloud-engine/settings`)',
+          '2) Make sure **Cloud Engine** is toggled ON',
+          '3) Click **Connect** and log into LinkedIn in the popup window',
+          '4) Once logged in, come back and click **Check** to verify the connection',
           '',
           'Once connected, tell me "retry" and I\'ll queue it again.'
         ].join('\n')
