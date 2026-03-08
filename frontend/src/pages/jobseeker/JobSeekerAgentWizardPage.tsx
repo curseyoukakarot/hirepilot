@@ -43,6 +43,7 @@ const JOB_SEEKER_MISSIONS: MissionDef[] = [
     description: 'Extract job postings and hiring signals from LinkedIn Jobs.',
     color: 'bg-emerald-600',
     status: 'implemented',
+    creditCost: '5 credits',
   },
   {
     id: 'decision_maker_lookup',
@@ -51,6 +52,7 @@ const JOB_SEEKER_MISSIONS: MissionDef[] = [
     description: 'Find hiring managers at target companies.',
     color: 'bg-purple-600',
     status: 'implemented',
+    creditCost: '10 credits',
   },
   {
     id: 'connect_requests',
@@ -59,6 +61,7 @@ const JOB_SEEKER_MISSIONS: MissionDef[] = [
     description: 'Send personalized LinkedIn connection requests.',
     color: 'bg-sky-600',
     status: 'implemented',
+    creditCost: '5 credits/request',
   },
 ];
 

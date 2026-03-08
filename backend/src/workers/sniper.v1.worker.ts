@@ -16,6 +16,10 @@ import { applyCooldown, getUsageSnapshot, isCooldownActive, recordActionUsage } 
 import { getProvider } from '../services/sniperV1/providers';
 import { notifySniperJobFinished } from '../services/sniperV1/notifications';
 import { invokeAgentWebhook } from '../services/airtop/agentWebhooks';
+import { deductCredits } from '../services/creditService';
+
+// Credit costs per Cloud Engine mission type
+const MISSION_CREDITS = { jobs_intent: 5, decision_maker_lookup: 10, connect_per_success: 5 };
 
 const QUEUE = 'sniper:v1';
 
@@ -232,6 +236,12 @@ export const sniperV1Worker = new Worker(
         const totalExtracted = existingItems.length + newJobs.length;
         const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for jobs_intent mission
+        if (totalExtracted > 0) {
+          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.jobs_intent); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for jobs_intent:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, extracted: totalExtracted, newThisRun: newJobs.length, previouslyCaptured: existingItems.length };
       }
@@ -308,6 +318,12 @@ export const sniperV1Worker = new Worker(
           finished_at: new Date().toISOString(),
           error_message: allResults.length === 0 ? `No decision makers found across ${companies.length} companies` : null,
         } as any);
+        // Deduct credits for decision_maker_lookup mission
+        if (allResults.length > 0) {
+          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.decision_maker_lookup); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for decision_maker_lookup:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, extracted: allResults.length, companies_searched: companies.length };
       }
@@ -407,6 +423,12 @@ export const sniperV1Worker = new Worker(
             (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
             (summary.failed > 0 && summary.success === 0) ? 'failed' : 'succeeded';
           await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+          // Deduct credits for successful connect requests (5 per success)
+          if (summary.success > 0) {
+            try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.connect_per_success); } catch (e: any) {
+              console.warn('[sniper] credit deduction failed for send_connect_requests:', e?.message);
+            }
+          }
           try { await notifySniperJobFinished(jobId); } catch {}
           return { ok: true, summary };
         }

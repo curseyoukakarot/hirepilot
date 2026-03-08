@@ -29,6 +29,14 @@ import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/c
 import { normalizeLinkedinProfileUrl } from '../utils/linkedinUrl';
 import { generateMessages, DEFAULT_CONNECT_NOTE_TEMPLATE, DEFAULT_MESSAGE_TEMPLATE } from '../services/sniperV1/messageGenerator';
 import { batchRevealCompanyOpenJobs, deriveCompanyKey } from '../services/sniperV1/companyJobsReveal';
+import { deductCredits } from '../services/creditService';
+
+// Credit costs per Cloud Engine mission type
+const MISSION_CREDIT_COST: Record<string, number> = {
+  jobs_intent: 5,
+  decision_maker_lookup: 10,
+};
+const CONNECT_CREDIT_COST_PER_REQUEST = 5;
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -287,6 +295,23 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
     if (!(await requireCloudEngineEnabledOr409(workspaceId, res))) return;
+
+    // Credit pre-flight check
+    const creditCost = MISSION_CREDIT_COST[parsed.data.job_type] || 0;
+    if (creditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, creditCost, true);
+        if (typeof balance === 'number' && balance < creditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: creditCost, remaining: balance });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: creditCost, remaining: 0 });
+        }
+        console.warn('[sniper] credit check failed (non-fatal):', e?.message);
+      }
+    }
+
     const jobSettings = await fetchSniperV1Settings(workspaceId);
     const provider = (jobSettings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
@@ -444,6 +469,23 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     }
 
     const validCount = processed.filter((p) => p.normalized !== null).length;
+
+    // Credit pre-flight check for connect requests
+    const connectCreditCost = validCount * CONNECT_CREDIT_COST_PER_REQUEST;
+    if (connectCreditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, connectCreditCost, true);
+        if (typeof balance === 'number' && balance < connectCreditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: connectCreditCost, remaining: balance, per_request: CONNECT_CREDIT_COST_PER_REQUEST });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: connectCreditCost, remaining: 0, per_request: CONNECT_CREDIT_COST_PER_REQUEST });
+        }
+        console.warn('[sniper-connect] credit check failed (non-fatal):', e?.message);
+      }
+    }
+
     const throttle = await canAttemptLinkedinConnect({ workspaceId, userId, respectActiveHours: false });
     if (!throttle.ok) {
       console.log('[sniper-connect] throttle block', { userId, workspaceId, reason: throttle.reason, cooldownSeconds: throttle.cooldownSeconds });
@@ -557,6 +599,7 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
         job_id: job.id,
         queued_reason: shouldQueueOnly ? 'outside_active_hours' : undefined,
         queue_source: 'agentic_browser',
+        credits_estimated: validItems.length * CONNECT_CREDIT_COST_PER_REQUEST,
         quota: {
           limit_per_day: throttle.settings.max_connects_per_day,
           used_today: q.usedToday,

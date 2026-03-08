@@ -32,6 +32,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Extract job postings from a LinkedIn Jobs search.',
     color: 'bg-emerald-600',
     status: 'implemented',
+    creditCost: '5 credits',
   },
   {
     id: 'decision_maker_lookup',
@@ -40,6 +41,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Find key contacts at companies from LinkedIn company pages.',
     color: 'bg-teal-600',
     status: 'implemented',
+    creditCost: '10 credits',
   },
   {
     id: 'connect_requests',
@@ -48,6 +50,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Queue LinkedIn connection requests via Cloud Engine.',
     color: 'bg-sky-600',
     status: 'implemented',
+    creditCost: '5 credits/request',
   },
   {
     id: 'send_message',

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { MissionDef } from './MissionCard';
 import AIMessageModal from './AIMessageModal';
 import type { ProfileForAI } from './AIMessageModal';
+import { useUserCredits } from '../../services/creditService';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -30,6 +31,31 @@ function Toast({ show, message, type }: ToastT) {
       >
         <div className="text-sm font-semibold">{message}</div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Credit cost bar                                                    */
+/* ------------------------------------------------------------------ */
+
+function CreditCostBar({ cost, balance }: { cost: number; balance: number }) {
+  const insufficient = balance < cost;
+  return (
+    <div className={cx(
+      'flex items-center justify-between rounded-xl border px-4 py-2.5 text-xs font-medium',
+      insufficient
+        ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-400'
+        : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-400',
+    )}>
+      <span>⚡ Estimated cost: <strong>{cost} credits</strong></span>
+      <span className="tabular-nums">
+        {insufficient ? (
+          <span className="text-rose-600 dark:text-rose-400">Insufficient credits ({balance} remaining)</span>
+        ) : (
+          <span>{balance} credits remaining</span>
+        )}
+      </span>
     </div>
   );
 }
@@ -101,6 +127,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
 
   const [settings, setSettings] = useState<SniperSettings | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+
+  /* ---- Credits ---- */
+  const { credits, refetch: refetchCredits } = useUserCredits();
+  const CREDIT_COSTS: Record<string, number> = { jobs_intent: 5, decision_maker_lookup: 10 };
+  const CONNECT_COST_PER = 5;
 
   /* ---- Load settings ---- */
   useEffect(() => {
@@ -342,6 +373,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
             target_id: null, job_type: 'jobs_intent', input_json: { search_url: url, limit },
           });
           showToast('Jobs Intent queued. Track progress in Activity.', 'success');
+          refetchCredits();
           const jobId = (out as Record<string, unknown>)?.job
             ? ((out as Record<string, unknown>).job as Record<string, unknown>)?.id
             : (out as Record<string, unknown>)?.job_id;
@@ -373,6 +405,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
         input_json: { companies, limit_per_company: limitPerCompany, criteria: dmCriteria.trim() || null },
       });
       showToast('Decision Maker Lookup queued. Track progress in Activity.', 'success');
+      refetchCredits();
       onNavigate('activity');
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to queue Decision Maker Lookup', 'error');
@@ -400,6 +433,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
         : { profile_urls: profileUrls, note: note || null };
       await apiPost('/api/sniper/actions/connect', payload);
       showToast(hasPerProfile ? 'Queued personalized connection requests. Track progress in Activity.' : 'Queued connection requests. Track progress in Activity.', 'success');
+      refetchCredits();
       setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       showToast((e as Error)?.message || 'Failed to queue connection requests', 'error');
@@ -848,6 +882,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                   <div className="mt-2 text-[11px] text-slate-500">Daily cap: {effectiveDailyCap} profiles.</div>
                 ) : null}
               </div>
+              <CreditCostBar cost={CREDIT_COSTS.jobs_intent || 5} balance={credits.remainingCredits} />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -858,11 +893,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 </button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || workingId === 'jobs_intent'}
+                  disabled={!cloudEnabled || workingId === 'jobs_intent' || credits.remainingCredits < (CREDIT_COSTS.jobs_intent || 5)}
                   onClick={queueJobsIntent}
                   className={cx(
                     'rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
-                    (!cloudEnabled || workingId === 'jobs_intent') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || workingId === 'jobs_intent' || credits.remainingCredits < (CREDIT_COSTS.jobs_intent || 5)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'jobs_intent' ? 'Queuing...' : 'Run now'}
@@ -911,6 +946,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                   Number of decision makers to find at each company (1-10).
                 </div>
               </div>
+              <CreditCostBar cost={CREDIT_COSTS.decision_maker_lookup || 10} balance={credits.remainingCredits} />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -921,11 +957,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 </button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || workingId === 'decision_maker_lookup'}
+                  disabled={!cloudEnabled || workingId === 'decision_maker_lookup' || credits.remainingCredits < (CREDIT_COSTS.decision_maker_lookup || 10)}
                   onClick={queueDecisionMakerLookup}
                   className={cx(
                     'rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-teal-500',
-                    (!cloudEnabled || workingId === 'decision_maker_lookup') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || workingId === 'decision_maker_lookup' || credits.remainingCredits < (CREDIT_COSTS.decision_maker_lookup || 10)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'decision_maker_lookup' ? 'Queuing...' : 'Run now'}
@@ -988,6 +1024,9 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 />
                 <div className="mt-1 text-xs text-slate-500">{String(connectNote || '').length}/300</div>
               </div>
+              {profileUrls.length > 0 && (
+                <CreditCostBar cost={profileUrls.length * CONNECT_COST_PER} balance={credits.remainingCredits} />
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -998,11 +1037,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 </button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || !profileUrls.length || workingId === 'connect'}
+                  disabled={!cloudEnabled || !profileUrls.length || workingId === 'connect' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * CONNECT_COST_PER)}
                   onClick={queueConnectRequests}
                   className={cx(
                     'rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
-                    (!cloudEnabled || !profileUrls.length || workingId === 'connect') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || !profileUrls.length || workingId === 'connect' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * CONNECT_COST_PER)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'connect'

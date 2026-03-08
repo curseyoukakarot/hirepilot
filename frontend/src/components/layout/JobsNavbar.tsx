@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applyTheme, getStoredTheme } from '../../lib/theme';
 import { supabase } from '../../lib/supabaseClient';
+import { useUserCredits } from '../../services/creditService';
 
 type JobsNavbarProps = {
   logoSrc: string;
@@ -10,6 +11,7 @@ type JobsNavbarProps = {
 
 export function JobsNavbar({ logoSrc, onMenuClick }: JobsNavbarProps) {
   const navigate = useNavigate();
+  const { credits } = useUserCredits();
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
   const [avatarInitial, setAvatarInitial] = React.useState<string>('A');
 
@@ -52,6 +54,15 @@ export function JobsNavbar({ logoSrc, onMenuClick }: JobsNavbarProps) {
         </button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/settings/credits')}
+            className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/40 dark:hover:bg-amber-900/30 transition"
+            title="Credits remaining"
+          >
+            <span>⚡</span>
+            <span className="tabular-nums">{credits.remainingCredits}</span>
+          </button>
           <button
             type="button"
             onClick={() => navigate('/onboarding')}

@@ -11,6 +11,7 @@ export type MissionDef = {
   description: string;
   color: string;          // e.g. 'bg-amber-500'
   status: 'implemented' | 'coming_soon';
+  creditCost?: string;    // e.g. '5 credits' or '5 credits/request'
 };
 
 type Props = {
@@ -55,6 +56,11 @@ export default function MissionCard({ mission, onClick }: Props) {
       </div>
       <h3 className="mt-4 text-base font-bold">{mission.title}</h3>
       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{mission.description}</p>
+      {mission.creditCost && (
+        <span className="mt-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+          ⚡ {mission.creditCost}
+        </span>
+      )}
     </button>
   );
 }
