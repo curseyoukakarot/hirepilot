@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
 import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 import { useCampaignOptions } from '../../hooks/useCampaignOptions';
+import { supabase } from '../../lib/supabaseClient';
 import AIMessageModal from './AIMessageModal';
 import type { ProfileForAI } from './AIMessageModal';
 
@@ -187,6 +188,37 @@ export default function ActivityPanel() {
     if (campaignOptions.length > 0) setSelectedCampaignId(campaignOptions[0].id);
   }, [campaignOptions, campaignsLoading, selectedCampaignId]);
 
+  /* ---- Add to Table ---- */
+  const [userTables, setUserTables] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedTableId, setSelectedTableId] = useState('');
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [addingToTable, setAddingToTable] = useState(false);
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      setTablesLoading(true);
+      try {
+        const { data } = await supabase
+          .from('custom_tables')
+          .select('id, name')
+          .order('updated_at', { ascending: false });
+        const tables = (data || []) as Array<{ id: string; name: string }>;
+        setUserTables(tables);
+        if (tables.length > 0) setSelectedTableId(tables[0].id);
+      } catch { /* non-fatal */ }
+      setTablesLoading(false);
+    };
+    fetchTables();
+  }, []);
+
+  /* ---- Send to Mission ---- */
+  type SNMissionType = 'sn_connect' | 'sn_inmail' | 'sn_message';
+  const [missionType, setMissionType] = useState<SNMissionType>('sn_connect');
+  const [snConnectNote, setSnConnectNote] = useState('');
+  const [snInmailSubject, setSnInmailSubject] = useState('');
+  const [snMessageText, setSnMessageText] = useState('');
+  const [sendingToMission, setSendingToMission] = useState(false);
+
   /* ---- Load jobs ---- */
   const loadJobs = async () => {
     setLoadingJobs(true);
@@ -337,6 +369,68 @@ export default function ActivityPanel() {
       showToast('Queued messages', 'success');
       if (resp.job_id) { await loadJobs(); setSelectedJobId(String(resp.job_id)); }
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to queue messages', 'error'); }
+  };
+
+  const addToTable = async () => {
+    if (!selectedList.length) return showToast('Select at least 1 profile', 'error');
+    if (!selectedTableId) return showToast('Select a table first', 'error');
+    setAddingToTable(true);
+    try {
+      const resp = await apiPost('/api/sniper/actions/add-to-table', {
+        profile_urls: selectedList,
+        table_id: selectedTableId,
+      }) as Record<string, unknown>;
+      const added = Number(resp.added || 0);
+      const skipped = Number(resp.skipped || 0);
+      showToast(`Added ${added} profile${added !== 1 ? 's' : ''} to table${skipped ? ` (${skipped} skipped)` : ''}`, 'success');
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to add to table', 'error'); }
+    finally { setAddingToTable(false); }
+  };
+
+  const SN_MISSION_LABELS: Record<SNMissionType, string> = {
+    sn_connect: 'SN Connect',
+    sn_inmail: 'SN InMail',
+    sn_message: 'SN Message',
+  };
+
+  const sendToMission = async () => {
+    if (!selectedList.length) return showToast('Select at least 1 profile', 'error');
+    setSendingToMission(true);
+    try {
+      let resp: Record<string, unknown> | undefined;
+      switch (missionType) {
+        case 'sn_connect':
+          resp = await apiPost('/api/sniper/actions/sn-connect', {
+            profile_urls: selectedList,
+            note: snConnectNote || null,
+          }) as Record<string, unknown>;
+          break;
+        case 'sn_inmail':
+          if (!snInmailSubject.trim() || !snMessageText.trim()) {
+            setSendingToMission(false);
+            return showToast('Subject and message are required for InMail', 'error');
+          }
+          resp = await apiPost('/api/sniper/actions/sn-inmail', {
+            profile_urls: selectedList,
+            subject: snInmailSubject.trim(),
+            message: snMessageText.trim(),
+          }) as Record<string, unknown>;
+          break;
+        case 'sn_message':
+          if (!snMessageText.trim()) {
+            setSendingToMission(false);
+            return showToast('Message is required', 'error');
+          }
+          resp = await apiPost('/api/sniper/actions/sn-message', {
+            profile_urls: selectedList,
+            message: snMessageText.trim(),
+          }) as Record<string, unknown>;
+          break;
+      }
+      showToast(`Queued ${SN_MISSION_LABELS[missionType]} for ${selectedList.length} profile${selectedList.length !== 1 ? 's' : ''}`, 'success');
+      if (resp?.job_id) { await loadJobs(); setSelectedJobId(String(resp.job_id)); }
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to send to mission', 'error'); }
+    finally { setSendingToMission(false); }
   };
 
   /* ---- AI helpers ---- */
@@ -733,7 +827,7 @@ export default function ActivityPanel() {
                   <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     Actions on selected ({selectedList.length})
                   </div>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {/* Connect */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
                       <div className="flex items-center justify-between">
@@ -822,6 +916,70 @@ export default function ActivityPanel() {
                       </button>
                     </div>
 
+                    {/* Send to Mission (SN) */}
+                    <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-800/50 dark:bg-orange-950/30">
+                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">{'\uD83D\uDE80'} Send to Mission</div>
+                      <select
+                        className={cx(inputCls, 'mt-2')}
+                        value={missionType}
+                        onChange={(e) => setMissionType(e.target.value as SNMissionType)}
+                      >
+                        <option value="sn_connect">{'\uD83E\uDD1D'} SN Connect</option>
+                        <option value="sn_inmail">{'\uD83D\uDCE8'} SN InMail</option>
+                        <option value="sn_message">{'\uD83D\uDCAC'} SN Message</option>
+                      </select>
+                      {missionType === 'sn_connect' && (
+                        <textarea
+                          className={cx(inputCls, 'mt-2')}
+                          rows={2}
+                          value={snConnectNote}
+                          onChange={(e) => setSnConnectNote(e.target.value)}
+                          placeholder="Optional connection note..."
+                          maxLength={300}
+                        />
+                      )}
+                      {missionType === 'sn_inmail' && (
+                        <>
+                          <input
+                            className={cx(inputCls, 'mt-2')}
+                            value={snInmailSubject}
+                            onChange={(e) => setSnInmailSubject(e.target.value)}
+                            placeholder="InMail subject line..."
+                            maxLength={200}
+                          />
+                          <textarea
+                            className={cx(inputCls, 'mt-1.5')}
+                            rows={2}
+                            value={snMessageText}
+                            onChange={(e) => setSnMessageText(e.target.value)}
+                            placeholder="InMail message..."
+                            maxLength={1900}
+                          />
+                        </>
+                      )}
+                      {missionType === 'sn_message' && (
+                        <textarea
+                          className={cx(inputCls, 'mt-2')}
+                          rows={2}
+                          value={snMessageText}
+                          onChange={(e) => setSnMessageText(e.target.value)}
+                          placeholder="Message to send..."
+                          maxLength={3000}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={sendToMission}
+                        disabled={!selectedList.length || sendingToMission}
+                        className={cx(
+                          'mt-2 w-full rounded-xl bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500',
+                          (!selectedList.length || sendingToMission) && 'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        {sendingToMission ? 'Queuing...' : `Queue ${SN_MISSION_LABELS[missionType]} (${selectedList.length})`}
+                      </button>
+                    </div>
+
                     {/* Import to leads */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
                       <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">Add to Leads</div>
@@ -851,6 +1009,47 @@ export default function ActivityPanel() {
                         )}
                       >
                         {importingLeads ? 'Adding...' : 'Add to Leads'}
+                      </button>
+                    </div>
+
+                    {/* Add to Table */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">{'\uD83D\uDCCB'} Add to Table</div>
+                      <div className="mt-1 text-xs text-slate-500">Add profiles to a custom table.</div>
+                      <select
+                        className={cx(inputCls, 'mt-2')}
+                        value={selectedTableId}
+                        onChange={(e) => setSelectedTableId(e.target.value)}
+                        disabled={tablesLoading || !userTables.length}
+                      >
+                        {!userTables.length ? (
+                          <option value="">{tablesLoading ? 'Loading...' : 'No tables'}</option>
+                        ) : (
+                          userTables.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))
+                        )}
+                      </select>
+                      {!tablesLoading && !userTables.length && (
+                        <a
+                          href="/tables"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 inline-block text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                        >
+                          + Create a table first
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={addToTable}
+                        disabled={!selectedList.length || addingToTable || !userTables.length}
+                        className={cx(
+                          'mt-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600',
+                          (!selectedList.length || addingToTable || !userTables.length) && 'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        {addingToTable ? 'Adding...' : 'Add to Table'}
                       </button>
                     </div>
 

@@ -1149,6 +1149,152 @@ sniperV1Router.post('/actions/import_to_leads', async (req: ApiRequest, res: Res
   }
 });
 
+// ---------------- Add to Custom Table ----------------
+
+sniperV1Router.post('/actions/add-to-table', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const schema = z.object({
+      profile_urls: z.array(z.string().url()).min(1).max(2000),
+      table_id: z.string().uuid(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    const urls = Array.from(new Set(parsed.data.profile_urls.map((u) => String(u).trim()).filter(Boolean)));
+    if (!urls.length) return res.status(400).json({ error: 'no_profile_urls' });
+    const tableId = parsed.data.table_id;
+
+    // Verify user owns or can edit the table
+    const { data: table, error: tblErr } = await sniperSupabaseDb
+      .from('custom_tables')
+      .select('id, user_id, schema_json, data_json, collaborators')
+      .eq('id', tableId)
+      .maybeSingle();
+    if (tblErr) throw tblErr;
+    if (!table) return res.status(404).json({ error: 'table_not_found' });
+
+    const isOwner = String((table as any).user_id) === userId;
+    const collabs = Array.isArray((table as any).collaborators) ? (table as any).collaborators : [];
+    const isEditor = collabs.some((c: any) => String(c.user_id) === userId && c.role === 'edit');
+    if (!isOwner && !isEditor) return res.status(403).json({ error: 'no_edit_access' });
+
+    // Enrich from sniper_job_items (same pattern as import_to_leads)
+    const { data: extracts, error: exErr } = await sniperSupabaseDb
+      .from('sniper_job_items')
+      .select('profile_url,result_json,created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('action_type', 'extract')
+      .in('profile_url', urls)
+      .order('created_at', { ascending: false });
+    if (exErr) throw exErr;
+    const extractByUrl = new Map<string, any>();
+    for (const row of extracts || []) {
+      const u = String((row as any).profile_url || '');
+      if (!u || extractByUrl.has(u)) continue;
+      extractByUrl.set(u, (row as any).result_json || null);
+    }
+
+    // Read current table schema + data
+    let schemaJson: any[] = Array.isArray((table as any).schema_json) ? (table as any).schema_json : [];
+    const dataJson: any[] = Array.isArray((table as any).data_json) ? (table as any).data_json : [];
+
+    // Default columns for Sniper profiles
+    const DEFAULT_COLS = [
+      { name: 'Name', type: 'text' },
+      { name: 'Headline', type: 'text' },
+      { name: 'LinkedIn URL', type: 'text' },
+      { name: 'Company', type: 'text' },
+      { name: 'Source', type: 'text' },
+      { name: 'Added', type: 'date' },
+    ];
+
+    // Auto-create schema if empty
+    if (schemaJson.length === 0) {
+      schemaJson = DEFAULT_COLS;
+    } else {
+      // Ensure standard columns exist (case-insensitive match)
+      const existingNames = new Set(schemaJson.map((c: any) => String(c.name || '').toLowerCase()));
+      for (const col of DEFAULT_COLS) {
+        if (!existingNames.has(col.name.toLowerCase())) {
+          schemaJson.push(col);
+        }
+      }
+    }
+
+    // Column name lookup (case-insensitive)
+    const findCol = (target: string): string | null => {
+      const lower = target.toLowerCase();
+      const found = schemaJson.find((c: any) => String(c.name || '').toLowerCase() === lower);
+      return found ? String(found.name) : null;
+    };
+
+    // Dedup: collect existing LinkedIn URLs in the table
+    const linkedinCol = findCol('LinkedIn URL') || findCol('linkedin url') || findCol('LinkedIn');
+    const existingUrls = new Set<string>();
+    if (linkedinCol) {
+      for (const row of dataJson) {
+        const v = String(row[linkedinCol] || '').trim().toLowerCase();
+        if (v) existingUrls.add(v);
+      }
+    }
+
+    // Build new rows
+    const newRows: any[] = [];
+    let skipped = 0;
+
+    for (const url of urls) {
+      if (linkedinCol && existingUrls.has(url.toLowerCase())) {
+        skipped++;
+        continue;
+      }
+
+      const meta = extractByUrl.get(url) || {};
+      const row: any = {};
+
+      const nameCol = findCol('Name');
+      if (nameCol) row[nameCol] = meta.name ? String(meta.name) : '';
+
+      const headlineCol = findCol('Headline');
+      if (headlineCol) row[headlineCol] = meta.headline ? String(meta.headline) : '';
+
+      if (linkedinCol) row[linkedinCol] = url;
+
+      const companyCol = findCol('Company');
+      if (companyCol) row[companyCol] = meta.company_name ? String(meta.company_name) : (meta.company ? String(meta.company) : '');
+
+      const sourceCol = findCol('Source');
+      if (sourceCol) row[sourceCol] = 'Sniper';
+
+      const addedCol = findCol('Added');
+      if (addedCol) row[addedCol] = new Date().toISOString().split('T')[0];
+
+      newRows.push(row);
+    }
+
+    // Update the table
+    if (newRows.length > 0) {
+      const updatedData = [...dataJson, ...newRows];
+      const { error: upErr } = await sniperSupabaseDb
+        .from('custom_tables')
+        .update({
+          schema_json: schemaJson,
+          data_json: updatedData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tableId);
+      if (upErr) throw upErr;
+    }
+
+    return res.json({ added: newRows.length, skipped });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_add_to_table' });
+  }
+});
+
 // ---------------- Reveal Open Jobs (Apollo) ----------------
 
 sniperV1Router.post('/actions/reveal_open_jobs', async (req: ApiRequest, res: Response) => {
