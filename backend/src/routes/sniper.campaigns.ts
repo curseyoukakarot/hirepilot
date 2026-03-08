@@ -275,6 +275,105 @@ sniperCampaignsRouter.post('/:id/enroll', async (req: ApiRequest, res: Response)
   }
 });
 
+// POST /campaigns/:id/enroll-from-table — enroll profiles from a custom table
+sniperCampaignsRouter.post('/:id/enroll-from-table', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const campaign = await getCampaign(req.params.id);
+    if (!campaign || campaign.workspace_id !== workspaceId) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+    if (!['draft', 'active'].includes(campaign.status)) {
+      return res.status(409).json({ error: 'campaign_must_be_draft_or_active_to_enroll' });
+    }
+
+    const schema = z.object({ table_id: z.string().uuid() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    // Fetch the custom table
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: table, error: tableErr } = await supabase
+      .from('custom_tables')
+      .select('id, user_id, schema_json, data_json')
+      .eq('id', parsed.data.table_id)
+      .single();
+
+    if (tableErr || !table) {
+      return res.status(404).json({ error: 'table_not_found' });
+    }
+    // Verify the user owns the table (or belongs to same workspace)
+    if (table.user_id !== userId && table.user_id !== workspaceId) {
+      return res.status(403).json({ error: 'not_authorized_for_table' });
+    }
+
+    // Extract LinkedIn URLs from table data
+    const rows = Array.isArray(table.data_json) ? table.data_json : [];
+    const schemaColumns = Array.isArray(table.schema_json) ? table.schema_json : [];
+
+    // Find the LinkedIn URL column name (case-insensitive)
+    const urlColumnPatterns = ['linkedin url', 'linkedin', 'profile url', 'url', 'linkedin profile'];
+    let urlColumnName = '';
+    for (const col of schemaColumns) {
+      const colName = String(col.name || col.label || col).toLowerCase().trim();
+      if (urlColumnPatterns.includes(colName)) {
+        urlColumnName = col.name || col.label || col;
+        break;
+      }
+    }
+
+    if (!urlColumnName) {
+      // Fallback: try to find any column value that looks like a LinkedIn URL
+      return res.status(400).json({ error: 'no_linkedin_url_column', message: 'Table must have a column named "LinkedIn URL", "LinkedIn", "URL", or "Profile URL"' });
+    }
+
+    // Extract URLs from rows
+    const profileUrls: string[] = [];
+    for (const row of rows) {
+      const val = String(row[urlColumnName] || '').trim();
+      if (val && (val.includes('linkedin.com/in/') || val.includes('linkedin.com/sales/lead/'))) {
+        profileUrls.push(val);
+      }
+    }
+
+    if (!profileUrls.length) {
+      return res.status(400).json({ error: 'no_linkedin_urls_found', message: `No LinkedIn URLs found in column "${urlColumnName}"` });
+    }
+
+    // Check existing enrollments to deduplicate
+    const existingEnrollments = await listEnrollments(campaign.id, { limit: 10000 });
+    const existingUrls = new Set(existingEnrollments.map((e: any) => e.profile_url));
+    const newUrls = profileUrls.filter((u) => !existingUrls.has(u));
+    const skipped = profileUrls.length - newUrls.length;
+
+    if (!newUrls.length) {
+      return res.json({ enrolled: 0, skipped, message: 'All profiles are already enrolled' });
+    }
+
+    const enrollments = await enrollProfiles(
+      campaign.id,
+      workspaceId,
+      userId,
+      newUrls.map((url) => ({ profile_url: url }))
+    );
+
+    // Update stats
+    updateCampaignStats(campaign.id).catch(() => {});
+
+    return res.status(201).json({ enrolled: enrollments.length, skipped });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_enroll_from_table' });
+  }
+});
+
 // GET /campaigns/:id/enrollments — list enrollments for a campaign
 sniperCampaignsRouter.get('/:id/enrollments', async (req: ApiRequest, res: Response) => {
   try {

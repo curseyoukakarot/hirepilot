@@ -355,11 +355,13 @@ export const sniperV1Worker = new Worker(
 
             await updateJobItem(it.id, { status: 'running', error_message: null } as any);
             try {
+              // Prefer per-item resolved note (from template token resolution) over job-level note
+              const itemNote = (it as any).result_json?.note ?? note;
               const res = await provider.sendConnectionRequest({
                 userId: jobRow.created_by,
                 workspaceId: jobRow.workspace_id,
                 profileUrl: it.profile_url,
-                note,
+                note: itemNote,
                 debug,
               });
               try {
@@ -510,11 +512,13 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
+            // Prefer per-item resolved message (from template token resolution) over job-level message
+            const itemMessage = (it as any).result_json?.message ?? message;
             const res = await provider.sendMessage({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
               profileUrl: it.profile_url,
-              message,
+              message: itemMessage,
               debug
             });
             try {
@@ -657,11 +661,13 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
+            // Prefer per-item resolved note (from template token resolution) over job-level note
+            const snItemNote = (it as any).result_json?.note ?? note;
             const res = await provider.sendSalesNavConnect({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
               profileUrl: it.profile_url,
-              note,
+              note: snItemNote,
               debug,
             });
             try {
@@ -758,12 +764,15 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
+            // Prefer per-item resolved values (from template token resolution) over job-level values
+            const inmailItemSubject = (it as any).result_json?.subject ?? subject;
+            const inmailItemMessage = (it as any).result_json?.message ?? message;
             const res = await provider.sendSalesNavInMail({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
               profileUrl: it.profile_url,
-              subject,
-              message,
+              subject: inmailItemSubject,
+              message: inmailItemMessage,
               debug,
             });
             try {
@@ -856,11 +865,13 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
+            // Prefer per-item resolved message (from template token resolution) over job-level message
+            const snMsgItemMessage = (it as any).result_json?.message ?? message;
             const res = await provider.sendSalesNavMessage({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
               profileUrl: it.profile_url,
-              message,
+              message: snMsgItemMessage,
               debug,
             });
             try {
