@@ -107,17 +107,17 @@ async function apiAsUser(userId: string, endpoint: string, options: { method: st
 
 function cloudEngineEnableHelp(): string {
   return [
-    ‘Cloud Engine is currently OFF for your workspace, so I can\’t run LinkedIn actions yet.’,
-    ‘’,
-    ‘Enable it here:’,
-    ‘1) Go to **Settings** (`/settings/integrations`)’,
-    ‘2) Find the **Collaboration** tab and select **Agent Mode** from the dropdown’,
-    ‘3) Navigate to **Cloud Engine** (`/cloud-engine/settings`)’,
-    ‘4) Toggle **Cloud Engine: ON**’,
-    ‘5) Click **Connect** to log into LinkedIn, then come back and click **Check**’,
-    ‘’,
-    ‘Once that\’s done, tell me “retry” and I\’ll queue it again.’
-  ].join(‘\n’);
+    'Cloud Engine is currently OFF for your workspace, so I can\'t run LinkedIn actions yet.',
+    '',
+    'Enable it here:',
+    '1) Go to **Settings** (`/settings/integrations`)',
+    '2) Find the **Collaboration** tab and select **Agent Mode** from the dropdown',
+    '3) Navigate to **Cloud Engine** (`/cloud-engine/settings`)',
+    '4) Toggle **Cloud Engine: ON**',
+    '5) Click **Connect** to log into LinkedIn, then come back and click **Check**',
+    '',
+    'Once that\'s done, tell me "retry" and I\'ll queue it again.'
+  ].join('\n');
 }
 
 async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<null | { ok: false; error_code: string; help: string }> {
@@ -128,7 +128,7 @@ async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<
     }
     return null;
   } catch {
-    // If we can’t load settings, fail open and let downstream endpoints decide
+    // If we can't load settings, fail open and let downstream endpoints decide
     return null;
   }
 }
@@ -2553,7 +2553,7 @@ server.registerCapabilities({
         }
         const lines: string[] = [];
         lines.push(greeting);
-        if (assets.demo_video_url) lines.push(`Here’s a quick demo: ${assets.demo_video_url}`);
+        if (assets.demo_video_url) lines.push(`Here's a quick demo: ${assets.demo_video_url}`);
         if (assets.pricing_url) lines.push(`Pricing details: ${assets.pricing_url}`);
         if (assets.one_pager_url) lines.push(`One-pager: ${assets.one_pager_url}`);
         if (assets.deck_url) lines.push(`Deck: ${assets.deck_url}`);
@@ -2582,7 +2582,7 @@ server.registerCapabilities({
         }
         // Minor rewrite if previous_text provided (avoid exact duplicate)
         if (previous_text && text.trim() === String(previous_text).trim()) {
-          text = text.replace('Grab a time here', 'Here’s my calendar');
+          text = text.replace('Grab a time here', "Here's my calendar");
           if (!ix) text += '\n\nP.S. I can tailor a quick walkthrough to your use case.';
         }
         return { text };

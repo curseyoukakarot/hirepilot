@@ -315,7 +315,7 @@ export const sniperV1Worker = new Worker(
       if (jobRow.job_type === 'send_connect_requests') {
         // Agentic browser: process connect requests sequentially per item
         if (providerName === 'agentic_browser') {
-          const note = String(jobRow.input_json?.note || '').trim() || null;
+          const jobLevelNote = String(jobRow.input_json?.note || '').trim() || null;
           const items = await listJobItems(jobId, 5000);
           const debug = { jobId, enabled: Boolean(jobRow.input_json?.debug) };
           let paused = false;
@@ -358,8 +358,8 @@ export const sniperV1Worker = new Worker(
 
             await updateJobItem(it.id, { status: 'running', error_message: null } as any);
             try {
-              // Prefer per-item resolved note (from template token resolution) over job-level note
-              const itemNote = (it as any).result_json?.note ?? note;
+              // Per-item note (bulk personalized) takes priority over job-level note
+              const itemNote = String(it.result_json?.note || jobLevelNote || '').trim() || null;
               const res = await provider.sendConnectionRequest({
                 userId: jobRow.created_by,
                 workspaceId: jobRow.workspace_id,
@@ -621,7 +621,7 @@ export const sniperV1Worker = new Worker(
       // Sales Navigator: Send Connect Requests
       // ════════════════════════════════════════════════════════════════
       if (jobRow.job_type === 'sn_send_connect') {
-        const note = String(jobRow.input_json?.note || '').trim() || null;
+        const snConnectJobNote = String(jobRow.input_json?.note || '').trim() || null;
         const items = await listJobItems(jobId, 5000);
         const debug = { jobId, enabled: Boolean(jobRow.input_json?.debug) };
         let paused = false;
@@ -664,8 +664,8 @@ export const sniperV1Worker = new Worker(
 
           await updateJobItem(it.id, { status: 'running', error_message: null } as any);
           try {
-            // Prefer per-item resolved note (from template token resolution) over job-level note
-            const snItemNote = (it as any).result_json?.note ?? note;
+            // Per-item note (bulk personalized) takes priority over job-level note
+            const snItemNote = String(it.result_json?.note || snConnectJobNote || '').trim() || null;
             const res = await provider.sendSalesNavConnect({
               userId: jobRow.created_by,
               workspaceId: jobRow.workspace_id,
