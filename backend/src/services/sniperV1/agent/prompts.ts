@@ -273,22 +273,58 @@ Company Name: ${companyName || 'Unknown'}
 ${roleHint}
 Maximum profiles to extract: ${limit}
 
+## CRITICAL: NEVER fabricate URLs
+You MUST extract REAL profile URLs from the DOM — NEVER construct or guess URLs from names.
+- Every profile_url MUST be copied EXACTLY from an href attribute in the "Interactive elements" section.
+- Look for <a> elements with href containing "/in/" — those are the real profile links.
+- LinkedIn profile slugs almost ALWAYS have a random alphanumeric suffix (e.g., "/in/john-doe-a1b2c3d/").
+  A URL like "/in/john-doe" (name only, no suffix) is almost certainly WRONG.
+- NEVER construct a URL by converting someone's name to a slug. This WILL produce 404 errors.
+- If you cannot find a real href for a person, SKIP that person entirely rather than guessing.
+
 ## Steps
 1. Navigate to ${companyUrl.replace(/\/+$/, '')}/people/ (the company's people tab)
 2. If there is a search/filter input on the people page, use it to search for relevant titles (VP, Head of, Director, Manager, CTO, etc.)
-3. Extract profile URLs, names, and headlines from the visible people cards
-4. If fewer than ${limit} results, try additional title searches
-5. Continue until you reach ${limit} profiles or exhaust results
+3. Look through the DOM snapshot's interactive elements for <a> tags with href containing "/in/"
+4. Extract profile URLs (copied EXACTLY from DOM hrefs), names, and headlines from the visible people cards using an "extract" action
+5. If fewer than ${limit} results, try scrolling or additional title searches
+6. Extract the next batch with another "extract" action
+7. Continue until you reach ${limit} profiles or exhaust results
+8. When finished, use "done" with an empty profiles array (all profiles should be in extract actions)
 
-## Expected done result
+## CRITICAL: Use batched extraction
+Do NOT try to return all profiles in a single response. Instead:
+- Use "extract" actions to save profiles in small batches as you find them
+- Each extract should contain ONLY NEW profiles you haven't extracted yet
+- The system accumulates all your extract batches automatically
+
+## How to find profile URLs in the DOM
+The DOM snapshot lists interactive elements with their CSS selectors. Look for entries like:
+  [a] "Person Name" href="https://www.linkedin.com/in/personname-a1b2c3d" -> selector
+
+The href value is the REAL profile URL. Copy it EXACTLY into your extract action.
+Do NOT modify or simplify the URL in any way.
+
+## Extract action format
+{
+  "reasoning": "Extracting N decision makers from the people page",
+  "action": {
+    "type": "extract",
+    "data": {
+      "profiles": [
+        { "profile_url": "https://www.linkedin.com/in/exact-slug-from-dom", "name": "Full Name", "headline": "Their headline" }
+      ]
+    }
+  }
+}
+
+## Expected done result (when finished)
 {
   "reasoning": "Found N decision makers at ${companyDesc}",
   "action": {
     "type": "done",
     "result": {
-      "profiles": [
-        { "profile_url": "https://www.linkedin.com/in/...", "name": "Full Name", "headline": "Their headline/title" }
-      ]
+      "profiles": []
     }
   }
 }`;
