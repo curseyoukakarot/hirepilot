@@ -267,7 +267,7 @@ export default async function rexChat(req: Request, res: Response) {
       // Slack setup guide
       { type:'function', function:{ name:'slack_setup_guide', parameters:{ type:'object', properties:{ userId:{ type:'string' } }, required:['userId'] } } },
       // Lead sourcing and filtering
-      { type:'function',function:{name:'source_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, source:{type:'string'}, filters:{type:'object'}}, required:['userId','campaignId','source']}}},
+      { type:'function',function:{name:'source_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, source:{type:'string',description:'Lead source: "apollo" (default, fast) or "linkedin"'}, filters:{type:'object', description:'Search criteria for finding leads', properties:{ title:{type:'string',description:'Job title to search for (e.g. "CISO", "VP Engineering", "Head of Sales")'}, location:{type:'string',description:'Location to search in (e.g. "San Francisco", "New York, NY", "London, UK")'}, keywords:{type:'string',description:'Additional keywords for broader search'}, count:{type:'number',description:'Number of leads to return (default 25, max 200)'}, booleanSearch:{type:'boolean',description:'Use Boolean syntax in title field (e.g. "CISO OR Chief Information Security Officer")'}}, required:['title','location']}}, required:['userId','campaignId','source']}}},
       { type:'function',function:{name:'filter_leads',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaignId:{type:'string'}, filters:{ type:'object', properties:{ title:{type:'string'}, synonyms:{type:'boolean'}, strict_level:{type:'boolean'}, has_email:{type:'boolean'}, verified_only:{type:'boolean'}, personal_email_only:{type:'boolean'}, limit:{type:'number'}, count:{type:'number'} } }}, required:['userId']}}},
       // Lead → Candidate conversion
       { type:'function',function:{name:'convert_lead_to_candidate',parameters:{ type:'object', properties:{ userId:{type:'string'}, leadId:{type:'string'}}, required:['userId','leadId']}}},
@@ -324,7 +324,18 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'sniper_send_message_to_profile', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_url:{type:'string'}, lead_id:{type:'string'}, template_name:{type:'string'}, message:{type:'string'} }, required:['userId'] } } },
       // Sniper V2: Agentic browser settings & status tools
       { type:'function', function:{ name:'sniper_update_settings', parameters:{ type:'object', properties:{ userId:{type:'string'}, max_connects_per_day:{type:'number'}, max_messages_per_day:{type:'number'}, min_delay_seconds:{type:'number'}, max_delay_seconds:{type:'number'}, active_hours_start:{type:'string'}, active_hours_end:{type:'string'}, active_hours_days:{type:'string'}, timezone:{type:'string'}, safety_mode:{type:'boolean'}, provider:{type:'string'}, cloud_engine_enabled:{type:'boolean'}, max_actions_per_day:{type:'number'}, max_actions_per_hour:{type:'number'}, cooldown_minutes:{type:'number'} }, required:['userId'] } } },
-      { type:'function', function:{ name:'sniper_get_status', parameters:{ type:'object', properties:{ userId:{type:'string'}, job_id:{type:'string'} }, required:['userId'] } } }
+      { type:'function', function:{ name:'sniper_get_status', parameters:{ type:'object', properties:{ userId:{type:'string'}, job_id:{type:'string'} }, required:['userId'] } } },
+      // Sniper v1 Cloud Engine mission tools
+      { type:'function', function:{ name:'sniper_decision_makers', description:'Find decision makers at a company. Queues a Cloud Engine mission.', parameters:{ type:'object', properties:{ userId:{type:'string'}, company_url:{type:'string',description:'LinkedIn company URL (e.g. https://www.linkedin.com/company/nebius/)'}, company_name:{type:'string',description:'Company name for display'}, criteria:{type:'string',description:'Who to look for, e.g. "VP Engineering who would buy our AI platform"'}, limit:{type:'number',description:'Max profiles to return (default 10)'} }, required:['userId','company_url'] } } },
+      { type:'function', function:{ name:'sniper_people_search', description:'Run a LinkedIn People Search URL through Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'LinkedIn people search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_sn_lead_search', description:'Run a Sales Navigator lead search URL through Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'Sales Navigator lead search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_jobs_intent', description:'Find companies with open job listings matching a LinkedIn Jobs search URL.', parameters:{ type:'object', properties:{ userId:{type:'string'}, search_url:{type:'string',description:'LinkedIn Jobs search URL'}, limit:{type:'number'} }, required:['userId','search_url'] } } },
+      { type:'function', function:{ name:'sniper_sn_connect', description:'Send Sales Navigator connect requests to profile URLs.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'},description:'LinkedIn profile URLs'}, note:{type:'string',description:'Optional connect note (max 300 chars)'} }, required:['userId','profile_urls'] } } },
+      { type:'function', function:{ name:'sniper_sn_inmail', description:'Send Sales Navigator InMail to profile URLs.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, subject:{type:'string'}, message:{type:'string'} }, required:['userId','profile_urls','subject','message'] } } },
+      { type:'function', function:{ name:'sniper_sn_message', description:'Send Sales Navigator direct messages to connected profiles.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, message:{type:'string'} }, required:['userId','profile_urls','message'] } } },
+      { type:'function', function:{ name:'sniper_import_to_leads', description:'Import LinkedIn profile URLs into the leads table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, campaign_id:{type:'string',description:'Optional campaign to attach leads to'} }, required:['userId','profile_urls'] } } },
+      { type:'function', function:{ name:'sniper_add_to_table', description:'Add LinkedIn profile URLs to a custom table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, table_id:{type:'string'} }, required:['userId','profile_urls','table_id'] } } },
+      { type:'function', function:{ name:'sniper_list_jobs', description:'List recent Cloud Engine jobs with status. Useful for checking mission progress.', parameters:{ type:'object', properties:{ userId:{type:'string'}, limit:{type:'number'} }, required:['userId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -362,41 +373,38 @@ export default async function rexChat(req: Request, res: Response) {
 
     const contextMessage = {
       role: 'system',
-      content: `You are REX, a recruiting and career agent.
-If the user asks to source leads or create a campaign with a target title/location/count and does NOT clearly specify the lead source, first ask ONE concise clarifying question: "Which lead source should I use: Apollo (fast, verified emails) or LinkedIn (connection workflow)?" and wait for their answer before calling any tools.
-If the user specifies the source, immediately call the tool 'source_leads' with { userId, campaignId: 'latest', source: '<apollo|linkedin>', filters: { title: <normalized title>, location: <city, state>, count: <N> } }.
-If the user doesn’t answer the clarifying question, default to Apollo after one follow-up.
-Be concise. Do not output generic plans when a tool can fulfill the request.
-Note: If 'linkedin' is chosen and it is not available, clearly state that LinkedIn sourcing is queued and offer to proceed with Apollo.
-If the user asks to "go to this LinkedIn post" or to "pull everyone who liked/commented on a post" and provides a LinkedIn post URL, call the tool 'sniper_collect_post' with { userId, post_url: <url>, limit: 0 }. Do not send outreach; simply return queued status (target_id, job_id) and ETA.
-If the user says "poll sniper <target_id>" or asks to check results for a target/campaign, call 'sniper_poll_leads' with { userId, target_id: <uuid>, limit: 50 } and return leads plus last run status.
-If the user asks: "send linkedin outreach to the campaign you just created" AND provides a LinkedIn request template name, call 'sniper_campaign_outreach_connect' with { userId, campaign_id: 'latest', template_name: '<name>' } and then tell them to monitor results in /sniper/activity.
-If the user asks to send a LinkedIn message to someone they are already connected to, call 'sniper_send_message_to_profile' with either { userId, lead_id } or { userId, profile_url } and include message content or template_name.
-If the user asks to change Sniper settings (e.g., "set my max connects to 30", "only run between 9am and 5pm", "add a 30 second delay", "pause sniper", "switch to agentic browser"), call 'sniper_update_settings' with the relevant fields. Confirm the changes back to the user.
-If the user asks about their Sniper status, quota, or recent jobs (e.g., "what are my sniper settings?", "how many connects do I have left?", "show my recent sniper jobs"), call 'sniper_get_status' and summarize the results.
-When the user asks to email the newly sourced campaign using a named template, do this:
-1) If they ask for a preview, call 'preview_campaign_email' with { userId, campaign_id: '<latest or given>', template_name } and return the subject/body.
-2) If they confirm sending, call 'send_campaign_email_by_template_name' with { userId, campaign_id: '<latest or given>', template_name } and report how many were queued.
-Prefer using these bulk tools instead of single-lead tools when the intent is to email a whole campaign.
-If the user asks to send using a sequence template by name (e.g., "send with sequence XYZ every 2 business days"), resolve the sequence by name and call 'enroll_campaign_in_sequence_by_name' with { userId, campaign_id: '<latest or given>', sequence_name: 'XYZ', start_time_local: '<now or provided>', timezone: 'America/Chicago' }. The business-day spacing comes from the sequence steps; do not hardcode delays.
-If the user says "send using template <NAME>" but does not provide timing for steps, ask a single follow-up question to collect step timing (e.g., "When should step 1, 2, and 3 send? (e.g., 0,2,4 business days)"), then call 'create_sequence_from_template_and_enroll' with delays_business_days like [0,2,4].
-If the user explicitly says "send from my <provider> account" where <provider> is sendgrid/google/outlook, call 'set_preferred_email_provider' with that provider before sending.
-If the user requests a recurring persona sourcing schedule that automatically enrolls new leads into a campaign ("auto track", "source 50 personas weekly and auto-email", "REX take the order"), gather details in this order with short confirmations:
-1) Persona to use (offer known personas if unclear).
-2) Outreach campaign plan: ask whether to use an existing campaign or create a new one (collect campaign name when creating).
-3) Cadence + timing (daily vs weekly, ask for day/time if weekly; capture HH:MM in user's stated timezone or default to America/Chicago then convert to UTC).
-4) Volume + safety: leads per run, whether to send immediately or delay (collect delay in hours → minutes), and optional daily send cap.
-Once you have these answers, call 'create_persona_auto_track' with the gathered values (convert hours to minutes, ensure cadence/day/time are populated). After the tool succeeds, confirm the schedule back to the user with persona, campaign, cadence, leads/run, delay, and daily cap.
-RESUME / LINKEDIN HELP:
-- If the user asks for resume or LinkedIn help, or uploads a resume/profile, use the resume tools:
-  - resume_intelligence (modes: analyze|rewrite|coach|builder_generate)
-  - resume_scoring
-  - linkedin_intelligence
-  - resume_to_outreach
-- Default to resume_intelligence mode=analyze for first pass; use rewrite when asked for a rewrite; use coach when they want strategy; use builder_generate only when asked for builder-prefill JSON.
-- When files are attached, summarize key signals first, then choose the right mode.
-Tone: first-person, hiring-manager aware, outcome-focused, no ATS keyword stuffing. Coaching first, rewriting when requested.
-CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` : ''}`
+      content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
+
+Be conversational and concise — answer like a sharp colleague, not a manual. Use markdown formatting (bold, lists, headers) to keep responses scannable.
+
+When you can fulfill a request with a tool, just do it. Don’t describe a plan first — act, then summarize what happened. You have the tool schemas; use them directly.
+
+Key behaviors:
+- **Lead sourcing**: If the user wants leads but doesn’t specify a source, ask once: "Apollo (fast, verified emails) or LinkedIn (connection workflow)?" Default to Apollo if they don’t answer.
+- **Bulk actions**: Prefer campaign-level tools (send_campaign_email_auto, send_campaign_email_by_template_name) over single-lead tools when emailing a whole campaign.
+- **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
+- **Sequences**: If timing isn’t provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
+- **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don’t dump all questions at once.
+- **Cloud Engine missions**: You can queue LinkedIn automation missions. These are async -- after queuing, tell the user the job is running and they can check progress in /sniper/activity. Available missions:
+  - sniper_decision_makers -- find decision makers at a company (accepts optional criteria like "VP Engineering who controls the AI budget")
+  - sniper_people_search -- run a LinkedIn people search URL
+  - sniper_sn_lead_search -- run a Sales Navigator search URL
+  - sniper_jobs_intent -- find companies with open jobs matching a search URL
+  - sniper_collect_post -- extract engagers from a LinkedIn post
+- **Outreach actions**: After collecting profiles, chain with outreach:
+  - sniper_campaign_outreach_connect -- batch connect using a template
+  - sniper_sn_connect -- Sales Nav connect requests
+  - sniper_sn_inmail -- Sales Nav InMail
+  - sniper_sn_message -- Sales Nav direct messages
+  - sniper_send_message_to_profile -- message a single profile
+- **Data actions**: Move results into leads or custom tables:
+  - sniper_import_to_leads -- import profiles to leads (DB only, no Cloud Engine needed)
+  - sniper_add_to_table -- add profiles to a custom table
+- **Status and polling**: Use sniper_list_jobs to see recent jobs, sniper_poll_leads to get extracted profiles from a job, sniper_get_status for quick status.
+- **Multi-mission chaining**: When a user describes a pipeline (e.g. "find companies hiring for AI, find their decision makers, then connect"), queue each step and explain the chain. Each mission is async -- guide the user to check back or use sniper_poll_leads.
+- **Guardrails**: If Cloud Engine is off or LinkedIn is not connected, the tools will return a help message with setup instructions. Do not retry -- just show the user the instructions.
+
+Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
     } as any;
 
     let completion = await withTimeout(openai.chat.completions.create({
@@ -591,44 +599,37 @@ CONTEXT: userId=${userId}${campaign_id ? `, latest_campaign_id=${campaign_id}` :
       }
     }
 
-    // After tools: normalize messaging for common actions and add nudges
+    // After tools: apply error overrides and append contextual links
     try {
-      const lastUser = messages[messages.length - 1];
-      const text = String(lastUser?.content || '').toLowerCase();
-      const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
-      const mentionsNewCampaign = /create\s+(a\s+)?new\s+campaign|\bnew\s+campaign\b/.test(text);
-      // If tool queued emails, reply deterministically (avoid model hallucinations like "draft mode")
-      if (lastToolResult && typeof lastToolResult.queued === 'number') {
-        const mode = String(lastToolResult.mode || 'draft');
-        const count = Number(lastToolResult.queued || 0);
-        const when = lastToolResult.scheduled_for ? ` Scheduled for ${lastToolResult.scheduled_for}.` : '';
-        const textResp = `Queued ${count} emails via ${mode === 'template' ? 'template' : 'custom draft'} using SendGrid.${when} They will be sent automatically; no manual action in SendGrid is required.`;
-        assistantMessage = { role: 'assistant', content: textResp } as any;
-      }
-      // If the queue/worker reported missing provider
+      // Error overrides — safety-critical, fully replace model output
       if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
-        assistantMessage = { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to Settings → Integrations to connect.' } as any;
+        assistantMessage = { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to **Settings → Integrations** to connect.' } as any;
       }
-      // If Sniper Cloud Engine is disabled, explain how to enable it
       if (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help) {
         assistantMessage = { role: 'assistant', content: String(lastToolResult.help) } as any;
       }
-      // Use the actual tool result we just executed
-      if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
-        const viewText = `\n\nView in Agent Mode: /agent-mode?campaign=${lastToolResult.campaign_id || ''}` +
-                         `\nView in Leads: /leads?campaign=${lastToolResult.std_campaign_id || ''}`;
+
+      // Helper to append text to assistant content
+      const appendToContent = (extra: string) => {
         if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
-          (assistantMessage as any).content += viewText;
+          (assistantMessage as any).content += extra;
         } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
-          (assistantMessage as any).content.text += viewText;
+          (assistantMessage as any).content.text += extra;
         }
+      };
+
+      // Campaign view links — append
+      if (lastToolResult && (lastToolResult.campaign_id || lastToolResult.std_campaign_id)) {
+        appendToContent(`\n\n[View in Agent Mode](/agent-mode?campaign=${lastToolResult.campaign_id || ''}) · [View in Leads](/leads?campaign=${lastToolResult.std_campaign_id || ''})`);
       }
-      if (executedSourcing && !wantsOutreach && ((lastToolResult?.imported || 0) > 0)) {
-        const nudgeText = '\n\nDo you want me to start outreach to these leads now? If yes, say the tone (e.g., casual, professional) and I will draft the opener.';
-        if (assistantMessage?.content && typeof (assistantMessage as any).content === 'string') {
-          (assistantMessage as any).content = (assistantMessage as any).content.replace(/no leads[^\n]*/i, '').trim() + nudgeText;
-        } else if (assistantMessage?.content && typeof (assistantMessage as any).content?.text === 'string') {
-          (assistantMessage as any).content.text = (assistantMessage as any).content.text.replace(/no leads[^\n]*/i, '').trim() + nudgeText;
+
+      // Outreach nudge — append
+      if (executedSourcing && ((lastToolResult?.imported || 0) > 0)) {
+        const lastUser = messages[messages.length - 1];
+        const text = String(lastUser?.content || '').toLowerCase();
+        const wantsOutreach = /(reach out|email|send|outreach|contact)/.test(text);
+        if (!wantsOutreach) {
+          appendToContent('\n\nWant me to start outreach to these leads? Just tell me the tone (casual, professional, etc.) and I\'ll draft the opener.');
         }
       }
     } catch {}
