@@ -106,7 +106,7 @@ async function captureDomSnapshot(page: Page): Promise<string> {
         if (type) desc += ` type="${type}"`;
         desc += `]`;
         if (text) desc += ` "${text}"`;
-        if (href && href.length < 100) desc += ` href="${href}"`;
+        if (href && href.length < 200) desc += ` href="${href}"`;
         desc += disabled;
         desc += ` -> ${selector}`;
 

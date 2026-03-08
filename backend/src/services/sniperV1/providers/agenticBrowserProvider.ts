@@ -1,6 +1,7 @@
 import type { Page, Browser } from 'playwright';
 import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, SendInMailResult, JobListing, DecisionMakerResult } from './types';
 import type { ProspectProfile } from './linkedinActions';
+import { normalizeLinkedinProfileUrl } from '../../../utils/linkedinUrl';
 
 import {
   createContext,
@@ -401,23 +402,57 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     await logAgentRun({ workspaceId, taskType: 'prospect_decision_makers', result });
 
-    if (!result.success) {
-      throw new Error(`Agent failed: ${result.error}`);
-    }
-
     const profiles: DecisionMakerResult[] = [];
-    const rawProfiles = result.data?.profiles || [];
+    const seen = new Set<string>();
 
-    for (const p of rawProfiles) {
-      if (p.profile_url && p.profile_url.includes('linkedin.com/in/')) {
+    const addProfiles = (rawProfiles: any[]) => {
+      for (const p of rawProfiles) {
+        const rawUrl = p.profile_url || '';
+        if (!rawUrl || !rawUrl.includes('linkedin.com/in/')) continue;
+
+        // Normalize the URL to canonical form
+        const normalized = normalizeLinkedinProfileUrl(rawUrl);
+        if (!normalized) continue;
+
+        // Reject likely fabricated URLs: real LinkedIn slugs almost always have
+        // a trailing alphanumeric hash (e.g., /in/john-doe-a1b2c3d).
+        // A slug that is ONLY lowercase-name with no alphanumeric suffix is suspicious.
+        const slugMatch = normalized.match(/\/in\/([^/]+)/);
+        if (slugMatch) {
+          const slug = slugMatch[1];
+          // Check if slug ends with an alphanumeric hash pattern (common: -XX...X where X is hex/alphanum)
+          // Real LinkedIn slugs: "john-doe-1a2b3c4" or "john-doe-123456789"
+          // Fabricated slugs: "john-doe" (name only, no hash)
+          const hasHashSuffix = /[a-z0-9]{4,}$/i.test(slug) && /\d/.test(slug.slice(-8));
+          if (!hasHashSuffix) {
+            console.warn(`[decision_maker_lookup] Rejecting likely fabricated URL (no hash suffix): ${normalized}`);
+            continue;
+          }
+        }
+
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+
         profiles.push({
-          profile_url: p.profile_url,
+          profile_url: normalized,
           name: p.name || null,
           headline: p.headline || null,
           company_name: companyName || null,
           company_url: companyUrl,
         });
       }
+    };
+
+    // Accumulate from batched extract actions AND the final done result
+    for (const batch of (result.extractedData || [])) addProfiles(batch?.profiles || []);
+    addProfiles(result.data?.profiles || []);
+
+    if (!result.success && profiles.length === 0) {
+      throw new Error(`Agent failed: ${result.error}`);
+    }
+
+    if (!result.success && profiles.length > 0) {
+      console.warn(`[decision_maker_lookup] Partially succeeded: ${profiles.length} profiles recovered. Error: ${result.error}`);
     }
 
     return profiles.slice(0, limit);
@@ -539,11 +574,18 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     const addProfiles = (rawProfiles: any[]) => {
       for (const p of rawProfiles) {
-        const url = p.profile_url || '';
+        const rawUrl = p.profile_url || '';
+        if (!rawUrl) continue;
         // Accept both /in/ and /sales/lead/ URLs
-        if (url && (url.includes('linkedin.com/in/') || url.includes('linkedin.com/sales/')) && !seen.has(url)) {
-          seen.add(url);
-          profiles.push({ profile_url: url, name: p.name || null, headline: p.headline || null });
+        if (rawUrl.includes('linkedin.com/in/')) {
+          const normalized = normalizeLinkedinProfileUrl(rawUrl);
+          if (normalized && !seen.has(normalized)) {
+            seen.add(normalized);
+            profiles.push({ profile_url: normalized, name: p.name || null, headline: p.headline || null });
+          }
+        } else if (rawUrl.includes('linkedin.com/sales/') && !seen.has(rawUrl)) {
+          seen.add(rawUrl);
+          profiles.push({ profile_url: rawUrl, name: p.name || null, headline: p.headline || null });
         }
       }
     };
