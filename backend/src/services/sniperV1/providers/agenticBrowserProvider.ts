@@ -387,75 +387,99 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
   // =========================================================================
   // Prospect: decision maker lookup
   // =========================================================================
-  async prospectDecisionMakers({ userId, workspaceId, companyUrl, companyName, jobTitle, limit }): Promise<DecisionMakerResult[]> {
+  async prospectDecisionMakers({ userId, workspaceId, companyUrl, companyName, criteria, limit }): Promise<DecisionMakerResult[]> {
     const llm = createLLMClient();
-    const instruction = getProspectDecisionMakersPrompt(companyUrl, companyName, jobTitle, limit);
+    const instruction = getProspectDecisionMakersPrompt(companyUrl, companyName, criteria, limit);
     const peopleUrl = companyUrl.replace(/\/+$/, '') + '/people/';
 
     const result = await runWithSession(userId, workspaceId, async (page) => {
       return executeAgentTask(page, {
         instruction,
-        maxSteps: Math.min(DEFAULT_MAX_STEPS * 2, 40),
-        timeoutMs: DEFAULT_TIMEOUT_MS * 2,
+        maxSteps: Math.min(DEFAULT_MAX_STEPS * 3, 60),
+        timeoutMs: DEFAULT_TIMEOUT_MS * 3,
       }, llm);
     }, { navigateTo: peopleUrl });
 
     await logAgentRun({ workspaceId, taskType: 'prospect_decision_makers', result });
 
-    const profiles: DecisionMakerResult[] = [];
     const seen = new Set<string>();
 
-    const addProfiles = (rawProfiles: any[]) => {
-      for (const p of rawProfiles) {
-        const rawUrl = p.profile_url || '';
-        if (!rawUrl || !rawUrl.includes('linkedin.com/in/')) continue;
-
-        // Normalize the URL to canonical form
-        const normalized = normalizeLinkedinProfileUrl(rawUrl);
-        if (!normalized) continue;
-
-        // Reject likely fabricated URLs: real LinkedIn slugs almost always have
-        // a trailing alphanumeric hash (e.g., /in/john-doe-a1b2c3d).
-        // A slug that is ONLY lowercase-name with no alphanumeric suffix is suspicious.
-        const slugMatch = normalized.match(/\/in\/([^/]+)/);
-        if (slugMatch) {
-          const slug = slugMatch[1];
-          // Check if slug ends with an alphanumeric hash pattern (common: -XX...X where X is hex/alphanum)
-          // Real LinkedIn slugs: "john-doe-1a2b3c4" or "john-doe-123456789"
-          // Fabricated slugs: "john-doe" (name only, no hash)
-          const hasHashSuffix = /[a-z0-9]{4,}$/i.test(slug) && /\d/.test(slug.slice(-8));
-          if (!hasHashSuffix) {
-            console.warn(`[decision_maker_lookup] Rejecting likely fabricated URL (no hash suffix): ${normalized}`);
-            continue;
-          }
-        }
-
-        if (seen.has(normalized)) continue;
-        seen.add(normalized);
-
-        profiles.push({
-          profile_url: normalized,
-          name: p.name || null,
-          headline: p.headline || null,
-          company_name: companyName || null,
-          company_url: companyUrl,
-        });
+    // Helper to normalize a URL or return null
+    const cleanUrl = (raw: any): string | null => {
+      if (!raw) return null;
+      const s = String(raw);
+      if (s.includes('linkedin.com/in/')) {
+        return normalizeLinkedinProfileUrl(s);
       }
+      if (s.includes('linkedin.com/sales/')) {
+        return s; // SN URLs pass through as-is
+      }
+      return null;
     };
 
-    // Accumulate from batched extract actions AND the final done result
-    for (const batch of (result.extractedData || [])) addProfiles(batch?.profiles || []);
-    addProfiles(result.data?.profiles || []);
+    // Helper to build a dedup key (name+title since URLs can be null)
+    const dedupKey = (p: any): string => `${(p.name || '').toLowerCase()}::${(p.title || p.headline || '').toLowerCase()}`;
 
-    if (!result.success && profiles.length === 0) {
+    const addPerson = (p: any, defaultSource: string): DecisionMakerResult | null => {
+      const key = dedupKey(p);
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        profile_url: cleanUrl(p.profile_url),
+        name: p.name || null,
+        headline: p.title || p.headline || null,
+        company_name: companyName || null,
+        company_url: companyUrl,
+        match_reason: p.match_reason || null,
+        source: (p.source || defaultSource) as DecisionMakerResult['source'],
+      };
+    };
+
+    // 1. Collect ALL people from batched extract actions (Phase 1 raw)
+    const allExtracted: DecisionMakerResult[] = [];
+    for (const batch of (result.extractedData || [])) {
+      for (const p of (batch?.people || [])) {
+        const person = addPerson(p, 'company_people');
+        if (person) allExtracted.push(person);
+      }
+    }
+
+    // 2. Collect matched_people from done result (Phase 2 filtered)
+    const matchedPeople: DecisionMakerResult[] = [];
+    for (const p of (result.data?.matched_people || [])) {
+      // Reset seen set for matched_people so they aren't blocked by Phase 1 dedup
+      const key = dedupKey(p);
+      const person: DecisionMakerResult = {
+        profile_url: cleanUrl(p.profile_url),
+        name: p.name || null,
+        headline: p.title || p.headline || null,
+        company_name: companyName || null,
+        company_url: companyUrl,
+        match_reason: p.match_reason || null,
+        source: (p.source || 'company_people') as DecisionMakerResult['source'],
+      };
+      // Dedup within matched_people
+      if (!matchedPeople.some((m) => dedupKey(m) === key)) {
+        matchedPeople.push(person);
+      }
+    }
+
+    // 3. Prioritize matched_people if available (they have match_reason)
+    if (matchedPeople.length > 0) {
+      return matchedPeople.slice(0, limit);
+    }
+
+    // 4. Fallback to all extracted people
+    if (!result.success && allExtracted.length === 0) {
       throw new Error(`Agent failed: ${result.error}`);
     }
 
-    if (!result.success && profiles.length > 0) {
-      console.warn(`[decision_maker_lookup] Partially succeeded: ${profiles.length} profiles recovered. Error: ${result.error}`);
+    if (!result.success && allExtracted.length > 0) {
+      console.warn(`[decision_maker_lookup] Partially succeeded: ${allExtracted.length} people recovered. Error: ${result.error}`);
     }
 
-    return profiles.slice(0, limit);
+    return allExtracted.slice(0, limit);
   },
 
   // =========================================================================

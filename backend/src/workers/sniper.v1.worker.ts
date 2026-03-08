@@ -240,18 +240,19 @@ export const sniperV1Worker = new Worker(
         const companies = (jobRow.input_json?.companies || []) as Array<{
           company_url: string;
           company_name?: string;
-          job_title?: string;
         }>;
         if (!companies.length) throw new Error('missing_companies');
         const limitPerCompany = clamp(Number(jobRow.input_json?.limit_per_company || 3), 1, 10);
+        const criteria = String(jobRow.input_json?.criteria || '').trim() || null;
 
         const allResults: Array<{
-          profile_url: string;
+          profile_url: string | null;
           name?: string | null;
           headline?: string | null;
           company_name?: string | null;
           company_url?: string | null;
-          job_title?: string | null;
+          match_reason?: string | null;
+          source?: string | null;
         }> = [];
 
         for (const company of companies) {
@@ -261,7 +262,7 @@ export const sniperV1Worker = new Worker(
               workspaceId: jobRow.workspace_id,
               companyUrl: company.company_url,
               companyName: company.company_name,
-              jobTitle: company.job_title,
+              criteria,
               limit: limitPerCompany,
             });
             for (const p of profiles) {
@@ -269,7 +270,6 @@ export const sniperV1Worker = new Worker(
                 ...p,
                 company_name: company.company_name || p.company_name || null,
                 company_url: company.company_url || p.company_url || null,
-                job_title: company.job_title || null,
               });
             }
           } catch (e: any) {
@@ -282,23 +282,26 @@ export const sniperV1Worker = new Worker(
           await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'job_page' });
         } catch {}
 
-        await insertJobItems(
-          allResults.map((p) => ({
-            job_id: jobId,
-            workspace_id: jobRow.workspace_id,
-            profile_url: String(p.profile_url || ''),
-            action_type: 'extract',
-            status: 'succeeded_verified',
-            result_json: {
-              source: 'decision_maker_lookup',
-              name: p.name || null,
-              headline: p.headline || null,
-              company_name: p.company_name || null,
-              company_url: p.company_url || null,
-              job_title: p.job_title || null,
-            },
-          }))
-        );
+        if (allResults.length > 0) {
+          await insertJobItems(
+            allResults.map((p) => ({
+              job_id: jobId,
+              workspace_id: jobRow.workspace_id,
+              profile_url: p.profile_url || `no-url::${p.name || 'unknown'}::${p.headline || ''}`,
+              action_type: 'extract',
+              status: 'succeeded_verified',
+              result_json: {
+                source: p.source || 'decision_maker_lookup',
+                name: p.name || null,
+                headline: p.headline || null,
+                match_reason: p.match_reason || null,
+                has_url: Boolean(p.profile_url),
+                company_name: p.company_name || null,
+                company_url: p.company_url || null,
+              },
+            }))
+          );
+        }
 
         await updateJob(jobId, {
           status: allResults.length > 0 ? 'succeeded' : 'failed',

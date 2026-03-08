@@ -255,76 +255,96 @@ Note: Put any final remaining jobs in the done result, or use an empty array if 
 export function getProspectDecisionMakersPrompt(
   companyUrl: string,
   companyName: string | null | undefined,
-  jobTitle: string | null | undefined,
+  criteria: string | null | undefined,
   limit: number
 ): string {
   const companyDesc = companyName ? `"${companyName}"` : 'this company';
-  const roleHint = jobTitle
-    ? `The company is hiring for "${jobTitle}", so look for decision makers related to that function (e.g., VP/Head/Director of the relevant department).`
-    : 'Look for senior leaders: VP Engineering, Head of Talent, CTO, VP People, Hiring Manager, etc.';
+  const cleanUrl = companyUrl.replace(/\/+$/, '');
+
+  const criteriaSection = criteria
+    ? `The user is looking for: "${criteria}"\nAfter extracting all visible people, evaluate each person against this criteria and select the best matches.`
+    : 'Look for senior decision makers: any CXO (CEO, CTO, CFO, CRO, CMO, etc.), VP, Director, Head of, Co-founder, Partner, or similar leadership roles.';
 
   return `${BASE_SYSTEM_PROMPT}
 
 ## Task: Find Decision Makers at a Company
-Navigate to the company's LinkedIn people page and find key decision makers.
+This is a TWO-PHASE task:
+1. First, extract ALL visible people from the company's LinkedIn people page
+2. Then, evaluate and filter them to find the best decision-maker matches
 
 Company URL: ${companyUrl}
 Company Name: ${companyName || 'Unknown'}
-${roleHint}
-Maximum profiles to extract: ${limit}
+Maximum matches to return: ${limit}
+
+## Criteria
+${criteriaSection}
 
 ## CRITICAL: NEVER fabricate URLs
-You MUST extract REAL profile URLs from the DOM — NEVER construct or guess URLs from names.
-- Every profile_url MUST be copied EXACTLY from an href attribute in the "Interactive elements" section.
-- Look for <a> elements with href containing "/in/" — those are the real profile links.
-- LinkedIn profile slugs almost ALWAYS have a random alphanumeric suffix (e.g., "/in/john-doe-a1b2c3d/").
-  A URL like "/in/john-doe" (name only, no suffix) is almost certainly WRONG.
+- Every profile_url MUST be copied EXACTLY from an href attribute in the DOM snapshot.
+- Look for <a> elements with href containing "/in/" or "/sales/lead/" — those are real profile links.
 - NEVER construct a URL by converting someone's name to a slug. This WILL produce 404 errors.
-- If you cannot find a real href for a person, SKIP that person entirely rather than guessing.
+- If you cannot find a real href for a person, set profile_url to null — still extract their name and title.
 
-## Steps
-1. Navigate to ${companyUrl.replace(/\/+$/, '')}/people/ (the company's people tab)
-2. If there is a search/filter input on the people page, use it to search for relevant titles (VP, Head of, Director, Manager, CTO, etc.)
-3. Look through the DOM snapshot's interactive elements for <a> tags with href containing "/in/"
-4. Extract profile URLs (copied EXACTLY from DOM hrefs), names, and headlines from the visible people cards using an "extract" action
-5. If fewer than ${limit} results, try scrolling or additional title searches
-6. Extract the next batch with another "extract" action
-7. Continue until you reach ${limit} profiles or exhaust results
-8. When finished, use "done" with an empty profiles array (all profiles should be in extract actions)
+## Step 0 (Optional): Check for Sales Navigator Decision Makers widget
+After the page loads, look for a Sales Navigator card/widget on the right side that shows
+"N decision makers" with a "View" button. If you see it:
+- Click "View" to navigate to the Sales Navigator decision makers list
+- Extract profiles from that SN page (these have /sales/lead/ URLs which are reliable)
+- Mark each extracted person with "source": "sn_widget"
+- If the widget is NOT present or clicking it fails, skip this step and proceed to Phase 1
 
-## CRITICAL: Use batched extraction
-Do NOT try to return all profiles in a single response. Instead:
-- Use "extract" actions to save profiles in small batches as you find them
-- Each extract should contain ONLY NEW profiles you haven't extracted yet
-- The system accumulates all your extract batches automatically
+## Phase 1: Extract ALL visible people
+1. Navigate to ${cleanUrl}/people/ (the company's people tab)
+2. The page shows "People you may know at [Company]" with profile cards in a grid
+3. Each card shows: name, title/headline, connection degree, and usually a clickable link
+4. Look through the DOM snapshot for <a> tags with href containing "/in/" — copy the href EXACTLY
+5. Extract ALL visible people (not just decision makers) using batched "extract" actions
+6. For each person, capture: name, title (from the card), profile_url (from href), connection_degree
+7. If a person's card has NO clickable link with "/in/" in the href, set profile_url to null
+8. Scroll down to load more people cards
+9. Extract the next batch with another "extract" action
+10. Continue until you've extracted at least 15-20 people or no more are visible
 
-## How to find profile URLs in the DOM
-The DOM snapshot lists interactive elements with their CSS selectors. Look for entries like:
-  [a] "Person Name" href="https://www.linkedin.com/in/personname-a1b2c3d" -> selector
+## Phase 2: Evaluate and filter (in your "done" action)
+After extracting everyone visible, review ALL extracted people and select the top ${limit} matches:
+- Evaluate each person's title against the criteria
+- For each match, write a brief match_reason (1 sentence explaining why they match)
+- Return the matched people sorted by relevance
 
-The href value is the REAL profile URL. Copy it EXACTLY into your extract action.
-Do NOT modify or simplify the URL in any way.
-
-## Extract action format
+## Extract action format (Phase 1 — use repeatedly)
 {
-  "reasoning": "Extracting N decision makers from the people page",
+  "reasoning": "Extracting batch of N visible employee cards from the people page",
   "action": {
     "type": "extract",
     "data": {
-      "profiles": [
-        { "profile_url": "https://www.linkedin.com/in/exact-slug-from-dom", "name": "Full Name", "headline": "Their headline" }
+      "people": [
+        {
+          "name": "Full Name",
+          "title": "Their Job Title",
+          "profile_url": "https://www.linkedin.com/in/exact-slug-from-dom" or null,
+          "connection_degree": "2nd"
+        }
       ]
     }
   }
 }
 
-## Expected done result (when finished)
+## Done action format (Phase 2 — when finished)
 {
-  "reasoning": "Found N decision makers at ${companyDesc}",
+  "reasoning": "Extracted N total people. Evaluated against criteria. Top ${limit} matches selected.",
   "action": {
     "type": "done",
     "result": {
-      "profiles": []
+      "matched_people": [
+        {
+          "name": "Full Name",
+          "title": "CFO",
+          "profile_url": "https://www.linkedin.com/in/exact-slug" or null,
+          "match_reason": "CFO controls company budget, directly relevant to criteria",
+          "source": "company_people"
+        }
+      ],
+      "total_extracted": 25
     }
   }
 }`;

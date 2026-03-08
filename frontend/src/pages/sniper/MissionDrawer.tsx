@@ -207,6 +207,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
 
   const [companyUrls, setCompanyUrls] = useState('');
   const [limitPerCompany, setLimitPerCompany] = useState(3);
+  const [dmCriteria, setDmCriteria] = useState('');
 
   const [addLeadsOpen, setAddLeadsOpen] = useState(false);
 
@@ -366,7 +367,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
       await apiPost('/api/sniper/jobs', {
         target_id: null,
         job_type: 'decision_maker_lookup',
-        input_json: { companies, limit_per_company: limitPerCompany },
+        input_json: { companies, limit_per_company: limitPerCompany, criteria: dmCriteria.trim() || null },
       });
       showToast('Decision Maker Lookup queued. Track progress in Activity.', 'success');
       onNavigate('activity');
@@ -881,6 +882,19 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate }: Pr
                 />
                 <div className="mt-2 text-xs text-slate-500">
                   Paste LinkedIn company URLs, one per line. Tip: Use results from Jobs Intent Miner for best results.
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Who are you looking for? (optional)</label>
+                <textarea
+                  value={dmCriteria}
+                  onChange={(e) => setDmCriteria(e.target.value)}
+                  rows={3}
+                  placeholder={'E.g., "VP or Director of Engineering who would buy our AI platform" or "Someone who controls the recruiting budget"'}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Describe your ideal contact. Leave blank to find all senior decision makers (VP, Director, C-suite, etc.)
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
