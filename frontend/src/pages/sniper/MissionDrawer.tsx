@@ -1620,9 +1620,10 @@ function SchedulePromptModal({ open, title, limit, dailyCap, saving, onClose, on
 function AddLeadsModal({ open, onClose, onConfirm }: {
   open: boolean; onClose: () => void; onConfirm: (urls: string[]) => void;
 }) {
-  const [source, setSource] = useState<'campaigns' | 'sourcing' | 'table'>('campaigns');
+  const [source, setSource] = useState<'campaigns' | 'sourcing' | 'table' | 'paste'>('campaigns');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pasteText, setPasteText] = useState('');
 
   const [campaigns, setCampaigns] = useState<Array<Record<string, unknown>>>([]);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
@@ -1642,6 +1643,7 @@ function AddLeadsModal({ open, onClose, onConfirm }: {
     setPreviewUrls([]);
     setSelectedCampaignIds([]);
     setSelectedSourcingIds([]);
+    setPasteText('');
   }, [open]);
 
   const loadCampaigns = async () => {
@@ -1727,6 +1729,19 @@ function AddLeadsModal({ open, onClose, onConfirm }: {
         setPreviewUrls(extractLinkedinUrls(rows, tableColumnKey));
         return;
       }
+      if (source === 'paste') {
+        const lines = pasteText
+          .split(/[\n,]+/)
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
+        if (!lines.length) throw new Error('Paste at least one LinkedIn profile URL.');
+        const valid = lines
+          .map((l) => normalizeLinkedinUrl(l))
+          .filter((u): u is string => u !== null);
+        if (!valid.length) throw new Error('No valid LinkedIn profile URLs found. Make sure each line is a full LinkedIn URL (e.g. https://www.linkedin.com/in/...)');
+        setPreviewUrls(Array.from(new Set(valid)));
+        return;
+      }
     } catch (e: unknown) {
       setError((e as Error)?.message || 'Failed to preview leads');
     } finally {
@@ -1750,7 +1765,7 @@ function AddLeadsModal({ open, onClose, onConfirm }: {
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
           <div>
             <div className="text-lg font-bold text-slate-900 dark:text-slate-100">Add Leads</div>
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Import LinkedIn profile URLs from Campaigns, Sourcing Campaigns, or a Table.</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Import LinkedIn profile URLs from Campaigns, Sourcing Campaigns, a Table, or paste them directly.</div>
           </div>
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
             Close
@@ -1763,6 +1778,7 @@ function AddLeadsModal({ open, onClose, onConfirm }: {
               { id: 'campaigns' as const, label: 'Campaigns' },
               { id: 'sourcing' as const, label: 'Sourcing Campaigns' },
               { id: 'table' as const, label: 'Custom Table' },
+              { id: 'paste' as const, label: 'Paste URLs' },
             ]).map((t) => (
               <button key={t.id} type="button" onClick={() => setSource(t.id)} className={tabCls(t.id === source)}>
                 {t.label}
@@ -1864,6 +1880,22 @@ function AddLeadsModal({ open, onClose, onConfirm }: {
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
                   Tip: We also auto-detect common fields like <span className="font-mono">linkedin_url</span>, <span className="font-mono">profile_url</span>, or <span className="font-mono">url</span>.
+                </div>
+              </>
+            )}
+
+            {source === 'paste' && (
+              <>
+                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">LinkedIn Profile URLs</div>
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  rows={8}
+                  placeholder={'https://www.linkedin.com/in/johndoe/\nhttps://www.linkedin.com/in/janesmith/\nhttps://www.linkedin.com/in/alexjones/'}
+                  className={cx(inputCls, 'mt-2 font-mono text-xs')}
+                />
+                <div className="mt-2 text-xs text-slate-500">
+                  Paste LinkedIn profile URLs, one per line. Duplicates will be removed automatically.
                 </div>
               </>
             )}
