@@ -360,14 +360,23 @@ Profile URL: ${profileUrl}
 ${note ? `\n## CONNECT NOTE (MUST be included)\n"${note}"\n` : ''}
 ## Steps
 
-### Step 1: Navigate to the profile
+### Step 1: Navigate to the profile and VERIFY PAGE IS FULLY LOADED
 Go to the profile URL. Wait for the page to fully load.
 
+**CRITICAL: Before doing ANYTHING else, verify the profile page has actually rendered:**
+- You MUST see the person's name, headline, and profile photo area in the DOM or screenshot
+- You MUST see action buttons in the profile header (Connect, Message, Follow, Pending, or More)
+- If the page shows a loading spinner, skeleton placeholders, or a blank/empty page → use a "wait" action (2000ms) and check again
+- If after 2 wait attempts the profile still hasn't loaded, use an "error" action with message "PROFILE_PAGE_NOT_LOADED"
+- NEVER determine connection state from a page that hasn't fully rendered — this causes false positives
+
 ### Step 2: Check the current connection state
-Look at the action buttons in the profile header:
-- If you see a "Message" button (already connected) → report done with status "already_connected"
-- If you see a "Pending" button (invite already sent) → report done with status "already_pending"
+ONLY after confirming the profile has fully loaded (you can see the person's name AND action buttons):
+- If you see a "Pending" or "Invited" button → report done with status "already_pending"
+- If you see a "Message" button AND no "Connect" button (already connected) → report done with status "already_connected"
 - If none of the above, proceed to Step 3
+
+**IMPORTANT:** If you don't see ANY action buttons (no Connect, no Message, no Pending, no Follow), the page has NOT loaded properly. Do NOT report "already_pending" or "already_connected" — instead use a "wait" action and retry.
 
 ### Step 3: Find and click the "Connect" button
 The Connect button can be in several places — try them IN ORDER:
@@ -512,14 +521,23 @@ Profile URL: ${profileUrl}
 ${note ? `\n## CONNECT NOTE (MUST be included)\n"${note}"\n` : ''}
 ## Steps
 
-### Step 1: Navigate to the profile
+### Step 1: Navigate to the profile and VERIFY PAGE IS FULLY LOADED
 Go to the profile URL (Sales Navigator URL like /sales/lead/... or /sales/people/...). Wait for the page to fully load.
 
+**CRITICAL: Before doing ANYTHING else, verify the profile page has actually rendered:**
+- You MUST see the person's name, headline, and profile information in the DOM or screenshot
+- You MUST see action buttons (Connect, Message, Pending, Save, or More)
+- If the page shows a loading spinner, skeleton placeholders, or a blank/empty page → use a "wait" action (2000ms) and check again
+- If after 2 wait attempts the profile still hasn't loaded, use an "error" action with message "PROFILE_PAGE_NOT_LOADED"
+- NEVER determine connection state from a page that hasn't fully rendered — this causes false positives
+
 ### Step 2: Check the current connection state
-Look at the action buttons on the Sales Navigator profile:
-- If you see "Message" or "Connected" → report done with status "already_connected"
+ONLY after confirming the profile has fully loaded (you can see the person's name AND action buttons):
 - If you see "Pending" → report done with status "already_pending"
+- If you see "Message" or "Connected" AND no "Connect" button → report done with status "already_connected"
 - If none of the above, proceed to Step 3
+
+**IMPORTANT:** If you don't see ANY action buttons, the page has NOT loaded properly. Do NOT report "already_pending" or "already_connected" — instead use a "wait" action and retry.
 
 ### Step 3: Find and click the "Connect" button
 The Connect button can be in several places on Sales Navigator — try them IN ORDER:

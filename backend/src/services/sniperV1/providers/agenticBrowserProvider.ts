@@ -94,15 +94,16 @@ async function runWithSession<T>(
     const page = conn.page;
 
     // Navigate to LinkedIn first to verify auth.
-    // Sales Navigator and company pages are heavy SPAs — use `load` and a longer settle.
-    // Profile pages via residential proxy can be slow — use 60s timeout + retry on timeout.
+    // Profile pages, Sales Navigator, and company pages are heavy SPAs — use `load` and a longer settle.
+    // All pages via residential proxy can be slow — use 60s timeout + retry on timeout.
     if (opts?.navigateTo) {
       const isSalesNav = opts.navigateTo.includes('/sales/');
       const isCompanyPage = opts.navigateTo.includes('/company/');
-      const isHeavyPage = isSalesNav || isCompanyPage;
-      const navTimeout = isHeavyPage ? 60_000 : 60_000; // 60s for all pages (residential proxy adds latency)
+      const isProfilePage = /linkedin\.com\/in\//i.test(opts.navigateTo);
+      const isHeavyPage = isSalesNav || isCompanyPage || isProfilePage;
+      const navTimeout = 60_000; // 60s for all pages (residential proxy adds latency)
       const waitUntil = isHeavyPage ? 'load' as const : 'domcontentloaded' as const;
-      const settleMs = isHeavyPage ? 5000 : 2000;
+      const settleMs = isHeavyPage ? 3000 : 2000;
 
       // Retry once on navigation timeout — residential proxies can be flaky
       try {
@@ -119,6 +120,19 @@ async function runWithSession<T>(
         }
       }
       await page.waitForTimeout(settleMs);
+
+      // For profile pages, wait for network idle to ensure action buttons (Connect/Pending/Message) render fully.
+      // LinkedIn loads these buttons asynchronously — without this, the agent may see stale/missing elements.
+      if (isProfilePage) {
+        await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+        // Extra settle: wait for the profile action bar to appear in the DOM
+        await page.waitForSelector(
+          'button:has-text("Connect"), button:has-text("Pending"), button:has-text("Message"), button:has-text("Follow"), button:has-text("More")',
+          { timeout: 8_000 }
+        ).catch(() => {
+          console.warn('[agentic-browser] Profile action buttons did not appear within 8s — proceeding anyway');
+        });
+      }
     } else {
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       await page.waitForTimeout(2000);
@@ -506,13 +520,24 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     const llm = createLLMClient();
     const instruction = getSendConnectionRequestPrompt(profileUrl, note);
 
-    const result = await runWithSession(userId, workspaceId, async (page) => {
-      return executeAgentTask(page, {
-        instruction,
-        maxSteps: DEFAULT_MAX_STEPS,
-        timeoutMs: DEFAULT_TIMEOUT_MS,
-      }, llm);
-    }, { navigateTo: profileUrl });
+    // Helper: run agent task with page verification for connect requests
+    const runConnectAgent = async (attemptLabel: string) => {
+      return runWithSession(userId, workspaceId, async (page) => {
+        return executeAgentTask(page, {
+          instruction,
+          maxSteps: DEFAULT_MAX_STEPS,
+          timeoutMs: DEFAULT_TIMEOUT_MS,
+        }, llm);
+      }, { navigateTo: profileUrl });
+    };
+
+    let result = await runConnectAgent('attempt_1');
+
+    // If the agent reported PROFILE_PAGE_NOT_LOADED, retry once with a fresh session
+    if (!result.success && result.error?.includes('PROFILE_PAGE_NOT_LOADED')) {
+      console.warn(`[agentic-browser] Profile page didn't load for ${profileUrl}, retrying with fresh session...`);
+      result = await runConnectAgent('attempt_2_retry');
+    }
 
     await logAgentRun({
       jobId: debug?.jobId || undefined,
@@ -531,6 +556,78 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
 
     // Map agent result status to SendConnectResult status
     const agentStatus = result.data?.status || 'failed';
+
+    // -----------------------------------------------------------------------
+    // VERIFICATION: When agent claims "already_pending" or "already_connected",
+    // verify by directly checking the profile page in a fresh session.
+    // This prevents false positives when the page didn't fully render.
+    // -----------------------------------------------------------------------
+    if (agentStatus === 'already_pending' || agentStatus === 'already_connected') {
+      try {
+        const verified = await runWithSession(userId, workspaceId, async (page) => {
+          // Wait for action buttons to stabilize
+          await page.waitForTimeout(1500);
+          await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {});
+
+          // Check for the specific buttons
+          const hasPending = (await page.locator('button:has-text("Pending")').count().catch(() => 0)) > 0
+            || (await page.locator('button:has-text("Invited")').count().catch(() => 0)) > 0;
+          const hasMessage = (await page.locator('button:has-text("Message")').count().catch(() => 0)) > 0;
+          const hasConnect = (await page.locator('button:has-text("Connect")').count().catch(() => 0)) > 0;
+
+          // If we see a Connect button, the agent was wrong — the connection wasn't actually sent
+          if (hasConnect && !hasPending && !hasMessage) {
+            return 'not_connected';
+          }
+          // Confirm pending
+          if (hasPending) return 'pending';
+          // Confirm connected (Message button present, no Connect button)
+          if (hasMessage && !hasConnect) return 'connected';
+          // Could not confirm either way — page may still not be loaded
+          return 'unknown';
+        }, { navigateTo: profileUrl });
+
+        if (verified === 'not_connected') {
+          // Agent falsely reported already_pending/already_connected — the profile has a Connect button
+          console.warn(`[agentic-browser] FALSE POSITIVE: Agent reported "${agentStatus}" but verification found Connect button for ${profileUrl}. Retrying connect...`);
+          // Retry the actual connection request with a fresh session
+          const retryResult = await runConnectAgent('retry_after_false_positive');
+          await logAgentRun({
+            jobId: debug?.jobId || undefined,
+            workspaceId,
+            taskType: 'send_connection_request_retry',
+            result: retryResult,
+          });
+
+          if (retryResult.success) {
+            const retryStatus = retryResult.data?.status || 'failed';
+            const retryStatusMap: Record<string, SendConnectResult['status']> = {
+              sent_verified: 'sent_verified',
+              already_connected: 'already_connected',
+              already_pending: 'already_pending',
+              restricted: 'restricted',
+            };
+            return {
+              status: retryStatusMap[retryStatus] || 'failed',
+              details: {
+                ...retryResult.data?.details,
+                agent_steps: retryResult.steps.length,
+                agent_tokens: retryResult.totalTokensUsed,
+                was_false_positive_retry: true,
+              },
+            };
+          }
+          return { status: 'failed', details: { reason: retryResult.error || 'retry_failed', was_false_positive_retry: true } };
+        }
+
+        if (verified === 'unknown') {
+          console.warn(`[agentic-browser] Could not verify "${agentStatus}" claim for ${profileUrl} — page may not have loaded. Trusting agent result.`);
+        }
+      } catch (verifyErr: any) {
+        console.warn(`[agentic-browser] Verification session failed for ${profileUrl}: ${verifyErr?.message}. Trusting agent result.`);
+      }
+    }
+
     const statusMap: Record<string, SendConnectResult['status']> = {
       sent_verified: 'sent_verified',
       already_connected: 'already_connected',
@@ -652,13 +749,23 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     const llm = createLLMClient();
     const instruction = getSalesNavConnectPrompt(profileUrl, note);
 
-    const result = await runWithSession(userId, workspaceId, async (page) => {
-      return executeAgentTask(page, {
-        instruction,
-        maxSteps: DEFAULT_MAX_STEPS,
-        timeoutMs: DEFAULT_TIMEOUT_MS,
-      }, llm);
-    }, { navigateTo: profileUrl });
+    const runSnConnectAgent = async (attemptLabel: string) => {
+      return runWithSession(userId, workspaceId, async (page) => {
+        return executeAgentTask(page, {
+          instruction,
+          maxSteps: DEFAULT_MAX_STEPS,
+          timeoutMs: DEFAULT_TIMEOUT_MS,
+        }, llm);
+      }, { navigateTo: profileUrl });
+    };
+
+    let result = await runSnConnectAgent('attempt_1');
+
+    // If the agent reported PROFILE_PAGE_NOT_LOADED, retry once with a fresh session
+    if (!result.success && result.error?.includes('PROFILE_PAGE_NOT_LOADED')) {
+      console.warn(`[agentic-browser] SN profile page didn't load for ${profileUrl}, retrying with fresh session...`);
+      result = await runSnConnectAgent('attempt_2_retry');
+    }
 
     await logAgentRun({
       jobId: debug?.jobId || undefined,
@@ -675,6 +782,52 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
     }
 
     const agentStatus = result.data?.status || 'failed';
+
+    // Verify already_pending/already_connected claims for SN connect too
+    if (agentStatus === 'already_pending' || agentStatus === 'already_connected') {
+      try {
+        const verified = await runWithSession(userId, workspaceId, async (page) => {
+          await page.waitForTimeout(1500);
+          await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {});
+
+          const hasPending = (await page.locator('button:has-text("Pending")').count().catch(() => 0)) > 0;
+          const hasMessage = (await page.locator('button:has-text("Message")').count().catch(() => 0)) > 0;
+          const hasConnect = (await page.locator('button:has-text("Connect")').count().catch(() => 0)) > 0;
+
+          if (hasConnect && !hasPending && !hasMessage) return 'not_connected';
+          if (hasPending) return 'pending';
+          if (hasMessage && !hasConnect) return 'connected';
+          return 'unknown';
+        }, { navigateTo: profileUrl });
+
+        if (verified === 'not_connected') {
+          console.warn(`[agentic-browser] SN FALSE POSITIVE: Agent reported "${agentStatus}" but verification found Connect button for ${profileUrl}. Retrying...`);
+          const retryResult = await runSnConnectAgent('retry_after_false_positive');
+          await logAgentRun({
+            jobId: debug?.jobId || undefined,
+            workspaceId,
+            taskType: 'sn_send_connect_retry',
+            result: retryResult,
+          });
+
+          if (retryResult.success) {
+            const retryStatus = retryResult.data?.status || 'failed';
+            const retryMap: Record<string, SendConnectResult['status']> = {
+              sent_verified: 'sent_verified', already_connected: 'already_connected',
+              already_pending: 'already_pending', restricted: 'restricted',
+            };
+            return {
+              status: retryMap[retryStatus] || 'failed',
+              details: { ...retryResult.data?.details, agent_steps: retryResult.steps.length, agent_tokens: retryResult.totalTokensUsed, was_false_positive_retry: true },
+            };
+          }
+          return { status: 'failed', details: { reason: retryResult.error || 'retry_failed', was_false_positive_retry: true } };
+        }
+      } catch (verifyErr: any) {
+        console.warn(`[agentic-browser] SN verification session failed for ${profileUrl}: ${verifyErr?.message}. Trusting agent result.`);
+      }
+    }
+
     const statusMap: Record<string, SendConnectResult['status']> = {
       sent_verified: 'sent_verified',
       already_connected: 'already_connected',
