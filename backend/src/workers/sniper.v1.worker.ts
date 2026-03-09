@@ -19,7 +19,19 @@ import { invokeAgentWebhook } from '../services/airtop/agentWebhooks';
 import { deductCredits } from '../services/creditService';
 
 // Credit costs per Cloud Engine mission type
-const MISSION_CREDITS = { jobs_intent: 5, decision_maker_lookup: 10, connect_per_success: 5 };
+const MISSION_CREDITS = {
+  prospect_post_engagers: 2,
+  people_search: 3,
+  jobs_intent: 5,
+  sn_lead_search: 5,
+  decision_maker_lookup: 10,
+  // Per-success action costs
+  connect_per_success: 5,
+  message_per_success: 5,
+  sn_connect_per_success: 8,
+  sn_inmail_per_success: 10,
+  sn_message_per_success: 5,
+};
 
 const QUEUE = 'sniper:v1';
 
@@ -145,6 +157,12 @@ export const sniperV1Worker = new Worker(
         const totalExtracted = existingItems.length + newProfiles.length;
         const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for post engagement mission
+        if (totalExtracted > 0) {
+          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.prospect_post_engagers); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for prospect_post_engagers:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, discovered: totalExtracted, newThisRun: newProfiles.length, previouslyCaptured: existingItems.length };
       }
@@ -187,6 +205,12 @@ export const sniperV1Worker = new Worker(
         const totalExtracted = existingItems.length + newProfiles.length;
         const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for people search mission
+        if (totalExtracted > 0) {
+          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.people_search); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for people_search:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, extracted: totalExtracted, newThisRun: newProfiles.length, previouslyCaptured: existingItems.length };
       }
@@ -605,6 +629,12 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success === 0) ? 'failed' :
           'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for successful messages (5 per success)
+        if (summary.success > 0) {
+          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.message_per_success); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for send_messages:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }
@@ -649,6 +679,12 @@ export const sniperV1Worker = new Worker(
         const totalExtracted = existingItems.length + newProfiles.length;
         const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for SN lead search mission
+        if (totalExtracted > 0) {
+          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.sn_lead_search); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for sn_lead_search:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, extracted: totalExtracted, newThisRun: newProfiles.length, previouslyCaptured: existingItems.length };
       }
@@ -749,6 +785,12 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
           (summary.failed > 0 && summary.success === 0) ? 'failed' : 'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for successful SN connect requests (8 per success)
+        if (summary.success > 0) {
+          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_connect_per_success); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for sn_send_connect:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }
@@ -852,6 +894,12 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
           (summary.failed > 0 && summary.success === 0) ? 'failed' : 'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for successful SN InMails (10 per success)
+        if (summary.success > 0) {
+          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_inmail_per_success); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for sn_send_inmail:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }
@@ -951,6 +999,12 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
           (summary.failed > 0 && summary.success === 0) ? 'failed' : 'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        // Deduct credits for successful SN messages (5 per success)
+        if (summary.success > 0) {
+          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_message_per_success); } catch (e: any) {
+            console.warn('[sniper] credit deduction failed for sn_send_message:', e?.message);
+          }
+        }
         try { await notifySniperJobFinished(jobId); } catch {}
         return { ok: true, summary };
       }

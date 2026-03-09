@@ -16,6 +16,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Extract likers and commenters from any LinkedIn post.',
     color: 'bg-amber-500',
     status: 'implemented',
+    creditCost: '2 credits',
   },
   {
     id: 'people_search',
@@ -24,6 +25,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Scrape profiles from a LinkedIn people search URL.',
     color: 'bg-indigo-600',
     status: 'implemented',
+    creditCost: '3 credits',
   },
   {
     id: 'jobs_intent',
@@ -59,6 +61,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Send messages to 1st connections via Cloud Engine.',
     color: 'bg-violet-600',
     status: 'implemented',
+    creditCost: '5 credits/message',
   },
   {
     id: 'sn_lead_search',
@@ -67,6 +70,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Scrape leads from a Sales Navigator search.',
     color: 'bg-orange-600',
     status: 'implemented',
+    creditCost: '5 credits',
   },
   {
     id: 'sn_connect',
@@ -75,6 +79,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Send connection requests from Sales Navigator.',
     color: 'bg-orange-500',
     status: 'implemented',
+    creditCost: '8 credits/request',
   },
   {
     id: 'sn_inmail',
@@ -83,6 +88,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Send InMail messages to any profile via Sales Navigator.',
     color: 'bg-orange-400',
     status: 'implemented',
+    creditCost: '10 credits/message',
   },
   {
     id: 'sn_message',
@@ -91,6 +97,7 @@ const MISSIONS: MissionDef[] = [
     description: 'Message 1st-degree connections from Sales Navigator.',
     color: 'bg-orange-300',
     status: 'implemented',
+    creditCost: '5 credits/message',
   },
   {
     id: 'sequences',

@@ -130,8 +130,15 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
 
   /* ---- Credits ---- */
   const { credits, refetch: refetchCredits } = useUserCredits();
-  const CREDIT_COSTS: Record<string, number> = { jobs_intent: 5, decision_maker_lookup: 10 };
+  const CREDIT_COSTS: Record<string, number> = {
+    prospect_post_engagers: 2, people_search: 3, jobs_intent: 5,
+    sn_lead_search: 5, decision_maker_lookup: 10,
+  };
   const CONNECT_COST_PER = 5;
+  const MESSAGE_COST_PER = 5;
+  const SN_CONNECT_COST_PER = 8;
+  const SN_INMAIL_COST_PER = 10;
+  const SN_MESSAGE_COST_PER = 5;
 
   /* ---- Load settings ---- */
   useEffect(() => {
@@ -788,9 +795,10 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                         </option>
                       ))}
                     </select>
+                    <CreditCostBar cost={CREDIT_COSTS.prospect_post_engagers || 2} balance={credits.remainingCredits} />
                     <button
                       type="button"
-                      disabled={!selectedTarget || workingId === selectedTarget?.id}
+                      disabled={!selectedTarget || workingId === selectedTarget?.id || credits.remainingCredits < (CREDIT_COSTS.prospect_post_engagers || 2)}
                       onClick={() => selectedTarget && promptScheduleIfNeeded({
                         limit: Math.max(1, Math.min(Number(runLimit) || 200, 1000)),
                         title: 'Post Engagement run exceeds daily cap.',
@@ -800,7 +808,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                       })}
                       className={cx(
                         'mt-2 w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
-                        (!selectedTarget || workingId === selectedTarget?.id) && 'opacity-70 cursor-not-allowed',
+                        (!selectedTarget || workingId === selectedTarget?.id || credits.remainingCredits < (CREDIT_COSTS.prospect_post_engagers || 2)) && 'opacity-70 cursor-not-allowed',
                       )}
                     >
                       Run now
@@ -835,6 +843,7 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                   <div className="mt-2 text-[11px] text-slate-500">Daily cap: {effectiveDailyCap} profiles.</div>
                 ) : null}
               </div>
+              <CreditCostBar cost={CREDIT_COSTS.people_search || 3} balance={credits.remainingCredits} />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -845,11 +854,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 </button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || workingId === 'people_search'}
+                  disabled={!cloudEnabled || workingId === 'people_search' || credits.remainingCredits < (CREDIT_COSTS.people_search || 3)}
                   onClick={queuePeopleSearch}
                   className={cx(
                     'rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
-                    (!cloudEnabled || workingId === 'people_search') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || workingId === 'people_search' || credits.remainingCredits < (CREDIT_COSTS.people_search || 3)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'people_search' ? 'Queuing...' : 'Run now'}
@@ -1092,6 +1101,9 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 />
                 <div className="mt-1 text-xs text-slate-500">{String(messageText || '').length}/3000</div>
               </div>
+              {profileUrls.length > 0 && (
+                <CreditCostBar cost={profileUrls.length * MESSAGE_COST_PER} balance={credits.remainingCredits} />
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -1102,11 +1114,11 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                 </button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'message'}
+                  disabled={!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'message' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * MESSAGE_COST_PER)}
                   onClick={queueSendMessages}
                   className={cx(
                     'rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500',
-                    (!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'message') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'message' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * MESSAGE_COST_PER)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'message' ? 'Queuing...' : 'Run now'}
@@ -1139,15 +1151,16 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
                   <div className="mt-2 text-[11px] text-slate-500">Daily cap: {effectiveDailyCap} profiles.</div>
                 ) : null}
               </div>
+              <CreditCostBar cost={CREDIT_COSTS.sn_lead_search || 5} balance={credits.remainingCredits} />
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || workingId === 'sn_lead_search'}
+                  disabled={!cloudEnabled || workingId === 'sn_lead_search' || credits.remainingCredits < (CREDIT_COSTS.sn_lead_search || 5)}
                   onClick={queueSnLeadSearch}
                   className={cx(
                     'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
-                    (!cloudEnabled || workingId === 'sn_lead_search') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || workingId === 'sn_lead_search' || credits.remainingCredits < (CREDIT_COSTS.sn_lead_search || 5)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'sn_lead_search' ? 'Queuing...' : 'Run now'}
@@ -1177,15 +1190,18 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
                 <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription on your LinkedIn account.</div>
               </div>
+              {profileUrls.length > 0 && (
+                <CreditCostBar cost={profileUrls.length * SN_CONNECT_COST_PER} balance={credits.remainingCredits} />
+              )}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || !profileUrls.length || workingId === 'sn_connect'}
+                  disabled={!cloudEnabled || !profileUrls.length || workingId === 'sn_connect' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_CONNECT_COST_PER)}
                   onClick={queueSnConnect}
                   className={cx(
                     'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
-                    (!cloudEnabled || !profileUrls.length || workingId === 'sn_connect') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || !profileUrls.length || workingId === 'sn_connect' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_CONNECT_COST_PER)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'sn_connect' ? 'Queuing...' : 'Run now'}
@@ -1226,15 +1242,18 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
                 <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription. Each InMail uses one credit from your SN account.</div>
               </div>
+              {profileUrls.length > 0 && (
+                <CreditCostBar cost={profileUrls.length * SN_INMAIL_COST_PER} balance={credits.remainingCredits} />
+              )}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail'}
+                  disabled={!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_INMAIL_COST_PER)}
                   onClick={queueSnInMail}
                   className={cx(
                     'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
-                    (!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || !profileUrls.length || !String(inmailSubject || '').trim() || !String(messageText || '').trim() || workingId === 'sn_inmail' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_INMAIL_COST_PER)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'sn_inmail' ? 'Queuing...' : 'Run now'}
@@ -1264,15 +1283,18 @@ export default function MissionDrawer({ mission, conn, onClose, onNavigate, init
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
                 <div className="text-xs text-amber-800 dark:text-amber-200">Requires active Sales Navigator subscription. Target must be a 1st-degree connection.</div>
               </div>
+              {profileUrls.length > 0 && (
+                <CreditCostBar cost={profileUrls.length * SN_MESSAGE_COST_PER} balance={credits.remainingCredits} />
+              )}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => onNavigate('activity')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">View Activity</button>
                 <button
                   type="button"
-                  disabled={!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message'}
+                  disabled={!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_MESSAGE_COST_PER)}
                   onClick={queueSnMessage}
                   className={cx(
                     'rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-500',
-                    (!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message') && 'opacity-70 cursor-not-allowed',
+                    (!cloudEnabled || !profileUrls.length || !String(messageText || '').trim() || workingId === 'sn_message' || (profileUrls.length > 0 && credits.remainingCredits < profileUrls.length * SN_MESSAGE_COST_PER)) && 'opacity-70 cursor-not-allowed',
                   )}
                 >
                   {workingId === 'sn_message' ? 'Queuing...' : 'Run now'}

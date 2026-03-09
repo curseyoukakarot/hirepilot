@@ -32,11 +32,24 @@ import { batchRevealCompanyOpenJobs, deriveCompanyKey } from '../services/sniper
 import { deductCredits } from '../services/creditService';
 
 // Credit costs per Cloud Engine mission type
+// Extraction missions: cheap (loss leaders to get users hooked on data)
+// Action missions: premium (profit center — direct outreach)
 const MISSION_CREDIT_COST: Record<string, number> = {
-  jobs_intent: 5,
-  decision_maker_lookup: 10,
+  prospect_post_engagers: 2,   // Post Engagement — cheapest, gets users extracting lists
+  people_search: 3,            // People Search — broader scrape, still cheap
+  jobs_intent: 5,              // Jobs Intent Miner — actionable job data
+  sn_lead_search: 5,           // SN Lead Search — premium data source
+  decision_maker_lookup: 10,   // Decision Maker Lookup — AI-intensive, high value
 };
-const CONNECT_CREDIT_COST_PER_REQUEST = 5;
+// Per-item action costs (charged per successful send, not per attempt)
+const ACTION_CREDIT_COST: Record<string, number> = {
+  send_connect_requests: 5,    // Connect Requests — 5 per request
+  send_messages: 5,            // Send Message — 5 per message
+  sn_send_connect: 8,          // SN Connect — premium targeted connects
+  sn_send_inmail: 10,          // SN InMail — highest value, reaches anyone
+  sn_send_message: 5,          // SN Message — same as regular message
+};
+const CONNECT_CREDIT_COST_PER_REQUEST = ACTION_CREDIT_COST.send_connect_requests;
 
 type ApiRequest = Request & { user?: { id: string }; teamId?: string };
 
@@ -874,6 +887,23 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
+    // Credit pre-flight check for send messages
+    const msgCreditCostPer = ACTION_CREDIT_COST.send_messages || 5;
+    const msgCreditCost = parsed.data.profile_urls.length * msgCreditCostPer;
+    if (msgCreditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, msgCreditCost, true);
+        if (typeof balance === 'number' && balance < msgCreditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: msgCreditCost, remaining: balance, per_message: msgCreditCostPer });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: msgCreditCost, remaining: 0, per_message: msgCreditCostPer });
+        }
+        console.warn('[sniper-message] credit check failed (non-fatal):', e?.message);
+      }
+    }
+
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
     const tz = settings.timezone || 'UTC';
@@ -1046,6 +1076,23 @@ sniperV1Router.post('/actions/sn-connect', async (req: ApiRequest, res: Response
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
 
+    // Credit pre-flight check for SN connect requests
+    const snConnectCreditCostPer = ACTION_CREDIT_COST.sn_send_connect || 8;
+    const snConnectCreditCost = parsed.data.profile_urls.length * snConnectCreditCostPer;
+    if (snConnectCreditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, snConnectCreditCost, true);
+        if (typeof balance === 'number' && balance < snConnectCreditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: snConnectCreditCost, remaining: balance, per_request: snConnectCreditCostPer });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: snConnectCreditCost, remaining: 0, per_request: snConnectCreditCostPer });
+        }
+        console.warn('[sniper-sn-connect] credit check failed (non-fatal):', e?.message);
+      }
+    }
+
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
 
@@ -1106,6 +1153,23 @@ sniperV1Router.post('/actions/sn-inmail', async (req: ApiRequest, res: Response)
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    // Credit pre-flight check for SN InMail
+    const snInmailCreditCostPer = ACTION_CREDIT_COST.sn_send_inmail || 10;
+    const snInmailCreditCost = parsed.data.profile_urls.length * snInmailCreditCostPer;
+    if (snInmailCreditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, snInmailCreditCost, true);
+        if (typeof balance === 'number' && balance < snInmailCreditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: snInmailCreditCost, remaining: balance, per_inmail: snInmailCreditCostPer });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: snInmailCreditCost, remaining: 0, per_inmail: snInmailCreditCostPer });
+        }
+        console.warn('[sniper-sn-inmail] credit check failed (non-fatal):', e?.message);
+      }
+    }
 
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
@@ -1174,6 +1238,23 @@ sniperV1Router.post('/actions/sn-message', async (req: ApiRequest, res: Response
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+
+    // Credit pre-flight check for SN messages
+    const snMsgCreditCostPer = ACTION_CREDIT_COST.sn_send_message || 5;
+    const snMsgCreditCost = parsed.data.profile_urls.length * snMsgCreditCostPer;
+    if (snMsgCreditCost > 0) {
+      try {
+        const balance = await deductCredits(userId, snMsgCreditCost, true);
+        if (typeof balance === 'number' && balance < snMsgCreditCost) {
+          return res.status(402).json({ error: 'insufficient_credits', required: snMsgCreditCost, remaining: balance, per_message: snMsgCreditCostPer });
+        }
+      } catch (e: any) {
+        if (e?.message === 'Insufficient credits') {
+          return res.status(402).json({ error: 'insufficient_credits', required: snMsgCreditCost, remaining: 0, per_message: snMsgCreditCostPer });
+        }
+        console.warn('[sniper-sn-message] credit check failed (non-fatal):', e?.message);
+      }
+    }
 
     const settings = await fetchSniperV1Settings(workspaceId);
     const provider = (settings.provider === 'agentic_browser' ? 'agentic_browser' : 'airtop') as any;
