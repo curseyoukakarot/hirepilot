@@ -16,7 +16,7 @@ import { applyCooldown, getUsageSnapshot, isCooldownActive, recordActionUsage } 
 import { getProvider } from '../services/sniperV1/providers';
 import { notifySniperJobFinished } from '../services/sniperV1/notifications';
 import { invokeAgentWebhook } from '../services/airtop/agentWebhooks';
-import { deductCredits } from '../services/creditService';
+import { CreditService } from '../../services/creditService';
 
 // Credit costs per Cloud Engine mission type
 const MISSION_CREDITS = {
@@ -159,7 +159,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for post engagement mission
         if (totalExtracted > 0) {
-          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.prospect_post_engagers); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.prospect_post_engagers, 'api_usage', `Cloud Engine: Post Engagement (${totalExtracted} profiles)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for prospect_post_engagers:', e?.message);
           }
         }
@@ -207,7 +207,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for people search mission
         if (totalExtracted > 0) {
-          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.people_search); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.people_search, 'api_usage', `Cloud Engine: People Search (${totalExtracted} profiles)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for people_search:', e?.message);
           }
         }
@@ -262,7 +262,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for jobs_intent mission
         if (totalExtracted > 0) {
-          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.jobs_intent); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.jobs_intent, 'api_usage', `Cloud Engine: Jobs Intent Miner (${totalExtracted} jobs)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for jobs_intent:', e?.message);
           }
         }
@@ -344,7 +344,7 @@ export const sniperV1Worker = new Worker(
         } as any);
         // Deduct credits for decision_maker_lookup mission
         if (allResults.length > 0) {
-          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.decision_maker_lookup); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.decision_maker_lookup, 'api_usage', `Cloud Engine: Decision Maker Lookup (${allResults.length} contacts)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for decision_maker_lookup:', e?.message);
           }
         }
@@ -463,7 +463,7 @@ export const sniperV1Worker = new Worker(
           await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
           // Deduct credits for successful connect requests (5 per success)
           if (summary.success > 0) {
-            try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.connect_per_success); } catch (e: any) {
+            try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.connect_per_success, 'api_usage', `Cloud Engine: Connect Requests (${summary.success} sent)`); } catch (e: any) {
               console.warn('[sniper] credit deduction failed for send_connect_requests:', e?.message);
             }
           }
@@ -631,7 +631,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for successful messages (5 per success)
         if (summary.success > 0) {
-          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.message_per_success); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.message_per_success, 'api_usage', `Cloud Engine: Send Messages (${summary.success} sent)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for send_messages:', e?.message);
           }
         }
@@ -681,7 +681,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for SN lead search mission
         if (totalExtracted > 0) {
-          try { await deductCredits(jobRow.created_by, MISSION_CREDITS.sn_lead_search); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.sn_lead_search, 'api_usage', `Cloud Engine: SN Lead Search (${totalExtracted} leads)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for sn_lead_search:', e?.message);
           }
         }
@@ -787,7 +787,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for successful SN connect requests (8 per success)
         if (summary.success > 0) {
-          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_connect_per_success); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_connect_per_success, 'api_usage', `Cloud Engine: SN Connect (${summary.success} sent)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for sn_send_connect:', e?.message);
           }
         }
@@ -896,7 +896,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for successful SN InMails (10 per success)
         if (summary.success > 0) {
-          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_inmail_per_success); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_inmail_per_success, 'api_usage', `Cloud Engine: SN InMail (${summary.success} sent)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for sn_send_inmail:', e?.message);
           }
         }
@@ -1001,7 +1001,7 @@ export const sniperV1Worker = new Worker(
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
         // Deduct credits for successful SN messages (5 per success)
         if (summary.success > 0) {
-          try { await deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_message_per_success); } catch (e: any) {
+          try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.sn_message_per_success, 'api_usage', `Cloud Engine: SN Message (${summary.success} sent)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for sn_send_message:', e?.message);
           }
         }

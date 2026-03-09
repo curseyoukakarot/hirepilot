@@ -29,7 +29,7 @@ import { notifyConnectQueued, notifyConnectResult } from '../services/sniperV1/c
 import { normalizeLinkedinProfileUrl } from '../utils/linkedinUrl';
 import { generateMessages, DEFAULT_CONNECT_NOTE_TEMPLATE, DEFAULT_MESSAGE_TEMPLATE } from '../services/sniperV1/messageGenerator';
 import { batchRevealCompanyOpenJobs, deriveCompanyKey } from '../services/sniperV1/companyJobsReveal';
-import { deductCredits } from '../services/creditService';
+import { CreditService } from '../../services/creditService';
 
 // Credit costs per Cloud Engine mission type
 // Extraction missions: cheap (loss leaders to get users hooked on data)
@@ -313,14 +313,11 @@ sniperV1Router.post('/jobs', async (req: ApiRequest, res: Response) => {
     const creditCost = MISSION_CREDIT_COST[parsed.data.job_type] || 0;
     if (creditCost > 0) {
       try {
-        const balance = await deductCredits(userId, creditCost, true);
-        if (typeof balance === 'number' && balance < creditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < creditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: creditCost, remaining: balance });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: creditCost, remaining: 0 });
-        }
         console.warn('[sniper] credit check failed (non-fatal):', e?.message);
       }
     }
@@ -487,14 +484,11 @@ sniperV1Router.post('/actions/connect', async (req: ApiRequest, res: Response) =
     const connectCreditCost = validCount * CONNECT_CREDIT_COST_PER_REQUEST;
     if (connectCreditCost > 0) {
       try {
-        const balance = await deductCredits(userId, connectCreditCost, true);
-        if (typeof balance === 'number' && balance < connectCreditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < connectCreditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: connectCreditCost, remaining: balance, per_request: CONNECT_CREDIT_COST_PER_REQUEST });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: connectCreditCost, remaining: 0, per_request: CONNECT_CREDIT_COST_PER_REQUEST });
-        }
         console.warn('[sniper-connect] credit check failed (non-fatal):', e?.message);
       }
     }
@@ -892,14 +886,11 @@ sniperV1Router.post('/actions/message', async (req: ApiRequest, res: Response) =
     const msgCreditCost = parsed.data.profile_urls.length * msgCreditCostPer;
     if (msgCreditCost > 0) {
       try {
-        const balance = await deductCredits(userId, msgCreditCost, true);
-        if (typeof balance === 'number' && balance < msgCreditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < msgCreditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: msgCreditCost, remaining: balance, per_message: msgCreditCostPer });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: msgCreditCost, remaining: 0, per_message: msgCreditCostPer });
-        }
         console.warn('[sniper-message] credit check failed (non-fatal):', e?.message);
       }
     }
@@ -1081,14 +1072,11 @@ sniperV1Router.post('/actions/sn-connect', async (req: ApiRequest, res: Response
     const snConnectCreditCost = parsed.data.profile_urls.length * snConnectCreditCostPer;
     if (snConnectCreditCost > 0) {
       try {
-        const balance = await deductCredits(userId, snConnectCreditCost, true);
-        if (typeof balance === 'number' && balance < snConnectCreditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < snConnectCreditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: snConnectCreditCost, remaining: balance, per_request: snConnectCreditCostPer });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: snConnectCreditCost, remaining: 0, per_request: snConnectCreditCostPer });
-        }
         console.warn('[sniper-sn-connect] credit check failed (non-fatal):', e?.message);
       }
     }
@@ -1159,14 +1147,11 @@ sniperV1Router.post('/actions/sn-inmail', async (req: ApiRequest, res: Response)
     const snInmailCreditCost = parsed.data.profile_urls.length * snInmailCreditCostPer;
     if (snInmailCreditCost > 0) {
       try {
-        const balance = await deductCredits(userId, snInmailCreditCost, true);
-        if (typeof balance === 'number' && balance < snInmailCreditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < snInmailCreditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: snInmailCreditCost, remaining: balance, per_inmail: snInmailCreditCostPer });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: snInmailCreditCost, remaining: 0, per_inmail: snInmailCreditCostPer });
-        }
         console.warn('[sniper-sn-inmail] credit check failed (non-fatal):', e?.message);
       }
     }
@@ -1244,14 +1229,11 @@ sniperV1Router.post('/actions/sn-message', async (req: ApiRequest, res: Response
     const snMsgCreditCost = parsed.data.profile_urls.length * snMsgCreditCostPer;
     if (snMsgCreditCost > 0) {
       try {
-        const balance = await deductCredits(userId, snMsgCreditCost, true);
-        if (typeof balance === 'number' && balance < snMsgCreditCost) {
+        const balance = await CreditService.getRemainingCredits(userId);
+        if (balance < snMsgCreditCost) {
           return res.status(402).json({ error: 'insufficient_credits', required: snMsgCreditCost, remaining: balance, per_message: snMsgCreditCostPer });
         }
       } catch (e: any) {
-        if (e?.message === 'Insufficient credits') {
-          return res.status(402).json({ error: 'insufficient_credits', required: snMsgCreditCost, remaining: 0, per_message: snMsgCreditCostPer });
-        }
         console.warn('[sniper-sn-message] credit check failed (non-fatal):', e?.message);
       }
     }
