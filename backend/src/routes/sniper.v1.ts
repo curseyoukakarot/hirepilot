@@ -359,6 +359,97 @@ sniperV1Router.get('/jobs', async (req: ApiRequest, res: Response) => {
   }
 });
 
+// ─────────── Today's leads sourced (for Agent Mode Center) ───────────
+sniperV1Router.get('/stats/today', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    // Get workspace timezone for "today" definition
+    const settings = await fetchSniperV1Settings(workspaceId);
+    const tz = settings.timezone || 'America/Chicago';
+    const todayStr = dayStringInTimezone(new Date(), tz);
+    // Build start-of-day ISO timestamp in workspace timezone
+    const todayStart = new Date(`${todayStr}T00:00:00`);
+    // Convert to UTC by creating a date at midnight in the workspace timezone
+    const startOfDayUtc = new Date(new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(todayStart)).toISOString();
+    // Simpler: just use the date string to find today's jobs
+    const sinceIso = `${todayStr}T00:00:00`;
+
+    // Count today's extraction items (leads found by Cloud Engine)
+    // Step 1: Get today's extraction jobs for this workspace
+    const { data: jobs, error: jobsErr } = await sniperSupabaseDb
+      .from('sniper_jobs')
+      .select('id, job_type')
+      .eq('workspace_id', workspaceId)
+      .in('job_type', ['prospect_post_engagers', 'people_search', 'jobs_intent', 'decision_maker_lookup', 'sn_lead_search'])
+      .gte('created_at', sinceIso);
+    if (jobsErr) throw jobsErr;
+
+    const jobIds = (jobs || []).map((j: any) => j.id);
+    let extractCount = 0;
+
+    if (jobIds.length > 0) {
+      // Step 2: Count succeeded extraction items across those jobs
+      const { count, error: countErr } = await sniperSupabaseDb
+        .from('sniper_job_items')
+        .select('id', { count: 'exact', head: true })
+        .in('job_id', jobIds)
+        .eq('action_type', 'extract')
+        .like('status', 'succeeded_%');
+      if (countErr) throw countErr;
+      extractCount = count || 0;
+    }
+
+    // Also count today's successful action items (connects, messages sent)
+    const { data: actionJobs, error: actionJobsErr } = await sniperSupabaseDb
+      .from('sniper_jobs')
+      .select('id, job_type')
+      .eq('workspace_id', workspaceId)
+      .in('job_type', ['send_connect_requests', 'send_messages', 'sn_send_connect', 'sn_send_inmail', 'sn_send_message'])
+      .gte('created_at', sinceIso);
+    if (actionJobsErr) throw actionJobsErr;
+
+    const actionJobIds = (actionJobs || []).map((j: any) => j.id);
+    let connectCount = 0;
+    let messageCount = 0;
+
+    if (actionJobIds.length > 0) {
+      const { count: cc, error: ccErr } = await sniperSupabaseDb
+        .from('sniper_job_items')
+        .select('id', { count: 'exact', head: true })
+        .in('job_id', actionJobIds)
+        .eq('action_type', 'connect')
+        .like('status', 'succeeded_%');
+      if (!ccErr) connectCount = cc || 0;
+
+      const { count: mc, error: mcErr } = await sniperSupabaseDb
+        .from('sniper_job_items')
+        .select('id', { count: 'exact', head: true })
+        .in('job_id', actionJobIds)
+        .in('action_type', ['message', 'inmail'])
+        .like('status', 'succeeded_%');
+      if (!mcErr) messageCount = mc || 0;
+    }
+
+    return res.json({
+      today: todayStr,
+      timezone: tz,
+      leads_extracted: extractCount,
+      connects_sent: connectCount,
+      messages_sent: messageCount,
+      total_leads: extractCount,
+    });
+  } catch (e: any) {
+    console.error('[sniper] stats/today error:', e?.message);
+    return res.status(500).json({ error: e?.message || 'failed_to_get_stats' });
+  }
+});
+
 sniperV1Router.get('/jobs/:id', async (req: ApiRequest, res: Response) => {
   try {
     const userId = getUserId(req);

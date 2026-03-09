@@ -225,29 +225,46 @@ export default function AgentModeCenter() {
         }
       }
 
-      // Leads sourced (sum of "new leads found" across sourcing campaigns)
+      // Leads sourced today (Cloud Engine extractions + sourcing campaign leads)
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const userId = user?.id;
-        const resp = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
-        const list: any[] = Array.isArray(resp)
-          ? resp
-          : Array.isArray((resp as any)?.campaigns)
-            ? (resp as any).campaigns
-            : [];
+        let cloudEngineLeads = 0;
+        let campaignLeads = 0;
 
-        const statsResults = await Promise.all(
-          list.map(async (c: any) => {
-            try {
-              const s = await api(`/api/sourcing/campaigns/${c.id}/stats`);
-              return Number((s as any)?.total_leads || 0);
-            } catch {
-              return 0;
-            }
-          })
-        );
-        const total = statsResults.reduce((acc, n) => acc + (Number.isFinite(n) ? n : 0), 0);
-        if (!cancelled) setLeadsSourced(total);
+        // 1. Cloud Engine leads (today's extractions)
+        try {
+          const ceStats = await api('/api/sniper/stats/today');
+          cloudEngineLeads = Number((ceStats as any)?.leads_extracted || 0);
+        } catch {
+          cloudEngineLeads = 0;
+        }
+
+        // 2. Sourcing campaign leads (all-time from persona runs)
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const userId = user?.id;
+          const resp = await api(`/api/sourcing/campaigns${userId ? `?created_by=${userId}` : ''}`);
+          const list: any[] = Array.isArray(resp)
+            ? resp
+            : Array.isArray((resp as any)?.campaigns)
+              ? (resp as any).campaigns
+              : [];
+
+          const statsResults = await Promise.all(
+            list.map(async (c: any) => {
+              try {
+                const s = await api(`/api/sourcing/campaigns/${c.id}/stats`);
+                return Number((s as any)?.total_leads || 0);
+              } catch {
+                return 0;
+              }
+            })
+          );
+          campaignLeads = statsResults.reduce((acc, n) => acc + (Number.isFinite(n) ? n : 0), 0);
+        } catch {
+          campaignLeads = 0;
+        }
+
+        if (!cancelled) setLeadsSourced(cloudEngineLeads + campaignLeads);
       } catch {
         if (!cancelled) setLeadsSourced(null);
       }
