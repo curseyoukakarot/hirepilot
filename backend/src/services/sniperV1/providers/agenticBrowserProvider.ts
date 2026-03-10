@@ -293,15 +293,9 @@ export async function sendConnectionRequestWithPage(
       };
     }
 
-    // Skipped for a non-terminal reason — also return
-    if (detResult.status === 'skipped') {
-      return {
-        status: 'failed',
-        details: { ...detResult.details, method: 'deterministic', reason: 'skipped' },
-      };
-    }
-
-    // failed or failed_verification — fall through to LLM fallback
+    // skipped (connect button not found), failed, or failed_verification — fall through to LLM fallback
+    // The LLM can see the page visually and may find Connect buttons our selectors missed
+    // (e.g., "Connect if you know each other" sections, non-standard layouts)
     console.warn(`[hybrid] Deterministic connect returned "${detResult.status}" for ${profileUrl}, falling back to LLM…`);
   } catch (detErr: any) {
     // Auth errors should propagate immediately — don't fallback

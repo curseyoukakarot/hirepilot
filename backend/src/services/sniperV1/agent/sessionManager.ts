@@ -94,34 +94,31 @@ export class SessionManager {
   async navigateToProfile(profileUrl: string): Promise<Page> {
     const page = await this.acquire();
 
-    // Navigate to the profile
+    // Navigate directly to the profile
     await page.goto(profileUrl, {
       waitUntil: 'domcontentloaded',
       timeout: 60_000,
     });
 
-    // Wait for profile to fully render (action buttons etc.)
-    await waitForProfileReady(page);
-
-    // Heavy page handling: wait for networkidle + action buttons
+    // Only wait for the action buttons we actually need — skip networkidle
+    // (networkidle waits for ALL requests including sidebar, ads, analytics).
+    // The action buttons render early; waiting for networkidle wasted 5-13 extra seconds.
     const isProfilePage = /linkedin\.com\/in\//i.test(profileUrl);
     if (isProfilePage) {
-      await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
       await page
         .waitForSelector(
           [
-            'button:has-text("Connect")',
-            'button:has-text("Pending")',
-            'button:has-text("Message")',
-            'button:has-text("Follow")',
-            'button:has-text("More")',
+            'button:text-matches("^Connect$", "i")',
+            'button:text-matches("^Pending$", "i")',
+            'button:text-matches("^Message$", "i")',
+            'button:text-matches("^Follow$", "i")',
+            'button:text-matches("^More$", "i")',
             'button[aria-label="More actions"]',
-            'button.artdeco-dropdown__trigger',
           ].join(', '),
-          { timeout: 8_000 },
+          { timeout: 10_000 },
         )
         .catch(() => {
-          console.warn('[session-mgr] Profile action buttons did not appear within 8s — proceeding anyway');
+          console.warn('[session-mgr] Profile action buttons did not appear within 10s — proceeding anyway');
         });
     }
 

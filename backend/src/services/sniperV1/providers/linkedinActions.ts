@@ -198,13 +198,14 @@ export async function findConnectEntrypoint(page: Page): Promise<ConnectEntrypoi
       await page.waitForTimeout(300);
     }
 
-    // ─── Strategy 3: Brute-force search for any Connect-like element ───
-    const bruteBtn = root.locator(
+    // ─── Strategy 3: Brute-force search ENTIRE page (not just top card) ───
+    // Catches "Connect if you know each other" sections outside .pv-top-card
+    const bruteBtn = page.locator(
       [
-        'button:text-matches("connect|invite", "i")',
-        'a:text-matches("connect|invite", "i")',
-        '[role="menuitem"]:text-matches("connect|invite", "i")',
-        '[role="button"]:text-matches("connect|invite", "i")',
+        'button:text-matches("^Connect$", "i")',
+        'button:text-matches("^Invite$", "i")',
+        'a:text-matches("^Connect$", "i")',
+        '[role="button"]:text-matches("^Connect$", "i")',
       ].join(', ')
     ).first();
 
