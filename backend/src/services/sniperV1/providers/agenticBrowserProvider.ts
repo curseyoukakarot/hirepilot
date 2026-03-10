@@ -5,6 +5,7 @@ import {
   sendConnectionRequestOnPage,
   sendMessageOnPage,
 } from './linkedinActions';
+import { domConnectAndSend } from './domActions';
 import { normalizeLinkedinProfileUrl } from '../../../utils/linkedinUrl';
 import { SessionManager, isSessionDeadError } from '../agent/sessionManager';
 
@@ -205,7 +206,7 @@ async function logDeterministicRun(opts: {
   jobItemId?: string;
   workspaceId: string;
   taskType: string;
-  method: 'deterministic' | 'llm_fallback';
+  method: 'deterministic' | 'dom_inject' | 'llm_fallback';
   status: string;
   durationMs: number;
   fallbackAgentResult?: AgentResult;
@@ -243,9 +244,16 @@ async function logDeterministicRun(opts: {
 type ActionDebugContext = { jobId?: string; enabled?: boolean };
 
 /**
- * Send a connection request using the DETERMINISTIC path first (linkedinActions.ts).
- * Falls back to the LLM agent if the deterministic code fails.
+ * Send a connection request using the DOM-INJECTED path first (Chrome extension code).
+ * Falls back to the LLM agent if the DOM code fails.
  * Accepts a pre-existing Page (from SessionManager) — no session creation.
+ *
+ * Architecture:
+ * 1. Inject Chrome extension's hpConnectAndSendDOM() via page.evaluate()
+ * 2. Call it — this is the same battle-tested code that handles connects in
+ *    the browser extension (dispatchClick, 8-attempt retry, top-card scoping)
+ * 3. If resolved → return mapped result (no LLM cost!)
+ * 4. If error → fall back to LLM agent (screenshots + visual understanding)
  */
 export async function sendConnectionRequestWithPage(
   page: Page,
@@ -259,54 +267,45 @@ export async function sendConnectionRequestWithPage(
   const startTime = Date.now();
   const { profileUrl, note, workspaceId, debug } = args;
 
-  // --- Step 1: Try deterministic path ---
+  // --- Step 1: Try DOM-injected connect (Chrome extension code) ---
   try {
-    console.log(`[hybrid] Trying deterministic connect for ${profileUrl}`);
-    const detResult = await sendConnectionRequestOnPage(page, profileUrl, note, undefined, { skipNavigation: true });
+    console.log(`[hybrid] Trying DOM inject connect for ${profileUrl}`);
+    const domResult = await domConnectAndSend(page, note);
 
-    const statusMap: Record<string, SendConnectResult['status']> = {
-      sent_verified: 'sent_verified',
-      already_connected: 'already_connected',
-      already_pending: 'already_pending',
-      restricted: 'restricted',
-    };
-
-    // Success or known terminal state — return directly
-    if (statusMap[detResult.status]) {
+    if (domResult.resolved) {
       const elapsed = Date.now() - startTime;
-      console.log(`[hybrid] Deterministic connect succeeded: ${detResult.status} (${elapsed}ms)`);
+      console.log(`[hybrid] DOM inject connect resolved: ${domResult.result.status} (${elapsed}ms)`);
       await logDeterministicRun({
         jobId: debug?.jobId,
         workspaceId,
         taskType: 'send_connection_request',
-        method: 'deterministic',
-        status: detResult.status,
+        method: 'dom_inject',
+        status: domResult.result.status,
         durationMs: elapsed,
       });
       return {
-        status: statusMap[detResult.status]!,
+        ...domResult.result,
         details: {
-          ...detResult.details,
-          method: 'deterministic',
+          ...domResult.result.details,
           duration_ms: elapsed,
         },
       };
     }
 
-    // skipped (connect button not found), failed, or failed_verification — fall through to LLM fallback
-    // The LLM can see the page visually and may find Connect buttons our selectors missed
-    // (e.g., "Connect if you know each other" sections, non-standard layouts)
-    console.warn(`[hybrid] Deterministic connect returned "${detResult.status}" for ${profileUrl}, falling back to LLM…`);
-  } catch (detErr: any) {
+    // DOM code returned an error — fall through to LLM fallback
+    // The LLM can see the page visually and may find Connect buttons the DOM code missed
+    const domError = (domResult as { resolved: false; error: string }).error || 'unknown';
+    console.warn(`[hybrid] DOM inject connect failed for ${profileUrl}: ${domError}. Falling back to LLM…`);
+  } catch (domErr: any) {
     // Auth errors should propagate immediately — don't fallback
-    if (String(detErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
-      throw detErr;
+    if (String(domErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+      throw domErr;
     }
     // Session-dead errors should propagate for recovery
-    if (isSessionDeadError(detErr)) {
-      throw detErr;
+    if (isSessionDeadError(domErr)) {
+      throw domErr;
     }
-    console.warn(`[hybrid] Deterministic connect threw for ${profileUrl}: ${detErr.message}. Falling back to LLM…`);
+    console.warn(`[hybrid] DOM inject connect threw for ${profileUrl}: ${domErr.message}. Falling back to LLM…`);
   }
 
   // --- Step 2: LLM fallback ---
