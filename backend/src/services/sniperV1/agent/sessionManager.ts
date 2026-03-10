@@ -44,6 +44,23 @@ export function isSessionDeadError(error: any): boolean {
   );
 }
 
+/** Transient proxy/network errors that may resolve on retry (page reload). */
+export function isTransientNetworkError(error: any): boolean {
+  const msg = String(error?.message || '');
+  return (
+    msg.includes('ERR_TUNNEL_CONNECTION_FAILED') ||
+    msg.includes('ERR_PROXY_CONNECTION_FAILED') ||
+    msg.includes('ERR_CONNECTION_TIMED_OUT') ||
+    msg.includes('ERR_CONNECTION_RESET') ||
+    msg.includes('ERR_NETWORK_CHANGED') ||
+    msg.includes('ERR_NAME_NOT_RESOLVED') ||
+    msg.includes('ERR_INTERNET_DISCONNECTED') ||
+    msg.includes('net::ERR_FAILED') ||
+    msg.includes('NS_ERROR_NET_RESET') ||
+    msg.includes('Timeout') // Playwright navigation timeout
+  );
+}
+
 // ---------------------------------------------------------------------------
 // SessionManager — manages a reusable session for the lifetime of a job
 // ---------------------------------------------------------------------------
@@ -94,37 +111,75 @@ export class SessionManager {
   async navigateToProfile(profileUrl: string): Promise<Page> {
     const page = await this.acquire();
 
-    // Navigate directly to the profile
-    await page.goto(profileUrl, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60_000,
-    });
-
-    // Only wait for the action buttons we actually need — skip networkidle
-    // (networkidle waits for ALL requests including sidebar, ads, analytics).
-    // The action buttons render early; waiting for networkidle wasted 5-13 extra seconds.
+    const MAX_NAV_RETRIES = 3;
     const isProfilePage = /linkedin\.com\/in\//i.test(profileUrl);
-    if (isProfilePage) {
-      await page
-        .waitForSelector(
-          [
-            'button:text-matches("^Connect$", "i")',
-            'button:text-matches("^Pending$", "i")',
-            'button:text-matches("^Message$", "i")',
-            'button:text-matches("^Follow$", "i")',
-            'button:text-matches("^More$", "i")',
-            'button[aria-label="More actions"]',
-          ].join(', '),
-          { timeout: 10_000 },
-        )
-        .catch(() => {
-          console.warn('[session-mgr] Profile action buttons did not appear within 10s — proceeding anyway');
-        });
-    }
+    const ACTION_BTN_SELECTOR = [
+      'button:text-matches("^Connect$", "i")',
+      'button:text-matches("^Pending$", "i")',
+      'button:text-matches("^Message$", "i")',
+      'button:text-matches("^Follow$", "i")',
+      'button:text-matches("^More$", "i")',
+      'button[aria-label="More actions"]',
+    ].join(', ');
 
-    // Check for auth wall
-    if (isAuthWallUrl(page.url())) {
-      throw new Error('LINKEDIN_AUTH_REQUIRED: Browser session landed on login/checkpoint page');
+    for (let attempt = 1; attempt <= MAX_NAV_RETRIES; attempt++) {
+      try {
+        // Navigate directly to the profile
+        await page.goto(profileUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30_000,
+        });
+
+        // Check for proxy / tunnel errors rendered on the page
+        const pageContent = await page.title().catch(() => '');
+        const currentUrl = page.url();
+        if (
+          pageContent.includes("can't be reached") ||
+          pageContent.includes('is not available') ||
+          currentUrl === 'about:blank' ||
+          currentUrl.startsWith('chrome-error://')
+        ) {
+          throw new Error(`ERR_TUNNEL_CONNECTION_FAILED: page showed error for ${profileUrl}`);
+        }
+
+        // Wait for action buttons — the only wait we need
+        if (isProfilePage) {
+          await page
+            .waitForSelector(ACTION_BTN_SELECTOR, { timeout: 10_000 })
+            .catch(() => {
+              console.warn('[session-mgr] Profile action buttons did not appear within 10s — proceeding anyway');
+            });
+        }
+
+        // Check for auth wall
+        if (isAuthWallUrl(page.url())) {
+          throw new Error('LINKEDIN_AUTH_REQUIRED: Browser session landed on login/checkpoint page');
+        }
+
+        // Success — break out of retry loop
+        break;
+      } catch (navErr: any) {
+        const msg = String(navErr?.message || '');
+
+        // Auth errors and session-dead errors should propagate immediately
+        if (msg.includes('LINKEDIN_AUTH_REQUIRED')) throw navErr;
+        if (isSessionDeadError(navErr)) throw navErr;
+
+        // Transient proxy/network error — retry
+        if (isTransientNetworkError(navErr) && attempt < MAX_NAV_RETRIES) {
+          console.warn(
+            `[session-mgr] Navigation attempt ${attempt}/${MAX_NAV_RETRIES} failed for ${profileUrl}: ${msg}. Retrying in ${attempt * 2}s…`,
+          );
+          await page.waitForTimeout(attempt * 2000).catch(() => {});
+          continue;
+        }
+
+        // Final attempt or unknown error — propagate
+        if (attempt >= MAX_NAV_RETRIES) {
+          console.error(`[session-mgr] All ${MAX_NAV_RETRIES} navigation attempts failed for ${profileUrl}: ${msg}`);
+        }
+        throw navErr;
+      }
     }
 
     if (this.session) {
