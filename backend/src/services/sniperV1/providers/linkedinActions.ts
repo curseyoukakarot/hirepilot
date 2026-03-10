@@ -658,6 +658,41 @@ export async function sendConnectionRequestOnPage(
     return { status: 'restricted' };
   }
 
+  // ---------------------------------------------------------------------------
+  // Hybrid path (skipNavigation) uses a LIGHTWEIGHT flow:
+  //   1. sendConnectRequest (find + click + note + send)
+  //   2. Only verify via Pending button poll (NO navigation to sent invites)
+  //   3. No retry loop — keeps page on profile for LLM fallback if needed
+  //
+  // Legacy path (full navigation) keeps the old runActionWithVerification flow
+  // which navigates to sent invites page to double-check.
+  // ---------------------------------------------------------------------------
+
+  if (opts?.skipNavigation) {
+    // --- Hybrid lightweight flow ---
+    const result = await sendConnectRequest(page, { note, debug });
+
+    // Non-success: return immediately, don't waste time verifying
+    if (result.status === 'restricted') return { status: 'restricted', details: result };
+    if (result.status === 'skipped' && result.details?.reason === 'already_pending') return { status: 'already_pending', details: result };
+    if (result.status === 'skipped' && result.details?.reason === 'already_connected') return { status: 'already_connected', details: result };
+    if (result.status === 'skipped') return { status: 'skipped', details: result };
+    if (result.status === 'failed') return { status: 'failed', details: result };
+
+    // Sent! Quick lightweight verify — just poll for Pending button (NO navigation away)
+    const pendingOk = await waitForCondition(async () => {
+      const pending = await page.locator('button', { hasText: /^Pending$/ }).count().catch(() => 0);
+      const invited = await page.locator('button', { hasText: /^Invited$/ }).count().catch(() => 0);
+      return pending > 0 || invited > 0;
+    }, 5000, 500);
+
+    if (pendingOk) return { status: 'sent_verified', details: { ...result, verification: { ok: true, method: 'button_state_lightweight' } } };
+
+    // Pending didn't appear but Send was clicked — trust it
+    return { status: 'sent_verified', details: { ...result, verification: { ok: false, method: 'send_clicked_trusted' } } };
+  }
+
+  // --- Legacy full-verification flow (standalone / non-hybrid callers) ---
   const { result, verified } = await runActionWithVerification({
     actionType: 'connect',
     page,

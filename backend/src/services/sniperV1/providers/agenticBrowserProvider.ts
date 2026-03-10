@@ -311,6 +311,16 @@ export async function sendConnectionRequestWithPage(
 
   // --- Step 2: LLM fallback ---
   try {
+    // Ensure the page is on the profile URL before handing to the LLM.
+    // The deterministic path may have left the page in an unknown state
+    // (e.g., sent invites page from old verification, error modal, etc.)
+    const currentUrl = page.url();
+    if (!currentUrl.includes('/in/')) {
+      console.log(`[hybrid] Page is on "${currentUrl}", navigating back to ${profileUrl} for LLM fallback`);
+      await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+      await page.waitForTimeout(1500).catch(() => {});
+    }
+
     console.log(`[hybrid] LLM fallback for ${profileUrl}`);
     const llm = createLLMClient();
     const instruction = getSendConnectionRequestPrompt(profileUrl, note);
@@ -436,6 +446,14 @@ export async function sendMessageWithPage(
 
   // --- Step 2: LLM fallback ---
   try {
+    // Ensure the page is on the profile before handing to LLM
+    const msgCurrentUrl = page.url();
+    if (!msgCurrentUrl.includes('/in/')) {
+      console.log(`[hybrid] Page is on "${msgCurrentUrl}", navigating back to ${profileUrl} for LLM message fallback`);
+      await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+      await page.waitForTimeout(1500).catch(() => {});
+    }
+
     const llm = createLLMClient();
     const instruction = getSendMessagePrompt(profileUrl, message);
 
