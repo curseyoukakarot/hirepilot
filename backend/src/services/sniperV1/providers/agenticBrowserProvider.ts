@@ -262,7 +262,7 @@ export async function sendConnectionRequestWithPage(
   // --- Step 1: Try deterministic path ---
   try {
     console.log(`[hybrid] Trying deterministic connect for ${profileUrl}`);
-    const detResult = await sendConnectionRequestOnPage(page, profileUrl, note);
+    const detResult = await sendConnectionRequestOnPage(page, profileUrl, note, undefined, { skipNavigation: true });
 
     const statusMap: Record<string, SendConnectResult['status']> = {
       sent_verified: 'sent_verified',
@@ -402,7 +402,7 @@ export async function sendMessageWithPage(
   // --- Step 1: Try deterministic path ---
   try {
     console.log(`[hybrid] Trying deterministic message for ${profileUrl}`);
-    const detResult = await sendMessageOnPage(page, profileUrl, message);
+    const detResult = await sendMessageOnPage(page, profileUrl, message, undefined, { skipNavigation: true });
 
     const statusMap: Record<string, SendMessageResult['status']> = {
       sent_verified: 'sent_verified',

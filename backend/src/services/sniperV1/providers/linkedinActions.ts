@@ -110,81 +110,121 @@ async function detectBlockReason(page: Page): Promise<string | null> {
 }
 
 export async function findConnectEntrypoint(page: Page): Promise<ConnectEntrypoint | null> {
-  const directSelectors = [
-    'button:has-text("Connect")',
-    'button[aria-label*="Connect"]',
-    'button[aria-label*="Invite"]',
-    'button[data-control-name="connect"]',
-    '[data-tracking-control-name="connect"] button',
-    'div[role="button"]:has-text("Connect")',
-    'a:has-text("Connect")'
-  ];
-  for (const selector of directSelectors) {
-    const direct = page.locator(selector).first();
-    if (await direct.count().catch(() => 0)) {
-      return {
-        strategyUsed: `direct:${selector}`,
-        click: async () => {
-          await direct.scrollIntoViewIfNeeded().catch(() => {});
-          return !!(await direct.click({ timeout: 8000 }).then(() => true).catch(() => false));
-        }
-      };
-    }
+  // Scope to top-card area to avoid sidebar "People you may know" Connect buttons (mirrors Chrome extension)
+  const TOP_CARD = '.pv-top-card, .profile-topcard, section.pv-top-card, .pv-top-card-v2-ctas, [data-view-name="profile-card"]';
+
+  async function getRoot() {
+    const topCard = page.locator(TOP_CARD).first();
+    if (await topCard.count().catch(() => 0)) return topCard;
+    return page.locator('body');
   }
 
-  const moreSelectors = [
-    'button:has-text("More")',
-    'button[aria-label="More actions"]',
-    'button[aria-label*="More actions"]',
-    'button[aria-label*="More"]',
-    'button.artdeco-dropdown-trigger',
-    '[data-control-name="overflow_menu"]',
-    'button[aria-haspopup="true"][aria-expanded="false"]'
-  ];
-  for (const selector of moreSelectors) {
-    const more = page.locator(selector).first();
-    if (await more.count().catch(() => 0)) {
+  // Retry loop: Chrome extension uses 8 attempts with 700ms waits between failures
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const root = await getRoot();
+
+    // ─── Strategy 1: Direct Connect/Invite button (exact text match) ───
+    const directBtn = root.locator(
+      [
+        'button:text-matches("^Connect$", "i")',
+        'button:text-matches("^Invite$", "i")',
+        'button[aria-label*="Connect"]',
+        'button[aria-label*="Invite"]',
+        'button[data-control-name="connect"]',
+        '[data-tracking-control-name="connect"] button',
+        'div[role="button"]:text-matches("^Connect$", "i")',
+        'a:text-matches("^Connect$", "i")',
+      ].join(', ')
+    ).first();
+
+    if (await directBtn.count().catch(() => 0)) {
       return {
-        strategyUsed: `more_menu:${selector}`,
+        strategyUsed: `direct:attempt_${attempt}`,
         click: async () => {
-          await more.scrollIntoViewIfNeeded().catch(() => {});
-          await more.click({ timeout: 8000 }).catch(() => {});
-          const menuConnect = page.locator(
-            [
-              '[role="menu"] button:has-text("Connect")',
-              '[role="menu"] button[aria-label*="Connect"]',
-              '[role="menu"] button[aria-label*="Invite"]',
-              '[role="menuitem"]:has-text("Connect")',
-              '.artdeco-dropdown__content button:has-text("Connect")',
-              '.artdeco-dropdown__content button[aria-label*="Connect"]',
-              '.artdeco-dropdown__content button[aria-label*="Invite"]',
-              'div[role="menuitem"]:has-text("Connect")'
-            ].join(', ')
-          ).first();
-          if (await menuConnect.count().catch(() => 0)) {
+          await directBtn.scrollIntoViewIfNeeded().catch(() => {});
+          return !!(await directBtn.click({ timeout: 8000 }).then(() => true).catch(() => false));
+        },
+      };
+    }
+
+    // ─── Strategy 2: Open "More" dropdown, then find Connect inside ───
+    const moreBtn = root.locator(
+      [
+        'button:text-matches("^More$", "i")',
+        'button[aria-label="More actions"]',
+        'button[aria-label*="More actions"]',
+        'button[aria-label*="More"]',
+        'button.artdeco-dropdown__trigger[aria-haspopup="menu"]',
+      ].join(', ')
+    ).first();
+
+    if (await moreBtn.count().catch(() => 0)) {
+      // Check if already expanded from a prior attempt
+      const isExpanded = (await moreBtn.getAttribute('aria-expanded').catch(() => null)) === 'true';
+      if (!isExpanded) {
+        await moreBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await moreBtn.click({ timeout: 8000 }).catch(() => {});
+        // Wait for dropdown animation — Chrome extension waits 500 + random(300)ms
+        await page.waitForTimeout(500 + Math.floor(Math.random() * 300));
+      }
+
+      // Search for Connect in dropdown menu (GLOBAL scope — menu DOM may render outside top card)
+      const menuConnect = page.locator(
+        [
+          'div[role="menu"] div[role="menuitem"]:text-matches("connect|invite", "i")',
+          'div[role="menu"] li:text-matches("connect|invite", "i")',
+          'div[role="menu"] button:text-matches("connect|invite", "i")',
+          'div[role="menu"] span:text-matches("^Connect$", "i")',
+          'ul[role="menu"] div[role="menuitem"]:text-matches("connect|invite", "i")',
+          '.artdeco-dropdown__content div[role="menuitem"]:text-matches("connect|invite", "i")',
+          '.artdeco-dropdown__content button:text-matches("connect|invite", "i")',
+          '.artdeco-dropdown__content-inner div[role="menuitem"]:text-matches("connect|invite", "i")',
+        ].join(', ')
+      ).first();
+
+      if (await menuConnect.count().catch(() => 0)) {
+        return {
+          strategyUsed: `more_menu:attempt_${attempt}`,
+          click: async () => {
+            // Menu is already open — just click the Connect item
             await menuConnect.click({ timeout: 8000 }).catch(() => {});
             return true;
-          }
-          return false;
-        }
+          },
+        };
+      }
+
+      // Close the dropdown before retrying
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(300);
+    }
+
+    // ─── Strategy 3: Brute-force search for any Connect-like element ───
+    const bruteBtn = root.locator(
+      [
+        'button:text-matches("connect|invite", "i")',
+        'a:text-matches("connect|invite", "i")',
+        '[role="menuitem"]:text-matches("connect|invite", "i")',
+        '[role="button"]:text-matches("connect|invite", "i")',
+      ].join(', ')
+    ).first();
+
+    if (await bruteBtn.count().catch(() => 0)) {
+      return {
+        strategyUsed: `brute:attempt_${attempt}`,
+        click: async () => {
+          await bruteBtn.scrollIntoViewIfNeeded().catch(() => {});
+          return !!(await bruteBtn.click({ timeout: 8000 }).then(() => true).catch(() => false));
+        },
       };
     }
-  }
 
-  const overflow = page.locator('button[aria-label*="More"], button[aria-label*="More actions"]').first();
-  if (await overflow.count().catch(() => 0)) {
-    return {
-      strategyUsed: 'overflow_menu',
-      click: async () => {
-        await overflow.click({ timeout: 8000 }).catch(() => {});
-        const menuConnect = page.locator('[role="menu"] >> text=/^Connect$/').first();
-        if (await menuConnect.count().catch(() => 0)) {
-          await menuConnect.click({ timeout: 8000 }).catch(() => {});
-          return true;
-        }
-        return false;
-      }
-    };
+    // Scroll down on first attempt to reveal buttons below the fold
+    if (attempt === 0) {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.4)).catch(() => {});
+    }
+
+    // Wait before retrying — Chrome extension uses 700ms
+    await page.waitForTimeout(700);
   }
 
   return null;
@@ -202,12 +242,7 @@ export async function sendConnectRequest(
     return { status: 'skipped', details: { reason: `already_${state}`, error_code: `already_${state}` }, last_step: 'detect_state' };
   }
 
-  let entry = await findConnectEntrypoint(page);
-  if (!entry) {
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.4)).catch(() => {});
-    await page.waitForTimeout(800).catch(() => {});
-    entry = await findConnectEntrypoint(page);
-  }
+  const entry = await findConnectEntrypoint(page);
   if (!entry) return { status: 'skipped', details: { reason: 'connect_not_available', error_code: 'connect_not_available' }, last_step: 'find_entrypoint' };
   const clicked = await entry.click();
   if (!clicked) return { status: 'failed', details: { reason: 'connect_click_failed', error_code: 'connect_click_failed' }, strategyUsed: entry.strategyUsed, last_step: 'click_entrypoint' };
@@ -595,15 +630,20 @@ export async function sendConnectionRequestOnPage(
   page: Page,
   profileUrl: string,
   note?: string | null,
-  debug?: ActionDebug
+  debug?: ActionDebug,
+  opts?: { skipNavigation?: boolean }
 ): Promise<{ status: 'sent_verified' | 'already_connected' | 'already_pending' | 'restricted' | 'skipped' | 'failed' | 'failed_verification'; details?: any }> {
   const url = normalizeLinkedInProfileUrl(profileUrl);
   if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url', error_code: 'invalid_profile_url' } };
 
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await waitForProfileReady(page);
-  if (isAuthWallUrl(page.url())) {
-    throw new Error('LINKEDIN_AUTH_REQUIRED');
+  // When called from hybrid path, SessionManager already navigated + waited for profile.
+  // Navigating again wastes time and undoes the careful waitForSelector() the manager did.
+  if (!opts?.skipNavigation) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await waitForProfileReady(page);
+    if (isAuthWallUrl(page.url())) {
+      throw new Error('LINKEDIN_AUTH_REQUIRED');
+    }
   }
 
   // Quick already-connected/pending heuristics
@@ -648,14 +688,17 @@ export async function sendMessageOnPage(
   page: Page,
   profileUrl: string,
   message: string,
-  debug?: ActionDebug
+  debug?: ActionDebug,
+  opts?: { skipNavigation?: boolean }
 ): Promise<{ status: 'sent_verified' | 'not_1st_degree' | 'skipped' | 'failed' | 'failed_verification'; details?: any }> {
   const url = normalizeLinkedInProfileUrl(profileUrl);
   if (!url) return { status: 'failed', details: { reason: 'invalid_profile_url', error_code: 'invalid_profile_url' } };
   const msg = String(message || '').trim();
   if (!msg) return { status: 'skipped', details: { reason: 'empty_message', error_code: 'empty_message' } };
 
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  if (!opts?.skipNavigation) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+  }
 
   // Must be 1st-degree: Message button visible
   const messageBtn = page.locator('button:has-text("Message")').first();
