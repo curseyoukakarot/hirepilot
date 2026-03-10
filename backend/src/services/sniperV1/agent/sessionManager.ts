@@ -174,6 +174,27 @@ export class SessionManager {
           continue;
         }
 
+        // All retries exhausted with proxy/tunnel errors → the session's proxy died mid-job.
+        // Recover with a new session (= new proxy) instead of failing the whole job.
+        if (attempt >= MAX_NAV_RETRIES && isTransientNetworkError(navErr)) {
+          console.error(
+            `[session-mgr] All ${MAX_NAV_RETRIES} navigation retries failed with proxy error for ${profileUrl}. Triggering session recovery…`,
+          );
+          const freshPage = await this.recover();
+          // One more try on the fresh session
+          await freshPage.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+          if (isAuthWallUrl(freshPage.url())) {
+            throw new Error('LINKEDIN_AUTH_REQUIRED: Browser session landed on login/checkpoint page');
+          }
+          if (isProfilePage) {
+            await freshPage.waitForSelector(ACTION_BTN_SELECTOR, { timeout: 10_000 }).catch(() => {
+              console.warn('[session-mgr] Profile action buttons did not appear within 10s after recovery — proceeding anyway');
+            });
+          }
+          if (this.session) this.session.itemsProcessed++;
+          return freshPage;
+        }
+
         // Final attempt or unknown error — propagate
         if (attempt >= MAX_NAV_RETRIES) {
           console.error(`[session-mgr] All ${MAX_NAV_RETRIES} navigation attempts failed for ${profileUrl}: ${msg}`);
@@ -266,29 +287,75 @@ export class SessionManager {
   // -------------------------------------------------------------------------
 
   private async _createSession(): Promise<Page> {
-    console.log(`[session-mgr] Creating new session for job ${this.jobId} (context: ${this.contextId.slice(0, 8)}…)`);
+    const MAX_SESSION_ATTEMPTS = 3;
 
-    const sessionInfo: BrowserbaseSessionInfo = await createSession({
-      contextId: this.contextId,
-      timeoutMinutes: this.timeoutMinutes,
-    });
+    for (let sessionAttempt = 1; sessionAttempt <= MAX_SESSION_ATTEMPTS; sessionAttempt++) {
+      console.log(
+        `[session-mgr] Creating new session for job ${this.jobId} (context: ${this.contextId.slice(0, 8)}…)` +
+          (sessionAttempt > 1 ? ` [attempt ${sessionAttempt}/${MAX_SESSION_ATTEMPTS} — previous proxy was dead]` : ''),
+      );
 
-    const conn = await connectPlaywright(sessionInfo.sessionId);
+      const sessionInfo: BrowserbaseSessionInfo = await createSession({
+        contextId: this.contextId,
+        timeoutMinutes: this.timeoutMinutes,
+      });
 
-    this.session = {
-      sessionId: sessionInfo.sessionId,
-      browser: conn.browser,
-      page: conn.page,
-      createdAt: Date.now(),
-      itemsProcessed: 0,
-    };
+      const conn = await connectPlaywright(sessionInfo.sessionId);
 
-    // Skip /feed auth check — navigateToProfile() already checks for auth walls
-    // when it navigates to the actual profile URL. Going to /feed first wastes
-    // an entire page load + 2s and was causing sessions to die before reaching profiles.
-    console.log(`[session-mgr] Session ${sessionInfo.sessionId} created for job ${this.jobId} — auth will be verified on first profile navigation`);
+      this.session = {
+        sessionId: sessionInfo.sessionId,
+        browser: conn.browser,
+        page: conn.page,
+        createdAt: Date.now(),
+        itemsProcessed: 0,
+      };
 
-    return this.session.page;
+      // --- Proxy health check ---
+      // Navigate to a lightweight LinkedIn page to verify the proxy tunnel works.
+      // Browserbase assigns ONE residential proxy per session — if it's dead,
+      // every request in this session will fail. Catch it early.
+      try {
+        await conn.page.goto('https://www.linkedin.com/robots.txt', {
+          waitUntil: 'domcontentloaded',
+          timeout: 15_000,
+        });
+
+        const title = await conn.page.title().catch(() => '');
+        const url = conn.page.url();
+        if (
+          title.includes("can't be reached") ||
+          title.includes('is not available') ||
+          url === 'about:blank' ||
+          url.startsWith('chrome-error://')
+        ) {
+          throw new Error('Proxy health check failed: page showed connection error');
+        }
+
+        console.log(`[session-mgr] Session ${sessionInfo.sessionId} proxy health check passed ✓`);
+        return this.session.page;
+      } catch (healthErr: any) {
+        const msg = String(healthErr?.message || '');
+        console.warn(
+          `[session-mgr] Proxy health check FAILED for session ${sessionInfo.sessionId}: ${msg}`,
+        );
+
+        // Teardown the bad session
+        await this._teardown();
+
+        if (sessionAttempt >= MAX_SESSION_ATTEMPTS) {
+          throw new Error(
+            `SessionManager: proxy health check failed after ${MAX_SESSION_ATTEMPTS} session attempts for job ${this.jobId}: ${msg}`,
+          );
+        }
+
+        // Brief pause before creating a new session (new proxy assignment)
+        console.log(`[session-mgr] Will create new session with fresh proxy in 2s…`);
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
+    // Should never reach here, but satisfy TS
+    throw new Error('SessionManager: _createSession() exhausted all attempts');
   }
 
   private async _teardown(): Promise<void> {
