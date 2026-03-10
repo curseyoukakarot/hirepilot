@@ -365,7 +365,7 @@ Go to the profile URL. Wait for the page to fully load.
 
 **CRITICAL: Before doing ANYTHING else, verify the profile page has actually rendered:**
 - You MUST see the person's name, headline, and profile photo area in the DOM or screenshot
-- You MUST see action buttons in the profile header (Connect, Message, Follow, Pending, or More)
+- You MUST see action buttons in the profile header — these could be: Connect, Message, Follow, Pending, More, OR a "..." three-dot icon button (look for buttons with aria-label="More actions" or class containing "artdeco-dropdown")
 - If the page shows a loading spinner, skeleton placeholders, or a blank/empty page → use a "wait" action (2000ms) and check again
 - If after 2 wait attempts the profile still hasn't loaded, use an "error" action with message "PROFILE_PAGE_NOT_LOADED"
 - NEVER determine connection state from a page that hasn't fully rendered — this causes false positives
@@ -376,14 +376,37 @@ ONLY after confirming the profile has fully loaded (you can see the person's nam
 - If you see a "Message" button AND no "Connect" button (already connected) → report done with status "already_connected"
 - If none of the above, proceed to Step 3
 
-**IMPORTANT:** If you don't see ANY action buttons (no Connect, no Message, no Pending, no Follow), the page has NOT loaded properly. Do NOT report "already_pending" or "already_connected" — instead use a "wait" action and retry.
+**IMPORTANT:** If you don't see ANY action buttons (no Connect, no Message, no Pending, no Follow, no "..." dropdown), the page has NOT loaded properly. Do NOT report "already_pending" or "already_connected" — instead use a "wait" action and retry.
 
 ### Step 3: Find and click the "Connect" button
-The Connect button can be in several places — try them IN ORDER:
-1. **Primary action bar**: Look for a visible "Connect" button next to "Message" / "Follow" in the profile header
-2. **"More" dropdown**: If no Connect button is visible, click the "More" button (three dots "..." icon, or text "More", or aria-label "More actions"). In the dropdown menu, look for "Connect"
-3. **"More" in the intro card**: Some profiles have a secondary "More" button inside the intro/hero card area
-4. If Connect is not found in any of these locations after trying all three, report done with status "restricted"
+The Connect button can be in MANY different places on LinkedIn — you MUST try ALL of these IN ORDER before giving up:
+
+**3a. Direct Connect button in the action bar:**
+Look for a visible "Connect" button in the profile header next to "Message" / "Follow".
+Common selectors: button:has-text("Connect"), button[aria-label*="Connect"], button[aria-label*="Invite"]
+
+**3b. Three-dot "..." dropdown menu (VERY COMMON — DO NOT SKIP THIS):**
+On many LinkedIn profiles, the Connect button is HIDDEN inside a "..." dropdown menu. This is an icon-only button that shows three dots (⋯ or •••).
+- Look for buttons with: aria-label="More actions", aria-label containing "More", class containing "artdeco-dropdown", or a button with aria-haspopup="true"
+- It may appear as just "..." or "⋯" with NO text label — look in the DOM snapshot for buttons with these aria-labels near the profile header
+- Click this "..." button FIRST to open the dropdown menu
+- Then wait 500-1000ms for the dropdown to animate open
+- In the dropdown, look for "Connect" or "Invite [Name] to connect" — these are inside a [role="menu"] or .artdeco-dropdown__content container
+- Common selectors for the dropdown trigger: button[aria-label="More actions"], button.artdeco-dropdown__trigger, button[aria-haspopup="true"]
+- Common selectors for Connect inside the menu: [role="menuitem"]:has-text("Connect"), .artdeco-dropdown__content button:has-text("Connect"), [role="menu"] button[aria-label*="Invite"]
+
+**3c. "More" text button:**
+Some profiles show a button with the text "More" instead of "..." — click it and look for "Connect" in the dropdown
+
+**3d. Secondary "More" in the intro card:**
+Some profiles have a secondary overflow button inside the intro/hero card area
+
+**3e. Scroll down slightly:**
+If no action buttons are visible, the profile action bar may be below the fold. Scroll down 200-300px and check again for Connect or "..." buttons.
+
+**3f. ONLY after trying ALL of the above** (3a through 3e), if Connect is still not found anywhere, THEN report done with status "restricted"
+
+**CRITICAL: NEVER report "restricted" without first trying the "..." dropdown menu.** On many profiles, Connect is ONLY available through the three-dot dropdown — this is completely normal LinkedIn behavior, not a restriction.
 
 ### Step 4: Handle the invitation modal
 After clicking Connect, a modal will appear. Read it carefully:
@@ -526,7 +549,7 @@ Go to the profile URL (Sales Navigator URL like /sales/lead/... or /sales/people
 
 **CRITICAL: Before doing ANYTHING else, verify the profile page has actually rendered:**
 - You MUST see the person's name, headline, and profile information in the DOM or screenshot
-- You MUST see action buttons (Connect, Message, Pending, Save, or More)
+- You MUST see action buttons (Connect, Message, Pending, Save, More, or a "..." three-dot icon button)
 - If the page shows a loading spinner, skeleton placeholders, or a blank/empty page → use a "wait" action (2000ms) and check again
 - If after 2 wait attempts the profile still hasn't loaded, use an "error" action with message "PROFILE_PAGE_NOT_LOADED"
 - NEVER determine connection state from a page that hasn't fully rendered — this causes false positives
@@ -540,12 +563,23 @@ ONLY after confirming the profile has fully loaded (you can see the person's nam
 **IMPORTANT:** If you don't see ANY action buttons, the page has NOT loaded properly. Do NOT report "already_pending" or "already_connected" — instead use a "wait" action and retry.
 
 ### Step 3: Find and click the "Connect" button
-The Connect button can be in several places on Sales Navigator — try them IN ORDER:
-1. **Profile header action bar**: Look for a visible "Connect" button
-2. **"More" or "..." dropdown**: Click the "More" button, three-dot icon, or "..." menu. Look for "Connect" in the dropdown
-3. **Save/action buttons area**: Some SN layouts put Connect in a secondary action area
-4. Common selectors: button[data-control-name="connect"], [aria-label*="connect" i]
-5. If Connect is not found after trying all locations, report done with status "restricted"
+The Connect button can be in MANY different places — you MUST try ALL of these IN ORDER before giving up:
+
+**3a. Direct Connect button**: Look for a visible "Connect" button in the profile header action bar
+Common selectors: button:has-text("Connect"), button[data-control-name="connect"], [aria-label*="connect" i]
+
+**3b. Three-dot "..." dropdown menu (VERY COMMON — DO NOT SKIP THIS):**
+On many profiles, Connect is HIDDEN inside a "..." or "More" dropdown. This button often shows as just three dots with no text.
+- Look for: button[aria-label="More actions"], button[aria-label*="More"], button.artdeco-dropdown__trigger, button[aria-haspopup="true"]
+- Click it to open a dropdown menu
+- In the dropdown, look for "Connect" in [role="menu"] or .artdeco-dropdown__content
+- Common selectors inside menu: [role="menuitem"]:has-text("Connect"), .artdeco-dropdown__content button:has-text("Connect")
+
+**3c. Save/action buttons area**: Some SN layouts put Connect in a secondary action area
+
+**3d. ONLY after trying ALL of the above**, if Connect is still not found, THEN report done with status "restricted"
+
+**CRITICAL: NEVER report "restricted" without first trying the "..." dropdown menu.** Connect is frequently hidden in the dropdown.
 
 ### Step 4: Handle the invitation modal
 After clicking Connect, a modal will appear. Read it carefully:

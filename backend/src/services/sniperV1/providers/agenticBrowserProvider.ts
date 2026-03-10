@@ -125,9 +125,19 @@ async function runWithSession<T>(
       // LinkedIn loads these buttons asynchronously — without this, the agent may see stale/missing elements.
       if (isProfilePage) {
         await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
-        // Extra settle: wait for the profile action bar to appear in the DOM
+        // Extra settle: wait for the profile action bar to appear in the DOM.
+        // LinkedIn profiles may show "Connect", "Message", "Follow", "Pending", "More",
+        // OR a "..." (three-dot) icon button via artdeco-dropdown-trigger or aria-label="More actions".
         await page.waitForSelector(
-          'button:has-text("Connect"), button:has-text("Pending"), button:has-text("Message"), button:has-text("Follow"), button:has-text("More")',
+          [
+            'button:has-text("Connect")',
+            'button:has-text("Pending")',
+            'button:has-text("Message")',
+            'button:has-text("Follow")',
+            'button:has-text("More")',
+            'button[aria-label="More actions"]',
+            'button.artdeco-dropdown__trigger',
+          ].join(', '),
           { timeout: 8_000 }
         ).catch(() => {
           console.warn('[agentic-browser] Profile action buttons did not appear within 8s — proceeding anyway');
