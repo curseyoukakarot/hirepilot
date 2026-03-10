@@ -65,11 +65,11 @@ async function waitForCondition(fn: () => Promise<boolean>, timeoutMs = 8000, po
   return false;
 }
 
-function isAuthWallUrl(url: string): boolean {
+export function isAuthWallUrl(url: string): boolean {
   return /linkedin\.com\/(login|checkpoint|authwall)/i.test(url);
 }
 
-async function waitForProfileReady(page: Page) {
+export async function waitForProfileReady(page: Page) {
   await page.waitForLoadState('domcontentloaded').catch(() => {});
   await page.waitForTimeout(1200).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});

@@ -14,6 +14,19 @@ import {
 import { fetchSniperV1Settings, countActionsSince, isWithinActiveHours } from '../services/sniperV1/settings';
 import { applyCooldown, getUsageSnapshot, isCooldownActive, recordActionUsage } from '../services/sniperV1/throttle';
 import { getProvider } from '../services/sniperV1/providers';
+import {
+  requireBrowserbaseAuth,
+  sendConnectionRequestWithPage,
+  sendMessageWithPage,
+  runAgentTaskWithPage,
+  SessionManager,
+  isSessionDeadError,
+} from '../services/sniperV1/providers/agenticBrowserProvider';
+import {
+  getSalesNavConnectPrompt,
+  getSalesNavInMailPrompt,
+  getSalesNavMessagePrompt,
+} from '../services/sniperV1/agent/prompts';
 import { notifySniperJobFinished } from '../services/sniperV1/notifications';
 import { invokeAgentWebhook } from '../services/airtop/agentWebhooks';
 import { CreditService } from '../../services/creditService';
@@ -353,104 +366,147 @@ export const sniperV1Worker = new Worker(
       }
 
       if (jobRow.job_type === 'send_connect_requests') {
-        // Agentic browser: process connect requests sequentially per item
+        // Agentic browser: process connect requests with SESSION REUSE + HYBRID approach
         if (providerName === 'agentic_browser') {
           const jobLevelNote = String(jobRow.input_json?.note || '').trim() || null;
           const items = await listJobItems(jobId, 5000);
           const debug = { jobId, enabled: Boolean(jobRow.input_json?.debug) };
           let paused = false;
 
-          for (const it of items) {
-            if (!['queued', 'running'].includes(it.status)) continue;
-            if (it.scheduled_for) {
-              const due = new Date(it.scheduled_for).getTime();
-              if (Number.isFinite(due) && Date.now() < due) continue;
-            }
-            if (!isWithinActiveHours(new Date(), settings)) break;
+          // SESSION REUSE: One session for the entire job
+          const contextId = await requireBrowserbaseAuth(jobRow.created_by, jobRow.workspace_id);
+          const sessionMgr = new SessionManager({ contextId, jobId, timeoutMinutes: 30 });
 
-            const hourSince = dayjs().subtract(1, 'hour').toISOString();
-            const daySince = dayjs().startOf('day').toISOString();
-            const usedHour = await countActionsSince(jobRow.workspace_id, hourSince);
-            const usedDay = await countActionsSince(jobRow.workspace_id, daySince);
-            if (usedHour >= settings.max_actions_per_hour || usedDay >= settings.max_actions_per_day) {
-              const deferMinutes = usedHour >= settings.max_actions_per_hour ? 60 : 30;
-              await updateJobItem(it.id, { status: 'queued', scheduled_for: dayjs().add(deferMinutes, 'minute').toISOString(), error_message: 'throttled: cap reached' } as any);
-              continue;
-            }
+          try {
+            await sessionMgr.acquire(); // Create session + authenticate once
 
-            const usage = await getUsageSnapshot({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings });
-            if (isCooldownActive(usage.cooldown_until)) {
-              const nextRun = usage.cooldown_until || nextThrottleRunAt();
-              await updateJob(jobId, { status: 'paused_cooldown', next_run_at: nextRun, error_code: 'cooldown_active', error_message: `Cooldown active until ${nextRun}` } as any);
-              await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'cooldown_active' } as any);
-              await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
-              paused = true;
-              break;
-            }
-            if (isConnectCapExceeded(usage, settings)) {
-              const nextRun = nextThrottleRunAt();
-              await updateJob(jobId, { status: 'paused_throttled', next_run_at: nextRun, error_code: 'throttled_daily_limit', error_message: 'Daily cap reached' } as any);
-              await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'throttled: cap reached' } as any);
-              await sniperV1Queue.add('sniper_v1', { jobId }, { delay: 24 * 60 * 60_000 });
-              paused = true;
-              break;
-            }
-
-            await updateJobItem(it.id, { status: 'running', error_message: null } as any);
-            try {
-              // Per-item note (bulk personalized) takes priority over job-level note
-              const itemNote = String(it.result_json?.note || jobLevelNote || '').trim() || null;
-              const res = await provider.sendConnectionRequest({
-                userId: jobRow.created_by,
-                workspaceId: jobRow.workspace_id,
-                profileUrl: it.profile_url,
-                note: itemNote,
-                debug,
-              });
-              try {
-                if (res.status === 'sent_verified') {
-                  await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'connect' });
-                } else {
-                  await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'profile_visit' });
-                }
-              } catch {}
-
-              const status =
-                res.status === 'sent_verified' ? 'succeeded_verified' :
-                res.status === 'already_connected' ? 'succeeded_noop_already_connected' :
-                res.status === 'already_pending' ? 'succeeded_noop_already_pending' :
-                res.status === 'restricted' ? 'failed_restricted' :
-                (res.status === 'skipped' ? 'skipped' : 'failed');
-              await updateJobItem(it.id, {
-                status,
-                result_json: res,
-                error_message: status === 'failed' ? (res as any)?.details?.reason || null : null,
-                error_code: (res as any)?.details?.error_code || null,
-                strategy_used: (res as any)?.details?.strategy || null,
-              } as any);
-            } catch (e: any) {
-              const errMsg = String(e?.message || e);
-              const isTimeout = errMsg.includes('Timeout') || errMsg.includes('timeout');
-              const retryCount = Number((it as any).result_json?.retry_count || 0);
-
-              if (isTimeout && retryCount < 1) {
-                // Timeout on first attempt — re-queue for retry instead of permanent failure
-                console.warn(`[sniper-connect] Timeout on item ${it.id}, re-queuing for retry (attempt ${retryCount + 1})`);
-                await updateJobItem(it.id, {
-                  status: 'queued',
-                  error_message: `Timeout (will retry) — ${errMsg.slice(0, 120)}`,
-                  result_json: { ...(it.result_json || {}), retry_count: retryCount + 1 },
-                } as any);
-              } else {
-                await updateJobItem(it.id, { status: 'failed', error_message: errMsg } as any);
+            for (const it of items) {
+              if (!['queued', 'running'].includes(it.status)) continue;
+              if (it.scheduled_for) {
+                const due = new Date(it.scheduled_for).getTime();
+                if (Number.isFinite(due) && Date.now() < due) continue;
               }
-            }
+              if (!isWithinActiveHours(new Date(), settings)) break;
 
-            const delaySec = clamp(
-              settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds + 1)),
-              1, 3600
-            );
-            await sleep(delaySec * 1000);
+              // Re-check job status (user may have canceled/paused)
+              const freshJob = await getJob(jobId);
+              if (freshJob?.status === 'canceled' || freshJob?.status === 'paused_cooldown' || freshJob?.status === 'paused_throttled') {
+                paused = freshJob.status !== 'canceled';
+                break;
+              }
+
+              const hourSince = dayjs().subtract(1, 'hour').toISOString();
+              const daySince = dayjs().startOf('day').toISOString();
+              const usedHour = await countActionsSince(jobRow.workspace_id, hourSince);
+              const usedDay = await countActionsSince(jobRow.workspace_id, daySince);
+              if (usedHour >= settings.max_actions_per_hour || usedDay >= settings.max_actions_per_day) {
+                const deferMinutes = usedHour >= settings.max_actions_per_hour ? 60 : 30;
+                await updateJobItem(it.id, { status: 'queued', scheduled_for: dayjs().add(deferMinutes, 'minute').toISOString(), error_message: 'throttled: cap reached' } as any);
+                continue;
+              }
+
+              const usage = await getUsageSnapshot({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings });
+              if (isCooldownActive(usage.cooldown_until)) {
+                const nextRun = usage.cooldown_until || nextThrottleRunAt();
+                await updateJob(jobId, { status: 'paused_cooldown', next_run_at: nextRun, error_code: 'cooldown_active', error_message: `Cooldown active until ${nextRun}` } as any);
+                await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'cooldown_active' } as any);
+                await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
+                paused = true;
+                break;
+              }
+              if (isConnectCapExceeded(usage, settings)) {
+                const nextRun = nextThrottleRunAt();
+                await updateJob(jobId, { status: 'paused_throttled', next_run_at: nextRun, error_code: 'throttled_daily_limit', error_message: 'Daily cap reached' } as any);
+                await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'throttled: cap reached' } as any);
+                await sniperV1Queue.add('sniper_v1', { jobId }, { delay: 24 * 60 * 60_000 });
+                paused = true;
+                break;
+              }
+
+              await updateJobItem(it.id, { status: 'running', error_message: null } as any);
+              try {
+                const itemNote = String(it.result_json?.note || jobLevelNote || '').trim() || null;
+
+                // HYBRID: Navigate with session manager, use deterministic-first connect
+                const page = await sessionMgr.navigateToProfile(it.profile_url);
+                const res = await sendConnectionRequestWithPage(page, {
+                  profileUrl: it.profile_url,
+                  note: itemNote,
+                  workspaceId: jobRow.workspace_id,
+                  debug,
+                });
+
+                try {
+                  if (res.status === 'sent_verified') {
+                    await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'connect' });
+                  } else {
+                    await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'profile_visit' });
+                  }
+                } catch {}
+
+                const status =
+                  res.status === 'sent_verified' ? 'succeeded_verified' :
+                  res.status === 'already_connected' ? 'succeeded_noop_already_connected' :
+                  res.status === 'already_pending' ? 'succeeded_noop_already_pending' :
+                  res.status === 'restricted' ? 'failed_restricted' :
+                  (res.status === 'skipped' ? 'skipped' : 'failed');
+                await updateJobItem(it.id, {
+                  status,
+                  result_json: res,
+                  error_message: status === 'failed' ? (res as any)?.details?.reason || null : null,
+                  error_code: (res as any)?.details?.error_code || null,
+                  strategy_used: (res as any)?.details?.strategy || (res as any)?.details?.method || null,
+                } as any);
+              } catch (e: any) {
+                const errMsg = String(e?.message || e);
+
+                // Session died — try to recover and retry this item
+                if (isSessionDeadError(e)) {
+                  console.warn(`[sniper-connect] Session died on item ${it.id}, recovering…`);
+                  try {
+                    const recoveredPage = await sessionMgr.recover();
+                    await recoveredPage.goto(it.profile_url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+                    const itemNote = String(it.result_json?.note || jobLevelNote || '').trim() || null;
+                    const retryRes = await sendConnectionRequestWithPage(recoveredPage, {
+                      profileUrl: it.profile_url,
+                      note: itemNote,
+                      workspaceId: jobRow.workspace_id,
+                      debug,
+                    });
+                    const retryStatus =
+                      retryRes.status === 'sent_verified' ? 'succeeded_verified' :
+                      retryRes.status === 'already_connected' ? 'succeeded_noop_already_connected' :
+                      retryRes.status === 'already_pending' ? 'succeeded_noop_already_pending' :
+                      retryRes.status === 'restricted' ? 'failed_restricted' : 'failed';
+                    await updateJobItem(it.id, { status: retryStatus, result_json: retryRes, error_message: retryStatus === 'failed' ? (retryRes as any)?.details?.reason || null : null } as any);
+                  } catch (recoveryErr: any) {
+                    await updateJobItem(it.id, { status: 'failed', error_message: `Session recovery failed: ${String(recoveryErr?.message || recoveryErr).slice(0, 200)}` } as any);
+                  }
+                } else {
+                  const isTimeout = errMsg.includes('Timeout') || errMsg.includes('timeout');
+                  const retryCount = Number((it as any).result_json?.retry_count || 0);
+
+                  if (isTimeout && retryCount < 1) {
+                    console.warn(`[sniper-connect] Timeout on item ${it.id}, re-queuing for retry (attempt ${retryCount + 1})`);
+                    await updateJobItem(it.id, {
+                      status: 'queued',
+                      error_message: `Timeout (will retry) — ${errMsg.slice(0, 120)}`,
+                      result_json: { ...(it.result_json || {}), retry_count: retryCount + 1 },
+                    } as any);
+                  } else {
+                    await updateJobItem(it.id, { status: 'failed', error_message: errMsg } as any);
+                  }
+                }
+              }
+
+              const delaySec = clamp(
+                settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds + 1)),
+                1, 3600
+              );
+              await sleep(delaySec * 1000);
+            }
+          } finally {
+            await sessionMgr.release(); // Clean up session at end of job
           }
 
           if (paused) return { ok: true, paused: true };
@@ -461,7 +517,6 @@ export const sniperV1Worker = new Worker(
             (summary.failed > 0 && summary.success > 0) ? 'partially_succeeded' :
             (summary.failed > 0 && summary.success === 0) ? 'failed' : 'succeeded';
           await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
-          // Deduct credits for successful connect requests (5 per success)
           if (summary.success > 0) {
             try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.connect_per_success, 'api_usage', `Cloud Engine: Connect Requests (${summary.success} sent)`); } catch (e: any) {
               console.warn('[sniper] credit deduction failed for send_connect_requests:', e?.message);
@@ -527,100 +582,110 @@ export const sniperV1Worker = new Worker(
         const items = await listJobItems(jobId, 5000);
         const debug = { jobId, enabled: Boolean(jobRow.input_json?.debug) };
         let paused = false;
-        for (const it of items) {
-          if (!['queued', 'running'].includes(it.status)) continue;
-          if (it.scheduled_for) {
-            const due = new Date(it.scheduled_for).getTime();
-            if (Number.isFinite(due) && Date.now() < due) continue;
-          }
-          if (!isWithinActiveHours(new Date(), settings)) break;
 
-          const hourSince = dayjs().subtract(1, 'hour').toISOString();
-          const daySince = dayjs().startOf('day').toISOString();
-          const usedHour = await countActionsSince(jobRow.workspace_id, hourSince);
-          const usedDay = await countActionsSince(jobRow.workspace_id, daySince);
-          if (usedHour >= settings.max_actions_per_hour || usedDay >= settings.max_actions_per_day) {
-            const deferMinutes = usedHour >= settings.max_actions_per_hour ? 60 : 30;
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: dayjs().add(deferMinutes, 'minute').toISOString(), error_message: 'throttled: cap reached' } as any);
-            continue;
-          }
+        // SESSION REUSE: One session for the entire message job
+        const contextId = await requireBrowserbaseAuth(jobRow.created_by, jobRow.workspace_id);
+        const sessionMgr = new SessionManager({ contextId, jobId, timeoutMinutes: 30 });
 
-          const usage = await getUsageSnapshot({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings });
-          if (isCooldownActive(usage.cooldown_until)) {
-            const nextRun = usage.cooldown_until || nextThrottleRunAt();
-            await updateJob(jobId, {
-              status: 'paused_cooldown',
-              next_run_at: nextRun,
-              error_code: 'cooldown_active',
-              error_message: `Cooldown active until ${nextRun}`
-            } as any);
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'cooldown_active' } as any);
-            await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
-            paused = true;
-            break;
-          }
-          if (isMessageCapExceeded(usage, settings)) {
-            const nextRun = nextThrottleRunAt();
-            await updateJob(jobId, {
-              status: 'paused_throttled',
-              next_run_at: nextRun,
-              error_code: 'throttled_daily_limit',
-              error_message: 'Daily cap reached'
-            } as any);
-            await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'throttled: cap reached' } as any);
-            await sniperV1Queue.add('sniper_v1', { jobId }, { delay: 24 * 60 * 60_000 });
-            paused = true;
-            break;
-          }
+        try {
+          await sessionMgr.acquire();
 
-          await updateJobItem(it.id, { status: 'running', error_message: null } as any);
-          try {
-            // Prefer per-item resolved message (from template token resolution) over job-level message
-            const itemMessage = (it as any).result_json?.message ?? message;
-            const res = await provider.sendMessage({
-              userId: jobRow.created_by,
-              workspaceId: jobRow.workspace_id,
-              profileUrl: it.profile_url,
-              message: itemMessage,
-              debug
-            });
+          for (const it of items) {
+            if (!['queued', 'running'].includes(it.status)) continue;
+            if (it.scheduled_for) {
+              const due = new Date(it.scheduled_for).getTime();
+              if (Number.isFinite(due) && Date.now() < due) continue;
+            }
+            if (!isWithinActiveHours(new Date(), settings)) break;
+
+            const freshJob = await getJob(jobId);
+            if (freshJob?.status === 'canceled' || freshJob?.status === 'paused_cooldown' || freshJob?.status === 'paused_throttled') {
+              paused = freshJob.status !== 'canceled';
+              break;
+            }
+
+            const hourSince = dayjs().subtract(1, 'hour').toISOString();
+            const daySince = dayjs().startOf('day').toISOString();
+            const usedHour = await countActionsSince(jobRow.workspace_id, hourSince);
+            const usedDay = await countActionsSince(jobRow.workspace_id, daySince);
+            if (usedHour >= settings.max_actions_per_hour || usedDay >= settings.max_actions_per_day) {
+              const deferMinutes = usedHour >= settings.max_actions_per_hour ? 60 : 30;
+              await updateJobItem(it.id, { status: 'queued', scheduled_for: dayjs().add(deferMinutes, 'minute').toISOString(), error_message: 'throttled: cap reached' } as any);
+              continue;
+            }
+
+            const usage = await getUsageSnapshot({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings });
+            if (isCooldownActive(usage.cooldown_until)) {
+              const nextRun = usage.cooldown_until || nextThrottleRunAt();
+              await updateJob(jobId, { status: 'paused_cooldown', next_run_at: nextRun, error_code: 'cooldown_active', error_message: `Cooldown active until ${nextRun}` } as any);
+              await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'cooldown_active' } as any);
+              await sniperV1Queue.add('sniper_v1', { jobId }, { delay: Math.max(60_000, new Date(nextRun).getTime() - Date.now()) });
+              paused = true;
+              break;
+            }
+            if (isMessageCapExceeded(usage, settings)) {
+              const nextRun = nextThrottleRunAt();
+              await updateJob(jobId, { status: 'paused_throttled', next_run_at: nextRun, error_code: 'throttled_daily_limit', error_message: 'Daily cap reached' } as any);
+              await updateJobItem(it.id, { status: 'queued', scheduled_for: nextRun, error_message: 'throttled: cap reached' } as any);
+              await sniperV1Queue.add('sniper_v1', { jobId }, { delay: 24 * 60 * 60_000 });
+              paused = true;
+              break;
+            }
+
+            await updateJobItem(it.id, { status: 'running', error_message: null } as any);
             try {
-              if (res.status === 'sent_verified') {
-                await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'message' });
+              const itemMessage = (it as any).result_json?.message ?? message;
+              const page = await sessionMgr.navigateToProfile(it.profile_url);
+              const res = await sendMessageWithPage(page, {
+                profileUrl: it.profile_url,
+                message: itemMessage,
+                workspaceId: jobRow.workspace_id,
+                debug,
+              });
+
+              try {
+                if (res.status === 'sent_verified') {
+                  await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'message' });
+                } else {
+                  await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'profile_visit' });
+                }
+              } catch {}
+
+              const status =
+                res.status === 'sent_verified' ? 'succeeded_verified' :
+                res.status === 'not_1st_degree' ? 'skipped' :
+                (res.status === 'skipped' ? 'skipped' : 'failed');
+              await updateJobItem(it.id, {
+                status,
+                result_json: res,
+                error_message: status === 'failed' ? (res as any)?.details?.reason || null : null,
+                error_code: (res as any)?.details?.error_code || null,
+                strategy_used: (res as any)?.details?.method || null,
+              } as any);
+            } catch (e: any) {
+              if (isSessionDeadError(e)) {
+                try {
+                  await sessionMgr.recover();
+                  await updateJobItem(it.id, { status: 'queued', error_message: 'Session died, will retry' } as any);
+                } catch {
+                  await updateJobItem(it.id, { status: 'failed', error_message: `Session recovery failed: ${String(e?.message || e).slice(0, 200)}` } as any);
+                }
               } else {
-                await recordActionUsage({ userId: jobRow.created_by, workspaceId: jobRow.workspace_id, settings, actionType: 'profile_visit' });
+                await updateJobItem(it.id, { status: 'failed', error_message: String(e?.message || e) } as any);
               }
-            } catch {}
+            }
 
-            const status =
-              res.status === 'sent_verified' ? 'succeeded_verified' :
-              res.status === 'not_1st_degree' ? 'skipped' :
-              res.status === 'failed_verification' ? 'failed_verification' :
-              (res.status === 'skipped' ? 'skipped' : 'failed');
-            await updateJobItem(it.id, {
-              status,
-              result_json: res,
-              error_message: status === 'failed' ? (res as any)?.details?.reason || null : null,
-              error_code: (res as any)?.details?.error_code || null,
-              last_step: (res as any)?.details?.last_step || null,
-              strategy_used: (res as any)?.details?.strategyUsed || null,
-              screenshot_path: (res as any)?.details?.screenshot || null
-            } as any);
-          } catch (e: any) {
-            await updateJobItem(it.id, { status: 'failed', error_message: String(e?.message || e) } as any);
+            const delaySec = clamp(
+              settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds + 1)),
+              1, 3600
+            );
+            await sleep(delaySec * 1000);
           }
-
-          const delaySec = clamp(
-            settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds + 1)),
-            1,
-            3600
-          );
-          await sleep(delaySec * 1000);
+        } finally {
+          await sessionMgr.release();
         }
 
-        if (paused) {
-          return { ok: true, paused: true };
-        }
+        if (paused) return { ok: true, paused: true };
 
         const summary = await summarizeJobItems(jobId);
         const finalStatus: any =
@@ -629,7 +694,6 @@ export const sniperV1Worker = new Worker(
           (summary.failed > 0 && summary.success === 0) ? 'failed' :
           'succeeded';
         await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
-        // Deduct credits for successful messages (5 per success)
         if (summary.success > 0) {
           try { await CreditService.deductCredits(jobRow.created_by, summary.success * MISSION_CREDITS.message_per_success, 'api_usage', `Cloud Engine: Send Messages (${summary.success} sent)`); } catch (e: any) {
             console.warn('[sniper] credit deduction failed for send_messages:', e?.message);

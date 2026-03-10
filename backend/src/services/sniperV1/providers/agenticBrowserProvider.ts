@@ -1,7 +1,12 @@
 import type { Page, Browser } from 'playwright';
 import type { SniperExecutionProvider, LinkedInAuthStartResult, SendConnectResult, SendMessageResult, SendInMailResult, JobListing, DecisionMakerResult } from './types';
 import type { ProspectProfile } from './linkedinActions';
+import {
+  sendConnectionRequestOnPage,
+  sendMessageOnPage,
+} from './linkedinActions';
 import { normalizeLinkedinProfileUrl } from '../../../utils/linkedinUrl';
+import { SessionManager, isSessionDeadError } from '../agent/sessionManager';
 
 import {
   createContext,
@@ -190,6 +195,314 @@ async function logAgentRun(opts: {
     console.warn('[agentic_browser] Failed to log agent run:', e.message);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Deterministic run logging (for hybrid approach)
+// ---------------------------------------------------------------------------
+
+async function logDeterministicRun(opts: {
+  jobId?: string;
+  jobItemId?: string;
+  workspaceId: string;
+  taskType: string;
+  method: 'deterministic' | 'llm_fallback';
+  status: string;
+  durationMs: number;
+  fallbackAgentResult?: AgentResult;
+}): Promise<void> {
+  try {
+    await sniperSupabaseDb.from('sniper_agent_runs').insert({
+      job_id: opts.jobId || null,
+      job_item_id: opts.jobItemId || null,
+      workspace_id: opts.workspaceId,
+      task_type: opts.taskType,
+      steps_json: opts.method === 'deterministic'
+        ? [{ step: 1, action: 'deterministic', result: opts.status }]
+        : opts.fallbackAgentResult?.steps.map((s) => ({
+            step: s.stepNumber,
+            action: s.action.type,
+            reasoning: s.reasoning,
+            result: s.actionResult,
+            url: s.observation.url,
+          })),
+      total_steps: opts.method === 'deterministic' ? 1 : (opts.fallbackAgentResult?.steps.length || 0),
+      llm_tokens_used: opts.method === 'deterministic' ? 0 : (opts.fallbackAgentResult?.totalTokensUsed || 0),
+      duration_ms: opts.durationMs,
+      status: ['sent_verified', 'already_connected', 'already_pending'].includes(opts.status) ? 'succeeded' : 'failed',
+      error_message: null,
+    } as any);
+  } catch (e: any) {
+    console.warn('[hybrid] Failed to log deterministic run:', e.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hybrid page-level methods (deterministic first, LLM fallback)
+// ---------------------------------------------------------------------------
+
+type ActionDebugContext = { jobId?: string; enabled?: boolean };
+
+/**
+ * Send a connection request using the DETERMINISTIC path first (linkedinActions.ts).
+ * Falls back to the LLM agent if the deterministic code fails.
+ * Accepts a pre-existing Page (from SessionManager) — no session creation.
+ */
+export async function sendConnectionRequestWithPage(
+  page: Page,
+  args: {
+    profileUrl: string;
+    note?: string | null;
+    workspaceId: string;
+    debug?: ActionDebugContext;
+  },
+): Promise<SendConnectResult> {
+  const startTime = Date.now();
+  const { profileUrl, note, workspaceId, debug } = args;
+
+  // --- Step 1: Try deterministic path ---
+  try {
+    console.log(`[hybrid] Trying deterministic connect for ${profileUrl}`);
+    const detResult = await sendConnectionRequestOnPage(page, profileUrl, note);
+
+    const statusMap: Record<string, SendConnectResult['status']> = {
+      sent_verified: 'sent_verified',
+      already_connected: 'already_connected',
+      already_pending: 'already_pending',
+      restricted: 'restricted',
+    };
+
+    // Success or known terminal state — return directly
+    if (statusMap[detResult.status]) {
+      const elapsed = Date.now() - startTime;
+      console.log(`[hybrid] Deterministic connect succeeded: ${detResult.status} (${elapsed}ms)`);
+      await logDeterministicRun({
+        jobId: debug?.jobId,
+        workspaceId,
+        taskType: 'send_connection_request',
+        method: 'deterministic',
+        status: detResult.status,
+        durationMs: elapsed,
+      });
+      return {
+        status: statusMap[detResult.status]!,
+        details: {
+          ...detResult.details,
+          method: 'deterministic',
+          duration_ms: elapsed,
+        },
+      };
+    }
+
+    // Skipped for a non-terminal reason — also return
+    if (detResult.status === 'skipped') {
+      return {
+        status: 'failed',
+        details: { ...detResult.details, method: 'deterministic', reason: 'skipped' },
+      };
+    }
+
+    // failed or failed_verification — fall through to LLM fallback
+    console.warn(`[hybrid] Deterministic connect returned "${detResult.status}" for ${profileUrl}, falling back to LLM…`);
+  } catch (detErr: any) {
+    // Auth errors should propagate immediately — don't fallback
+    if (String(detErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) {
+      throw detErr;
+    }
+    // Session-dead errors should propagate for recovery
+    if (isSessionDeadError(detErr)) {
+      throw detErr;
+    }
+    console.warn(`[hybrid] Deterministic connect threw for ${profileUrl}: ${detErr.message}. Falling back to LLM…`);
+  }
+
+  // --- Step 2: LLM fallback ---
+  try {
+    console.log(`[hybrid] LLM fallback for ${profileUrl}`);
+    const llm = createLLMClient();
+    const instruction = getSendConnectionRequestPrompt(profileUrl, note);
+
+    const agentResult = await executeAgentTask(page, {
+      instruction,
+      maxSteps: DEFAULT_MAX_STEPS,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    }, llm);
+
+    const elapsed = Date.now() - startTime;
+
+    await logDeterministicRun({
+      jobId: debug?.jobId,
+      workspaceId,
+      taskType: 'send_connection_request',
+      method: 'llm_fallback',
+      status: agentResult.data?.status || (agentResult.success ? 'unknown' : 'failed'),
+      durationMs: elapsed,
+      fallbackAgentResult: agentResult,
+    });
+
+    if (!agentResult.success) {
+      if (agentResult.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
+        throw new Error(agentResult.error);
+      }
+      return {
+        status: 'failed',
+        details: {
+          reason: agentResult.error,
+          method: 'llm_fallback',
+          agent_steps: agentResult.steps.length,
+          agent_tokens: agentResult.totalTokensUsed,
+        },
+      };
+    }
+
+    const agentStatus = agentResult.data?.status || 'failed';
+    const statusMap: Record<string, SendConnectResult['status']> = {
+      sent_verified: 'sent_verified',
+      already_connected: 'already_connected',
+      already_pending: 'already_pending',
+      restricted: 'restricted',
+    };
+
+    return {
+      status: statusMap[agentStatus] || 'failed',
+      details: {
+        ...agentResult.data?.details,
+        method: 'llm_fallback',
+        agent_steps: agentResult.steps.length,
+        agent_tokens: agentResult.totalTokensUsed,
+      },
+    };
+  } catch (llmErr: any) {
+    // Propagate auth/session errors
+    if (String(llmErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED') || isSessionDeadError(llmErr)) {
+      throw llmErr;
+    }
+    return {
+      status: 'failed',
+      details: { reason: llmErr?.message || 'llm_fallback_failed', method: 'llm_fallback' },
+    };
+  }
+}
+
+/**
+ * Send a message using the DETERMINISTIC path first (linkedinActions.ts).
+ * Falls back to the LLM agent if the deterministic code fails.
+ */
+export async function sendMessageWithPage(
+  page: Page,
+  args: {
+    profileUrl: string;
+    message: string;
+    workspaceId: string;
+    debug?: ActionDebugContext;
+  },
+): Promise<SendMessageResult> {
+  const startTime = Date.now();
+  const { profileUrl, message, workspaceId, debug } = args;
+
+  // --- Step 1: Try deterministic path ---
+  try {
+    console.log(`[hybrid] Trying deterministic message for ${profileUrl}`);
+    const detResult = await sendMessageOnPage(page, profileUrl, message);
+
+    const statusMap: Record<string, SendMessageResult['status']> = {
+      sent_verified: 'sent_verified',
+      not_1st_degree: 'not_1st_degree',
+    };
+
+    if (statusMap[detResult.status]) {
+      const elapsed = Date.now() - startTime;
+      console.log(`[hybrid] Deterministic message succeeded: ${detResult.status} (${elapsed}ms)`);
+      await logDeterministicRun({
+        jobId: debug?.jobId,
+        workspaceId,
+        taskType: 'send_message',
+        method: 'deterministic',
+        status: detResult.status,
+        durationMs: elapsed,
+      });
+      return {
+        status: statusMap[detResult.status]!,
+        details: { ...detResult.details, method: 'deterministic', duration_ms: elapsed },
+      };
+    }
+
+    if (detResult.status === 'skipped') {
+      return {
+        status: 'failed',
+        details: { ...detResult.details, method: 'deterministic', reason: 'skipped' },
+      };
+    }
+
+    console.warn(`[hybrid] Deterministic message returned "${detResult.status}" for ${profileUrl}, falling back to LLM…`);
+  } catch (detErr: any) {
+    if (String(detErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED')) throw detErr;
+    if (isSessionDeadError(detErr)) throw detErr;
+    console.warn(`[hybrid] Deterministic message threw for ${profileUrl}: ${detErr.message}. Falling back to LLM…`);
+  }
+
+  // --- Step 2: LLM fallback ---
+  try {
+    const llm = createLLMClient();
+    const instruction = getSendMessagePrompt(profileUrl, message);
+
+    const agentResult = await executeAgentTask(page, {
+      instruction,
+      maxSteps: DEFAULT_MAX_STEPS,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    }, llm);
+
+    const elapsed = Date.now() - startTime;
+
+    await logDeterministicRun({
+      jobId: debug?.jobId,
+      workspaceId,
+      taskType: 'send_message',
+      method: 'llm_fallback',
+      status: agentResult.data?.status || (agentResult.success ? 'unknown' : 'failed'),
+      durationMs: elapsed,
+      fallbackAgentResult: agentResult,
+    });
+
+    if (!agentResult.success) {
+      if (agentResult.error?.includes('LINKEDIN_AUTH_REQUIRED')) throw new Error(agentResult.error);
+      return { status: 'failed', details: { reason: agentResult.error, method: 'llm_fallback' } };
+    }
+
+    const agentStatus = agentResult.data?.status || 'failed';
+    const statusMap: Record<string, SendMessageResult['status']> = {
+      sent_verified: 'sent_verified',
+      not_1st_degree: 'not_1st_degree',
+    };
+
+    return {
+      status: statusMap[agentStatus] || 'failed',
+      details: { ...agentResult.data?.details, method: 'llm_fallback', agent_steps: agentResult.steps.length },
+    };
+  } catch (llmErr: any) {
+    if (String(llmErr?.message || '').includes('LINKEDIN_AUTH_REQUIRED') || isSessionDeadError(llmErr)) throw llmErr;
+    return { status: 'failed', details: { reason: llmErr?.message || 'llm_fallback_failed', method: 'llm_fallback' } };
+  }
+}
+
+/**
+ * Run an LLM agent task on a pre-existing page (for SN tasks that still need LLM).
+ */
+export async function runAgentTaskWithPage(
+  page: Page,
+  instruction: string,
+  opts?: { maxSteps?: number; timeoutMs?: number },
+): Promise<AgentResult> {
+  const llm = createLLMClient();
+  return executeAgentTask(page, {
+    instruction,
+    maxSteps: opts?.maxSteps || DEFAULT_MAX_STEPS,
+    timeoutMs: opts?.timeoutMs || DEFAULT_TIMEOUT_MS,
+  }, llm);
+}
+
+// Re-export for worker to create session managers
+export { SessionManager, isSessionDeadError };
+export { requireBrowserbaseAuth };
 
 // ---------------------------------------------------------------------------
 // Provider implementation
@@ -524,180 +837,32 @@ export const agenticBrowserProvider: SniperExecutionProvider = {
   },
 
   // =========================================================================
-  // Action: send connection request
+  // Action: send connection request (hybrid: deterministic first, LLM fallback)
   // =========================================================================
   async sendConnectionRequest({ userId, workspaceId, profileUrl, note, debug }): Promise<SendConnectResult> {
-    const llm = createLLMClient();
-    const instruction = getSendConnectionRequestPrompt(profileUrl, note);
-
-    // Helper: run agent task with page verification for connect requests
-    const runConnectAgent = async (attemptLabel: string) => {
-      return runWithSession(userId, workspaceId, async (page) => {
-        return executeAgentTask(page, {
-          instruction,
-          maxSteps: DEFAULT_MAX_STEPS,
-          timeoutMs: DEFAULT_TIMEOUT_MS,
-        }, llm);
-      }, { navigateTo: profileUrl });
-    };
-
-    let result = await runConnectAgent('attempt_1');
-
-    // If the agent reported PROFILE_PAGE_NOT_LOADED, retry once with a fresh session
-    if (!result.success && result.error?.includes('PROFILE_PAGE_NOT_LOADED')) {
-      console.warn(`[agentic-browser] Profile page didn't load for ${profileUrl}, retrying with fresh session...`);
-      result = await runConnectAgent('attempt_2_retry');
-    }
-
-    await logAgentRun({
-      jobId: debug?.jobId || undefined,
-      workspaceId,
-      taskType: 'send_connection_request',
-      result,
-    });
-
-    if (!result.success) {
-      // Check if it's an auth error
-      if (result.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
-        throw new Error(result.error);
-      }
-      return { status: 'failed', details: { reason: result.error, steps: result.steps.length } };
-    }
-
-    // Map agent result status to SendConnectResult status
-    const agentStatus = result.data?.status || 'failed';
-
-    // -----------------------------------------------------------------------
-    // VERIFICATION: When agent claims "already_pending" or "already_connected",
-    // verify by directly checking the profile page in a fresh session.
-    // This prevents false positives when the page didn't fully render.
-    // -----------------------------------------------------------------------
-    if (agentStatus === 'already_pending' || agentStatus === 'already_connected') {
-      try {
-        const verified = await runWithSession(userId, workspaceId, async (page) => {
-          // Wait for action buttons to stabilize
-          await page.waitForTimeout(1500);
-          await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {});
-
-          // Check for the specific buttons
-          const hasPending = (await page.locator('button:has-text("Pending")').count().catch(() => 0)) > 0
-            || (await page.locator('button:has-text("Invited")').count().catch(() => 0)) > 0;
-          const hasMessage = (await page.locator('button:has-text("Message")').count().catch(() => 0)) > 0;
-          const hasConnect = (await page.locator('button:has-text("Connect")').count().catch(() => 0)) > 0;
-
-          // If we see a Connect button, the agent was wrong — the connection wasn't actually sent
-          if (hasConnect && !hasPending && !hasMessage) {
-            return 'not_connected';
-          }
-          // Confirm pending
-          if (hasPending) return 'pending';
-          // Confirm connected (Message button present, no Connect button)
-          if (hasMessage && !hasConnect) return 'connected';
-          // Could not confirm either way — page may still not be loaded
-          return 'unknown';
-        }, { navigateTo: profileUrl });
-
-        if (verified === 'not_connected') {
-          // Agent falsely reported already_pending/already_connected — the profile has a Connect button
-          console.warn(`[agentic-browser] FALSE POSITIVE: Agent reported "${agentStatus}" but verification found Connect button for ${profileUrl}. Retrying connect...`);
-          // Retry the actual connection request with a fresh session
-          const retryResult = await runConnectAgent('retry_after_false_positive');
-          await logAgentRun({
-            jobId: debug?.jobId || undefined,
-            workspaceId,
-            taskType: 'send_connection_request_retry',
-            result: retryResult,
-          });
-
-          if (retryResult.success) {
-            const retryStatus = retryResult.data?.status || 'failed';
-            const retryStatusMap: Record<string, SendConnectResult['status']> = {
-              sent_verified: 'sent_verified',
-              already_connected: 'already_connected',
-              already_pending: 'already_pending',
-              restricted: 'restricted',
-            };
-            return {
-              status: retryStatusMap[retryStatus] || 'failed',
-              details: {
-                ...retryResult.data?.details,
-                agent_steps: retryResult.steps.length,
-                agent_tokens: retryResult.totalTokensUsed,
-                was_false_positive_retry: true,
-              },
-            };
-          }
-          return { status: 'failed', details: { reason: retryResult.error || 'retry_failed', was_false_positive_retry: true } };
-        }
-
-        if (verified === 'unknown') {
-          console.warn(`[agentic-browser] Could not verify "${agentStatus}" claim for ${profileUrl} — page may not have loaded. Trusting agent result.`);
-        }
-      } catch (verifyErr: any) {
-        console.warn(`[agentic-browser] Verification session failed for ${profileUrl}: ${verifyErr?.message}. Trusting agent result.`);
-      }
-    }
-
-    const statusMap: Record<string, SendConnectResult['status']> = {
-      sent_verified: 'sent_verified',
-      already_connected: 'already_connected',
-      already_pending: 'already_pending',
-      restricted: 'restricted',
-    };
-
-    return {
-      status: statusMap[agentStatus] || 'failed',
-      details: {
-        ...result.data?.details,
-        agent_steps: result.steps.length,
-        agent_tokens: result.totalTokensUsed,
-      },
-    };
+    // For single-item API calls, wrap in runWithSession for backward compatibility
+    return runWithSession(userId, workspaceId, async (page) => {
+      return sendConnectionRequestWithPage(page, {
+        profileUrl,
+        note,
+        workspaceId,
+        debug,
+      });
+    }, { navigateTo: profileUrl });
   },
 
   // =========================================================================
-  // Action: send message
+  // Action: send message (hybrid: deterministic first, LLM fallback)
   // =========================================================================
   async sendMessage({ userId, workspaceId, profileUrl, message, debug }): Promise<SendMessageResult> {
-    const llm = createLLMClient();
-    const instruction = getSendMessagePrompt(profileUrl, message);
-
-    const result = await runWithSession(userId, workspaceId, async (page) => {
-      return executeAgentTask(page, {
-        instruction,
-        maxSteps: DEFAULT_MAX_STEPS,
-        timeoutMs: DEFAULT_TIMEOUT_MS,
-      }, llm);
+    return runWithSession(userId, workspaceId, async (page) => {
+      return sendMessageWithPage(page, {
+        profileUrl,
+        message,
+        workspaceId,
+        debug,
+      });
     }, { navigateTo: profileUrl });
-
-    await logAgentRun({
-      jobId: debug?.jobId || undefined,
-      workspaceId,
-      taskType: 'send_message',
-      result,
-    });
-
-    if (!result.success) {
-      if (result.error?.includes('LINKEDIN_AUTH_REQUIRED')) {
-        throw new Error(result.error);
-      }
-      return { status: 'failed', details: { reason: result.error, steps: result.steps.length } };
-    }
-
-    const agentStatus = result.data?.status || 'failed';
-    const statusMap: Record<string, SendMessageResult['status']> = {
-      sent_verified: 'sent_verified',
-      not_1st_degree: 'not_1st_degree',
-    };
-
-    return {
-      status: statusMap[agentStatus] || 'failed',
-      details: {
-        ...result.data?.details,
-        agent_steps: result.steps.length,
-        agent_tokens: result.totalTokensUsed,
-      },
-    };
   },
 
   // =========================================================================
