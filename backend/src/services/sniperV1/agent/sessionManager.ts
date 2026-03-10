@@ -49,7 +49,6 @@ export function isSessionDeadError(error: any): boolean {
 // ---------------------------------------------------------------------------
 
 const MAX_RECOVERIES = 3;
-const AUTH_CHECK_URL = 'https://www.linkedin.com/feed/';
 
 export class SessionManager {
   private contextId: string;
@@ -232,20 +231,10 @@ export class SessionManager {
       itemsProcessed: 0,
     };
 
-    // Authenticate: navigate to feed and verify
-    await this.session.page.goto(AUTH_CHECK_URL, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60_000,
-    });
-    await this.session.page.waitForTimeout(2000);
-
-    // Check for auth wall
-    if (isAuthWallUrl(this.session.page.url())) {
-      await this._teardown();
-      throw new Error('LINKEDIN_AUTH_REQUIRED: Browser session landed on login/checkpoint page');
-    }
-
-    console.log(`[session-mgr] Session ${sessionInfo.sessionId} created and authenticated for job ${this.jobId}`);
+    // Skip /feed auth check — navigateToProfile() already checks for auth walls
+    // when it navigates to the actual profile URL. Going to /feed first wastes
+    // an entire page load + 2s and was causing sessions to die before reaching profiles.
+    console.log(`[session-mgr] Session ${sessionInfo.sessionId} created for job ${this.jobId} — auth will be verified on first profile navigation`);
 
     return this.session.page;
   }
