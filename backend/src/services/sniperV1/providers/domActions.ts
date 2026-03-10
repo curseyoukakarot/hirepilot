@@ -86,11 +86,13 @@ export const HP_CONNECT_DOM_SCRIPT = `
       let target = null;
       // Retry attempts to locate Connect
       for (let attempt = 0; attempt < 8 && !target; attempt++) {
+        // Strategy 1: Direct Connect/Invite in top card (exact then fuzzy)
         target = findClickableByText(topCard, 'button,[role="button"],a', /^(connect|invite)$/i) ||
                  findClickableByText(topCard, 'button,[role="button"],a', /(connect|invite)/i) ||
                  topCard.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]');
         if (target) break;
 
+        // Strategy 2: Open More dropdown and search menu
         let moreBtn = findClickableByText(topCard, 'button,[role="button"],a', /^more$/i) ||
                       findClickableByText(topCard, 'button,[role="button"],a', /more/i) ||
                       topCard.querySelector('button[aria-label*="More" i]') ||
@@ -104,44 +106,76 @@ export const HP_CONNECT_DOM_SCRIPT = `
           target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
           if (!target) {
             const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
-            if (items.length) target = items.find(el => /connect|invite/i.test((el.textContent||'').trim())) || items[0];
+            if (items.length) target = items.find(el => /connect|invite/i.test((el.textContent||'').trim()));
+          }
+          // Close menu if Connect wasn't found (prevents stale dropdown)
+          if (!target) {
+            try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch {}
+            await wait(300);
           }
         }
 
+        // Strategy 3: Brute-force search ENTIRE PAGE (not just top card)
+        // Catches "Connect if you know each other" sections below the top card,
+        // and other non-standard Connect placements LinkedIn shows to some accounts.
         if (!target) {
-          const brute = Array.from(topCard.querySelectorAll('button,a,[role="menuitem"],li,span'))
-            .filter(el => isVisible(el) && /connect|invite/i.test((el.textContent||'').trim()))[0];
+          const brute = Array.from(document.querySelectorAll('button,a,[role="menuitem"],[role="button"],li,span'))
+            .filter(el => isVisible(el) && /^(connect|invite)$/i.test((el.textContent||'').trim()))[0];
           if (brute) target = brute.closest('button,a,[role="menuitem"],[role="button"]') || brute;
+        }
+
+        // Strategy 4: Fuzzy full-page search (catches partial matches like "Connect with...")
+        if (!target) {
+          const fuzzy = Array.from(document.querySelectorAll('button,a,[role="button"]'))
+            .filter(el => isVisible(el) && /connect|invite/i.test((el.textContent||'').trim()) && !/disconnect/i.test((el.textContent||'').trim()))[0];
+          if (fuzzy) target = fuzzy;
+        }
+
+        if (!target && attempt === 0) {
+          // Scroll down 40% on first attempt to reveal below-fold Connect sections
+          try { window.scrollTo(0, document.body.scrollHeight * 0.4); } catch {}
         }
 
         if (!target) await wait(700);
       }
 
       if (!target) {
-        // No direct Connect found. Determine if it's truly pending/connected or just hidden.
-        const scope = topCard || document;
+        // No Connect found. Determine profile state comprehensively.
+        // Search FULL PAGE (not just top card) for state indicators.
 
         // Pending detection: explicit labels/buttons
-        const pendingEl = Array.from(scope.querySelectorAll('button,[role="button"],a,span')).find((el) => /\\b(pending|invited|withdraw|requested)\\b/i.test(textOf(el)));
+        const pendingEl = Array.from(document.querySelectorAll('button,[role="button"],a,span')).find((el) => /\\b(pending|invited|withdraw|requested)\\b/i.test(textOf(el)));
 
         // 1st-degree badge detection
-        const degreeEl = Array.from(scope.querySelectorAll('span,div,[aria-label]')).find((el) => /\\b1st\\b/i.test(textOf(el)) || /\\b1st\\b/i.test(el.getAttribute('aria-label') || ''));
+        const degreeEl = Array.from(document.querySelectorAll('span,div,[aria-label]')).find((el) => /\\b1st\\b/i.test(textOf(el)) || /\\b1st\\b/i.test(el.getAttribute('aria-label') || ''));
 
         // Message CTA without any Connect available strongly implies already connected
-        const messageEl = (findClickableByText(scope, 'button,[role="button"],a,span', /^message$/i) || findClickableByText(scope, 'button,[role="button"],a,span', /^(message|open message)$/i));
+        const messageEl = (findClickableByText(document, 'button,[role="button"],a,span', /^message$/i) || findClickableByText(document, 'button,[role="button"],a,span', /^(message|open message)$/i));
 
-        // Any evidence of a Connect action anywhere in top card or menus?
+        // Follow button detection — LinkedIn shows Follow instead of Connect for low-trust accounts or out-of-network profiles
+        const followEl = findClickableByText(document, 'button,[role="button"],a,span', /^follow$/i);
+
+        // Any evidence of a Connect action anywhere on the page?
         const hasAnyConnect = !!(
-          findClickableByText(scope, 'button,[role="button"],a,span', /\\bconnect\\b/i) ||
-          scope.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]')
+          findClickableByText(document, 'button,[role="button"],a,span', /\\bconnect\\b/i) ||
+          document.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]')
         );
+
+        // Collect all visible button labels for diagnostics
+        const visibleButtons = Array.from(document.querySelectorAll('button,[role="button"]'))
+          .filter(el => isVisible(el))
+          .map(el => textOf(el))
+          .filter(t => t.length > 0 && t.length < 30)
+          .slice(0, 15);
 
         try {
           console.log('[HP DOM Engine] Connect not found; evaluating status', {
             hasAnyConnect: !!hasAnyConnect,
             pendingDetected: !!pendingEl,
             firstDegreeBadge: !!degreeEl,
-            messageCta: !!messageEl
+            messageCta: !!messageEl,
+            followBtn: !!followEl,
+            visibleButtons: visibleButtons
           });
         } catch {}
 
@@ -157,8 +191,12 @@ export const HP_CONNECT_DOM_SCRIPT = `
           try { console.log('[HP DOM Engine] Skip: Message CTA present and no Connect action available'); } catch {}
           return { skipped: true, reason: 'Already connected (Message only, no Connect)' };
         }
+        if (followEl && !hasAnyConnect) {
+          try { console.log('[HP DOM Engine] Follow button visible but no Connect — profile may be restricted or account trust too low'); } catch {}
+          return { error: 'Connect not available (Follow only — account may need warming up)', followOnly: true };
+        }
 
-        return { error: 'Connect button not found (no More menu)' };
+        return { error: 'Connect button not found after 8 attempts. Visible buttons: ' + visibleButtons.join(', ') };
       }
       try {
         console.log('[HP DOM Engine] Clicking Connect target:', (target.getAttribute('aria-label') || textOf(target) || '').slice(0, 120));
@@ -166,57 +204,80 @@ export const HP_CONNECT_DOM_SCRIPT = `
       dispatchClick(target);
       await wait(800);
 
-      // 3) Ensure we are in the Add-a-note flow
-      const findAddNoteButton = () => {
-        const dlg = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
-        return (
-          findClickableByText(dlg, 'button,[role="button"],a,span', /^add a note$/i) ||
-          findClickableByText(dlg, 'button,[role="button"],a,span', /add a note/i) ||
-          document.querySelector('button[aria-label*="Add a note" i]')
-        );
-      };
+      // 3) Handle the post-click dialog
+      const dlg = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+      const hasNote = (message || '').trim().length > 0;
 
-      let addNote = findAddNoteButton();
-      if (addNote) { dispatchClick(addNote); await wait(600); }
+      if (hasNote) {
+        // --- WITH NOTE: click "Add a note" → fill textarea → click Send ---
+        const findAddNoteButton = () => {
+          const d = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+          return (
+            findClickableByText(d, 'button,[role="button"],a,span', /^add a note$/i) ||
+            findClickableByText(d, 'button,[role="button"],a,span', /add a note/i) ||
+            document.querySelector('button[aria-label*="Add a note" i]')
+          );
+        };
 
-      // 4) Fill the note (wait adaptively for the textarea to appear)
-      const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
-      const inputSelectors = [
-        'textarea[name="message"]',
-        'textarea#custom-message',
-        'textarea[id*="custom" i]',
-        'textarea[aria-label*="note" i]',
-        '.msg-form__contenteditable',
-        'div[contenteditable="true"]',
-        'textarea'
-      ];
-      let inputs = Array.from(modal.querySelectorAll(inputSelectors.join(', ')));
-      if (!inputs.length) {
-        // If the initial confirmation modal is open, click Add a note again
-        addNote = findAddNoteButton();
-        if (addNote) { dispatchClick(addNote); await wait(800); }
-        // Retry to locate inputs with a short wait loop
-        for (let i=0; i<8 && !inputs.length; i++) {
-          await wait(300);
-          inputs = Array.from((document.querySelector('div[role="dialog"], .artdeco-modal')||document).querySelectorAll(inputSelectors.join(', ')));
+        let addNote = findAddNoteButton();
+        if (addNote) { dispatchClick(addNote); await wait(600); }
+
+        // Fill the note (wait adaptively for the textarea to appear)
+        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+        const inputSelectors = [
+          'textarea[name="message"]',
+          'textarea#custom-message',
+          'textarea[id*="custom" i]',
+          'textarea[aria-label*="note" i]',
+          '.msg-form__contenteditable',
+          'div[contenteditable="true"]',
+          'textarea'
+        ];
+        let inputs = Array.from(modal.querySelectorAll(inputSelectors.join(', ')));
+        if (!inputs.length) {
+          addNote = findAddNoteButton();
+          if (addNote) { dispatchClick(addNote); await wait(800); }
+          for (let i=0; i<8 && !inputs.length; i++) {
+            await wait(300);
+            inputs = Array.from((document.querySelector('div[role="dialog"], .artdeco-modal')||document).querySelectorAll(inputSelectors.join(', ')));
+          }
+        }
+        if (!inputs.length) return { error: 'Could not find message input' };
+        const input = inputs[0];
+        const max = Number(input.getAttribute('maxlength') || 300);
+        const text = (message || '').slice(0, max);
+        if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(300);
+
+        // Click Send
+        const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
+                        findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
+                        modal.querySelector('button[aria-label*="Send" i]') ||
+                        modal.querySelector('button.artdeco-button--primary');
+        if (!sendBtn) return { error: 'Send button not found' };
+        dispatchClick(sendBtn);
+        await wait(600);
+      } else {
+        // --- WITHOUT NOTE: click "Send without a note" or just "Send" directly ---
+        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+
+        // Try "Send without a note" first (LinkedIn's fast path)
+        const sendWithoutNote = findClickableByText(modal, 'button,[role="button"],a,span', /send without a note/i) ||
+                                findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
+                                findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
+                                modal.querySelector('button[aria-label*="Send" i]') ||
+                                modal.querySelector('button.artdeco-button--primary');
+        if (!sendWithoutNote) {
+          // No send button in dialog — maybe LinkedIn sent immediately (no confirmation dialog)
+          await wait(500);
+          try { console.log('[HP DOM Engine] No Send button found in dialog — Connect may have been sent directly'); } catch {}
+        } else {
+          dispatchClick(sendWithoutNote);
+          await wait(600);
         }
       }
-      if (!inputs.length) return { error: 'Could not find message input' };
-      const input = inputs[0];
-      const max = Number(input.getAttribute('maxlength') || 300);
-      const text = (message || '').slice(0, max);
-      if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      await wait(300);
 
-      // 5) Click Send
-      const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
-                      findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
-                      modal.querySelector('button[aria-label*="Send" i]') ||
-                      modal.querySelector('button.artdeco-button--primary');
-      if (!sendBtn) return { error: 'Send button not found' };
-      dispatchClick(sendBtn);
-      await wait(600);
       return { ok: true };
     } catch (e) {
       return { error: e?.message || 'Failed to connect and send' };

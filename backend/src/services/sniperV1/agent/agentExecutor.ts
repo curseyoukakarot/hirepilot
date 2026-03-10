@@ -45,7 +45,7 @@ export type AgentResult = {
 const DEFAULT_MAX_STEPS = Number(process.env.SNIPER_AGENT_MAX_STEPS || 20);
 const DEFAULT_TIMEOUT_MS = Number(process.env.SNIPER_AGENT_TIMEOUT_MS || 120_000);
 const MAX_HISTORY_STEPS = 5; // Keep last N steps in full context (with screenshots)
-const LLM_RETRY_ON_PARSE_ERROR = 1;
+const LLM_RETRY_ON_PARSE_ERROR = 2; // Retry up to 2 times on parse/API errors
 
 // ---------------------------------------------------------------------------
 // Build messages for the LLM
@@ -184,13 +184,24 @@ export async function executeAgentTask(
         completion = await llm.complete(messages);
         break;
       } catch (e: any) {
-        if (parseRetries < LLM_RETRY_ON_PARSE_ERROR && String(e.message).includes('parse')) {
+        const errMsg = String(e.message || '');
+        // Retry on parse errors, API errors (rate limits, timeouts), and malformed responses
+        const isRetryable = errMsg.includes('parse') || errMsg.includes('JSON') ||
+          errMsg.includes('rate') || errMsg.includes('timeout') || errMsg.includes('429') ||
+          errMsg.includes('500') || errMsg.includes('503') || errMsg.includes('overloaded') ||
+          errMsg.includes('Failed to parse');
+        if (parseRetries < LLM_RETRY_ON_PARSE_ERROR && isRetryable) {
           parseRetries++;
-          // Append error context and retry
-          messages.push({
-            role: 'user',
-            content: `Your previous response was not valid JSON. Error: ${e.message}\nPlease respond with valid JSON matching the schema.`,
-          });
+          console.warn(`[agent] LLM error at step ${stepNum} (attempt ${parseRetries}/${LLM_RETRY_ON_PARSE_ERROR}): ${errMsg.slice(0, 200)}. Retrying…`);
+          // For parse errors, append guidance; for API errors, just retry
+          if (errMsg.includes('parse') || errMsg.includes('JSON') || errMsg.includes('Failed to parse')) {
+            messages.push({
+              role: 'user',
+              content: `Your previous response was not valid JSON. Error: ${e.message}\nPlease respond with valid JSON matching the schema.`,
+            });
+          }
+          // Brief pause before retry (helps with rate limits)
+          await new Promise(r => setTimeout(r, 1000 * parseRetries));
           continue;
         }
         return {
