@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { listSchedules, updateSchedule, deleteSchedule } from '../../lib/api/schedules';
 import { useCampaignOptions } from '../../hooks/useCampaignOptions';
 import { supabase } from '../../lib/supabaseClient';
@@ -67,15 +67,17 @@ type JobItem = {
 function StatusPill({ status }: { status: string }) {
   const s = status || '\u2014';
   const cls =
-    s === 'success' || s === 'completed'
+    s === 'success' || s === 'completed' || s === 'succeeded'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200'
       : s === 'failed' || s === 'error'
         ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-200'
         : s === 'running' || s === 'in_progress'
           ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-950/30 dark:text-sky-200'
-          : s === 'queued' || s === 'pending'
+          : s === 'queued' || s === 'pending' || s === 'paused_cooldown' || s === 'paused_throttled'
             ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200'
-            : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300';
+            : s === 'canceled'
+              ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+              : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300';
   return (
     <span className={cx('inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold', cls)}>
       {s}
@@ -642,6 +644,43 @@ export default function ActivityPanel() {
     } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to delete', 'error'); }
   };
 
+  /* ---- Job action handlers ---- */
+
+  const handleCancelJob = async (job: Job) => {
+    if (!window.confirm('Cancel this job? Running items will finish, but queued items will be skipped.')) return;
+    try {
+      await apiPost(`/api/sniper/jobs/${job.id}/cancel`);
+      showToast('Job canceled', 'success');
+      loadJobs();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to cancel', 'error'); }
+  };
+
+  const handlePauseJob = async (job: Job) => {
+    try {
+      await apiPost(`/api/sniper/jobs/${job.id}/pause`);
+      showToast('Job paused', 'success');
+      loadJobs();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to pause', 'error'); }
+  };
+
+  const handleResumeJob = async (job: Job) => {
+    try {
+      await apiPost(`/api/sniper/jobs/${job.id}/resume`);
+      showToast('Job resumed — re-queued for processing', 'success');
+      loadJobs();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to resume', 'error'); }
+  };
+
+  const handleDeleteJob = async (job: Job) => {
+    if (!window.confirm('Delete this job and all its items? This cannot be undone.')) return;
+    try {
+      await apiDelete(`/api/sniper/jobs/${job.id}`);
+      showToast('Job deleted', 'success');
+      if (selectedJobId === job.id) setSelectedJobId('');
+      loadJobs();
+    } catch (e: unknown) { showToast((e as Error)?.message || 'Failed to delete', 'error'); }
+  };
+
   /* ---- Input classes ---- */
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
   const btnOutline = 'rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800';
@@ -771,13 +810,18 @@ export default function ActivityPanel() {
               {jobs.map((j) => {
                 const meta = jobLabel(j.job_type);
                 const active = selectedJobId === j.id;
+                const isTerminal = ['succeeded', 'failed', 'partially_succeeded', 'canceled'].includes(j.status);
+                const isPaused = ['paused_cooldown', 'paused_throttled'].includes(j.status);
+                const isRunningOrQueued = ['running', 'queued'].includes(j.status);
                 return (
-                  <button
+                  <div
                     key={j.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedJobId(j.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedJobId(j.id)}
                     className={cx(
-                      'w-full text-left px-4 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/50',
+                      'w-full text-left px-4 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer',
                       active && 'bg-indigo-50 dark:bg-indigo-950/20',
                     )}
                   >
@@ -788,8 +832,45 @@ export default function ActivityPanel() {
                       </div>
                       <StatusPill status={j.status} />
                     </div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(j.created_at)}</div>
-                  </button>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatDate(j.created_at)}</span>
+                      <div className="flex items-center gap-1">
+                        {/* Pause / Resume */}
+                        {isRunningOrQueued && (
+                          <button
+                            type="button"
+                            title="Pause"
+                            onClick={(e) => { e.stopPropagation(); handlePauseJob(j); }}
+                            className="rounded-lg p-1 text-xs text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                          >⏸</button>
+                        )}
+                        {isPaused && (
+                          <button
+                            type="button"
+                            title="Resume"
+                            onClick={(e) => { e.stopPropagation(); handleResumeJob(j); }}
+                            className="rounded-lg p-1 text-xs text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                          >▶️</button>
+                        )}
+                        {/* Cancel */}
+                        {!isTerminal && (
+                          <button
+                            type="button"
+                            title="Cancel"
+                            onClick={(e) => { e.stopPropagation(); handleCancelJob(j); }}
+                            className="rounded-lg p-1 text-xs text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                          >✕</button>
+                        )}
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          title="Delete"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteJob(j); }}
+                          className="rounded-lg p-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-rose-400"
+                        >🗑</button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>

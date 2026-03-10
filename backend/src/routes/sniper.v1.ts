@@ -485,6 +485,112 @@ sniperV1Router.get('/jobs/:id/items', async (req: ApiRequest, res: Response) => 
   }
 });
 
+// ---------------- Job management actions ----------------
+
+// Cancel a job
+sniperV1Router.post('/jobs/:id/cancel', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const id = String(req.params.id);
+    const job = await getJob(id);
+    if (!job) return res.status(404).json({ error: 'not_found' });
+    if (job.workspace_id !== workspaceId) return res.status(403).json({ error: 'forbidden' });
+
+    const terminalStatuses = ['succeeded', 'failed', 'partially_succeeded', 'canceled'];
+    if (terminalStatuses.includes(job.status)) {
+      return res.status(400).json({ error: 'job_already_terminal', message: `Job is already ${job.status}` });
+    }
+
+    await updateJob(id, { status: 'canceled', finished_at: new Date().toISOString() });
+
+    // Bulk-cancel remaining queued/running items
+    await sniperSupabaseDb
+      .from('sniper_job_items')
+      .update({ status: 'canceled' })
+      .eq('job_id', id)
+      .in('status', ['queued', 'running']);
+
+    return res.json({ ok: true, status: 'canceled' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_cancel_job' });
+  }
+});
+
+// Pause a job
+sniperV1Router.post('/jobs/:id/pause', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const id = String(req.params.id);
+    const job = await getJob(id);
+    if (!job) return res.status(404).json({ error: 'not_found' });
+    if (job.workspace_id !== workspaceId) return res.status(403).json({ error: 'forbidden' });
+
+    const pauseableStatuses = ['queued', 'running', 'paused_throttled', 'paused_cooldown'];
+    if (!pauseableStatuses.includes(job.status)) {
+      return res.status(400).json({ error: 'cannot_pause', message: `Job in status ${job.status} cannot be paused` });
+    }
+
+    await updateJob(id, { status: 'paused_cooldown', error_message: 'Paused by user' });
+    return res.json({ ok: true, status: 'paused_cooldown' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_pause_job' });
+  }
+});
+
+// Resume a paused job
+sniperV1Router.post('/jobs/:id/resume', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const id = String(req.params.id);
+    const job = await getJob(id);
+    if (!job) return res.status(404).json({ error: 'not_found' });
+    if (job.workspace_id !== workspaceId) return res.status(403).json({ error: 'forbidden' });
+
+    const resumeableStatuses = ['paused_cooldown', 'paused_throttled'];
+    if (!resumeableStatuses.includes(job.status)) {
+      return res.status(400).json({ error: 'cannot_resume', message: `Job in status ${job.status} cannot be resumed` });
+    }
+
+    await updateJob(id, { status: 'queued', error_message: null, error_code: null, next_run_at: null });
+    await sniperV1Queue.add('sniper_v1', { jobId: id });
+
+    return res.json({ ok: true, status: 'queued' });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_resume_job' });
+  }
+});
+
+// Delete a job and its items
+sniperV1Router.delete('/jobs/:id', async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = getWorkspaceId(req, userId);
+
+    const id = String(req.params.id);
+    const job = await getJob(id);
+    if (!job) return res.status(404).json({ error: 'not_found' });
+    if (job.workspace_id !== workspaceId) return res.status(403).json({ error: 'forbidden' });
+
+    // Delete items first (foreign key), then the job
+    await sniperSupabaseDb.from('sniper_job_items').delete().eq('job_id', id);
+    await sniperSupabaseDb.from('sniper_jobs').delete().eq('id', id);
+
+    return res.json({ ok: true, deleted: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_delete_job' });
+  }
+});
+
 // ---------------- Convenience actions ----------------
 sniperV1Router.get('/bulk_quota', async (req: ApiRequest, res: Response) => {
   try {
