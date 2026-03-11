@@ -272,6 +272,15 @@ function getToolDefinitions(): any[] {
     { type:'function', function:{ name:'send_campaign_email_by_template_name', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'} }, required:['userId','campaign_id','template_name'] } } },
     { type:'function', function:{ name:'send_campaign_email_draft', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, subject:{type:'string'}, html:{type:'string'} }, required:['userId','campaign_id','subject','html'] } } },
     { type:'function', function:{ name:'preview_campaign_email', parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}, template_name:{type:'string'} }, required:['userId','campaign_id'] } } },
+    // Job Requisition tools
+    { type:'function', function:{ name:'search_jobs', description:'Search user job requisitions by title.', parameters:{ type:'object', properties:{ userId:{type:'string'}, query:{type:'string'} }, required:['userId'] } } },
+    { type:'function', function:{ name:'create_job_requisition', description:'Create a new job requisition with pipeline.', parameters:{ type:'object', properties:{ userId:{type:'string'}, title:{type:'string'}, description:{type:'string'}, department:{type:'string'}, location:{type:'string'}, salary_range:{type:'string'} }, required:['userId','title'] } } },
+    { type:'function', function:{ name:'add_candidate_to_job', description:'Add a candidate to a job requisition pipeline stage. Defaults to first stage if stage not specified.', parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, jobId:{type:'string'}, stage:{type:'string'} }, required:['userId','candidateId','jobId'] } } },
+    { type:'function', function:{ name:'get_job_pipeline', description:'Get pipeline stages and candidates for a job requisition.', parameters:{ type:'object', properties:{ userId:{type:'string'}, jobId:{type:'string'} }, required:['userId','jobId'] } } },
+    // Kanban tools
+    { type:'function', function:{ name:'create_kanban_board', description:'Create a new Kanban board with custom columns.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, columns:{type:'array',items:{type:'string'}} }, required:['userId','name'] } } },
+    { type:'function', function:{ name:'create_kanban_card', description:'Add a card to a Kanban board column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, boardId:{type:'string'}, listId:{type:'string'}, title:{type:'string'}, description:{type:'string'} }, required:['userId','boardId','listId','title'] } } },
+    { type:'function', function:{ name:'move_kanban_card', description:'Move a Kanban card to a different column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, cardId:{type:'string'}, targetListId:{type:'string'} }, required:['userId','cardId','targetListId'] } } },
   ];
 }
 
@@ -279,7 +288,36 @@ function getToolDefinitions(): any[] {
 // Build system prompt (same as rexChat.ts)
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(userId: string, campaign_id?: string): any {
+type JobContext = {
+  id: string; title: string; description: string; department: string;
+  location: string; salary_range: string; pipeline_stages: string[]; candidate_count: number;
+};
+
+function buildSystemPrompt(userId: string, campaign_id?: string, jobCtx?: JobContext): any {
+  let jobBlock = '';
+  if (jobCtx) {
+    jobBlock = `
+
+**Current Job Context:**
+You are assisting with: "${jobCtx.title}" (${jobCtx.department || 'No department'}) — Job ID: ${jobCtx.id}
+Location: ${jobCtx.location || 'Not specified'} | Salary: ${jobCtx.salary_range || 'Not specified'}
+Pipeline stages: ${jobCtx.pipeline_stages.join(' → ') || 'Default'}
+Current candidates: ${jobCtx.candidate_count} in pipeline
+Job description (summary): ${jobCtx.description.slice(0, 1500)}
+
+Job-specific instructions:
+- Use the job description above to inform sourcing criteria (target titles, skills, location, experience level).
+- After sourcing and enrichment, convert leads to candidates using convert_lead_to_candidate, then add them to this job's pipeline using add_candidate_to_job (default to the first stage).
+- Ask the user: "Should I track candidates in the job pipeline, or would you prefer a separate Kanban board?"
+- You can also use create_kanban_board, create_kanban_card, and move_kanban_card if the user prefers Kanban tracking.`;
+  } else {
+    jobBlock = `
+
+**Job context instructions:**
+- When the user asks about sourcing or outreach for a role, ask: "Do you already have a job requisition for this role? If so, what's the name? I can search your jobs with search_jobs." If not, offer to create one with create_job_requisition.
+- Once a job is identified, use add_candidate_to_job to place sourced candidates into the job's pipeline.`;
+  }
+
   return {
     role: 'system',
     content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
@@ -294,6 +332,9 @@ Key behaviors:
 - **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
 - **Sequences**: If timing isn't provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
 - **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don't dump all questions at once.
+- **Job tools**: Use search_jobs to find existing job requisitions, create_job_requisition to make new ones, get_job_pipeline to see pipeline state, and add_candidate_to_job to place candidates into job pipelines.
+- **Kanban tools**: Use create_kanban_board, create_kanban_card, and move_kanban_card when users want visual board tracking.
+${jobBlock}
 
 Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
   };
@@ -382,7 +423,30 @@ export default async function rexChatStream(req: Request, res: Response) {
     sseEvent(res, 'status', { phase: 'thinking' });
 
     const tools = getToolDefinitions();
-    const contextMessage = buildSystemPrompt(userId, campaign_id);
+
+    // Fetch job context if job_id passed in metadata
+    let jobCtx: JobContext | undefined;
+    if (metadata?.job_id) {
+      try {
+        const { data: job } = await supabase.from('job_requisitions').select('*').eq('id', metadata.job_id).maybeSingle();
+        if (job) {
+          const { data: stages } = await supabase.from('pipeline_stages').select('title').eq('pipeline_id', job.pipeline_id).order('position');
+          const { count } = await supabase.from('candidate_jobs').select('id', { count: 'exact', head: true }).eq('job_id', job.id);
+          jobCtx = {
+            id: job.id, title: job.title || '',
+            description: (job.description || '').slice(0, 2000),
+            department: job.department || '', location: job.location || '',
+            salary_range: job.salary_range || '',
+            pipeline_stages: (stages || []).map((s: any) => s.title),
+            candidate_count: count || 0
+          };
+        }
+      } catch (e) {
+        console.error('[rexChatStream] job context fetch error', e);
+      }
+    }
+
+    const contextMessage = buildSystemPrompt(userId, campaign_id, jobCtx);
 
     // 4. First OpenAI call (streaming)
     const stream = await openai.chat.completions.create({

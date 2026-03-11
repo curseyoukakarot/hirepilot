@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 import { apiPost } from '../lib/api';
@@ -15,6 +15,7 @@ import { useAppMode } from '../lib/appMode';
 
 export default function JobRequisitionPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [job, setJob] = useState(null);
   const [keywords, setKeywords] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -546,7 +547,7 @@ export default function JobRequisitionPage() {
                     </button>
                   )}
 
-                <button className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700" onClick={() => window.location.assign('/rex-chat')}>
+                <button className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700" onClick={() => navigate(`/rex-chat?job_id=${id}&job_title=${encodeURIComponent(job?.title || '')}`)}>
                   <i className="fas fa-robot mr-2"></i>
                   REX
                 </button>

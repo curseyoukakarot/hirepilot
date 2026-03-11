@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   chatStreamSse,
@@ -526,6 +527,13 @@ export default function REXChat() {
   const [completedTools, setCompletedTools] = useState<Array<{ name: string; id: string }>>([]);
   const [showScrollFab, setShowScrollFab] = useState(false);
 
+  // Job context from URL params (e.g., when user clicks REX from a Job page)
+  const [searchParams] = useSearchParams();
+  const jobIdParam = searchParams.get('job_id');
+  const jobTitleParam = searchParams.get('job_title');
+  const [jobContext, setJobContext] = useState<{ job_id: string; job_title: string } | null>(null);
+  const jobAutoSentRef = useRef(false);
+
   const streamAbortRef = useRef<AbortController | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -802,6 +810,33 @@ export default function REXChat() {
     }
   }, [agentProfiles, selectedAgentId]);
 
+  // Auto-send job context when navigating from a Job page (?job_id=...&job_title=...)
+  useEffect(() => {
+    if (!jobIdParam || jobAutoSentRef.current) return;
+    // Wait for conversations to load so ensureConversation works
+    const title = decodeURIComponent(jobTitleParam || 'Job');
+    setJobContext({ job_id: jobIdParam, job_title: title });
+    // Set the input and trigger send after a brief tick so state is settled
+    const prefillMsg = `I'm working on the **${title}** role (Job ID: ${jobIdParam}). Help me source candidates and launch outreach for this position.`;
+    setInput(prefillMsg);
+    jobAutoSentRef.current = true;
+    // Start a fresh conversation for this job context
+    const timer = setTimeout(async () => {
+      try {
+        const conv = await createConversation(`REX — ${title}`.slice(0, 120));
+        setActiveConversationId(conv.id);
+        await loadConversations();
+        // Simulate sending the prefilled message by calling sendPlannerMessage
+        // We set input above; the next render cycle will have it, then we "click send"
+        const sendBtn = document.querySelector('[data-rex-send]') as HTMLButtonElement | null;
+        if (sendBtn) sendBtn.click();
+      } catch (e) {
+        console.error('[REXChat] auto-send job context failed', e);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [jobIdParam, jobTitleParam]);
+
   useEffect(() => {
     if (!activeConversationId) return;
     loadConversationMessages(activeConversationId).catch(() => {});
@@ -903,7 +938,8 @@ export default function REXChat() {
         {
           activeAgent: selectedAgent.id,
           activeAgentName: selectedAgent.name,
-          attachments: attachments.map((a) => ({ name: a.name, url: a.url || null }))
+          attachments: attachments.map((a) => ({ name: a.name, url: a.url || null })),
+          job_id: jobContext?.job_id || undefined
         }
       );
 
@@ -1667,6 +1703,7 @@ export default function REXChat() {
                   <i className="fa-solid fa-paperclip" />
                 </button>
                 <button
+                  data-rex-send
                   className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-60 text-white rounded-lg font-medium text-sm transition-all duration-200 shadow-lg shadow-purple-500/20"
                   onClick={sendPlannerMessage}
                   disabled={sending || uploadingAttachment || !input.trim()}

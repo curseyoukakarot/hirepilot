@@ -1919,6 +1919,108 @@ server.registerCapabilities({
         return await convertLeadToCandidate({ userId, leadId });
       }
     },
+
+    // ==================== JOB REQUISITION TOOLS ====================
+    search_jobs: {
+      parameters: { userId: {type:'string'}, query: {type:'string', optional: true} },
+      handler: async ({ userId, query }: any) => {
+        let q = supabase.from('job_requisitions').select('id,title,department,status,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(20);
+        if (query) q = q.ilike('title', `%${query}%`);
+        const { data, error } = await q;
+        if (error) throw new Error(error.message);
+        return { jobs: data || [], count: (data || []).length };
+      }
+    },
+    create_job_requisition: {
+      parameters: {
+        userId: {type:'string'}, title: {type:'string'},
+        description: {type:'string', optional: true}, department: {type:'string', optional: true},
+        location: {type:'string', optional: true}, salary_range: {type:'string', optional: true}
+      },
+      handler: async ({ userId, title, description, department, location, salary_range }: any) => {
+        await assertPremium(userId);
+        const resp = await apiAsUser(userId, '/api/jobs/create', {
+          method: 'POST',
+          body: JSON.stringify({ title, description, department, location, salary_range })
+        });
+        return { ok: true, job_id: (resp as any)?.jobId, pipeline_id: (resp as any)?.job?.pipeline_id, title };
+      }
+    },
+    add_candidate_to_job: {
+      parameters: {
+        userId: {type:'string'}, candidateId: {type:'string'}, jobId: {type:'string'},
+        stage: {type:'string', optional: true}
+      },
+      handler: async ({ userId, candidateId, jobId, stage }: any) => {
+        // Get the job's pipeline
+        const { data: job } = await supabase.from('job_requisitions').select('pipeline_id').eq('id', jobId).eq('user_id', userId).maybeSingle();
+        if (!job?.pipeline_id) throw new Error('Job not found or no pipeline attached');
+        // Find target stage
+        let stageId: string | undefined;
+        if (stage) {
+          const { data: s } = await supabase.from('pipeline_stages').select('id').eq('pipeline_id', job.pipeline_id).ilike('title', `%${stage}%`).limit(1).maybeSingle();
+          stageId = s?.id;
+        }
+        if (!stageId) {
+          const { data: first } = await supabase.from('pipeline_stages').select('id,title').eq('pipeline_id', job.pipeline_id).order('position').limit(1).maybeSingle();
+          stageId = first?.id;
+        }
+        if (!stageId) throw new Error('No pipeline stages found for this job');
+        // Upsert candidate_jobs
+        const { error } = await supabase.from('candidate_jobs').upsert(
+          { candidate_id: candidateId, job_id: jobId, stage_id: stageId, user_id: userId },
+          { onConflict: 'candidate_id,job_id' }
+        );
+        if (error) throw new Error(error.message);
+        return { ok: true, candidate_id: candidateId, job_id: jobId, stage_id: stageId };
+      }
+    },
+    get_job_pipeline: {
+      parameters: { userId: {type:'string'}, jobId: {type:'string'} },
+      handler: async ({ userId, jobId }: any) => {
+        const resp = await apiAsUser(userId, `/api/pipelines?jobId=${jobId}`);
+        return resp;
+      }
+    },
+
+    // ==================== KANBAN TOOLS ====================
+    create_kanban_board: {
+      parameters: {
+        userId: {type:'string'}, name: {type:'string'},
+        columns: {type:'array', optional: true}
+      },
+      handler: async ({ userId, name, columns }: any) => {
+        const { data: board, error } = await supabase.from('kanban_boards').insert({ name, user_id: userId }).select().single();
+        if (error) throw new Error(error.message);
+        const cols = Array.isArray(columns) && columns.length ? columns : ['To Do', 'In Progress', 'Done'];
+        for (let i = 0; i < cols.length; i++) {
+          await supabase.from('kanban_lists').insert({ board_id: board.id, title: String(cols[i]), position: i });
+        }
+        return { ok: true, board_id: board.id, name, columns: cols };
+      }
+    },
+    create_kanban_card: {
+      parameters: {
+        userId: {type:'string'}, boardId: {type:'string'}, listId: {type:'string'},
+        title: {type:'string'}, description: {type:'string', optional: true}
+      },
+      handler: async ({ userId, boardId, listId, title, description }: any) => {
+        const { data: card, error } = await supabase.from('kanban_cards').insert({
+          board_id: boardId, list_id: listId, title, description: description || '', created_by: userId
+        }).select().single();
+        if (error) throw new Error(error.message);
+        return { ok: true, card_id: card.id, title };
+      }
+    },
+    move_kanban_card: {
+      parameters: { userId: {type:'string'}, cardId: {type:'string'}, targetListId: {type:'string'} },
+      handler: async ({ userId, cardId, targetListId }: any) => {
+        const { error } = await supabase.from('kanban_cards').update({ list_id: targetListId }).eq('id', cardId);
+        if (error) throw new Error(error.message);
+        return { ok: true, card_id: cardId, new_list_id: targetListId };
+      }
+    },
+
     // ==================== SOURCING AGENT TOOLS ====================
     sourcing_create_campaign: {
       parameters: { 

@@ -12,11 +12,12 @@ export default async function rexChat(req: Request, res: Response) {
   }
 
   const safeBody = (req as any)?.body || {};
-  const { userId, messages, campaign_id, conversationId } = safeBody as {
+  const { userId, messages, campaign_id, conversationId, metadata } = safeBody as {
     userId?: string;
     messages?: { role: 'user' | 'assistant'; content: string }[];
     campaign_id?: string;
     conversationId?: string;
+    metadata?: any;
   };
 
   if (!userId || !messages || !Array.isArray(messages)) {
@@ -335,7 +336,16 @@ export default async function rexChat(req: Request, res: Response) {
       { type:'function', function:{ name:'sniper_sn_message', description:'Send Sales Navigator direct messages to connected profiles.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, message:{type:'string'} }, required:['userId','profile_urls','message'] } } },
       { type:'function', function:{ name:'sniper_import_to_leads', description:'Import LinkedIn profile URLs into the leads table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, campaign_id:{type:'string',description:'Optional campaign to attach leads to'} }, required:['userId','profile_urls'] } } },
       { type:'function', function:{ name:'sniper_add_to_table', description:'Add LinkedIn profile URLs to a custom table. Does not require Cloud Engine.', parameters:{ type:'object', properties:{ userId:{type:'string'}, profile_urls:{type:'array',items:{type:'string'}}, table_id:{type:'string'} }, required:['userId','profile_urls','table_id'] } } },
-      { type:'function', function:{ name:'sniper_list_jobs', description:'List recent Cloud Engine jobs with status. Useful for checking mission progress.', parameters:{ type:'object', properties:{ userId:{type:'string'}, limit:{type:'number'} }, required:['userId'] } } }
+      { type:'function', function:{ name:'sniper_list_jobs', description:'List recent Cloud Engine jobs with status. Useful for checking mission progress.', parameters:{ type:'object', properties:{ userId:{type:'string'}, limit:{type:'number'} }, required:['userId'] } } },
+      // Job Requisition tools
+      { type:'function', function:{ name:'search_jobs', description:'Search user job requisitions by title.', parameters:{ type:'object', properties:{ userId:{type:'string'}, query:{type:'string'} }, required:['userId'] } } },
+      { type:'function', function:{ name:'create_job_requisition', description:'Create a new job requisition with pipeline.', parameters:{ type:'object', properties:{ userId:{type:'string'}, title:{type:'string'}, description:{type:'string'}, department:{type:'string'}, location:{type:'string'}, salary_range:{type:'string'} }, required:['userId','title'] } } },
+      { type:'function', function:{ name:'add_candidate_to_job', description:'Add a candidate to a job requisition pipeline stage. Defaults to first stage if stage not specified.', parameters:{ type:'object', properties:{ userId:{type:'string'}, candidateId:{type:'string'}, jobId:{type:'string'}, stage:{type:'string'} }, required:['userId','candidateId','jobId'] } } },
+      { type:'function', function:{ name:'get_job_pipeline', description:'Get pipeline stages and candidates for a job requisition.', parameters:{ type:'object', properties:{ userId:{type:'string'}, jobId:{type:'string'} }, required:['userId','jobId'] } } },
+      // Kanban tools
+      { type:'function', function:{ name:'create_kanban_board', description:'Create a new Kanban board with custom columns.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, columns:{type:'array',items:{type:'string'}} }, required:['userId','name'] } } },
+      { type:'function', function:{ name:'create_kanban_card', description:'Add a card to a Kanban board column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, boardId:{type:'string'}, listId:{type:'string'}, title:{type:'string'}, description:{type:'string'} }, required:['userId','boardId','listId','title'] } } },
+      { type:'function', function:{ name:'move_kanban_card', description:'Move a Kanban card to a different column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, cardId:{type:'string'}, targetListId:{type:'string'} }, required:['userId','cardId','targetListId'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -371,16 +381,32 @@ export default async function rexChat(req: Request, res: Response) {
       }
     }
 
+    // Fetch job context if job_id passed in metadata
+    let jobBlock = '';
+    if (metadata?.job_id) {
+      try {
+        const { data: job } = await supabase.from('job_requisitions').select('*').eq('id', metadata.job_id).maybeSingle();
+        if (job) {
+          const { data: stages } = await supabase.from('pipeline_stages').select('title').eq('pipeline_id', job.pipeline_id).order('position');
+          const { count } = await supabase.from('candidate_jobs').select('id', { count: 'exact', head: true }).eq('job_id', job.id);
+          jobBlock = `\n\n**Current Job Context:**\nYou are assisting with: "${job.title}" (${job.department || 'No department'}) — Job ID: ${job.id}\nLocation: ${job.location || 'Not specified'} | Salary: ${job.salary_range || 'Not specified'}\nPipeline stages: ${(stages || []).map((s: any) => s.title).join(' → ') || 'Default'}\nCurrent candidates: ${count || 0} in pipeline\nJob description (summary): ${(job.description || '').slice(0, 1500)}\n\nJob-specific instructions:\n- Use the job description above to inform sourcing criteria (target titles, skills, location, experience level).\n- After sourcing and enrichment, convert leads to candidates using convert_lead_to_candidate, then add them to this job's pipeline using add_candidate_to_job (default to the first stage).\n- Ask the user: "Should I track candidates in the job pipeline, or would you prefer a separate Kanban board?"\n- You can also use create_kanban_board, create_kanban_card, and move_kanban_card if the user prefers Kanban tracking.`;
+        }
+      } catch (e) { console.error('[rexChat] job context fetch error', e); }
+    }
+    if (!jobBlock) {
+      jobBlock = `\n\n**Job context instructions:**\n- When the user asks about sourcing or outreach for a role, ask: "Do you already have a job requisition for this role? If so, what's the name? I can search your jobs with search_jobs." If not, offer to create one with create_job_requisition.\n- Once a job is identified, use add_candidate_to_job to place sourced candidates into the job's pipeline.`;
+    }
+
     const contextMessage = {
       role: 'system',
       content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
 
 Be conversational and concise — answer like a sharp colleague, not a manual. Use markdown formatting (bold, lists, headers) to keep responses scannable.
 
-When you can fulfill a request with a tool, just do it. Don’t describe a plan first — act, then summarize what happened. You have the tool schemas; use them directly.
+When you can fulfill a request with a tool, just do it. Don't describe a plan first — act, then summarize what happened. You have the tool schemas; use them directly.
 
 Key behaviors:
-- **Lead sourcing**: If the user wants leads but doesn’t specify a source, ask once: "Apollo (fast, verified emails) or LinkedIn (connection workflow)?" Default to Apollo if they don’t answer.
+- **Lead sourcing**: If the user wants leads but doesn't specify a source, ask once: "Apollo (fast, verified emails) or LinkedIn (connection workflow)?" Default to Apollo if they don't answer.
 - **Apollo vs Cloud Engine disambiguation**: These are two very different systems. Apollo (source_leads, filter_leads) searches a database for contact info -- fast, returns emails. Cloud Engine (sniper_* tools) automates a real LinkedIn browser session -- slower, but finds live profiles and can take actions like connecting or messaging. Key signals:
   - User says "using apollo" or "apollo.io" or wants emails/contact info --> use Apollo tools (source_leads)
   - User says "using cloud engine", "using linkedin", "on linkedin", or "Sales Navigator" --> use Cloud Engine (sniper_* tools)
@@ -389,8 +415,8 @@ Key behaviors:
   - User wants to send connect requests, InMails, or messages --> always Cloud Engine
 - **Bulk actions**: Prefer campaign-level tools (send_campaign_email_auto, send_campaign_email_by_template_name) over single-lead tools when emailing a whole campaign.
 - **Resume/LinkedIn help**: Use resume_intelligence (analyze first, rewrite on request, coach for strategy) and linkedin_intelligence. Be hiring-manager aware and outcome-focused — no ATS keyword stuffing.
-- **Sequences**: If timing isn’t provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
-- **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don’t dump all questions at once.
+- **Sequences**: If timing isn't provided for sequence steps, ask once for step delays (e.g., "0, 2, 4 business days").
+- **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don't dump all questions at once.
 - **Cloud Engine missions**: You can queue LinkedIn automation missions. These are async -- after queuing, tell the user the job is running and they can check progress in /cloud-engine/activity. Available missions:
   - sniper_decision_makers -- find decision makers at a company (accepts optional criteria like "VP Engineering who controls the AI budget")
   - sniper_people_search -- run a LinkedIn people search URL
@@ -409,6 +435,9 @@ Key behaviors:
 - **Status and polling**: Use sniper_list_jobs to see recent jobs, sniper_poll_leads to get extracted profiles from a job, sniper_get_status for quick status.
 - **Multi-mission chaining**: When a user describes a pipeline (e.g. "find companies hiring for AI, find their decision makers, then connect"), queue each step and explain the chain. Each mission is async -- guide the user to check back or use sniper_poll_leads.
 - **Guardrails**: If Cloud Engine is off or LinkedIn is not connected, the tools will return a help message with setup instructions. Do not retry -- just show the user the instructions.
+- **Job tools**: Use search_jobs to find existing job requisitions, create_job_requisition to make new ones, get_job_pipeline to see pipeline state, and add_candidate_to_job to place candidates into job pipelines.
+- **Kanban tools**: Use create_kanban_board, create_kanban_card, and move_kanban_card when users want visual board tracking.
+${jobBlock}
 
 Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
     } as any;
