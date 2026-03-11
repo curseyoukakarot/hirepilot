@@ -1070,7 +1070,9 @@ export default function REXChat() {
         body: JSON.stringify({
           plan_json: planJson,
           conversation_id: activeConversationId || null,
-          campaign_id: null
+          campaign_id: null,
+          job_id: jobContext?.job_id || undefined,
+          job_title: jobContext?.job_title || undefined
         })
       });
       const createData = await createResp.json().catch(() => ({}));

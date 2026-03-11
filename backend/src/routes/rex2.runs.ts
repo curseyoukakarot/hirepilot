@@ -104,8 +104,16 @@ function normalizePlan(planJson: any, runContext: { conversationId: string | nul
       reason: String(planJson?.approval?.reason || 'User approval required before run execution.'),
       approved_at: planJson?.approval?.approved_at || null,
       approved_by: planJson?.approval?.approved_by || null
-    }
+    },
+    metadata: planJson?.metadata || {}
   };
+}
+
+function inferSourceType(plan: any): string {
+  const text = JSON.stringify(plan).toLowerCase();
+  if (text.includes('apollo')) return 'apollo';
+  if (text.includes('linkedin') || text.includes('sniper') || text.includes('sales navigator')) return 'sniper';
+  return 'apollo'; // default to Apollo (faster)
 }
 
 function makeInitialProgress(plan: any) {
@@ -149,7 +157,30 @@ router.post('/runs', async (req: Request, res: Response) => {
     const campaignId = body?.campaign_id ? String(body.campaign_id) : (body?.campaignId ? String(body.campaignId) : null);
 
     const plan = normalizePlan(body?.plan_json || body?.plan || {}, { conversationId, campaignId });
+
+    // Enrich plan with job context metadata if provided
+    const jobId = body?.job_id || body?.plan_json?.metadata?.job_id || null;
+    const jobTitle = body?.job_title || body?.plan_json?.metadata?.job_title || null;
+    plan.metadata = {
+      ...(plan.metadata || {}),
+      job_id: jobId,
+      job_title: jobTitle,
+      source_type: inferSourceType(plan)
+    };
+
     const initialProgress = makeInitialProgress(plan);
+
+    // Initialize run context for inter-step data sharing
+    (initialProgress as any).context = {
+      job_id: jobId,
+      job_title: jobTitle,
+      pipeline_id: null,
+      campaign_id: campaignId || null,
+      lead_ids: [],
+      enriched_leads: [],
+      scored_leads: [],
+      candidate_ids: []
+    };
     const artifacts = { schema_version: 'rex.artifacts.v1', items: [] };
     const estimate = estimateCreditsForPlan(plan);
     const stats = {

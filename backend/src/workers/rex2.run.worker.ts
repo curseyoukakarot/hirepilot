@@ -3,6 +3,7 @@ import { connection } from '../queues/redis';
 import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClient } from '../lib/supabase';
 import { buildRex2Event, publishRex2Event } from '../rex2/pubsub';
 import { launchSniperCapture, pollSniperCapture, resolveSniperTargetsFromPlan } from '../services/rex2/sniperBridge';
+import { RunContext, StepOutcome as HandlerOutcome, runSourceStep, runEnrichStep, runScoreStep, runConvertStep, runOutreachStep, runArtifactsStep } from '../services/rex2/stepHandlers';
 
 const QUEUE = 'rex2:run';
 const MAX_PARALLEL_STEPS = Math.max(1, Number(process.env.REX2_MAX_PARALLEL_STEPS || 2));
@@ -219,7 +220,68 @@ type StepOutcome = {
   stats_delta?: Record<string, number>;
   toolcalls?: any[];
   artifacts?: any[];
+  context_updates?: Partial<RunContext>;
 };
+
+// Lazy-load REX server to avoid circular dependency at startup
+let _rexServer: any = null;
+function getRexServer() {
+  if (!_rexServer) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { server } = require('../rex/server');
+      _rexServer = server;
+    } catch (e) {
+      console.error('[rex2.run.worker] Failed to load REX server:', e);
+    }
+  }
+  return _rexServer;
+}
+
+async function dispatchStep(args: {
+  run: any; runId: string; step: RunStep; stepIndex: number;
+  steps: RunStep[]; context: RunContext;
+}): Promise<StepOutcome> {
+  const category = String(args.step.category || '').toLowerCase();
+  const title = String(args.step.title || '').toLowerCase();
+  const rexServer = getRexServer();
+
+  // Source candidates — try Apollo first, fall back to Sniper
+  if (isSourceCandidateStep(args.step, args.stepIndex)) {
+    if (rexServer) {
+      const result = await runSourceStep(args, rexServer);
+      // If the handler returns delegate_sniper, fall back to Sniper bridge
+      if (result.results?.summary === 'DELEGATE_TO_SNIPER') {
+        return runSourceCandidatesStep({ run: args.run, runId: args.runId, step: args.step });
+      }
+      return result;
+    }
+    return runSourceCandidatesStep({ run: args.run, runId: args.runId, step: args.step });
+  }
+
+  // Enrichment
+  if (category === 'enrichment' || /enrich|profile|contact/.test(title)) {
+    if (rexServer) return runEnrichStep(args, rexServer);
+  }
+
+  // Scoring
+  if (category === 'scoring' || /score|rank|evaluate|qualify/.test(title)) {
+    return runScoreStep(args, rexServer);
+  }
+
+  // Convert to candidates / add to pipeline
+  if (/convert|candidate|pipeline|add to/.test(title) || (category === 'crm' && /candidate|convert|pipeline/.test(title))) {
+    if (rexServer) return runConvertStep(args, rexServer);
+  }
+
+  // Outreach / messaging
+  if (category === 'messaging' || /outreach|email|sequence|message|campaign|send/.test(title)) {
+    if (rexServer) return runOutreachStep(args, rexServer);
+  }
+
+  // Artifacts / analytics / fallback
+  return runArtifactsStep(args, rexServer);
+}
 
 function buildMockToolCall(runId: string, step: RunStep) {
   return {
@@ -589,6 +651,18 @@ export const rex2RunWorker = new Worker(
     let stats = (run.stats_json && typeof run.stats_json === 'object') ? run.stats_json : {};
     let artifacts = (run.artifacts_json && typeof run.artifacts_json === 'object') ? run.artifacts_json : { schema_version: 'rex.artifacts.v1', items: [] };
 
+    // Initialize run context for inter-step data sharing
+    let context: RunContext = {
+      job_id: run.plan_json?.metadata?.job_id || run.progress_json?.context?.job_id || null,
+      job_title: run.plan_json?.metadata?.job_title || run.progress_json?.context?.job_title || null,
+      pipeline_id: run.progress_json?.context?.pipeline_id || null,
+      campaign_id: run.progress_json?.context?.campaign_id || run.campaign_id || null,
+      lead_ids: run.progress_json?.context?.lead_ids || [],
+      enriched_leads: run.progress_json?.context?.enriched_leads || [],
+      scored_leads: run.progress_json?.context?.scored_leads || [],
+      candidate_ids: run.progress_json?.context?.candidate_ids || [],
+    };
+
     await updateRun(runId, {
       status: 'running',
       progress_json: buildProgressSnapshot(runId, 'running', steps, null, startedAt, null, now),
@@ -611,9 +685,12 @@ export const rex2RunWorker = new Worker(
       let stopReason: string | null = null;
 
       const persistRunningSnapshot = async (currentStepId: string | null = null) => {
+        const snapshot = buildProgressSnapshot(runId, 'running', steps, currentStepId, startedAt, null, new Date().toISOString());
+        // Persist run context alongside progress for recovery
+        (snapshot as any).context = context;
         await updateRun(runId, {
           status: 'running',
-          progress_json: buildProgressSnapshot(runId, 'running', steps, currentStepId, startedAt, null, new Date().toISOString()),
+          progress_json: snapshot,
           stats_json: stats,
           artifacts_json: artifacts
         });
@@ -705,10 +782,7 @@ export const rex2RunWorker = new Worker(
         }));
 
         const runner = (async (): Promise<StepOutcome> => {
-          if (isSourceCandidateStep(step, index)) {
-            return runSourceCandidatesStep({ run, runId, step });
-          }
-          return runMockStep({ runId, step, stepIndex: index, steps });
+          return dispatchStep({ run, runId, step, stepIndex: index, steps, context });
         })();
 
         running.set(
@@ -794,6 +868,11 @@ export const rex2RunWorker = new Worker(
         completedStep.external_refs = outcome.external_refs || [];
         completedStep.ended_at = new Date().toISOString();
         completedStep.duration_ms = Number(outcome.duration_ms || 0);
+
+        // Merge context updates from step handler
+        if (outcome.context_updates) {
+          context = { ...context, ...outcome.context_updates };
+        }
 
         const elapsed = Math.round((Date.now() - new Date(startedAt).getTime()) / 1000);
         const doneCount = steps.filter((s) => isTerminal(s.status)).length;

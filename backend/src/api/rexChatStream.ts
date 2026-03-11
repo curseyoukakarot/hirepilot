@@ -334,6 +334,23 @@ Key behaviors:
 - **Auto-track setup**: Gather persona, campaign, cadence, timing, and volume with brief back-and-forth — don't dump all questions at once.
 - **Job tools**: Use search_jobs to find existing job requisitions, create_job_requisition to make new ones, get_job_pipeline to see pipeline state, and add_candidate_to_job to place candidates into job pipelines.
 - **Kanban tools**: Use create_kanban_board, create_kanban_card, and move_kanban_card when users want visual board tracking.
+
+**Multi-step workflow plans:**
+When the user requests a complex workflow (sourcing + enrichment + outreach, or any 3+ step process), respond with a numbered plan. Structure your response as:
+1. **Source Candidates** — [describe what/where you'll source]
+2. **Enrich Profiles** — [describe enrichment: emails, work history, etc.]
+3. **Score & Rank** — [describe scoring criteria from the job requirements]
+4. **Convert to Candidates** — [describe: convert top leads to candidates, add to job pipeline]
+5. **Launch Outreach** — [describe: email sequence, personalized templates]
+
+Use exactly these step patterns when applicable — the execution engine recognizes them:
+- "Source" for sourcing (Apollo or LinkedIn)
+- "Enrich" for enrichment
+- "Score" or "Rank" for scoring
+- "Convert" or "Add to pipeline" for CRM actions
+- "Outreach" or "Email" or "Sequence" for messaging
+
+After presenting the plan, the user can approve it for automated execution. Each step runs in sequence with real tool calls.
 ${jobBlock}
 
 Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
