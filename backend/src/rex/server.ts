@@ -2925,6 +2925,93 @@ Question topics: experience level, key skills relevant to ${roleLabel}, location
         return { ok: true, sequence_id: seq.id, name: seq.name, step_count: stepInserts.length };
       }
     },
+    classify_reply: {
+      parameters: {
+        userId: { type: 'string' },
+        replyId: { type: 'string' },
+        forceLabel: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, replyId, forceLabel }: { userId: string; replyId: string; forceLabel?: string }) => {
+        await assertPremium(userId);
+
+        // 1. Fetch the reply
+        const { data: reply, error: replyErr } = await supabase
+          .from('sourcing_replies')
+          .select('id, body, campaign_id, lead_id, classified_as, next_action')
+          .eq('id', replyId)
+          .single();
+        if (replyErr || !reply) throw new Error('Reply not found');
+
+        // 2. Verify ownership via campaign
+        const { data: campaign } = await supabase
+          .from('sourcing_campaigns')
+          .select('created_by')
+          .eq('id', reply.campaign_id)
+          .single();
+        if (!campaign || campaign.created_by !== userId) throw new Error('Access denied');
+
+        // 3. Classify (or use forced label)
+        const validLabels = ['positive', 'meeting_request', 'neutral', 'negative', 'oos', 'auto'];
+        let newLabel: string;
+        let newAction: string;
+
+        if (forceLabel) {
+          if (!validLabels.includes(forceLabel)) throw new Error(`Invalid label: ${forceLabel}. Must be one of: ${validLabels.join(', ')}`);
+          newLabel = forceLabel;
+          const actionMap: Record<string, string> = {
+            positive: 'book', meeting_request: 'book', neutral: 'reply',
+            negative: 'disqualify', oos: 'disqualify', auto: 'hold'
+          };
+          newAction = actionMap[forceLabel] || 'reply';
+        } else {
+          // Re-run AI classification
+          const { classifyReply } = require('../routes/sendgridInbound');
+          const result = await classifyReply(reply.body || '');
+          newLabel = result.label;
+          newAction = result.next_action;
+        }
+
+        // 4. Update reply + lead
+        await supabase
+          .from('sourcing_replies')
+          .update({ classified_as: newLabel, next_action: newAction })
+          .eq('id', replyId);
+
+        if (reply.lead_id) {
+          await supabase
+            .from('sourcing_leads')
+            .update({ reply_status: newLabel })
+            .eq('id', reply.lead_id);
+        }
+
+        // 5. Re-execute auto-actions if label changed
+        let autoActionsTriggered = false;
+        if (newLabel !== reply.classified_as && reply.lead_id && reply.campaign_id) {
+          try {
+            const { executeReplyAutoActions } = require('../services/replyAutoActions');
+            await executeReplyAutoActions({
+              leadId: reply.lead_id,
+              campaignId: reply.campaign_id,
+              classificationLabel: newLabel,
+              nextAction: newAction,
+              replyId
+            });
+            autoActionsTriggered = true;
+          } catch (err: any) {
+            console.warn('[classify_reply] auto-actions error:', err?.message);
+          }
+        }
+
+        return {
+          ok: true,
+          replyId,
+          previousLabel: reply.classified_as,
+          newLabel,
+          newAction,
+          autoActionsTriggered
+        };
+      }
+    },
     slack_setup_guide: {
       parameters: { userId: { type:'string' } },
       handler: async ({ userId }) => {

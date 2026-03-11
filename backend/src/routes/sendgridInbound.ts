@@ -173,15 +173,28 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
       console.error('❌ Error updating classification:', updateError);
     }
     
-    // Update lead status to 'replied'
+    // Update lead status to 'replied' + set reply_status to actual classification label
     try {
       await supabase
         .from('sourcing_leads')
-        .update({ outreach_stage: 'replied', reply_status: 'replied' })
+        .update({ outreach_stage: 'replied', reply_status: classification.label })
         .eq('id', leadId);
-      console.log(`✅ Updated lead ${leadId} status to 'replied' + reply_status`);
+      console.log(`✅ Updated lead ${leadId} outreach_stage=replied, reply_status=${classification.label}`);
     } catch (error) {
       console.error('❌ Error updating lead status:', error);
+    }
+
+    // Fire-and-forget: execute auto-actions (sequence pause + pipeline move)
+    if (leadId && campaignId) {
+      import('../services/replyAutoActions').then(mod => {
+        mod.executeReplyAutoActions({
+          leadId,
+          campaignId,
+          classificationLabel: classification.label,
+          nextAction: classification.next_action,
+          replyId: replyRow.id
+        }).catch(err => console.error('[inbound] auto-actions failed (non-blocking):', err?.message || err));
+      }).catch(() => {});
     }
     
     // Get campaign owner for notifications
@@ -289,12 +302,13 @@ router.post('/webhooks/sendgrid/sourcing/inbound', upload.any(), async (req: Req
 });
 
 // AI-powered reply classification
-async function classifyReply(text: string): Promise<{label: string; next_action: string}> {
+export async function classifyReply(text: string): Promise<{label: string; next_action: string}> {
   try {
-    const prompt = `Classify this email reply as one of: positive|neutral|negative|oos|auto
+    const prompt = `Classify this email reply as one of: positive|meeting_request|neutral|negative|oos|auto
 
 positive: Interested, wants to learn more, positive response
-neutral: Neutral response, needs follow-up, asking questions  
+meeting_request: Wants to schedule a meeting, call, or demo. Mentions specific times, asks for calendar link, says "let's chat", "happy to jump on a call", proposes availability, etc.
+neutral: Neutral response, needs follow-up, asking questions
 negative: Not interested, rejection, negative response
 oos: Out-of-scope, unrelated content, forwarded messages
 auto: Out-of-office, auto-reply, vacation messages
@@ -321,7 +335,7 @@ ${text}`;
     const parsed = JSON.parse(content);
     
     // Validate response
-    const validLabels = ['positive', 'neutral', 'negative', 'oos', 'auto'];
+    const validLabels = ['positive', 'meeting_request', 'neutral', 'negative', 'oos', 'auto'];
     const validActions = ['reply', 'book', 'disqualify', 'hold'];
     
     if (!validLabels.includes(parsed.label)) {

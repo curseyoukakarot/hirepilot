@@ -287,7 +287,7 @@ export class SourcingNotifications {
     ];
     
     // Add classification-specific actions
-    if (params.classification === 'positive') {
+    if (params.classification === 'positive' || params.classification === 'meeting_request') {
       actions.push({
         id: 'book_demo',
         type: 'button',
@@ -422,6 +422,7 @@ export class SourcingNotifications {
 function getNextActionFromClassification(classification: string): string {
   switch (classification) {
     case 'positive': return 'book meeting';
+    case 'meeting_request': return 'book meeting';
     case 'neutral': return 'reply';
     case 'negative': return 'disqualify';
     case 'oos': return 'disqualify';

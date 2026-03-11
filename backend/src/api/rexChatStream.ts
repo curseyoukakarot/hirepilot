@@ -286,6 +286,7 @@ function getToolDefinitions(): any[] {
     { type:'function', function:{ name:'generate_outreach_template', description:'AI-generate a personalized outreach email template and save it.', parameters:{ type:'object', properties:{ userId:{type:'string'}, template_name:{type:'string'}, job_title:{type:'string'}, company_or_context:{type:'string'}, tone:{type:'string',description:'professional, casual, or direct'} }, required:['userId','template_name','job_title'] } } },
     { type:'function', function:{ name:'create_screening_form', description:'Create a screening questionnaire for candidates. Auto-generates questions if not provided.', parameters:{ type:'object', properties:{ userId:{type:'string'}, title:{type:'string'}, job_title:{type:'string'}, questions:{type:'array',items:{type:'object',properties:{label:{type:'string'},field_type:{type:'string'},options:{type:'array',items:{type:'string'}}}}}, job_id:{type:'string'} }, required:['userId','title'] } } },
     { type:'function', function:{ name:'create_email_sequence', description:'Create a multi-step email sequence with delays between steps. Auto-generates 3-step sequence if steps not provided.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, steps:{type:'array',items:{type:'object',properties:{subject:{type:'string'},body:{type:'string'},delay_days:{type:'number'}}}}, stop_on_reply:{type:'boolean'} }, required:['userId','name'] } } },
+    { type:'function', function:{ name:'classify_reply', description:'Reclassify a sourcing reply or manually override its classification label. Triggers auto-actions (pipeline move, sequence pause) when the label changes.', parameters:{ type:'object', properties:{ userId:{type:'string'}, replyId:{type:'string',description:'UUID of the sourcing_replies row'}, forceLabel:{type:'string',description:'Optional: manually set label instead of re-running AI. One of: positive|meeting_request|neutral|negative|oos|auto'} }, required:['userId','replyId'] } } },
   ];
 }
 
@@ -343,6 +344,7 @@ Key behaviors:
 - **Template tools**: Use generate_outreach_template to AI-draft personalized email templates. Use list_email_templates to check existing templates first.
 - **Form tools**: Use create_screening_form to auto-generate screening questionnaires. Link to a job req when available.
 - **Sequence tools**: Use create_email_sequence to build multi-step follow-up cadences. If the user doesn't specify steps, auto-generate a 3-step sequence.
+- **Reply tools**: Use classify_reply to reclassify or manually override a reply's classification. Triggers auto-actions (pipeline move, sequence pause) when the label changes. Classifications: positive, meeting_request, neutral, negative, oos, auto.
 
 **Multi-step workflow plans:**
 When the user requests a complex workflow (sourcing + enrichment + outreach, or any 3+ step process), respond with a numbered plan. Structure your response as:

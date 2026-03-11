@@ -58,6 +58,7 @@ export async function getCampaignStats(campaignId: string, workspaceId?: string 
   }).length;
   const replied = (leads || []).filter((l: any) => stage(l.outreach_stage) === 'replied' || stage(l.reply_status) === 'replied').length;
   const positiveReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'positive').length;
+  const meetingRequestReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'meeting_request').length;
   const neutralReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'neutral').length;
   const negativeReplies = (leads || []).filter((l: any) => stage(l.reply_status) === 'negative').length;
 
@@ -71,6 +72,7 @@ export async function getCampaignStats(campaignId: string, workspaceId?: string 
     bounced: 0,
     unsubscribed: 0,
     positive_replies: positiveReplies,
+    meeting_request_replies: meetingRequestReplies,
     neutral_replies: neutralReplies,
     negative_replies: negativeReplies
   };
