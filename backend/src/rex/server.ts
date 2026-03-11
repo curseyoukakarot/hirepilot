@@ -3048,6 +3048,64 @@ Rank from highest to lowest score.`;
         };
       }
     },
+    check_lead_overlap: {
+      parameters: {
+        userId: { type: 'string' },
+        campaign_id: { type: 'string', optional: true },
+        emails: { type: 'array', optional: true }
+      },
+      handler: async ({ userId, campaign_id, emails }: { userId: string; campaign_id?: string; emails?: string[] }) => {
+        await assertPremium(userId);
+
+        const { dedupeLeadsAcrossCampaigns } = await import('../lib/dedupe');
+
+        let leadsToCheck: Array<{ email?: string; linkedin_url?: string }> = [];
+
+        if (emails && Array.isArray(emails) && emails.length > 0) {
+          // Check specific emails
+          leadsToCheck = emails.map(e => ({ email: e }));
+        } else if (campaign_id) {
+          // Check all leads in a campaign against other active campaigns
+          const { data: campaignLeads } = await supabase
+            .from('sourcing_leads')
+            .select('email, linkedin_url')
+            .eq('campaign_id', campaign_id)
+            .not('email', 'is', null)
+            .limit(1000);
+          leadsToCheck = (campaignLeads || []) as any[];
+        } else {
+          throw new Error('Provide either campaign_id or emails array');
+        }
+
+        if (!leadsToCheck.length) {
+          return { total_checked: 0, duplicates_found: 0, details: [], duplicate_campaigns: [] };
+        }
+
+        const result = await dedupeLeadsAcrossCampaigns(userId, leadsToCheck, campaign_id || undefined);
+
+        // Aggregate by campaign
+        const campMap = new Map<string, { campaign_id: string; campaign_title: string; count: number }>();
+        for (const d of result.details) {
+          const existing = campMap.get(d.existing_campaign_id);
+          if (existing) {
+            existing.count++;
+          } else {
+            campMap.set(d.existing_campaign_id, {
+              campaign_id: d.existing_campaign_id,
+              campaign_title: d.existing_campaign_title,
+              count: 1
+            });
+          }
+        }
+
+        return {
+          total_checked: leadsToCheck.length,
+          duplicates_found: result.details.length,
+          details: result.details.slice(0, 50),
+          duplicate_campaigns: Array.from(campMap.values())
+        };
+      }
+    },
     classify_reply: {
       parameters: {
         userId: { type: 'string' },

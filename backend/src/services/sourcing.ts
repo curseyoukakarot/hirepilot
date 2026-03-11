@@ -79,28 +79,79 @@ export async function addLeads(
   leads: any[],
   options?: { source?: string; userId?: string; mirrorMetadata?: MirrorMetadata; workspaceId?: string | null }
 ) {
-  if (!leads?.length) return { inserted: 0 };
-  const payload = leads.map(l => ({
+  if (!leads?.length) return { inserted: 0, leads: [], crossCampaignFiltered: 0 };
+  let payload = leads.map(l => ({
     campaign_id: campaignId,
     ...l,
     enriched: !!l.email,
     scheduler_run_id: options?.mirrorMetadata?.scheduler_run_id || null,
     workspace_id: options?.workspaceId || null
   }));
+
+  // Resolve campaign owner early — needed for cross-campaign dedup + mirror
+  let ownerUserId: string | undefined = options?.userId;
+  if (!ownerUserId) {
+    try {
+      const { data: campOwner } = await supabase
+        .from('sourcing_campaigns')
+        .select('created_by')
+        .eq('id', campaignId)
+        .maybeSingle();
+      ownerUserId = (campOwner as any)?.created_by as string | undefined;
+    } catch {}
+  }
+
+  // ── Cross-campaign deduplication ──
+  // Prevent the same email from being contacted by multiple active campaigns.
+  // Fail-open: if the check fails, proceed with insertion normally.
+  let crossCampaignFiltered = 0;
+  if (ownerUserId) {
+    try {
+      // Check opt-out: campaign_configs.dedup_enabled (default true)
+      let dedupEnabled = true;
+      try {
+        const { data: cfg } = await supabase
+          .from('campaign_configs')
+          .select('dedup_enabled')
+          .eq('campaign_id', campaignId)
+          .maybeSingle();
+        if (cfg && (cfg as any).dedup_enabled === false) dedupEnabled = false;
+      } catch {}
+
+      if (dedupEnabled) {
+        const { dedupeLeadsAcrossCampaigns } = await import('../lib/dedupe');
+        const dedupeResult = await dedupeLeadsAcrossCampaigns(ownerUserId, payload, campaignId);
+
+        if (dedupeResult.duplicateEmails.size > 0 || dedupeResult.duplicateLinkedinUrls.size > 0) {
+          const before = payload.length;
+          payload = payload.filter(l => {
+            const email = String(l.email || '').toLowerCase();
+            const url = String((l as any).linkedin_url || '').toLowerCase();
+            if (email && dedupeResult.duplicateEmails.has(email)) return false;
+            if (!email && url && dedupeResult.duplicateLinkedinUrls.has(url)) return false;
+            return true;
+          });
+          crossCampaignFiltered = before - payload.length;
+          if (crossCampaignFiltered > 0) {
+            console.log(`[sourcing.addLeads] cross-campaign dedup: ${crossCampaignFiltered} leads filtered (already in active campaigns)`);
+          }
+        }
+      }
+    } catch (dedupErr: any) {
+      console.warn('[sourcing.addLeads] cross-campaign dedup failed (non-blocking):', dedupErr?.message);
+    }
+  }
+
+  if (!payload.length) {
+    return { inserted: 0, leads: [], crossCampaignFiltered };
+  }
+
   const { data, error } = await supabase.from('sourcing_leads').insert(payload).select('*');
   if (error) throw error;
 
   // Mirror into base leads for visibility in /leads (All Campaigns) view
   // Non-fatal; ignore errors to avoid blocking sourcing flow
   try {
-    // Resolve campaign owner to attribute leads to correct user in base leads table
-    const { data: campOwner } = await supabase
-      .from('sourcing_campaigns')
-      .select('created_by')
-      .eq('id', campaignId)
-      .maybeSingle();
-
-    const ownerUserId = (campOwner as any)?.created_by as string | undefined;
     if (ownerUserId) {
       // Collect unique, valid emails from incoming payload
       const emails = Array.from(new Set((payload || [])
@@ -186,7 +237,7 @@ export async function addLeads(
     console.error('[sourcing.addLeads] credit deduction failed (non-fatal):', e);
   }
 
-  return { inserted: payload.length, leads: data || [] };
+  return { inserted: payload.length, leads: data || [], crossCampaignFiltered };
 }
 
 export async function scheduleCampaign(campaignId: string) {
