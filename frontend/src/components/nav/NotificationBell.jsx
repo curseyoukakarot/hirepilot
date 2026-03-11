@@ -151,7 +151,7 @@ export default function NotificationBell() {
   const handleCardClick = (card) => {
     markRead(card);
     setOpen(false);
-    navigate('/agent/inbox');
+    navigate('/notifications');
   };
 
   const actionStyleMap = {
@@ -297,7 +297,7 @@ export default function NotificationBell() {
               <button
                 onClick={() => {
                   setOpen(false);
-                  navigate('/agent/inbox');
+                  navigate('/notifications');
                 }}
                 className="w-full text-center text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
               >

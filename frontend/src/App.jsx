@@ -190,6 +190,7 @@ const TableEditor = lazy(() => import("./pages/TableEditor"));
 const Dashboards = lazy(() => import("./pages/Dashboards"));
 const DashboardDetail = lazy(() => import("./pages/DashboardDetail"));
 const TasksPage = lazy(() => import("./pages/tasks/TasksPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const BillingScreen = lazy(() => import("./screens/BillingScreen"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
@@ -929,6 +930,7 @@ function InnerApp() {
               <Route path="/dashboards" element={<Dashboards />} />
               <Route path="/dashboards/:id" element={<DashboardDetail />} />
               <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/tables" element={<Tables />} />
               <Route path="/tables/:id/edit" element={<TableEditor />} />
               {/* Forms system (authenticated app area, paid feature) */}

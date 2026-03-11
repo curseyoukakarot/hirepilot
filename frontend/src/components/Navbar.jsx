@@ -129,7 +129,7 @@ export default function Navbar() {
               )}
               <NavLink to="/jobs" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Jobs</NavLink>
               <NavLink to="/dashboard" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Dashboard</NavLink>
-              <NavLink to="/agent/inbox" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Notifications</NavLink>
+              <NavLink to="/notifications" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Notifications</NavLink>
               <NavLink to="/settings" onClick={()=>setMobileOpen(false)} className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                 {avatarUrl ? (<img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />)}
                 <span>Settings</span>
