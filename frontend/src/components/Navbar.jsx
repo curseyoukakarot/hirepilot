@@ -60,14 +60,6 @@ export default function Navbar() {
         {!isGuest && (
           <>
             <NavLink
-              to="/deals"
-              className={({ isActive }) =>
-                isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
-              }
-            >
-              Deals
-            </NavLink>
-            <NavLink
               to="/campaigns"
               className={({ isActive }) =>
                 isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
@@ -128,7 +120,6 @@ export default function Navbar() {
             <nav className="flex flex-col space-y-3">
               {!isGuest && (
                 <>
-                  <NavLink to="/deals" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Deals</NavLink>
                   <NavLink to="/campaigns" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Campaigns</NavLink>
                   <NavLink to="/leads" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Leads</NavLink>
                   <NavLink to="/candidates" onClick={()=>setMobileOpen(false)} className="text-gray-700 dark:text-gray-200">Candidates</NavLink>

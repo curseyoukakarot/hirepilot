@@ -104,6 +104,7 @@ import LandingThemesPage from './pages/jobseeker/LandingThemesPage';
 import OnboardingAppPage from './pages/OnboardingAppPage';
 import AuthCallback from './pages/AuthCallback';
 import IgniteRoutes from './pages/ignite/IgniteRoutes';
+import AppCatalog from './pages/AppCatalog';
 // Blog article pages
 const FlowOfHirePilot = lazy(() => import("./pages/blog/FlowOfHirePilot"));
 const MessageCenterSetup = lazy(() => import("./pages/blog/MessageCenterSetup"));
@@ -938,6 +939,7 @@ function InnerApp() {
               <Route path="/prep/landing-page" element={<LandingPagesPaidRoute><LandingPageBuilderPage /></LandingPagesPaidRoute>} />
               <Route path="/prep/landing/themes" element={<LandingPagesPaidRoute><LandingThemesPage /></LandingPagesPaidRoute>} />
               <Route path="/deals" element={<DealsPage />} />
+              <Route path="/apps" element={<AppCatalog />} />
               <Route
                 path="/proposals"
                 element={
