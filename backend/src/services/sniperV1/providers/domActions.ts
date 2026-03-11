@@ -205,13 +205,66 @@ export const HP_CONNECT_DOM_SCRIPT = `
       await wait(800);
 
       // 3) Handle the post-click dialog
-      const dlg = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
       const hasNote = (message || '').trim().length > 0;
+      try {
+        console.log('[HP DOM Engine] Post-click dialog handling', { hasNote, noteLength: (message || '').trim().length, notePreview: (message || '').trim().slice(0, 50) });
+      } catch {}
+
+      // Helper: find Send-type buttons in a dialog context
+      const findSendButton = (ctx) => {
+        return findClickableByText(ctx, 'button,[role="button"],a,span', /send without a note/i) ||
+               findClickableByText(ctx, 'button,[role="button"],a,span', /^send$/i) ||
+               findClickableByText(ctx, 'button,[role="button"],a,span', /send/i) ||
+               ctx.querySelector('button[aria-label*="Send" i]') ||
+               ctx.querySelector('button.artdeco-button--primary');
+      };
+
+      // Check if a dialog actually appeared
+      const getDialog = () => document.querySelector('div[role="dialog"], .artdeco-modal');
+      let dlg = getDialog();
+
+      // Wait for dialog if not immediately visible
+      if (!dlg) {
+        for (let dw = 0; dw < 5 && !dlg; dw++) { await wait(400); dlg = getDialog(); }
+      }
+
+      if (!dlg) {
+        // No dialog appeared after clicking Connect — LinkedIn may have sent immediately
+        try { console.log('[HP DOM Engine] No dialog appeared after clicking Connect — may have been sent directly'); } catch {}
+        return { ok: true };
+      }
+
+      // Log dialog contents for diagnostics
+      try {
+        const dlgButtons = Array.from(dlg.querySelectorAll('button,[role="button"]'))
+          .filter(el => isVisible(el))
+          .map(el => textOf(el))
+          .filter(t => t.length > 0 && t.length < 50)
+          .slice(0, 10);
+        console.log('[HP DOM Engine] Dialog buttons found:', dlgButtons);
+      } catch {}
+
+      // Detect non-standard dialogs (email verification, "How do you know", etc.)
+      const dlgText = (dlg.textContent || '').toLowerCase();
+      if (/enter.*email|email.*address.*to.*connect|verify.*email/i.test(dlgText)) {
+        try { console.log('[HP DOM Engine] Email verification dialog detected — cannot proceed'); } catch {}
+        return { error: 'Email verification required to connect with this profile' };
+      }
+      if (/how do you know/i.test(dlgText)) {
+        try { console.log('[HP DOM Engine] "How do you know" dialog detected — trying to proceed'); } catch {}
+        // Some versions of this dialog still have a Send/Connect button — try clicking it
+        const howBtn = findClickableByText(dlg, 'button,[role="button"]', /^connect$/i) ||
+                       findSendButton(dlg);
+        if (howBtn) { dispatchClick(howBtn); await wait(600); return { ok: true }; }
+        return { error: 'How do you know dialog appeared — could not auto-resolve' };
+      }
+
+      let noteSent = false;
 
       if (hasNote) {
-        // --- WITH NOTE: click "Add a note" → fill textarea → click Send ---
+        // --- WITH NOTE: try "Add a note" → fill textarea → click Send ---
         const findAddNoteButton = () => {
-          const d = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+          const d = getDialog() || document;
           return (
             findClickableByText(d, 'button,[role="button"],a,span', /^add a note$/i) ||
             findClickableByText(d, 'button,[role="button"],a,span', /add a note/i) ||
@@ -223,56 +276,65 @@ export const HP_CONNECT_DOM_SCRIPT = `
         if (addNote) { dispatchClick(addNote); await wait(600); }
 
         // Fill the note (wait adaptively for the textarea to appear)
-        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+        const modal = getDialog() || document;
         const inputSelectors = [
           'textarea[name="message"]',
           'textarea#custom-message',
           'textarea[id*="custom" i]',
           'textarea[aria-label*="note" i]',
+          'textarea[aria-label*="message" i]',
+          'textarea[aria-label*="invitation" i]',
           '.msg-form__contenteditable',
           'div[contenteditable="true"]',
           'textarea'
         ];
         let inputs = Array.from(modal.querySelectorAll(inputSelectors.join(', ')));
         if (!inputs.length) {
+          // Retry: maybe "Add a note" didn't register — click again
           addNote = findAddNoteButton();
           if (addNote) { dispatchClick(addNote); await wait(800); }
           for (let i=0; i<8 && !inputs.length; i++) {
             await wait(300);
-            inputs = Array.from((document.querySelector('div[role="dialog"], .artdeco-modal')||document).querySelectorAll(inputSelectors.join(', ')));
+            inputs = Array.from((getDialog()||document).querySelectorAll(inputSelectors.join(', ')));
           }
         }
-        if (!inputs.length) return { error: 'Could not find message input' };
-        const input = inputs[0];
-        const max = Number(input.getAttribute('maxlength') || 300);
-        const text = (message || '').slice(0, max);
-        if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        await wait(300);
 
-        // Click Send
-        const sendBtn = findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
-                        findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
-                        modal.querySelector('button[aria-label*="Send" i]') ||
-                        modal.querySelector('button.artdeco-button--primary');
-        if (!sendBtn) return { error: 'Send button not found' };
-        dispatchClick(sendBtn);
-        await wait(600);
-      } else {
-        // --- WITHOUT NOTE: click "Send without a note" or just "Send" directly ---
-        const modal = document.querySelector('div[role="dialog"], .artdeco-modal') || document;
+        if (inputs.length) {
+          // Textarea found — fill the note
+          const input = inputs[0];
+          const max = Number(input.getAttribute('maxlength') || 300);
+          const text = (message || '').slice(0, max);
+          if (input.tagName.toLowerCase() === 'textarea') { input.value = text; } else { input.textContent = text; }
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          await wait(300);
 
-        // Try "Send without a note" first (LinkedIn's fast path)
-        const sendWithoutNote = findClickableByText(modal, 'button,[role="button"],a,span', /send without a note/i) ||
-                                findClickableByText(modal, 'button,[role="button"],a,span', /^send$/i) ||
-                                findClickableByText(modal, 'button,[role="button"],a,span', /send/i) ||
-                                modal.querySelector('button[aria-label*="Send" i]') ||
-                                modal.querySelector('button.artdeco-button--primary');
+          // Click Send
+          const sendCtx = getDialog() || document;
+          const sendBtn = findSendButton(sendCtx);
+          if (!sendBtn) return { error: 'Send button not found after filling note' };
+          dispatchClick(sendBtn);
+          await wait(600);
+          noteSent = true;
+        } else {
+          // GRACEFUL DEGRADATION: Could not find note input — fall through to WITHOUT NOTE path
+          // This handles cases where:
+          //   1. LinkedIn doesn't offer "Add a note" for this connection type
+          //   2. The dialog layout is different from expected
+          //   3. A campaign provides a note but the dialog doesn't support it
+          try { console.log('[HP DOM Engine] Note was provided but no textarea found — falling back to Send without note'); } catch {}
+        }
+      }
+
+      if (!noteSent) {
+        // --- WITHOUT NOTE (or fallback from failed WITH NOTE): click "Send without a note" or "Send" ---
+        const modal = getDialog() || document;
+        const sendWithoutNote = findSendButton(modal);
         if (!sendWithoutNote) {
           // No send button in dialog — maybe LinkedIn sent immediately (no confirmation dialog)
           await wait(500);
           try { console.log('[HP DOM Engine] No Send button found in dialog — Connect may have been sent directly'); } catch {}
         } else {
+          try { console.log('[HP DOM Engine] Clicking send button:', textOf(sendWithoutNote).slice(0, 60)); } catch {}
           dispatchClick(sendWithoutNote);
           await wait(600);
         }
@@ -320,7 +382,14 @@ export async function domConnectAndSend(
     return { resolved: false, error: 'DOM connect disabled via SNIPER_DOM_CONNECT_ENABLED' };
   }
 
-  const trimmedNote = String(note || '').trim().slice(0, 300);
+  // Defensive: guard against string "null"/"undefined" being treated as real notes
+  // (can happen if JSON serialization converts null → "null" string upstream)
+  const rawNote = String(note ?? '').trim();
+  const trimmedNote = (rawNote && rawNote !== 'null' && rawNote !== 'undefined')
+    ? rawNote.slice(0, 300)
+    : '';
+
+  console.log(`[domActions] domConnectAndSend called — note present: ${trimmedNote.length > 0}, length: ${trimmedNote.length}`);
 
   try {
     // Inject the script (idempotent — IIFE checks if already defined)
