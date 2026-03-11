@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   FaEnvelope, FaChartBar, FaCog, FaSignOutAlt, FaCreditCard,
-  FaShieldAlt, FaRobot, FaExclamationTriangle, FaCookie, FaSlidersH,
+  FaShieldAlt, FaRobot, FaSlidersH,
   FaPlug, FaUsers, FaTerminal, FaTable, FaWpforms, FaHeartbeat,
   FaGlobe, FaTasks, FaColumns, FaHandshake, FaRocket, FaKey, FaPlus,
 } from 'react-icons/fa';
@@ -264,70 +264,27 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* ─── LinkedIn Automation (super admin only) ─── */}
+        {/* ─── Super Admin Section ─── */}
         {isSuperAdmin && (
           <div className="px-2 mt-8">
-            {!collapsed && <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">LinkedIn Automation</div>}
-            <NavLink
-              to="/phantom/bulk-refresh"
-              className={({ isActive }) => navLinkClass(isActive, collapsed)}
-            >
-              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCog /></span>
-              {!collapsed && 'Bulk Cookie Refresh'}
+            {!collapsed && <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">Admin Controls</div>}
+            <NavLink to="/super-admin" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
+              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaShieldAlt /></span>
+              {!collapsed && 'Super Admin'}
+            </NavLink>
+            <NavLink to="/admin/puppet-health" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
+              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
+              {!collapsed && 'Puppet Health'}
+            </NavLink>
+            <NavLink to="/admin/repo-guardian" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
+              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaHeartbeat /></span>
+              {!collapsed && 'Repo Guard'}
+            </NavLink>
+            <NavLink to="/admin/proxy-management" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
+              <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaSlidersH /></span>
+              {!collapsed && 'Proxy Management'}
             </NavLink>
           </div>
-        )}
-
-        {/* ─── Super Admin Sections ─── */}
-        {isSuperAdmin && (
-          <>
-            <div className="px-2 mt-8">
-              {!collapsed && <div className="text-xs text-gray-400 font-semibold uppercase mb-2 tracking-wider">Admin Controls</div>}
-              <NavLink to="/super-admin" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaShieldAlt /></span>
-                {!collapsed && 'Super Admin'}
-              </NavLink>
-              <NavLink to="/admin/puppet-health" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
-                {!collapsed && 'Puppet Health'}
-              </NavLink>
-              <NavLink to="/admin/repo-guardian" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaHeartbeat /></span>
-                {!collapsed && 'Repo Guard'}
-              </NavLink>
-              <NavLink to="/admin/proxy-management" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaSlidersH /></span>
-                {!collapsed && 'Proxy Management'}
-              </NavLink>
-              <NavLink to="/settings" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCog /></span>
-                {!collapsed && 'Settings'}
-              </NavLink>
-            </div>
-            <div className="px-2 mt-8">
-              {!collapsed && <div className="text-xs font-semibold uppercase mb-2 tracking-wider text-blue-600 dark:text-blue-400">Phantom Tools</div>}
-              <NavLink to="/phantom-monitor" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaRobot /></span>
-                {!collapsed && 'Queue Monitor'}
-              </NavLink>
-              <NavLink to="/phantom/lead-sync-failures" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaExclamationTriangle /></span>
-                {!collapsed && 'Lead Sync Failures'}
-              </NavLink>
-              <NavLink to="/phantom/cookie-refresh" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaCookie /></span>
-                {!collapsed && 'Cookie Refresher'}
-              </NavLink>
-              <NavLink to="/phantom/webhook-logs" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaPlug /></span>
-                {!collapsed && 'Webhook Logs'}
-              </NavLink>
-              <NavLink to="/phantom/config" className={({ isActive }) => adminNavLinkClass(isActive, collapsed)}>
-                <span className={`${collapsed ? '' : 'mr-3'} text-lg`}><FaSlidersH /></span>
-                {!collapsed && 'Phantom Config'}
-              </NavLink>
-            </div>
-          </>
         )}
       </nav>
       {/* Fixed Sign Out Button */}
