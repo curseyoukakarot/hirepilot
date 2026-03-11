@@ -643,6 +643,21 @@ Rank from highest to lowest score.`;
 
     publishProgress(runId, step.step_id, 90, 'Scoring complete', `Scored ${scored.length} candidates. Average: ${avgScore}/100.`);
 
+    // Persist scores to sourcing_leads table for downstream use
+    if (scored.length) {
+      try {
+        const now = new Date().toISOString();
+        for (const s of scored) {
+          await getDb().from('sourcing_leads')
+            .update({ score: s.score, score_reason: s.reason, scored_at: now })
+            .eq('id', s.id);
+        }
+      } catch (persistErr: any) {
+        // Non-blocking: columns may not exist yet; scores still flow via context_updates
+        console.warn('[runScoreStep] Failed to persist scores to DB (non-blocking):', persistErr?.message);
+      }
+    }
+
     tc.status = 'success';
     tc.output = { scored_count: scored.length, avg_score: avgScore, top_score: scored[0]?.score || 0 };
     tc.metrics = { duration_ms: Date.now() - stepStart, credits_used: 1 };
@@ -833,6 +848,42 @@ export async function runOutreachStep(args: HandlerArgs, rexServer: any): Promis
   }
 
   publishProgress(runId, step.step_id, 10, 'Preparing outreach', 'Generating email template and scheduling campaign...');
+
+  // Pre-outreach score gate: filter out low-scoring leads if scoring data is available
+  const minScore = run.plan_json?.goal?.constraints?.min_score ?? 40;
+  if (context.scored_leads?.length) {
+    const passedLeads = context.scored_leads.filter(s => (s.score || 0) >= minScore);
+    const skippedCount = context.scored_leads.length - passedLeads.length;
+
+    if (passedLeads.length === 0) {
+      return {
+        status: 'failure',
+        progress: { percent: 100, label: 'No leads passed scoring' },
+        results: { summary: `No leads passed the score threshold (≥${minScore}/100). All ${context.scored_leads.length} leads were below minimum score.` },
+        errors: [{ code: 'no_qualified_leads', message: `All ${context.scored_leads.length} leads scored below ${minScore}` }],
+        external_refs: [],
+        duration_ms: Date.now() - stepStart,
+        credits_used: 0,
+        toolcalls: [],
+        artifacts: []
+      };
+    }
+
+    publishProgress(runId, step.step_id, 15, 'Score filtering',
+      `${passedLeads.length} leads passed score threshold (≥${minScore}/100), ${skippedCount} filtered out`);
+
+    // Mark low-scoring leads as filtered in the campaign
+    if (skippedCount > 0) {
+      const skippedIds = context.scored_leads.filter(s => (s.score || 0) < minScore).map(s => s.id);
+      try {
+        await getDb().from('sourcing_leads')
+          .update({ outreach_stage: 'filtered_low_score' })
+          .in('id', skippedIds);
+      } catch (e: any) {
+        console.warn('[runOutreachStep] Failed to mark filtered leads:', e?.message);
+      }
+    }
+  }
 
   // Try send_campaign_email_auto
   const handler = getToolHandler(rexServer, 'send_campaign_email_auto');

@@ -2925,6 +2925,129 @@ Question topics: experience level, key skills relevant to ${roleLabel}, location
         return { ok: true, sequence_id: seq.id, name: seq.name, step_count: stepInserts.length };
       }
     },
+    score_candidates: {
+      parameters: {
+        userId: { type: 'string' },
+        campaign_id: { type: 'string', optional: true },
+        lead_ids: { type: 'array', optional: true },
+        job_title: { type: 'string', optional: true },
+        job_description: { type: 'string', optional: true },
+        min_score: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, campaign_id, lead_ids, job_title, job_description, min_score }: {
+        userId: string; campaign_id?: string; lead_ids?: string[];
+        job_title?: string; job_description?: string; min_score?: number;
+      }) => {
+        await assertPremium(userId);
+
+        // 1. Resolve leads to score
+        let leads: Array<{ id: string; name?: string; email?: string; title?: string; company?: string }> = [];
+
+        if (lead_ids?.length) {
+          const { data } = await supabase.from('sourcing_leads')
+            .select('id, name, email, title, company')
+            .in('id', lead_ids)
+            .limit(50);
+          leads = data || [];
+        } else if (campaign_id) {
+          const { data } = await supabase.from('sourcing_leads')
+            .select('id, name, email, title, company')
+            .eq('campaign_id', campaign_id)
+            .limit(50);
+          leads = data || [];
+        } else {
+          throw new Error('Provide either campaign_id or lead_ids to score.');
+        }
+
+        if (!leads.length) return { ok: true, scored: [], message: 'No leads found to score.' };
+
+        // 2. Build scoring prompt (same logic as runScoreStep in stepHandlers)
+        const candidateList = leads.map((l, i) => (
+          `${i + 1}. ID: ${l.id} | Name: ${l.name || 'Unknown'} | Title: ${l.title || 'N/A'} | Company: ${l.company || 'N/A'} | Email: ${l.email ? 'Yes' : 'No'}`
+        )).join('\n');
+
+        const scoringPrompt = `Score these candidates against the job requirements. Return ONLY valid JSON.
+
+Job: ${job_title || 'Open Role'}
+Description: ${String(job_description || '').slice(0, 1000) || 'Not specified'}
+
+Candidates:
+${candidateList}
+
+Return a JSON array (no markdown, no code fences):
+[{"id": "uuid", "score": 0-100, "reason": "one-line explanation"}]
+
+Score based on: title relevance (40%), company quality (20%), having verified email (20%), overall fit (20%).
+Rank from highest to lowest score.`;
+
+        // 3. Call GPT-4o-mini
+        const { openai: openaiClient } = require('../ai/openaiClient');
+        const completion = await openaiClient.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: scoringPrompt }],
+          temperature: 0.3,
+          max_tokens: 4000
+        });
+
+        const raw = completion.choices[0]?.message?.content || '[]';
+        const cleaned = raw.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+
+        let scored: Array<{ id: string; score: number; reason: string }> = [];
+        try {
+          scored = JSON.parse(cleaned);
+        } catch {
+          const match = cleaned.match(/\[[\s\S]*\]/);
+          if (match) scored = JSON.parse(match[0]);
+        }
+
+        // Validate IDs
+        const validIds = new Set(leads.map(l => l.id));
+        scored = scored.filter(s => validIds.has(s.id));
+        scored.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        // 4. Persist scores to sourcing_leads
+        const now = new Date().toISOString();
+        let persisted = 0;
+        for (const s of scored) {
+          try {
+            await supabase.from('sourcing_leads')
+              .update({ score: s.score, score_reason: s.reason, scored_at: now })
+              .eq('id', s.id);
+            persisted++;
+          } catch {
+            // Columns may not exist yet — non-blocking
+          }
+        }
+
+        // 5. Return results with pass/fail
+        const threshold = min_score ?? 40;
+        const passed = scored.filter(s => s.score >= threshold);
+        const filtered = scored.filter(s => s.score < threshold);
+        const avgScore = scored.length ? Math.round(scored.reduce((sum, s) => sum + (s.score || 0), 0) / scored.length) : 0;
+
+        return {
+          ok: true,
+          scored_count: scored.length,
+          avg_score: avgScore,
+          threshold,
+          passed_count: passed.length,
+          filtered_count: filtered.length,
+          persisted_count: persisted,
+          top_candidates: passed.slice(0, 10).map(s => ({
+            id: s.id,
+            score: s.score,
+            reason: s.reason,
+            name: leads.find(l => l.id === s.id)?.name || 'Unknown'
+          })),
+          filtered_candidates: filtered.slice(0, 5).map(s => ({
+            id: s.id,
+            score: s.score,
+            reason: s.reason,
+            name: leads.find(l => l.id === s.id)?.name || 'Unknown'
+          }))
+        };
+      }
+    },
     classify_reply: {
       parameters: {
         userId: { type: 'string' },

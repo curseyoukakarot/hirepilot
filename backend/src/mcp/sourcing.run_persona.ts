@@ -667,7 +667,73 @@ export const sourcingRunPersonaTool = {
     }
 
     if (effectiveAutoOutreachEnabled && effectiveCampaignId && Array.isArray((addResult as any).leads)) {
-      const newLeadIds = ((addResult as any).leads as any[]).map((l: any) => l?.id).filter(Boolean);
+      let newLeadIds = ((addResult as any).leads as any[]).map((l: any) => l?.id).filter(Boolean);
+
+      // Pre-outreach score gate: if campaign has min_lead_score configured,
+      // score leads with GPT and filter out poor fits before enrollment
+      if (newLeadIds.length) {
+        try {
+          const { data: scoreCfg } = await supabaseAdmin
+            .from('campaign_configs')
+            .select('min_lead_score')
+            .eq('campaign_id', effectiveCampaignId)
+            .maybeSingle();
+          const minLeadScore = Number((scoreCfg as any)?.min_lead_score || 0);
+          if (minLeadScore > 0) {
+            // Fetch lead data for scoring
+            const { data: leadsForScoring } = await supabaseAdmin.from('sourcing_leads')
+              .select('id, name, email, title, company')
+              .in('id', newLeadIds)
+              .limit(50);
+            if (leadsForScoring?.length) {
+              const { openai: openaiClient } = await import('../ai/openaiClient');
+              const candidateList = leadsForScoring.map((l: any, i: number) => (
+                `${i + 1}. ID: ${l.id} | Name: ${l.name || 'Unknown'} | Title: ${l.title || 'N/A'} | Company: ${l.company || 'N/A'} | Email: ${l.email ? 'Yes' : 'No'}`
+              )).join('\n');
+              const prompt = `Score these candidates 0-100. Return ONLY a JSON array:\n[{"id":"uuid","score":0-100,"reason":"one-line"}]\n\nCandidates:\n${candidateList}\n\nScore on: title relevance (40%), company quality (20%), email (20%), overall fit (20%).`;
+              const resp = await openaiClient.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.3,
+                max_tokens: 4000
+              });
+              const raw = resp.choices[0]?.message?.content || '[]';
+              const cleaned = raw.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+              let scores: Array<{ id: string; score: number; reason: string }> = [];
+              try { scores = JSON.parse(cleaned); } catch {
+                const m = cleaned.match(/\[[\s\S]*\]/);
+                if (m) scores = JSON.parse(m[0]);
+              }
+              // Persist scores + filter
+              const now = new Date().toISOString();
+              const passedIds: string[] = [];
+              for (const s of scores) {
+                try {
+                  await supabaseAdmin.from('sourcing_leads')
+                    .update({ score: s.score, score_reason: s.reason, scored_at: now })
+                    .eq('id', s.id);
+                } catch {}
+                if ((s.score || 0) >= minLeadScore) passedIds.push(s.id);
+                else {
+                  try {
+                    await supabaseAdmin.from('sourcing_leads')
+                      .update({ outreach_stage: 'filtered_low_score' })
+                      .eq('id', s.id);
+                  } catch {}
+                }
+              }
+              const filteredCount = newLeadIds.length - passedIds.length;
+              if (filteredCount > 0) {
+                console.log(`[sourcing.run_persona] Score gate: ${passedIds.length} passed (≥${minLeadScore}), ${filteredCount} filtered`);
+              }
+              newLeadIds = passedIds;
+            }
+          }
+        } catch (scoreErr: any) {
+          console.warn('[sourcing.run_persona] pre-score gate failed (non-blocking):', scoreErr?.message);
+        }
+      }
+
       if (newLeadIds.length) {
         try {
           // If a Message Center sequence is specified, enroll into that system.
