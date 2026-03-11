@@ -11,7 +11,7 @@ export async function sendViaProvider(
   bodyHtml: string,
   userId: string,
   subject?: string,
-  options?: { bcc?: string[] }
+  options?: { bcc?: string[]; variantId?: string }
 ): Promise<boolean> {
   try {
     const rawBcc = options?.bcc?.filter(addr => !!addr?.trim());
@@ -37,7 +37,8 @@ export async function sendViaProvider(
           user_id: userId,
           campaign_id: lead.campaign_id,
           lead_id: lead.id,
-          message_id: trackingMessageId
+          message_id: trackingMessageId,
+          ...(options?.variantId ? { variant_id: options.variantId } : {})
         },
         replyTo: `msg_${trackingMessageId}.u_${userId}.c_${lead.campaign_id}@${await resolveReplyDomain(userId)}`
       };
@@ -69,7 +70,7 @@ export async function sendViaProvider(
         unread: false,
         read: true
       });
-      await supabaseDb.from('email_events').insert({
+      const emailEventRow: any = {
         user_id: userId,
         campaign_id: lead.campaign_id,
         lead_id: lead.id,
@@ -78,7 +79,9 @@ export async function sendViaProvider(
         provider: 'sendgrid',
         event_timestamp: now.toISOString(),
         metadata: { subject: msg.subject, sg_message_id: sgMsgId }
-      });
+      };
+      if (options?.variantId) emailEventRow.variant_id = options.variantId;
+      await supabaseDb.from('email_events').insert(emailEventRow);
       return true;
     }
 

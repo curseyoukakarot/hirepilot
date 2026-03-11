@@ -3106,6 +3106,183 @@ Rank from highest to lowest score.`;
         };
       }
     },
+    create_ab_test: {
+      parameters: {
+        userId: { type: 'string' },
+        sequence_id: { type: 'string' },
+        step_order: { type: 'number' },
+        variant_b_subject: { type: 'string' },
+        variant_b_body: { type: 'string' },
+        primary_metric: { type: 'string', optional: true },
+        min_sends: { type: 'number', optional: true }
+      },
+      handler: async (args: any) => {
+        const { userId, sequence_id, step_order, variant_b_subject, variant_b_body, primary_metric, min_sends } = args;
+        await assertPremium(userId);
+        if (!sequence_id || !step_order || !variant_b_subject || !variant_b_body) {
+          throw new Error('sequence_id, step_order, variant_b_subject, and variant_b_body are required');
+        }
+
+        // Verify ownership
+        const { data: seq } = await supabase
+          .from('message_sequences')
+          .select('id, owner_user_id, user_id')
+          .eq('id', sequence_id)
+          .single();
+        if (!seq) throw new Error('Sequence not found');
+        const seqOwner = (seq as any).owner_user_id || (seq as any).user_id;
+        if (String(seqOwner) !== String(userId)) throw new Error('Not authorized');
+
+        // Find step by order
+        const { data: step } = await supabase
+          .from('message_sequence_steps')
+          .select('id')
+          .eq('sequence_id', sequence_id)
+          .eq('step_order', step_order)
+          .single();
+        if (!step) throw new Error(`Step ${step_order} not found in sequence`);
+
+        // Check if A/B test already exists for this step
+        const { data: existing } = await supabase
+          .from('ab_tests')
+          .select('id')
+          .eq('step_id', (step as any).id)
+          .eq('status', 'active')
+          .maybeSingle();
+        if (existing) throw new Error('An active A/B test already exists for this step. Complete or pause it first.');
+
+        const { createAbTest } = await import('../services/abTesting');
+        const result = await createAbTest({
+          userId,
+          sequenceId: sequence_id,
+          stepId: (step as any).id,
+          variantBSubject: variant_b_subject,
+          variantBBody: variant_b_body,
+          primaryMetric: primary_metric,
+          minSends: min_sends
+        });
+
+        return {
+          ok: true,
+          test_id: result.test_id,
+          variant_a_id: result.variant_a_id,
+          variant_b_id: result.variant_b_id,
+          message: `A/B test created for step ${step_order}. Variant A = original, Variant B = new version. Auto-promotes winner after ${min_sends || 50} sends per variant.`
+        };
+      }
+    },
+    get_ab_results: {
+      parameters: {
+        userId: { type: 'string' },
+        sequence_id: { type: 'string' },
+        step_order: { type: 'number', optional: true }
+      },
+      handler: async (args: any) => {
+        const { userId, sequence_id, step_order } = args;
+        await assertPremium(userId);
+
+        // Verify ownership
+        const { data: seq } = await supabase
+          .from('message_sequences')
+          .select('id, owner_user_id, user_id')
+          .eq('id', sequence_id)
+          .single();
+        if (!seq) throw new Error('Sequence not found');
+        const seqOwner = (seq as any).owner_user_id || (seq as any).user_id;
+        if (String(seqOwner) !== String(userId)) throw new Error('Not authorized');
+
+        // Get A/B tests for this sequence
+        let testQuery = supabase
+          .from('ab_tests')
+          .select('*')
+          .eq('sequence_id', sequence_id);
+
+        if (step_order) {
+          const { data: step } = await supabase
+            .from('message_sequence_steps')
+            .select('id')
+            .eq('sequence_id', sequence_id)
+            .eq('step_order', step_order)
+            .single();
+          if (step) testQuery = testQuery.eq('step_id', (step as any).id);
+        }
+
+        const { data: tests } = await testQuery;
+        if (!tests?.length) return { tests: [], message: 'No A/B tests found for this sequence.' };
+
+        const { getVariantMetrics, detectWinner } = await import('../services/abTesting');
+
+        const results = [];
+        for (const test of tests as any[]) {
+          const metrics = await getVariantMetrics(test.id);
+          const winner = test.status === 'active'
+            ? detectWinner(metrics, test.min_sends_per_variant || 50, test.primary_metric || 'reply_rate')
+            : null;
+
+          results.push({
+            test_id: test.id,
+            step_id: test.step_id,
+            status: test.status,
+            primary_metric: test.primary_metric,
+            min_sends_per_variant: test.min_sends_per_variant,
+            variants: metrics.map(m => ({
+              variant_id: m.variant_id,
+              label: m.label,
+              sent: m.sent,
+              opened: m.opened,
+              replied: m.replied,
+              open_rate: m.open_rate,
+              reply_rate: m.reply_rate,
+              is_winner: m.is_winner
+            })),
+            recommendation: winner
+              ? `Variant ${winner.label} is winning (${(winner.rate * 100).toFixed(1)}% ${winner.metric}) with 90% confidence. Ready to promote.`
+              : metrics.some(m => m.sent < (test.min_sends_per_variant || 50))
+                ? `Need more data. Min ${test.min_sends_per_variant || 50} sends per variant required.`
+                : 'No statistically significant winner yet. Continue testing.'
+          });
+        }
+
+        return { tests: results };
+      }
+    },
+    promote_ab_variant: {
+      parameters: {
+        userId: { type: 'string' },
+        test_id: { type: 'string' },
+        variant_id: { type: 'string' }
+      },
+      handler: async (args: any) => {
+        const { userId, test_id, variant_id } = args;
+        await assertPremium(userId);
+
+        // Verify ownership via test → sequence → owner
+        const { data: test } = await supabase
+          .from('ab_tests')
+          .select('id, sequence_id, status')
+          .eq('id', test_id)
+          .single();
+        if (!test) throw new Error('A/B test not found');
+        if ((test as any).status === 'completed') throw new Error('Test already completed');
+
+        const { data: seq } = await supabase
+          .from('message_sequences')
+          .select('owner_user_id, user_id')
+          .eq('id', (test as any).sequence_id)
+          .single();
+        if (!seq) throw new Error('Sequence not found');
+        const seqOwner = (seq as any).owner_user_id || (seq as any).user_id;
+        if (String(seqOwner) !== String(userId)) throw new Error('Not authorized');
+
+        const { promoteVariant } = await import('../services/abTesting');
+        await promoteVariant(test_id, variant_id);
+
+        return {
+          ok: true,
+          message: `Variant promoted as winner. All future sends for this step will use the winning variant.`
+        };
+      }
+    },
     classify_reply: {
       parameters: {
         userId: { type: 'string' },

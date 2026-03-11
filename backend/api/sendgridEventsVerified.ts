@@ -68,6 +68,7 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
       } = ev || {};
 
       let { user_id, campaign_id, lead_id, message_id: customMessageId } = (custom_args as any) || {};
+      const webhookVariantId = (custom_args as any)?.variant_id || null;
       // Support our newer SendGrid payloads which send hp_user_id instead of user_id (especially for sourcing)
       const hpUserId = (custom_args as any)?.hp_user_id || null;
       if (!user_id && hpUserId) user_id = hpUserId;
@@ -157,6 +158,7 @@ export async function sendgridEventsHandler(req: express.Request, res: express.R
           raw: ev
         }
       };
+      if (webhookVariantId) row.variant_id = webhookVariantId;
 
       const { error: upsertError } = await supabase
         .from('email_events')

@@ -246,9 +246,26 @@ export async function processSequenceStepRuns(){
         } catch {}
       }
 
+      // A/B variant resolution: check if step has active variants
+      let effectiveSubject = step.subject;
+      let effectiveBody = step.body;
+      let variantId: string | null = null;
+      try {
+        const { getActiveVariants, assignVariant } = await import('../src/services/abTesting');
+        const variants = await getActiveVariants(run.step_id);
+        if (variants.length > 0) {
+          const chosen = assignVariant(enrollment.lead_id, run.step_id, variants);
+          if (chosen) {
+            effectiveSubject = chosen.subject;
+            effectiveBody = chosen.body;
+            variantId = chosen.id;
+          }
+        }
+      } catch {}
+
       // Render content
-      const body = personalizeMessage(step.body || '', leadRes);
-      const subject = step.subject ? personalizeMessage(step.subject, leadRes) : undefined;
+      const body = personalizeMessage(effectiveBody || '', leadRes);
+      const subject = effectiveSubject ? personalizeMessage(effectiveSubject, leadRes) : undefined;
       const looksLikeHtml = (s: string) => /<!doctype\s+html/i.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
       const bodyHtml = looksLikeHtml(body) ? body : body.replace(/\n/g, '<br/>');
 
@@ -263,14 +280,17 @@ export async function processSequenceStepRuns(){
         : [];
       if (preferredProvider && ['sendgrid','google','gmail','outlook'].includes(preferredProvider)) {
         const { sendViaProvider } = await import('../services/providerEmail');
-        const subj = step.subject ? personalizeMessage(step.subject, leadRes) : 'Message from HirePilot';
+        const subj = effectiveSubject ? personalizeMessage(effectiveSubject, leadRes) : 'Message from HirePilot';
+        const providerOpts: any = {};
+        if (enrollmentBcc.length) providerOpts.bcc = enrollmentBcc;
+        if (variantId) providerOpts.variantId = variantId;
         sent = await sendViaProvider(
           preferredProvider as any,
           leadRes,
           bodyHtml,
           leadRes.user_id,
           subj,
-          enrollmentBcc.length ? { bcc: enrollmentBcc } : undefined
+          Object.keys(providerOpts).length ? providerOpts : undefined
         );
       } else {
         const ep = await import('../services/emailProviderService');
@@ -288,8 +308,10 @@ export async function processSequenceStepRuns(){
         continue;
       }
 
-      // Mark sent and update enrollment
-      await supabaseDb.from('sequence_step_runs').update({ status:'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', run.id);
+      // Mark sent and update enrollment (include variant_id if A/B test active)
+      const sentUpdate: any = { status:'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      if (variantId) sentUpdate.variant_id = variantId;
+      await supabaseDb.from('sequence_step_runs').update(sentUpdate).eq('id', run.id);
       await supabaseDb.from('sequence_enrollments').update({ last_sent_at: new Date().toISOString(), current_step_order: run.step_order }).eq('id', enrollment.id);
 
       // Schedule next step if any
@@ -337,6 +359,62 @@ export async function processSequenceStepRuns(){
   }
 }
 
+/**
+ * Auto-optimize active A/B tests: check if any variant has enough data
+ * to declare a statistically significant winner, and auto-promote it.
+ */
+async function processAbTestAutoOptimization() {
+  const { data: tests } = await supabaseDb
+    .from('ab_tests')
+    .select('*')
+    .eq('status', 'active');
+
+  if (!tests?.length) return;
+
+  const { getVariantMetrics, detectWinner, promoteVariant } = await import('../src/services/abTesting');
+
+  for (const test of tests as any[]) {
+    try {
+      const metrics = await getVariantMetrics(test.id);
+      if (metrics.length < 2) continue;
+
+      // Check if all variants have enough sends
+      const allReady = metrics.every(m => m.sent >= (test.min_sends_per_variant || 50));
+      if (!allReady) continue;
+
+      const winner = detectWinner(metrics, test.min_sends_per_variant || 50, test.primary_metric || 'reply_rate');
+      if (!winner) continue;
+
+      // Auto-promote the winner
+      await promoteVariant(test.id, winner.variant_id);
+      console.log(`[cron] A/B test ${test.id} auto-promoted: variant ${winner.label} (${winner.metric}: ${(winner.rate * 100).toFixed(1)}%)`);
+
+      // Notify user via push notification
+      try {
+        const { pushNotification } = await import('../src/lib/notifications');
+        if (test.created_by) {
+          await pushNotification({
+            user_id: test.created_by,
+            source: 'inapp',
+            title: `A/B test winner: Variant ${winner.label}`,
+            body_md: `Variant **${winner.label}** won with ${(winner.rate * 100).toFixed(1)}% ${winner.metric.replace('_', ' ')} (90% confidence). All future sends will use the winning variant.`,
+            type: 'ab_test_winner',
+            actions: [{
+              id: 'view_results',
+              type: 'button',
+              label: '📊 View Results',
+              style: 'primary'
+            }],
+            metadata: { ab_test_id: test.id, winner_variant_id: winner.variant_id }
+          });
+        }
+      } catch {}
+    } catch (testErr: any) {
+      console.warn(`[cron] A/B test ${test.id} optimization check failed:`, testErr?.message);
+    }
+  }
+}
+
 export function startCronJobs() {
   console.log('[cron] Starting cron jobs...');
 
@@ -347,6 +425,12 @@ export function startCronJobs() {
     await processPhantomJobQueue();
     await processScheduledMessages();
     await processSequenceStepRuns();
+    // A/B test auto-optimization: check active tests for winners
+    try {
+      await processAbTestAutoOptimization();
+    } catch (abErr: any) {
+      console.warn('[cron] A/B auto-optimization error (non-blocking):', abErr?.message);
+    }
     // Weekly campaign performance digest (run only during a narrow daily window and enforce 7-day gap)
     try {
       const now = DateTime.now().setZone('America/Chicago');
