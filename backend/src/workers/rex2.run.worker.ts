@@ -3,7 +3,7 @@ import { connection } from '../queues/redis';
 import { supabase as supabaseClient, supabaseAdmin, supabaseDb as supabaseDbClient } from '../lib/supabase';
 import { buildRex2Event, publishRex2Event } from '../rex2/pubsub';
 import { launchSniperCapture, pollSniperCapture, resolveSniperTargetsFromPlan } from '../services/rex2/sniperBridge';
-import { RunContext, StepOutcome as HandlerOutcome, runSourceStep, runEnrichStep, runScoreStep, runConvertStep, runOutreachStep, runArtifactsStep } from '../services/rex2/stepHandlers';
+import { RunContext, StepOutcome as HandlerOutcome, runSourceStep, runEnrichStep, runScoreStep, runConvertStep, runOutreachStep, runArtifactsStep, autoImportSniperResults } from '../services/rex2/stepHandlers';
 
 const QUEUE = 'rex2:run';
 const MAX_PARALLEL_STEPS = Math.max(1, Number(process.env.REX2_MAX_PARALLEL_STEPS || 2));
@@ -249,10 +249,12 @@ async function dispatchStep(args: {
   // Source candidates — try Apollo first, fall back to Sniper
   if (isSourceCandidateStep(args.step, args.stepIndex)) {
     if (rexServer) {
-      const result = await runSourceStep(args, rexServer);
+      let result = await runSourceStep(args, rexServer);
       // If the handler returns delegate_sniper, fall back to Sniper bridge
       if (result.results?.summary === 'DELEGATE_TO_SNIPER') {
-        return runSourceCandidatesStep({ run: args.run, runId: args.runId, step: args.step });
+        result = await runSourceCandidatesStep({ run: args.run, runId: args.runId, step: args.step });
+        // Auto-import Sniper results into leads DB so downstream steps have lead_ids
+        result = await autoImportSniperResults(result, args, rexServer);
       }
       return result;
     }

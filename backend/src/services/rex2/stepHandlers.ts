@@ -125,6 +125,131 @@ function publishProgress(runId: string, stepId: string, percent: number, label: 
 }
 
 // ---------------------------------------------------------------------------
+// Auto-import Sniper results into leads DB (bridge for LinkedIn sourcing)
+// ---------------------------------------------------------------------------
+
+export async function autoImportSniperResults(
+  outcome: StepOutcome,
+  args: HandlerArgs,
+  rexServer: any
+): Promise<StepOutcome> {
+  const { run, runId, step, context } = args;
+  const userId = String(run.user_id);
+
+  // Only proceed if sourcing succeeded
+  if (outcome.status !== 'success') return outcome;
+
+  publishProgress(runId, step.step_id, 95, 'Importing Sniper results', 'Importing LinkedIn profiles to leads DB...');
+
+  try {
+    // 1. Extract job IDs from external_refs
+    const jobIds: string[] = [];
+    for (const ref of (outcome.external_refs || [])) {
+      const id = ref?.id || ref?.job_id || ref?.sniper_run_id;
+      if (id) jobIds.push(String(id));
+    }
+    if (!jobIds.length) {
+      console.warn('[autoImportSniperResults] No job IDs found in external_refs');
+      return outcome;
+    }
+
+    // 2. Query sniper_job_items for extracted profile URLs
+    const { data: items, error: itemsErr } = await getDb()
+      .from('sniper_job_items')
+      .select('extracted_url,profile_url')
+      .in('job_id', jobIds)
+      .eq('action_type', 'extract')
+      .limit(500);
+
+    if (itemsErr) {
+      console.error('[autoImportSniperResults] query sniper_job_items failed:', itemsErr);
+      return outcome;
+    }
+
+    const profileUrls: string[] = [];
+    for (const item of (items || [])) {
+      const url = item?.extracted_url || item?.profile_url;
+      if (url && typeof url === 'string' && url.includes('linkedin.com')) {
+        profileUrls.push(url);
+      }
+    }
+
+    if (!profileUrls.length) {
+      console.warn('[autoImportSniperResults] No profile URLs found in sniper_job_items');
+      return outcome;
+    }
+
+    // 3. Ensure a campaign exists for the import
+    let campaignId = context.campaign_id;
+    if (!campaignId) {
+      const goal = run.plan_json?.goal || {};
+      const { data: newCamp } = await getDb()
+        .from('sourcing_campaigns')
+        .insert({
+          user_id: userId,
+          name: `REX Plan: ${goal.title || 'LinkedIn Sourcing'}`.slice(0, 100),
+          source: 'linkedin',
+          status: 'active'
+        })
+        .select('id')
+        .single();
+      campaignId = newCamp?.id;
+    }
+
+    // 4. Call sniper_import_to_leads handler
+    const importHandler = getToolHandler(rexServer, 'sniper_import_to_leads');
+    if (importHandler) {
+      const tc = buildToolCall(runId, step.step_id, 'sniper_import_to_leads', 'Import to Leads DB');
+      tc.input = { profile_urls: profileUrls.length, campaign_id: campaignId };
+      publishRex2Event(buildRex2Event(runId, 'toolcall.logged', { toolcall: tc }));
+
+      try {
+        await importHandler({ userId, profile_urls: profileUrls, campaign_id: campaignId || undefined });
+        tc.status = 'success';
+        tc.output = { imported: profileUrls.length };
+        tc.ui = { ...tc.ui, badge: 'Complete' };
+      } catch (e: any) {
+        tc.status = 'failure';
+        tc.errors = [{ code: 'import_failed', message: String(e?.message || e) }];
+        tc.ui = { ...tc.ui, badge: 'Failed' };
+        console.error('[autoImportSniperResults] import handler failed:', e?.message);
+      }
+      publishRex2Event(buildRex2Event(runId, 'toolcall.logged', { toolcall: tc }));
+    }
+
+    // 5. Query leads table for newly imported lead IDs
+    const { data: leads } = await getDb()
+      .from('leads')
+      .select('id')
+      .eq('user_id', userId)
+      .in('linkedin_url', profileUrls)
+      .limit(500);
+
+    const leadIds = (leads || []).map((l: any) => l.id).filter(Boolean);
+
+    publishProgress(runId, step.step_id, 100, 'Import complete', `Imported ${leadIds.length} leads from Sniper results.`);
+
+    // 6. Return updated outcome with lead_ids
+    return {
+      ...outcome,
+      results: {
+        ...outcome.results,
+        summary: `${outcome.results?.summary || ''} Auto-imported ${leadIds.length} leads from LinkedIn profiles.`
+      },
+      context_updates: {
+        ...(outcome.context_updates || {}),
+        lead_ids: leadIds,
+        campaign_id: campaignId || undefined
+      }
+    };
+  } catch (e: any) {
+    console.error('[autoImportSniperResults] unexpected error:', e?.message || e);
+    // Non-fatal: return original outcome
+    return outcome;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Handler 1: Source Candidates (Apollo or Sniper)
 // ---------------------------------------------------------------------------
 

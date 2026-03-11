@@ -2702,6 +2702,229 @@ server.registerCapabilities({
         return out;
       }
     },
+    // ----- REX Persona / Template / Form / Sequence tools -----
+    create_persona: {
+      parameters: {
+        userId: { type: 'string' },
+        name: { type: 'string' },
+        titles: { type: 'array' },
+        locations: { type: 'array', optional: true },
+        include_keywords: { type: 'array', optional: true },
+        exclude_keywords: { type: 'array', optional: true },
+        goal_total_leads: { type: 'number', optional: true }
+      },
+      handler: async ({ userId, name, titles, locations, include_keywords, exclude_keywords, goal_total_leads }: any) => {
+        await assertPremium(userId);
+        const { data, error } = await supabase.from('personas').insert({
+          user_id: userId,
+          name: String(name || 'Untitled Persona'),
+          titles: Array.isArray(titles) ? titles : [],
+          locations: Array.isArray(locations) ? locations : [],
+          include_keywords: Array.isArray(include_keywords) ? include_keywords : [],
+          exclude_keywords: Array.isArray(exclude_keywords) ? exclude_keywords : [],
+          channels: ['apollo'],
+          goal_total_leads: Number(goal_total_leads || 50)
+        }).select().single();
+        if (error) throw new Error(`Failed to create persona: ${error.message}`);
+        return { ok: true, persona_id: data.id, name: data.name, titles: data.titles, locations: data.locations };
+      }
+    },
+    generate_outreach_template: {
+      parameters: {
+        userId: { type: 'string' },
+        template_name: { type: 'string' },
+        job_title: { type: 'string' },
+        company_or_context: { type: 'string', optional: true },
+        tone: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, template_name, job_title, company_or_context, tone }: any) => {
+        await assertPremium(userId);
+        const safeTone = String(tone || 'professional').toLowerCase();
+        const companyCtx = company_or_context ? `\nCompany/context: ${company_or_context}` : '';
+        const prompt = `Write a short recruiting outreach email for a "${job_title}" role.${companyCtx}
+Tone: ${safeTone}. Use personalization tokens: {{first_name}}, {{company}}.
+Keep it under 100 words. Include a clear CTA. Return ONLY valid JSON (no code fences):
+{"subject": "...", "body": "..."}`;
+
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { openai: openaiClient } = require('../ai/openaiClient');
+        const completion = await openaiClient.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 500
+        });
+        const raw = String(completion.choices[0]?.message?.content || '{}');
+        const cleaned = raw.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+        let parsed: any = {};
+        try { parsed = JSON.parse(cleaned); } catch { parsed = { subject: job_title, body: cleaned }; }
+
+        const subject = String(parsed.subject || `Opportunity: ${job_title}`);
+        const body = String(parsed.body || '');
+
+        const { data, error } = await supabase.from('email_templates').insert({
+          user_id: userId,
+          name: String(template_name || `${job_title} Outreach`),
+          subject,
+          content: body
+        }).select('id,name,subject').single();
+        if (error) throw new Error(`Failed to save template: ${error.message}`);
+        return { ok: true, template_id: data.id, name: data.name, subject: data.subject, preview: body.slice(0, 200) };
+      }
+    },
+    create_screening_form: {
+      parameters: {
+        userId: { type: 'string' },
+        title: { type: 'string' },
+        job_title: { type: 'string', optional: true },
+        questions: { type: 'array', optional: true },
+        job_id: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, title, job_title, questions, job_id }: any) => {
+        await assertPremium(userId);
+
+        // Generate questions if not provided
+        let fields: Array<{ label: string; field_type: string; options?: string[] }> = [];
+        if (Array.isArray(questions) && questions.length > 0) {
+          fields = questions.map((q: any) => ({
+            label: String(q.label || q.question || q.text || ''),
+            field_type: String(q.field_type || q.type || 'short_text'),
+            options: Array.isArray(q.options) ? q.options : undefined
+          }));
+        } else {
+          // Auto-generate 5 screening questions with GPT
+          const roleLabel = job_title || title || 'the role';
+          const prompt = `Generate 5 screening questions for a "${roleLabel}" position. Return ONLY valid JSON (no code fences):
+[
+  {"label": "...", "field_type": "dropdown", "options": ["0-2 years","2-5 years","5-10 years","10+ years"]},
+  {"label": "...", "field_type": "multi_select", "options": ["skill1","skill2","skill3","skill4","skill5"]},
+  {"label": "...", "field_type": "short_text"},
+  {"label": "...", "field_type": "short_text"},
+  {"label": "...", "field_type": "long_text"}
+]
+Question topics: experience level, key skills relevant to ${roleLabel}, location/availability, salary expectations, motivation/interest.`;
+
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { openai: openaiClient } = require('../ai/openaiClient');
+          const completion = await openaiClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.5,
+            max_tokens: 800
+          });
+          const raw = String(completion.choices[0]?.message?.content || '[]');
+          const cleaned = raw.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+          try { fields = JSON.parse(cleaned); } catch {
+            // Fallback default questions
+            fields = [
+              { label: 'Years of relevant experience?', field_type: 'dropdown', options: ['0-2 years','2-5 years','5-10 years','10+ years'] },
+              { label: 'Key skills and technologies?', field_type: 'short_text' },
+              { label: 'Current location and work authorization?', field_type: 'short_text' },
+              { label: 'Expected salary range?', field_type: 'short_text' },
+              { label: 'Why are you interested in this role?', field_type: 'long_text' }
+            ];
+          }
+        }
+
+        // Generate slug from title
+        const slug = String(title || 'form').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) + '-' + Date.now().toString(36);
+
+        // Create form
+        const { data: form, error: formErr } = await supabase.from('forms').insert({
+          user_id: userId,
+          title: String(title),
+          slug,
+          job_id: job_id || null,
+          status: 'active'
+        }).select('id,slug').single();
+        if (formErr) throw new Error(`Failed to create form: ${formErr.message}`);
+
+        // Create fields
+        const fieldInserts = fields.map((f: any, i: number) => ({
+          form_id: form.id,
+          label: String(f.label || `Question ${i + 1}`),
+          field_type: String(f.field_type || 'short_text'),
+          options: Array.isArray(f.options) ? f.options : null,
+          position: i,
+          required: true
+        }));
+        if (fieldInserts.length) {
+          const { error: fieldsErr } = await supabase.from('form_fields').insert(fieldInserts);
+          if (fieldsErr) console.error('[create_screening_form] fields insert error:', fieldsErr.message);
+        }
+
+        const baseUrl = process.env.FRONTEND_URL || 'https://app.thehirepilot.com';
+        return { ok: true, form_id: form.id, slug: form.slug, url: `${baseUrl}/forms/${form.slug}`, field_count: fieldInserts.length };
+      }
+    },
+    create_email_sequence: {
+      parameters: {
+        userId: { type: 'string' },
+        name: { type: 'string' },
+        steps: { type: 'array', optional: true },
+        stop_on_reply: { type: 'boolean', optional: true }
+      },
+      handler: async ({ userId, name, steps, stop_on_reply }: any) => {
+        await assertPremium(userId);
+
+        let sequenceSteps: Array<{ subject: string; body: string; delay_days: number }> = [];
+
+        if (Array.isArray(steps) && steps.length > 0) {
+          sequenceSteps = steps.map((s: any, i: number) => ({
+            subject: String(s.subject || `Follow-up ${i + 1}`),
+            body: String(s.body || ''),
+            delay_days: Number(s.delay_days || (i === 0 ? 0 : i * 2))
+          }));
+        } else {
+          // Auto-generate a 3-step sequence using GPT
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { buildThreeStepSequence } = require('../services/sequenceBuilder');
+          const result = await buildThreeStepSequence({
+            titleGroups: ['Candidate'],
+            productName: 'recruiting opportunity',
+            spacingBusinessDays: 2
+          });
+          if (result.step1) {
+            sequenceSteps = [
+              { subject: result.step1.subject || 'Initial outreach', body: result.step1.body || '', delay_days: 0 },
+              { subject: result.step2?.subject || 'Follow-up', body: result.step2?.body || '', delay_days: 2 },
+              { subject: result.step3?.subject || 'Final follow-up', body: result.step3?.body || '', delay_days: 4 }
+            ];
+          } else {
+            // Fallback
+            sequenceSteps = [
+              { subject: 'Quick intro', body: 'Hi {{first_name}}, I came across your profile and wanted to reach out about an exciting opportunity.', delay_days: 0 },
+              { subject: 'Following up', body: 'Hi {{first_name}}, just wanted to follow up on my previous message. Would you be open to a quick chat?', delay_days: 2 },
+              { subject: 'Last check-in', body: 'Hi {{first_name}}, I understand you may be busy. Just wanted to check if you had a chance to review my previous messages.', delay_days: 4 }
+            ];
+          }
+        }
+
+        // Insert into message_sequences
+        const { data: seq, error: seqErr } = await supabase.from('message_sequences').insert({
+          user_id: userId,
+          name: String(name || 'Untitled Sequence'),
+          stop_on_reply: stop_on_reply !== false,
+          status: 'active'
+        }).select('id,name').single();
+        if (seqErr) throw new Error(`Failed to create sequence: ${seqErr.message}`);
+
+        // Insert steps
+        const stepInserts = sequenceSteps.map((s, i) => ({
+          sequence_id: seq.id,
+          step_number: i + 1,
+          subject: s.subject,
+          body: s.body,
+          delay_days: s.delay_days
+        }));
+        if (stepInserts.length) {
+          const { error: stepsErr } = await supabase.from('message_sequence_steps').insert(stepInserts);
+          if (stepsErr) console.error('[create_email_sequence] steps insert error:', stepsErr.message);
+        }
+
+        return { ok: true, sequence_id: seq.id, name: seq.name, step_count: stepInserts.length };
+      }
+    },
     slack_setup_guide: {
       parameters: { userId: { type:'string' } },
       handler: async ({ userId }) => {

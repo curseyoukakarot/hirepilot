@@ -345,7 +345,12 @@ export default async function rexChat(req: Request, res: Response) {
       // Kanban tools
       { type:'function', function:{ name:'create_kanban_board', description:'Create a new Kanban board with custom columns.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, columns:{type:'array',items:{type:'string'}} }, required:['userId','name'] } } },
       { type:'function', function:{ name:'create_kanban_card', description:'Add a card to a Kanban board column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, boardId:{type:'string'}, listId:{type:'string'}, title:{type:'string'}, description:{type:'string'} }, required:['userId','boardId','listId','title'] } } },
-      { type:'function', function:{ name:'move_kanban_card', description:'Move a Kanban card to a different column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, cardId:{type:'string'}, targetListId:{type:'string'} }, required:['userId','cardId','targetListId'] } } }
+      { type:'function', function:{ name:'move_kanban_card', description:'Move a Kanban card to a different column.', parameters:{ type:'object', properties:{ userId:{type:'string'}, cardId:{type:'string'}, targetListId:{type:'string'} }, required:['userId','cardId','targetListId'] } } },
+      // Persona / Template / Form / Sequence tools
+      { type:'function', function:{ name:'create_persona', description:'Create an ideal candidate persona for sourcing. Define target titles, locations, and keywords.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, titles:{type:'array',items:{type:'string'}}, locations:{type:'array',items:{type:'string'}}, include_keywords:{type:'array',items:{type:'string'}}, exclude_keywords:{type:'array',items:{type:'string'}}, goal_total_leads:{type:'number'} }, required:['userId','name','titles'] } } },
+      { type:'function', function:{ name:'generate_outreach_template', description:'AI-generate a personalized outreach email template and save it.', parameters:{ type:'object', properties:{ userId:{type:'string'}, template_name:{type:'string'}, job_title:{type:'string'}, company_or_context:{type:'string'}, tone:{type:'string',description:'professional, casual, or direct'} }, required:['userId','template_name','job_title'] } } },
+      { type:'function', function:{ name:'create_screening_form', description:'Create a screening questionnaire for candidates. Auto-generates questions if not provided.', parameters:{ type:'object', properties:{ userId:{type:'string'}, title:{type:'string'}, job_title:{type:'string'}, questions:{type:'array',items:{type:'object',properties:{label:{type:'string'},field_type:{type:'string'},options:{type:'array',items:{type:'string'}}}}}, job_id:{type:'string'} }, required:['userId','title'] } } },
+      { type:'function', function:{ name:'create_email_sequence', description:'Create a multi-step email sequence with delays between steps. Auto-generates 3-step sequence if steps not provided.', parameters:{ type:'object', properties:{ userId:{type:'string'}, name:{type:'string'}, steps:{type:'array',items:{type:'object',properties:{subject:{type:'string'},body:{type:'string'},delay_days:{type:'number'}}}}, stop_on_reply:{type:'boolean'} }, required:['userId','name'] } } }
     ];
 
     // Lightweight endpoint: weekly check-in hook (called by cron)
@@ -437,6 +442,10 @@ Key behaviors:
 - **Guardrails**: If Cloud Engine is off or LinkedIn is not connected, the tools will return a help message with setup instructions. Do not retry -- just show the user the instructions.
 - **Job tools**: Use search_jobs to find existing job requisitions, create_job_requisition to make new ones, get_job_pipeline to see pipeline state, and add_candidate_to_job to place candidates into job pipelines.
 - **Kanban tools**: Use create_kanban_board, create_kanban_card, and move_kanban_card when users want visual board tracking.
+- **Persona tools**: Use create_persona to build reusable sourcing profiles. When the user describes an ideal candidate, create a persona with titles, locations, and keywords.
+- **Template tools**: Use generate_outreach_template to AI-draft personalized email templates. Use list_email_templates to check existing templates first.
+- **Form tools**: Use create_screening_form to auto-generate screening questionnaires. Link to a job req when available.
+- **Sequence tools**: Use create_email_sequence to build multi-step follow-up cadences. If the user doesn't specify steps, auto-generate a 3-step sequence.
 
 **Multi-step workflow plans:**
 When the user requests a complex workflow (sourcing + enrichment + outreach, or any 3+ step process), respond with a numbered plan. Structure your response as:
