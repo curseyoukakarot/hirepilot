@@ -431,6 +431,13 @@ export function startCronJobs() {
     } catch (abErr: any) {
       console.warn('[cron] A/B auto-optimization error (non-blocking):', abErr?.message);
     }
+    // Proactive campaign health monitoring
+    try {
+      const { monitorCampaignHealth } = await import('./campaignHealthMonitor');
+      await monitorCampaignHealth();
+    } catch (healthErr: any) {
+      console.warn('[cron] Campaign health monitor error (non-blocking):', healthErr?.message);
+    }
     // Weekly campaign performance digest (run only during a narrow daily window and enforce 7-day gap)
     try {
       const now = DateTime.now().setZone('America/Chicago');

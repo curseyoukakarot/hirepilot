@@ -3390,6 +3390,116 @@ Rank from highest to lowest score.`;
         ];
         return { urls, steps };
       }
+    },
+
+    // ── Notification Handoff Tools ──
+
+    get_pending_handoffs: {
+      parameters: {
+        userId: { type: 'string' },
+        type: { type: 'string', optional: true }
+      },
+      handler: async ({ userId, type }: { userId: string; type?: string }) => {
+        await assertPremium(userId);
+
+        let query = supabase
+          .from('notifications')
+          .select('id, thread_key, title, body_md, type, actions, metadata, created_at')
+          .eq('user_id', userId)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (type) {
+          query = query.eq('type', type);
+        }
+
+        const { data: notifications } = await query;
+        if (!notifications?.length) {
+          return { count: 0, handoffs: [], summary: 'No pending handoffs — everything is handled!' };
+        }
+
+        const handoffs = (notifications as any[]).map(n => {
+          const ageMs = Date.now() - new Date(n.created_at).getTime();
+          const ageHours = Math.round(ageMs / (60 * 60 * 1000));
+          return {
+            thread_key: n.thread_key || null,
+            title: n.title,
+            body_preview: (n.body_md || '').slice(0, 200),
+            type: n.type,
+            actions: (n.actions || []).map((a: any) => a.id),
+            created_at: n.created_at,
+            age_hours: ageHours
+          };
+        });
+
+        // Summarize by type
+        const typeCounts: Record<string, number> = {};
+        for (const h of handoffs) {
+          typeCounts[h.type] = (typeCounts[h.type] || 0) + 1;
+        }
+        const summaryParts = Object.entries(typeCounts).map(([t, c]) => `${c} ${t}`);
+        const summary = `${handoffs.length} pending: ${summaryParts.join(', ')}`;
+
+        return { count: handoffs.length, handoffs, summary };
+      }
+    },
+
+    resolve_handoff: {
+      parameters: {
+        userId: { type: 'string' },
+        thread_key: { type: 'string' },
+        action_id: { type: 'string' },
+        data: { type: 'object', optional: true }
+      },
+      handler: async ({ userId, thread_key, action_id, data }: { userId: string; thread_key: string; action_id: string; data?: Record<string, any> }) => {
+        await assertPremium(userId);
+
+        const { recordInteraction } = await import('../lib/notifications');
+        const { dispatchAction } = await import('../lib/interactionDispatcher');
+
+        // Find the notification to get metadata
+        const { data: notification } = await supabase
+          .from('notifications')
+          .select('id, metadata')
+          .eq('user_id', userId)
+          .eq('thread_key', thread_key)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Record the interaction
+        const interaction = await recordInteraction({
+          user_id: userId,
+          source: 'inapp' as const,
+          thread_key,
+          action_type: 'button' as const,
+          action_id,
+          data: data || {},
+          metadata: (notification as any)?.metadata || {}
+        });
+
+        // Dispatch the action
+        const result = await dispatchAction({
+          userId,
+          interactionId: interaction.id,
+          actionId: action_id,
+          threadKey: thread_key,
+          data: { ...((notification as any)?.metadata || {}), ...(data || {}) },
+          metadata: (notification as any)?.metadata || {}
+        });
+
+        // Mark notification as read
+        if (notification) {
+          await supabase
+            .from('notifications')
+            .update({ is_read: true, read_at: new Date().toISOString() })
+            .eq('id', (notification as any).id);
+        }
+
+        return { resolved: result.ok, message: result.message, action: action_id, thread_key };
+      }
     }
   })
 });

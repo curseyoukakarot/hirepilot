@@ -414,6 +414,98 @@ export class SourcingNotifications {
       }
     });
   }
+
+  /**
+   * Create a proactive health alert notification for a campaign
+   */
+  static async healthAlert(params: {
+    userId: string;
+    campaignId: string;
+    campaignTitle: string;
+    alertType: 'reply_rate_low' | 'bounce_spike' | 'stalled' | 'low_open_rate';
+    metric: string;
+    recommendation: string;
+    source?: 'inapp' | 'slack';
+  }) {
+    const threadKey = `health:${params.campaignId}:${params.alertType}`;
+
+    const alertLabels: Record<string, string> = {
+      reply_rate_low: '📉 Low reply rate',
+      bounce_spike: '⚠️ Bounce rate spike',
+      stalled: '⏸️ Campaign stalled',
+      low_open_rate: '📉 Low open rate'
+    };
+
+    const actions: ActionType[] = [
+      {
+        id: 'view_campaign',
+        type: 'button',
+        label: '👀 View Campaign',
+        style: 'primary'
+      },
+      {
+        id: 'pause_campaign',
+        type: 'button',
+        label: '⏸️ Pause Campaign',
+        style: 'secondary'
+      },
+      {
+        id: 'free_text',
+        type: 'input',
+        placeholder: 'Ask REX for help…'
+      }
+    ];
+
+    return pushNotification({
+      user_id: params.userId,
+      source: params.source || 'inapp',
+      thread_key: threadKey,
+      title: alertLabels[params.alertType] || 'Campaign alert',
+      body_md: `**${params.campaignTitle}**\n\n${params.metric}\n\n💡 ${params.recommendation}`,
+      type: 'health_alert',
+      actions,
+      metadata: {
+        campaign_id: params.campaignId,
+        alert_type: params.alertType,
+        metric: params.metric
+      }
+    });
+  }
+
+  /**
+   * Create a milestone celebration notification
+   */
+  static async milestoneReached(params: {
+    userId: string;
+    campaignId: string;
+    campaignTitle: string;
+    milestone: string;
+    message: string;
+    source?: 'inapp' | 'slack';
+  }) {
+    const threadKey = `milestone:${params.campaignId}:${params.milestone}`;
+
+    return pushNotification({
+      user_id: params.userId,
+      source: params.source || 'inapp',
+      thread_key: threadKey,
+      title: `🎉 ${params.message}`,
+      body_md: `**${params.campaignTitle}**\n\nMilestone: ${params.milestone}`,
+      type: 'milestone',
+      actions: [
+        {
+          id: 'view_campaign',
+          type: 'button',
+          label: '👀 View Campaign',
+          style: 'primary'
+        }
+      ],
+      metadata: {
+        campaign_id: params.campaignId,
+        milestone: params.milestone
+      }
+    });
+  }
 }
 
 /**

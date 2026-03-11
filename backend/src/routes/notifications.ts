@@ -293,61 +293,20 @@ router.post('/agent-interactions', async (req: Request, res: Response) => {
     // Record the interaction
     const interaction = await recordInteraction(body);
 
-    // Inline handler for book_meeting: compose and send a meeting request
-    if (body.action_id === 'book_meeting') {
-      try {
-        const parts = String(body.thread_key || '').split(':'); // e.g., sourcing:campaignId:leadId
-        const campaignId = parts.length >= 3 ? parts[1] : (body.data as any)?.campaign_id || null;
-        const leadId = parts.length >= 3 ? parts[2] : (body.data as any)?.lead_id || null;
-        const replyId = (body.data as any)?.reply_id || null;
-        const leadEmail = (body.data as any)?.lead_email || (body.data as any)?.from_email || null;
-
-        const composed = await composeMeetingEmail({
-          userId: body.user_id,
-          campaignId,
-          leadId,
-          leadEmail,
-          replyId
-        });
-
-        if (!leadEmail) {
-          throw new Error('Missing recipient email for meeting request');
-        }
-
-        const headers: Record<string, string> = {};
-        if (campaignId) headers['X-Campaign-Id'] = String(campaignId);
-        if (leadId) headers['X-Lead-Id'] = String(leadId);
-
-        // Safety: if Calendly is missing, do not auto-send. Create a draft card in Action Inbox instead.
-        const missingCalendly = !((composed as any).calendlyUrl);
-        if (missingCalendly) {
-          try {
-            await pushNotification({
-              user_id: body.user_id,
-              source: 'inapp',
-              thread_key: body.thread_key,
-              title: 'Draft meeting reply (Calendly not configured)',
-              body_md: `> Configure your Calendly event in Sales Agent Settings.\n\nSuggested email:\n\n---\n\nSubject: ${composed.subject}\n\n${composed.html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g,'')}`,
-              type: 'meeting_draft',
-              actions: [
-                { id: 'reply_draft', type: 'button', label: '🤖 Draft with REX', style: 'primary' },
-                { id: 'free_text', type: 'input', placeholder: 'Type an instruction…' }
-              ],
-              metadata: { lead_id: leadId, campaign_id: campaignId, reason: 'missing_calendly' }
-            } as any);
-          } catch {}
-        } else {
-          await emailQueue.add('send', {
-            to: leadEmail,
-            subject: composed.subject,
-            html: composed.html,
-            headers,
-            userId: body.user_id
-          }, { delay: 0 });
-        }
-      } catch (sendErr) {
-        console.warn('book_meeting handler failed:', sendErr);
-      }
+    // Dispatch action through the shared handler
+    let dispatchResult: any = null;
+    try {
+      const { dispatchAction } = await import('../lib/interactionDispatcher');
+      dispatchResult = await dispatchAction({
+        userId: body.user_id,
+        interactionId: interaction.id,
+        actionId: body.action_id,
+        threadKey: body.thread_key,
+        data: body.data,
+        metadata: body.metadata
+      });
+    } catch (dispatchErr: any) {
+      console.warn('[agent-interactions] dispatch error (non-blocking):', dispatchErr?.message);
     }
 
     // Optional: Forward to REX orchestrator for follow-up wizard steps
@@ -377,9 +336,10 @@ router.post('/agent-interactions', async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({ 
-      ok: true, 
+    return res.json({
+      ok: true,
       interaction_id: interaction.id,
+      dispatch: dispatchResult || null,
       forwarded_to_rex: !!process.env.REX_WEBHOOK_URL
     });
   } catch (error: any) {
