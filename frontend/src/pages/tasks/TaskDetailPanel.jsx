@@ -55,7 +55,7 @@ export default function TaskDetailPanel({
       />
 
       {/* Panel: full-screen overlay on mobile, sticky side panel on desktop */}
-      <div className="fixed inset-0 z-50 lg:relative lg:z-30 lg:w-[400px] lg:h-screen lg:max-h-screen lg:sticky lg:top-0 lg:self-start bg-white border-l border-gray-200 flex flex-col h-full shadow-drawer overflow-hidden">
+      <div className="fixed inset-0 z-50 lg:sticky lg:inset-auto lg:top-0 lg:self-start lg:z-30 lg:w-[400px] lg:h-screen lg:max-h-screen lg:flex-shrink-0 bg-white border-l border-gray-200 flex flex-col h-full shadow-drawer overflow-hidden">
         {/* Mobile header with back button */}
         <div className="flex lg:hidden items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
           <button
