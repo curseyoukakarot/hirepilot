@@ -620,7 +620,7 @@ export default function TasksPage() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
+          <div className="flex-1 overflow-hidden flex flex-row relative">
             <div className="flex-[1.5] flex flex-col overflow-hidden min-w-0 bg-dark-400 p-3 md:p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-6 gap-3 sm:gap-0">
                 <div>
