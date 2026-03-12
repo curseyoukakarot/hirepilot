@@ -4,7 +4,7 @@ import TaskRow from './TaskRow';
 export default function TasksList({ tasks, selectedTaskId, onSelectTask, onTaskAction, currentUserId = '' }) {
   return (
     <div className="bg-white shadow-card rounded-xl overflow-hidden flex-1 flex flex-col border border-gray-200 min-h-0">
-      <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
         <div className="col-span-5">Task</div>
         <div className="col-span-2">Related To</div>
         <div className="col-span-2">Status</div>
