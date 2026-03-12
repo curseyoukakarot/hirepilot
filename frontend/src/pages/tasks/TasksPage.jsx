@@ -547,8 +547,8 @@ export default function TasksPage() {
     <div className="tasks-ui h-full min-h-full overflow-hidden">
       <main className="text-gray-700 h-full overflow-hidden flex bg-dark-500">
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-400 relative">
-          <header className="bg-dark-300 border-b border-gray-200 h-16 flex items-center justify-between px-6 flex-shrink-0 z-10">
-            <div className="w-96 relative">
+          <header className="bg-dark-300 border-b border-gray-200 h-auto md:h-16 flex flex-col md:flex-row items-stretch md:items-center justify-between px-3 md:px-6 py-2 md:py-0 flex-shrink-0 z-10 gap-2 md:gap-0">
+            <div className="w-full md:w-96 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <i className="fa-solid fa-magnifying-glass text-gray-400 text-sm" />
               </div>
@@ -557,10 +557,10 @@ export default function TasksPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-dark-200 placeholder-gray-400 text-gray-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="Search tasks, candidates, or notes..."
+                placeholder="Search tasks..."
               />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4 justify-end">
               <div className="relative">
                 <button
                   className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-dark-200 transition relative"
@@ -576,7 +576,7 @@ export default function TasksPage() {
                   )}
                 </button>
                 {notificationsOpen && (
-                  <div className="absolute right-0 mt-2 w-96 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg z-30">
+                  <div className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-96 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg z-30">
                     <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
                       <span className="text-sm font-semibold text-gray-900">Notifications</span>
                       <span className="text-xs text-gray-500">{notificationUnread} unread</span>
@@ -604,7 +604,7 @@ export default function TasksPage() {
                   </div>
                 )}
               </div>
-              <div className="h-8 w-px bg-gray-200 mx-1" />
+              <div className="h-8 w-px bg-gray-200 mx-1 hidden md:block" />
               <div className="flex items-center gap-3 cursor-pointer hover:bg-dark-200 p-1.5 rounded-lg transition">
                 <img
                   className="h-8 w-8 rounded-lg object-cover ring-2 ring-gray-200"
@@ -615,19 +615,19 @@ export default function TasksPage() {
                   <p className="text-sm font-medium text-gray-800">{currentUserName || 'User'}</p>
                   <p className="text-xs text-gray-500">{currentUserEmail || 'No email'}</p>
                 </div>
-                <i className="fa-solid fa-chevron-down text-xs text-gray-400 ml-1" />
+                <i className="fa-solid fa-chevron-down text-xs text-gray-400 ml-1 hidden md:inline" />
               </div>
             </div>
           </header>
 
-          <div className="flex-1 overflow-hidden flex flex-row relative">
-            <div className="flex-[1.5] flex flex-col overflow-hidden min-w-0 bg-dark-400 p-6">
-              <div className="flex justify-between items-end mb-6">
+          <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
+            <div className="flex-[1.5] flex flex-col overflow-hidden min-w-0 bg-dark-400 p-3 md:p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-6 gap-3 sm:gap-0">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Tasks</h1>
-                  <p className="text-sm text-gray-500 mt-1">Execution &amp; Accountability</p>
+                  <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Tasks</h1>
+                  <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1">Execution &amp; Accountability</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                   <div className="hidden xl:flex items-center bg-dark-200 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm mr-2">
                     <div className="flex -space-x-1 mr-2">
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
@@ -639,14 +639,14 @@ export default function TasksPage() {
 
                   <div className="relative">
                     <button
-                      className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition ${hasActiveFilters ? 'border-primary-500 text-primary-400 bg-indigo-50' : 'border-gray-300 text-gray-600 bg-white hover:bg-gray-50'}`}
+                      className={`inline-flex items-center px-2.5 md:px-3 py-1.5 md:py-2 border shadow-sm text-xs md:text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition ${hasActiveFilters ? 'border-primary-500 text-primary-400 bg-indigo-50' : 'border-gray-300 text-gray-600 bg-white hover:bg-gray-50'}`}
                       onClick={() => setFiltersOpen((open) => !open)}
                     >
-                      <i className="fa-solid fa-filter mr-2 text-gray-400" />
+                      <i className="fa-solid fa-filter mr-1.5 md:mr-2 text-gray-400" />
                       Filter
                     </button>
                     {filtersOpen && (
-                      <div className="absolute right-0 mt-2 w-72 rounded-xl border border-gray-200 bg-white shadow-lg p-3 z-20">
+                      <div className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-72 rounded-xl border border-gray-200 bg-white shadow-lg p-3 z-20">
                         <label className="block text-xs text-gray-500 mb-1 font-medium">Status</label>
                         <select
                           className="w-full mb-3 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-800"
@@ -709,18 +709,19 @@ export default function TasksPage() {
                     )}
                   </div>
                   <button
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition"
+                    className="inline-flex items-center px-2.5 md:px-3 py-1.5 md:py-2 border border-gray-300 shadow-sm text-xs md:text-sm font-medium rounded-lg text-gray-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition"
                     onClick={() => setRefreshKey((k) => k + 1)}
                   >
-                    <i className="fa-solid fa-rotate-right mr-2 text-gray-400" />
-                    Refresh
+                    <i className="fa-solid fa-rotate-right mr-1.5 md:mr-2 text-gray-400" />
+                    <span className="hidden sm:inline">Refresh</span>
                   </button>
                   <button
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition shadow-glow"
+                    className="inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 border border-transparent shadow-sm text-xs md:text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition shadow-glow"
                     onClick={() => setCreateOpen(true)}
                   >
-                    <i className="fa-solid fa-plus mr-2" />
-                    Create Task
+                    <i className="fa-solid fa-plus mr-1.5 md:mr-2" />
+                    <span className="hidden sm:inline">Create Task</span>
+                    <span className="sm:hidden">New</span>
                   </button>
                 </div>
               </div>
@@ -754,6 +755,11 @@ export default function TasksPage() {
               statuses={statuses}
               assignees={assignees}
               saving={savingTask}
+              onClose={() => {
+                setSelectedTaskId('');
+                setSelectedTask(null);
+                setActivity([]);
+              }}
               onFieldUpdate={async (updates) => {
                 if (!selectedTaskId) return;
                 setSavingTask(true);
