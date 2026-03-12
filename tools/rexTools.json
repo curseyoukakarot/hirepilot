@@ -265,5 +265,160 @@
       "REX, add note to cand123: 'Confirmed availability for Tuesday.'",
       "REX, record observation for this candidate: 'Great technical skills, needs soft skills training.'"
     ]
+  },
+  {
+    "name": "sniper_sn_lead_search",
+    "description": "Use the Cloud Engine in Agent Mode to scrape leads from a LinkedIn Sales Navigator search URL. Queues a browser automation job that extracts lead profiles from the search results. Returns a job_id — use sniper_poll_leads to check results.",
+    "parameters": {
+      "userId": "string",
+      "search_url": "string",
+      "limit": "number (optional, default 25, max 100)"
+    },
+    "examples": [
+      "REX, pull leads from this Sales Navigator URL: https://www.linkedin.com/sales/search/people?...",
+      "REX, scrape leads from my SN search: https://www.linkedin.com/sales/search/people?recentSearchId=123",
+      "REX, use the cloud engine to extract leads from this Sales Navigator search",
+      "Pull 50 leads from this SN link",
+      "REX, import leads from Sales Navigator search URL"
+    ]
+  },
+  {
+    "name": "sniper_people_search",
+    "description": "Use the Cloud Engine in Agent Mode to scrape profiles from a LinkedIn people search URL. Queues a browser automation job. Returns a job_id — use sniper_poll_leads to check results.",
+    "parameters": {
+      "userId": "string",
+      "search_url": "string",
+      "limit": "number (optional, default 25, max 100)"
+    },
+    "examples": [
+      "REX, scrape profiles from this LinkedIn search: https://www.linkedin.com/search/results/people?...",
+      "REX, pull people from this LinkedIn search URL",
+      "REX, use the cloud engine to find profiles from this LinkedIn search"
+    ]
+  },
+  {
+    "name": "sniper_poll_leads",
+    "description": "Check the status and results of a Cloud Engine extraction job. Returns extracted profiles with name, headline, and profile URL. Use after sniper_sn_lead_search or sniper_people_search.",
+    "parameters": {
+      "userId": "string",
+      "job_id": "string",
+      "limit": "number (optional, default 50, max 200)"
+    },
+    "examples": [
+      "REX, check the results of my lead search job",
+      "REX, poll for the extracted leads from job abc-123",
+      "REX, are my Sales Navigator leads ready yet?",
+      "REX, show me the profiles from my last cloud engine run"
+    ]
+  },
+  {
+    "name": "sniper_sn_connect",
+    "description": "Use the Cloud Engine in Agent Mode to send LinkedIn Sales Navigator connection requests to one or more profiles with an optional personal note.",
+    "parameters": {
+      "userId": "string",
+      "profile_urls": "array",
+      "note": "string (optional)"
+    },
+    "examples": [
+      "REX, send SN connection requests to these profiles",
+      "REX, connect with these leads on Sales Navigator with a personal note",
+      "REX, use the cloud engine to send connect requests to these 10 profiles"
+    ]
+  },
+  {
+    "name": "sniper_sn_inmail",
+    "description": "Use the Cloud Engine in Agent Mode to send LinkedIn Sales Navigator InMail messages to one or more profiles.",
+    "parameters": {
+      "userId": "string",
+      "profile_urls": "array",
+      "subject": "string",
+      "message": "string"
+    },
+    "examples": [
+      "REX, send InMail to these profiles via Sales Navigator",
+      "REX, use the cloud engine to InMail these leads",
+      "REX, send a Sales Navigator InMail to this profile about our open role"
+    ]
+  },
+  {
+    "name": "sniper_sn_message",
+    "description": "Use the Cloud Engine in Agent Mode to send LinkedIn Sales Navigator messages to 1st-degree connections.",
+    "parameters": {
+      "userId": "string",
+      "profile_urls": "array",
+      "message": "string"
+    },
+    "examples": [
+      "REX, message these connections on Sales Navigator",
+      "REX, send SN messages to these profiles",
+      "REX, use the cloud engine to message my 1st-degree connections on SN"
+    ]
+  },
+  {
+    "name": "sniper_import_to_leads",
+    "description": "Import extracted profiles from a Cloud Engine run into the leads table for a campaign. Use after sniper_poll_leads returns profiles.",
+    "parameters": {
+      "userId": "string",
+      "profile_urls": "array",
+      "campaign_id": "string (optional)"
+    },
+    "examples": [
+      "REX, import the extracted profiles into my leads",
+      "REX, save these scraped profiles to my campaign leads",
+      "REX, add the cloud engine results to my lead list"
+    ]
+  },
+  {
+    "name": "sniper_get_status",
+    "description": "Check the Cloud Engine status including whether it's enabled, LinkedIn connection state, quota usage, and recent job activity.",
+    "parameters": {
+      "userId": "string"
+    },
+    "examples": [
+      "REX, is my cloud engine running?",
+      "REX, check my cloud engine status",
+      "REX, is my LinkedIn connected for the cloud engine?",
+      "REX, how many cloud engine actions have I used today?"
+    ]
+  },
+  {
+    "name": "sniper_list_jobs",
+    "description": "List recent Cloud Engine jobs with their status, type, and creation time.",
+    "parameters": {
+      "userId": "string",
+      "limit": "number (optional, default 20)"
+    },
+    "examples": [
+      "REX, show my recent cloud engine jobs",
+      "REX, list my last 10 cloud engine runs",
+      "REX, what cloud engine missions have I run recently?"
+    ]
+  },
+  {
+    "name": "sniper_decision_makers",
+    "description": "Use the Cloud Engine in Agent Mode to find decision makers at a company by scraping LinkedIn company pages.",
+    "parameters": {
+      "userId": "string",
+      "input_json": "object"
+    },
+    "examples": [
+      "REX, find the decision makers at Stripe",
+      "REX, use the cloud engine to find VPs and Directors at this company",
+      "REX, who are the key people at Airbnb engineering?"
+    ]
+  },
+  {
+    "name": "sniper_jobs_intent",
+    "description": "Use the Cloud Engine in Agent Mode to extract job postings from a LinkedIn search URL for intent-based prospecting.",
+    "parameters": {
+      "userId": "string",
+      "search_url": "string",
+      "limit": "number (optional, default 25, max 50)"
+    },
+    "examples": [
+      "REX, find companies hiring for this role from this LinkedIn jobs URL",
+      "REX, use the cloud engine to mine job intent signals",
+      "REX, extract job postings from this search for prospecting"
+    ]
   }
 ] 
