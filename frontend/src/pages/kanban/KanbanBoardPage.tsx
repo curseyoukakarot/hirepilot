@@ -735,28 +735,28 @@ export default function KanbanBoardPage() {
       `}</style>
 
       <header id="board-header" className="sticky top-0 z-50 backdrop-blur-xl bg-dark-900/80 border-b border-white/5">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <button onClick={() => navigate('/kanban')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+        <div className="px-3 py-3 md:px-6 md:py-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3 md:gap-6 min-w-0">
+              <button onClick={() => navigate('/kanban')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group flex-shrink-0">
                 <i className="fa-solid fa-arrow-left text-sm group-hover:-translate-x-0.5 transition-transform"></i>
-                <span className="text-sm font-medium">Boards</span>
+                <span className="text-sm font-medium hidden sm:inline">Boards</span>
               </button>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                 <input
                   type="text"
                   value={boardName}
                   onChange={(event) => setBoardName(event.target.value)}
                   onBlur={handleSaveBoardName}
-                  className="bg-transparent text-xl font-semibold text-white border-none outline-none focus:bg-dark-700/50 px-3 py-1 rounded-lg transition-all"
+                  className="bg-transparent text-base md:text-xl font-semibold text-white border-none outline-none focus:bg-dark-700/50 px-2 md:px-3 py-1 rounded-lg transition-all min-w-0 flex-1"
                 />
-                <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-medium rounded-full border border-indigo-500/20">
+                <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-medium rounded-full border border-indigo-500/20 flex-shrink-0">
                   {board?.boardType || 'Board'}
                 </span>
               </div>
 
-              <div className="flex items-center -space-x-2 ml-2">
+              <div className="hidden md:flex items-center -space-x-2 ml-2">
                 {visibleMembers.map((member) => {
                   const avatarUrl = member.user?.avatarUrl || '';
                   const initials = resolveMemberInitials(member.user?.fullName || member.user?.email || '');
@@ -783,14 +783,14 @@ export default function KanbanBoardPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
                 <input
                   type="text"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search cards..."
-                  className="bg-dark-700/50 border border-white/5 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-700 transition-all w-64"
+                  className="bg-dark-700/50 border border-white/5 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:bg-dark-700 transition-all w-40 md:w-64"
                 />
                 <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
               </div>
@@ -849,13 +849,13 @@ export default function KanbanBoardPage() {
 
               <button
                 onClick={() => navigate('/settings/integrations')}
-                className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
+                className="hidden md:flex px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all items-center gap-2"
               >
                 <i className="fa-solid fa-bolt text-xs text-amber-400"></i>
                 Automations
               </button>
 
-              <div className="relative">
+              <div className="relative hidden md:block">
                 <button
                   onClick={() => setShowViewMenu((prev) => !prev)}
                   className="px-4 py-2 bg-dark-700/50 hover:bg-dark-700 border border-white/5 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-all flex items-center gap-2"
@@ -880,10 +880,10 @@ export default function KanbanBoardPage() {
 
               <button
                 onClick={openInviteModal}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all flex items-center gap-2"
+                className="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-all flex items-center gap-2"
               >
                 <i className="fa-solid fa-user-plus text-xs"></i>
-                Invite
+                <span className="hidden md:inline">Invite</span>
               </button>
 
               <div className="relative">
@@ -915,14 +915,14 @@ export default function KanbanBoardPage() {
         </div>
       </header>
 
-      <main id="kanban-canvas" className="px-6 py-8 overflow-x-auto">
+      <main id="kanban-canvas" className="px-3 py-4 md:px-6 md:py-8 overflow-x-auto">
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="flex gap-5 min-w-max pb-8">
             {filteredLists.map((list) => {
               const listCardIds = list.cards.map((card) => card.id);
               const allSelected = listCardIds.length > 0 && listCardIds.every((id) => selectedCardIds.has(id));
               return (
-                <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-80">
+                <div key={list.id} id={`column-${list.id}`} className="flex-shrink-0 w-72 md:w-80">
                 <div className="bg-dark-800/40 backdrop-blur-sm border border-white/5 rounded-2xl overflow-hidden">
                   <div className="p-4 border-b border-white/5 flex items-center justify-between group relative">
                     <div className="flex items-center gap-3">
@@ -1647,7 +1647,7 @@ export default function KanbanBoardPage() {
           </>
           )}
 
-          <div className="flex-shrink-0 w-80">
+          <div className="flex-shrink-0 w-72 md:w-80">
             <button
               onClick={openAddColumnModal}
               className="w-full h-14 bg-dark-800/20 hover:bg-dark-800/40 border-2 border-dashed border-white/5 hover:border-white/10 rounded-2xl text-gray-500 hover:text-gray-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
@@ -1660,8 +1660,8 @@ export default function KanbanBoardPage() {
         </DragDropContext>
       </main>
 
-      <div id="card-drawer" className={`fixed top-0 right-0 w-[55%] h-full bg-dark-900/95 backdrop-blur-xl border-l border-white/5 transform transition-transform duration-300 overflow-y-auto z-50 shadow-2xl ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-8">
+      <div id="card-drawer" className={`fixed top-0 right-0 w-full md:w-[55%] h-full bg-dark-900/95 backdrop-blur-xl border-l border-white/5 transform transition-transform duration-300 overflow-y-auto z-50 shadow-2xl ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-4 md:p-8">
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">
               <input
@@ -1670,7 +1670,7 @@ export default function KanbanBoardPage() {
                 onChange={(event) => setCardTitleDraft(event.target.value)}
                 onBlur={handleSaveCardTitle}
                 placeholder="Card name"
-                className="w-full bg-transparent text-2xl font-bold text-white border-none outline-none focus:bg-dark-800/50 px-3 py-2 rounded-lg mb-4"
+                className="w-full bg-transparent text-xl md:text-2xl font-bold text-white border-none outline-none focus:bg-dark-800/50 px-2 md:px-3 py-2 rounded-lg mb-4"
               />
 
               <div id="labels-section" className="flex items-center gap-3 flex-wrap mb-4">
@@ -1690,7 +1690,7 @@ export default function KanbanBoardPage() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-3 md:gap-4 text-sm flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500">in list</span>
                   <button className="px-3 py-1 bg-dark-700/50 hover:bg-dark-700 rounded-md text-gray-300 font-medium transition-all">
@@ -1753,7 +1753,7 @@ export default function KanbanBoardPage() {
             </div>
 
             <div className="bg-dark-800/60 border border-white/5 rounded-xl p-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select
                   value={linkEntityType}
                   onChange={(event) => setLinkEntityType(event.target.value)}
@@ -1770,7 +1770,7 @@ export default function KanbanBoardPage() {
                   onChange={(event) => setLinkEntityId(event.target.value)}
                   placeholder="Entity ID"
                   id="card-link-entity-id"
-                  className="col-span-2 bg-dark-700/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
+                  className="sm:col-span-2 bg-dark-700/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
               <button
@@ -1923,7 +1923,7 @@ export default function KanbanBoardPage() {
 
       <div id="invite-collaborator-modal" className={`fixed inset-0 z-50 ${showInviteModal ? '' : 'hidden'}`}>
         <div className="absolute inset-0 bg-black/60" onClick={closeInviteModal}></div>
-        <div className="relative z-10 max-w-lg mx-auto mt-20">
+        <div className="relative z-10 max-w-lg mx-4 md:mx-auto mt-10 md:mt-20">
           <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <h2 className="text-xl font-semibold text-white">Invite collaborator</h2>
@@ -1975,7 +1975,7 @@ export default function KanbanBoardPage() {
 
       <div id="add-column-modal" className={`fixed inset-0 z-50 ${showAddColumnModal ? '' : 'hidden'}`}>
         <div className="absolute inset-0 bg-black/60" onClick={closeAddColumnModal}></div>
-        <div className="relative z-10 max-w-xl mx-auto mt-20">
+        <div className="relative z-10 max-w-xl mx-4 md:mx-auto mt-10 md:mt-20">
           <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <h2 className="text-xl font-semibold text-white">Add Column</h2>
@@ -2037,7 +2037,7 @@ export default function KanbanBoardPage() {
 
       <div id="add-card-modal" className={`fixed inset-0 z-50 ${showAddCardModal ? '' : 'hidden'}`}>
         <div className="absolute inset-0 bg-black/60" onClick={closeAddCardModal}></div>
-        <div className="relative z-10 max-w-xl mx-auto mt-20">
+        <div className="relative z-10 max-w-xl mx-4 md:mx-auto mt-10 md:mt-20">
           <div className="bg-dark-900/95 border border-white/10 rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <h2 className="text-xl font-semibold text-white">Add Card</h2>

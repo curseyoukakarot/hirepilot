@@ -245,8 +245,14 @@ export default function KanbanBoardsPage() {
         }
         
         .list-column {
-            min-width: 320px;
-            max-width: 320px;
+            min-width: 288px;
+            max-width: 288px;
+        }
+        @media (min-width: 768px) {
+            .list-column {
+                min-width: 320px;
+                max-width: 320px;
+            }
         }
         
         .drawer-overlay {
@@ -349,36 +355,37 @@ export default function KanbanBoardsPage() {
 
       <div id="app-container" className="flex h-screen">
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
-          <header id="boards-header" className="bg-[#141416] border-b border-[#2a2a2e] px-8 py-5">
-            <div className="flex items-center justify-between">
+          <header id="boards-header" className="bg-[#141416] border-b border-[#2a2a2e] px-4 py-3 md:px-8 md:py-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center space-x-6">
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Boards</h1>
-                  <p className="text-sm text-[#a1a1aa] mt-1">Manage your recruiting and sales workflows</p>
+                  <h1 className="text-xl md:text-3xl font-bold text-white">Boards</h1>
+                  <p className="text-xs md:text-sm text-[#a1a1aa] mt-1">Manage your recruiting and sales workflows</p>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3">
-                <div className="relative">
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:flex-none">
                   <input
                     type="text"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search boards..."
-                    className="w-64 bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-2.5 pl-10 text-sm text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all"
+                    className="w-full md:w-64 bg-[#1c1c1f] border border-[#2a2a2e] rounded-xl px-4 py-2.5 pl-10 text-sm text-white placeholder-[#a1a1aa] focus:outline-none focus:border-indigo-500 transition-all"
                   />
                   <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[#a1a1aa] text-sm"></i>
                 </div>
-                <button onClick={openCreateBoardModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all">
+                <button onClick={openCreateBoardModal} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-6 py-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all flex-shrink-0">
                   <i className="fa-solid fa-plus"></i>
-                  <span>Create Board</span>
+                  <span className="hidden sm:inline">Create Board</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               </div>
             </div>
           </header>
 
-          <div id="boards-hub-content" className="flex-1 overflow-y-auto p-8">
-            <section id="recent-boards" className="mb-12">
+          <div id="boards-hub-content" className="flex-1 overflow-y-auto p-4 md:p-8">
+            <section id="recent-boards" className="mb-8 md:mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-white flex items-center space-x-2">
                   <i className="fa-solid fa-clock text-indigo-500"></i>
@@ -387,7 +394,7 @@ export default function KanbanBoardsPage() {
                 <button className="text-sm text-[#a1a1aa] hover:text-white transition-all">View All</button>
               </div>
 
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {recentBoards.map((board) => {
                   const members = board.memberPreview || [];
                   const visibleMembers = members.slice(0, 3);
@@ -484,7 +491,7 @@ export default function KanbanBoardsPage() {
               </div>
             </section>
 
-            <section id="all-boards" className="mb-12">
+            <section id="all-boards" className="mb-8 md:mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-white">All Boards</h2>
                 <div className="flex items-center space-x-3">
@@ -497,7 +504,7 @@ export default function KanbanBoardsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {allBoards.map((board) => {
                   const members = board.memberPreview || [];
                   const visibleMembers = members.slice(0, 3);
@@ -594,7 +601,7 @@ export default function KanbanBoardsPage() {
               </div>
             </section>
 
-            <section id="templates-section" className="mb-12">
+            <section id="templates-section" className="mb-8 md:mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-white flex items-center space-x-2">
                   <i className="fa-solid fa-layer-group text-indigo-500"></i>
@@ -602,7 +609,7 @@ export default function KanbanBoardsPage() {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {primaryTemplates.map((template) => {
                   const accent = resolveTemplateAccent(template);
                   return (
@@ -635,7 +642,7 @@ export default function KanbanBoardsPage() {
 
       <div id="create-board-modal" className={`fixed inset-0 z-50 ${showCreateBoardModal ? '' : 'hidden'}`}>
         <div className="drawer-overlay absolute inset-0 bg-black/60" onClick={closeCreateBoardModal}></div>
-        <div className="modal-content relative z-10 max-w-2xl mx-auto mt-20">
+        <div className="modal-content relative z-10 max-w-2xl mx-4 md:mx-auto mt-10 md:mt-20">
           <div className="bg-[#141416] border border-[#2a2a2e] rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-[#2a2a2e]">
               <h2 className="text-2xl font-bold text-white">Create New Board</h2>
@@ -658,7 +665,7 @@ export default function KanbanBoardsPage() {
 
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-white mb-3">Choose a Template</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div
                     className="bg-[#1c1c1f] border-2 border-[#2a2a2e] rounded-xl p-4 cursor-pointer hover:border-indigo-500 transition-all"
                     onClick={() => setSelectedTemplateId('recruiting_pipeline')}
@@ -738,7 +745,7 @@ export default function KanbanBoardsPage() {
       </div>
 
       <div id="board-canvas-page" className={`fixed inset-0 z-40 bg-[#0a0a0b] ${showBoardCanvas ? '' : 'hidden'}`}>
-        <div id="board-top-bar" className="bg-[#141416] border-b border-[#2a2a2e] px-8 py-4">
+        <div id="board-top-bar" className="bg-[#141416] border-b border-[#2a2a2e] px-4 py-3 md:px-8 md:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button onClick={closeBoard} className="text-[#a1a1aa] hover:text-white transition-all">
@@ -779,7 +786,7 @@ export default function KanbanBoardsPage() {
           </div>
         </div>
 
-        <div id="board-canvas" className="flex-1 overflow-x-auto overflow-y-hidden p-8 scrollbar-hide" style={{ height: 'calc(100vh - 72px)' }}>
+        <div id="board-canvas" className="flex-1 overflow-x-auto overflow-y-hidden p-4 md:p-8 scrollbar-hide" style={{ height: 'calc(100vh - 72px)' }}>
           <div className="flex space-x-6 h-full">
             <div id="list-new-leads" className="list-column flex-shrink-0">
               <div className="bg-[#141416] border border-[#2a2a2e] rounded-2xl h-full flex flex-col">
@@ -1160,7 +1167,7 @@ export default function KanbanBoardsPage() {
 
       <div id="card-drawer" className={`fixed inset-0 z-50 ${showCardDrawer ? '' : 'hidden'}`}>
         <div className="drawer-overlay absolute inset-0 bg-black/60" onClick={closeCardDrawer}></div>
-        <div className="drawer-slide absolute right-0 top-0 bottom-0 w-[60%] bg-[#141416] shadow-2xl overflow-y-auto">
+        <div className="drawer-slide absolute right-0 top-0 bottom-0 w-full md:w-[60%] bg-[#141416] shadow-2xl overflow-y-auto">
           <div className="sticky top-0 bg-[#141416] border-b border-[#2a2a2e] p-6 z-10">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
@@ -1479,7 +1486,7 @@ export default function KanbanBoardsPage() {
 
       <div id="invite-modal" className={`fixed inset-0 z-50 ${showInviteModal ? '' : 'hidden'}`}>
         <div className="drawer-overlay absolute inset-0 bg-black/60" onClick={closeInviteModal}></div>
-        <div className="modal-content relative z-10 max-w-2xl mx-auto mt-20">
+        <div className="modal-content relative z-10 max-w-2xl mx-4 md:mx-auto mt-10 md:mt-20">
           <div className="bg-[#141416] border border-[#2a2a2e] rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-[#2a2a2e]">
               <h2 className="text-2xl font-bold text-white">Invite to Board</h2>
