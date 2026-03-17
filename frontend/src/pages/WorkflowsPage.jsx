@@ -17,6 +17,27 @@ export default function WorkflowsPage() {
   const [isFree, setIsFree] = useState(false);
   const [showZapierModal, setShowZapierModal] = useState(false);
   const [zapierApiKey, setZapierApiKey] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('default'); // 'default' | 'alpha' | 'difficulty'
+
+  const ALL_CATEGORIES = ['All', 'Discovery + Lead Intelligence', 'CRM, Pipeline, Client Activation', 'REX Intelligence Engine', 'Messaging'];
+
+  // Determine integration type badge for a workflow
+  const getIntegrationType = (wf) => {
+    const tools = wf.tools || [];
+    const toolsLower = tools.map(t => t.toLowerCase());
+    if (toolsLower.every(t => t === 'hirepilot' || t === 'rex')) return { label: 'Native', color: 'bg-emerald-900 text-emerald-300 border-emerald-700' };
+    if (toolsLower.some(t => t === 'zapier' || t === 'make.com' || t === 'make')) return { label: 'Zapier', color: 'bg-orange-900 text-orange-300 border-orange-700' };
+    return { label: 'Custom', color: 'bg-blue-900 text-blue-300 border-blue-700' };
+  };
+
+  // Status indicator helper for My Workflows
+  const getStatusIndicator = (wf) => {
+    if (wf.is_active && wf.status === 'ok') return { dot: 'bg-green-400 animate-pulse', text: 'Active', textColor: 'text-green-400' };
+    if (wf.status === 'error') return { dot: 'bg-red-400', text: 'Error', textColor: 'text-red-400' };
+    if (wf.status === 'needs_setup') return { dot: 'bg-yellow-400', text: 'Needs Setup', textColor: 'text-yellow-400' };
+    return { dot: 'bg-gray-500', text: 'Inactive', textColor: 'text-gray-400' };
+  };
 
   useEffect(() => {
     (async () => {
@@ -1579,12 +1600,30 @@ Headers for Notion
   ];
 
   const filtered = useMemo(() => {
-    if (!query) return workflows;
-    const q = query.toLowerCase();
-    return workflows.filter(
-      (w) => w.title.toLowerCase().includes(q) || (w.description || '').toLowerCase().includes(q)
-    );
-  }, [query]);
+    let result = workflows;
+    // Text search
+    if (query) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (w) => w.title.toLowerCase().includes(q) ||
+          (w.description || '').toLowerCase().includes(q) ||
+          (w.category || '').toLowerCase().includes(q) ||
+          (w.tools || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+    // Category filter
+    if (activeCategory !== 'All') {
+      result = result.filter((w) => w.category === activeCategory);
+    }
+    // Sort
+    if (sortBy === 'alpha') {
+      result = [...result].sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === 'difficulty') {
+      const order = { 'Beginner': 0, 'Intermediate': 1, 'Advanced': 2 };
+      result = [...result].sort((a, b) => (order[a.difficulty] || 0) - (order[b.difficulty] || 0));
+    }
+    return result;
+  }, [query, activeCategory, sortBy]);
 
   const openRecipe = (wf) => {
     setSelected(wf);
@@ -1621,7 +1660,7 @@ Headers for Notion
   const addWorkflow = (wf) => {
     setSavedWorkflows(prev => {
       const exists = prev.some((x) => x.title === wf.title);
-      const next = exists ? prev : [...prev, { id: Date.now(), ...wf }];
+      const next = exists ? prev : [...prev, { id: Date.now(), is_active: false, status: 'needs_setup', ...wf }];
       try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
       return next;
     });
@@ -1831,13 +1870,27 @@ Headers for Notion
             </div>
           </div>
 
-          {/* Category Filters (static UI for now) */}
-          <div id="category-filters" className="flex gap-2 flex-wrap">
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium">All</button>
-            <button className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition">Messaging</button>
-            <button className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition">Pipeline</button>
-            <button className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition">Billing</button>
-            <button className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition">REX</button>
+          {/* Category Filters + Sort */}
+          <div id="category-filters" className="flex items-center gap-2 flex-wrap">
+            {ALL_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition ${activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              >
+                {cat}
+              </button>
+            ))}
+            <div className="h-6 w-px bg-slate-700 mx-1" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-slate-800 text-slate-300 text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="default">Default Order</option>
+              <option value="alpha">A-Z</option>
+              <option value="difficulty">By Difficulty</option>
+            </select>
           </div>
 
           {/* Grouped by category */}
@@ -1849,11 +1902,35 @@ Headers for Notion
                   <div key={wf.id} className="bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition group">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="text-lg font-semibold pr-2">{wf.title}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs ${colorClasses[wf.color] || 'bg-slate-800 text-slate-300'}`}>
-                        <span className="mr-1">{wf.icon}</span>{wf.category}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getIntegrationType(wf).color}`}>{getIntegrationType(wf).label}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs ${colorClasses[wf.color] || 'bg-slate-800 text-slate-300'}`}>
+                          <span className="mr-1">{wf.icon}</span>{wf.category}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-slate-400 text-sm mb-4">{wf.description}</p>
+                    <p className="text-slate-400 text-sm mb-3">{wf.description}</p>
+                    {/* Visual flow preview */}
+                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-3 flex-wrap">
+                      <span className="px-2 py-0.5 rounded bg-blue-900/50 text-blue-300 text-[10px]">Trigger</span>
+                      <span className="text-slate-600">&rarr;</span>
+                      {(wf.actions || []).slice(0, 2).map((_, i) => (
+                        <React.Fragment key={i}>
+                          <span className="px-2 py-0.5 rounded bg-purple-900/50 text-purple-300 text-[10px]">Action {i+1}</span>
+                          {i < Math.min((wf.actions || []).length, 2) - 1 && <span className="text-slate-600">&rarr;</span>}
+                        </React.Fragment>
+                      ))}
+                      {(wf.actions || []).length > 2 && <span className="text-slate-600 text-[10px]">+{(wf.actions || []).length - 2}</span>}
+                    </div>
+                    {/* Tools pills */}
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(wf.tools || []).map(t => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{t}</span>)}
+                    </div>
+                    {/* Difficulty & setup time */}
+                    <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
+                      {wf.difficulty && <span className="flex items-center gap-1"><i className="fa-solid fa-signal text-[9px]"></i> {wf.difficulty}</span>}
+                      {wf.setupTime && <span className="flex items-center gap-1"><i className="fa-regular fa-clock text-[9px]"></i> {wf.setupTime}</span>}
+                    </div>
                     <div className="flex gap-2">
                       <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [wf.category], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Recipe</button>
                       <button onClick={() => addWorkflow(wf)} className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-semibold text-white hover:bg-emerald-500 transition">Add Workflow</button>
@@ -1879,23 +1956,70 @@ Headers for Notion
           </div>
           {savedWorkflows?.length ? (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {savedWorkflows.map((wf) => (
+              {savedWorkflows.map((wf) => {
+                const status = getStatusIndicator(wf);
+                const badge = getIntegrationType(wf);
+                return (
                 <div key={wf.id} className="bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition group">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold pr-2">{wf.title}</h3>
-                    <span className="px-2 py-1 rounded-full text-xs bg-slate-800 text-slate-300">Saved</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${status.dot}`}></span>
+                      <h3 className="text-lg font-semibold truncate">{wf.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${badge.color}`}>{badge.label}</span>
+                      <span className={`text-[11px] ${status.textColor}`}>{status.text}</span>
+                    </div>
                   </div>
-                  <p className="text-slate-400 text-sm mb-4">{wf.description || 'Saved workflow'}</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-2 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">View Details</button>
-                    <button onClick={() => window.open('/sandbox', '_self')} className="px-3 py-2 bg-blue-600 rounded-lg text-xs font-semibold text-white hover:bg-blue-500 transition">Open in Sandbox</button>
-                    <button onClick={() => removeWorkflow(wf.id)} className="px-3 py-2 bg-slate-700 rounded-lg text-xs font-semibold text-white hover:bg-slate-600 transition">Remove</button>
+                  <p className="text-slate-400 text-sm mb-3">{wf.description || 'Saved workflow'}</p>
+                  {/* Tools */}
+                  {wf.tools?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {wf.tools.map(t => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{t}</span>)}
+                    </div>
+                  )}
+                  {/* Toggle + Actions */}
+                  <div className="flex items-center justify-between">
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-400">
+                      <span className="relative">
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={!!wf.is_active}
+                          onChange={(e) => {
+                            const next = e.currentTarget.checked;
+                            setSavedWorkflows(prev => {
+                              const updated = prev.map(w => w.id === wf.id ? { ...w, is_active: next, status: next ? 'ok' : 'inactive' } : w);
+                              try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
+                              return updated;
+                            });
+                          }}
+                        />
+                        <span className={`block w-9 h-5 rounded-full transition ${wf.is_active ? 'bg-green-600' : 'bg-slate-700'}`}></span>
+                        <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${wf.is_active ? 'translate-x-4' : ''}`}></span>
+                      </span>
+                      {wf.is_active ? 'On' : 'Off'}
+                    </label>
+                    <div className="flex gap-2">
+                      <button onClick={() => openRecipe({ title: wf.title, summary: wf.description, tools: wf.tools || [], setupTime: wf.setupTime || '', difficulty: wf.difficulty || '', formula: toFormulaString(wf), setupSteps: wf.setupSteps || [], copyZap: wf.copyZap || '', copyMake: wf.copyMake || '' })} className="px-3 py-1.5 bg-indigo-500 rounded-lg text-xs font-semibold text-white hover:bg-indigo-400 transition">Details</button>
+                      <button onClick={() => window.open('/sandbox', '_self')} className="px-3 py-1.5 bg-blue-600 rounded-lg text-xs font-semibold text-white hover:bg-blue-500 transition">Edit</button>
+                      <button onClick={() => removeWorkflow(wf.id)} className="px-3 py-1.5 bg-slate-700 rounded-lg text-xs font-semibold text-white hover:bg-slate-600 transition">Remove</button>
+                    </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <div className="text-slate-400">No saved workflows yet. Add some from the Workflows Library.</div>
+            <div className="bg-slate-900 rounded-xl p-10 text-center">
+              <div className="text-4xl mb-3 opacity-30">+</div>
+              <p className="text-slate-400 text-lg font-medium mb-2">No saved workflows yet</p>
+              <p className="text-slate-500 text-sm mb-4">Add recipes from the Library or build your own in the Sandbox.</p>
+              <div className="flex gap-3 justify-center">
+                <button onClick={() => setActiveTab('library')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition">Browse Library</button>
+                <button onClick={() => window.open('/sandbox', '_self')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition">Open Sandbox</button>
+              </div>
+            </div>
           )}
         </section>
         )}
@@ -1920,6 +2044,16 @@ Headers for Notion
           apiKey={zapierApiKey}
         />
       )}
+
+      {/* REX Workflow Assistant FAB */}
+      <button
+        onClick={() => alert('REX Workflow Assistant coming soon! Ask REX to help you find the right workflow, build custom automations, or troubleshoot integrations.')}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl hover:scale-110 hover:shadow-2xl transition-all flex items-center justify-center text-2xl group"
+        title="Ask REX for help"
+      >
+        <span className="group-hover:scale-110 transition-transform">&#x1F916;</span>
+        <span className="absolute -top-2 -right-1 bg-emerald-500 text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold">NEW</span>
+      </button>
 
       <AnimatePresence>
         {showAddedToast && (
