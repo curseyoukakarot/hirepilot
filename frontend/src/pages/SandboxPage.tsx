@@ -64,54 +64,226 @@ function ActionNode({ data, selected }: any) {
   );
 }
 
-const nodeTypes: NodeTypes = { trigger: TriggerNode, action: ActionNode };
+function CloudEngineNode({ data, selected }: any) {
+  const isAction = data.ceType === 'action';
+  return (
+    <div className={`bg-gradient-to-br ${isAction ? 'from-cyan-600 to-teal-800' : 'from-teal-600 to-cyan-800'} p-4 rounded-xl shadow-lg border ${selected ? 'border-cyan-300 ring-2 ring-cyan-400/40' : 'border-cyan-400/20'} w-60 relative`}>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-2xl">{data.icon || '\u2601\uFE0F'}</span>
+        <div className="min-w-0">
+          <div className="font-semibold text-white text-sm truncate">{data.label}</div>
+          <div className="text-[11px] text-cyan-200 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full inline-block"></span>
+            Cloud Engine {isAction ? 'Action' : 'Trigger'}
+          </div>
+        </div>
+      </div>
+      <div className="text-[11px] text-cyan-100 bg-cyan-900/30 rounded-md px-2 py-1 truncate">{data.endpoint}</div>
+      {!isAction && <Handle type="source" position={Position.Right} className="!w-3.5 !h-3.5 !bg-cyan-400 !border-2 !border-white !shadow-md" />}
+      {isAction && (
+        <>
+          <Handle type="target" position={Position.Left} className="!w-3.5 !h-3.5 !bg-cyan-400 !border-2 !border-white !shadow-md" />
+          <Handle type="source" position={Position.Right} id="ce-action-out" className="!w-3.5 !h-3.5 !bg-cyan-400 !border-2 !border-white !shadow-md" />
+        </>
+      )}
+    </div>
+  );
+}
+
+function LogicNode({ data, selected }: any) {
+  return (
+    <div className={`bg-gradient-to-br from-amber-600 to-orange-800 p-4 rounded-xl shadow-lg border ${selected ? 'border-amber-300 ring-2 ring-amber-400/40' : 'border-amber-400/20'} w-60 relative`}>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-2xl">{data.icon || '\u2699\uFE0F'}</span>
+        <div className="min-w-0">
+          <div className="font-semibold text-white text-sm truncate">{data.label}</div>
+          <div className="text-[11px] text-amber-200">Logic / Flow</div>
+        </div>
+      </div>
+      <div className="text-[11px] text-amber-100 bg-amber-900/30 rounded-md px-2 py-1 truncate">{data.endpoint}</div>
+      <Handle type="target" position={Position.Left} className="!w-3.5 !h-3.5 !bg-amber-400 !border-2 !border-white !shadow-md" />
+      <Handle type="source" position={Position.Right} id="logic-out" className="!w-3.5 !h-3.5 !bg-amber-400 !border-2 !border-white !shadow-md" />
+      {data.label === 'If / Else Branch' && (
+        <Handle type="source" position={Position.Bottom} id="logic-else" className="!w-3.5 !h-3.5 !bg-red-400 !border-2 !border-white !shadow-md" />
+      )}
+    </div>
+  );
+}
+
+const nodeTypes: NodeTypes = {
+  trigger: TriggerNode,
+  action: ActionNode,
+  cloudengine: CloudEngineNode,
+  logic: LogicNode,
+};
 
 /* ------------------------------------------------------------------ */
 /*  Sidebar Data                                                       */
 /* ------------------------------------------------------------------ */
-const TRIGGERS = [
+/* ---- Triggers: Candidates & Pipeline ---- */
+const TRIGGERS_PIPELINE = [
   { icon: '\uD83D\uDC64', label: 'Lead Created', endpoint: '/api/events/lead_created' },
-  { icon: '\uD83C\uDF89', label: 'Candidate Hired', endpoint: '/api/events/candidate_hired' },
-  { icon: '\uD83D\uDE80', label: 'Campaign Relaunched', endpoint: '/api/events/campaign_relaunched' },
+  { icon: '\uD83C\uDF89', label: 'Hired', endpoint: '/api/events/candidate_hired' },
+  { icon: '\uD83D\uDCCB', label: 'Interview Scheduled', endpoint: '/api/events/candidate_interviewed' },
+  { icon: '\uD83D\uDCDD', label: 'Note Added', endpoint: '/api/events/opportunity_note_added' },
+  { icon: '\uD83D\uDCE8', label: 'Offer Sent', endpoint: '/api/events/candidate_offered' },
+  { icon: '\u274C', label: 'Candidate Rejected', endpoint: '/api/events/candidate_rejected' },
+  { icon: '\uD83D\uDD04', label: 'Stage Changed', endpoint: '/api/events/candidate_moved_to_stage' },
+  { icon: '\uD83D\uDCE4', label: 'Resume Uploaded', endpoint: '/api/events/resume_uploaded' },
   { icon: '\uD83C\uDFF7\uFE0F', label: 'Lead Tagged', endpoint: '/api/events/lead_tagged' },
   { icon: '\uD83D\uDD17', label: 'Lead Source Detected', endpoint: '/api/events/lead_source_triggered' },
 ];
 
-const ACTIONS = [
-  { icon: '\uD83D\uDCC8', label: 'Submit to Client', endpoint: '/api/actions/submit_to_client' },
-  { icon: '\uD83D\uDCAC', label: 'Send Bulk Message', endpoint: '/api/actions/bulk_schedule' },
-  { icon: '\uD83E\uDD1D', label: 'Create Client', endpoint: '/api/actions/create_client' },
-  { icon: '\uD83E\uDDE0', label: 'Sync Enrichment', endpoint: '/api/actions/sync_enrichment' },
-  { icon: '\uD83C\uDFAF', label: 'Trigger Sniper', endpoint: '/api/actions/capture_sniper' },
-  { icon: '\uD83E\uDD16', label: 'Trigger REX Chat', endpoint: '/api/actions/rex_chat' },
+/* ---- Triggers: Outreach & Engagement ---- */
+const TRIGGERS_ENGAGEMENT = [
+  { icon: '\uD83D\uDE80', label: 'Campaign Relaunched', endpoint: '/api/events/campaign_relaunched' },
+  { icon: '\uD83D\uDC40', label: 'Email Opened', endpoint: '/api/events/email_opened' },
+  { icon: '\u21A9\uFE0F', label: 'Email Replied', endpoint: '/api/events/message_reply' },
+  { icon: '\uD83D\uDEAB', label: 'Email Bounced', endpoint: '/api/events/email_bounced' },
+  { icon: '\uD83D\uDD17', label: 'Link Clicked', endpoint: '/api/events/email_clicked' },
+  { icon: '\uD83D\uDCC5', label: 'Meeting Booked', endpoint: '/api/events/meeting_booked' },
+];
+
+/* ---- Triggers: Deals & Revenue ---- */
+const TRIGGERS_DEALS = [
+  { icon: '\uD83C\uDFC6', label: 'Deal Won', endpoint: '/api/events/opportunity_closed_won' },
+  { icon: '\uD83D\uDCC9', label: 'Deal Lost', endpoint: '/api/events/opportunity_closed_lost' },
+  { icon: '\uD83D\uDCB0', label: 'Invoice Paid', endpoint: '/api/events/invoice_paid' },
+  { icon: '\u23F0', label: 'Invoice Overdue', endpoint: '/api/events/invoice_overdue' },
+];
+
+/* ---- Triggers: System ---- */
+const TRIGGERS_SYSTEM = [
+  { icon: '\uD83D\uDD14', label: 'Webhook Received', endpoint: '/api/events/webhook_inbound' },
+  { icon: '\u23F1\uFE0F', label: 'Schedule (Cron)', endpoint: '/api/events/cron_trigger' },
+  { icon: '\uD83D\uDCCB', label: 'Form Submitted', endpoint: '/api/events/form_submitted' },
+];
+
+/* ---- Cloud Engine Triggers ---- */
+const CE_TRIGGERS = [
+  { icon: '\u2705', label: 'Agent Run Completed', endpoint: '/api/events/agent_run.succeeded' },
+  { icon: '\u26A0\uFE0F', label: 'Agent Run Failed', endpoint: '/api/events/agent_run.failed' },
+  { icon: '\u2B50', label: 'High Match Found', endpoint: '/api/events/run_item.high_score' },
+  { icon: '\uD83D\uDC64', label: 'New Target Discovered', endpoint: '/api/events/run_item.target_created' },
+  { icon: '\uD83D\uDCBC', label: 'New Job Found', endpoint: '/api/events/run_item.job_created' },
+  { icon: '\uD83E\uDD1D', label: 'LinkedIn Connect Accepted', endpoint: '/api/events/linkedin.connect_accepted' },
+  { icon: '\uD83C\uDFAF', label: 'Sniper Capture Complete', endpoint: '/api/events/sniper_capture_complete' },
+  { icon: '\uD83D\uDEA8', label: 'Daily Limit Reached', endpoint: '/api/events/usage.limit_reached' },
+  { icon: '\uD83D\uDD11', label: 'Auth Needs Refresh', endpoint: '/api/events/cloud_engine.needs_reauth' },
+];
+
+/* ---- Actions: Communication ---- */
+const ACTIONS_COMMS = [
   { icon: '\uD83D\uDCE3', label: 'Send Slack Alert', endpoint: '/api/actions/slack_notification' },
   { icon: '\uD83D\uDCE7', label: 'Send Email', endpoint: '/api/actions/send_email' },
+  { icon: '\uD83D\uDCAC', label: 'Send Bulk Message', endpoint: '/api/actions/bulk_schedule' },
+  { icon: '\uD83D\uDCF1', label: 'Send SMS', endpoint: '/api/actions/send_sms' },
+  { icon: '\uD83D\uDCAC', label: 'Send WhatsApp', endpoint: '/api/actions/send_whatsapp' },
+  { icon: '\uD83D\uDCC5', label: 'Create Calendar Event', endpoint: '/api/actions/create_calendar_event' },
+  { icon: '\uD83D\uDCE9', label: 'Send InMail', endpoint: '/api/actions/send_inmail' },
+];
+
+/* ---- Actions: CRM & Data ---- */
+const ACTIONS_CRM = [
+  { icon: '\uD83D\uDCC8', label: 'Submit to Client', endpoint: '/api/actions/submit_to_client' },
+  { icon: '\uD83E\uDD1D', label: 'Create Client', endpoint: '/api/actions/create_client' },
+  { icon: '\uD83E\uDDE0', label: 'Sync Enrichment', endpoint: '/api/actions/sync_enrichment' },
+  { icon: '\u270F\uFE0F', label: 'Update Lead Field', endpoint: '/api/actions/update_lead' },
+  { icon: '\uD83C\uDFF7\uFE0F', label: 'Add Tag', endpoint: '/api/actions/add_tag' },
+  { icon: '\uD83D\uDDD1\uFE0F', label: 'Remove Tag', endpoint: '/api/actions/remove_tag' },
+  { icon: '\u27A1\uFE0F', label: 'Move Pipeline Stage', endpoint: '/api/actions/move_stage' },
+  { icon: '\uD83D\uDCDD', label: 'Create Note', endpoint: '/api/actions/create_note' },
+  { icon: '\uD83D\uDCCA', label: 'Log Activity', endpoint: '/api/actions/log_activity' },
+  { icon: '\uD83C\uDFAF', label: 'Score Lead', endpoint: '/api/actions/score_lead' },
+];
+
+/* ---- Actions: External Integrations ---- */
+const ACTIONS_EXTERNAL = [
+  { icon: '\uD83D\uDCCA', label: 'Push to Google Sheets', endpoint: '/api/actions/push_google_sheets' },
+  { icon: '\uD83D\uDD17', label: 'Push to Webhook', endpoint: '/api/actions/push_webhook' },
+  { icon: '\uD83D\uDCCB', label: 'Create Jira Ticket', endpoint: '/api/actions/create_jira_ticket' },
+  { icon: '\uD83E\uDDE1', label: 'Push to HubSpot', endpoint: '/api/actions/push_hubspot' },
+  { icon: '\u2601\uFE0F', label: 'Push to Salesforce', endpoint: '/api/actions/push_salesforce' },
+];
+
+/* ---- Actions: AI & REX ---- */
+const ACTIONS_AI = [
+  { icon: '\uD83E\uDD16', label: 'Trigger REX Chat', endpoint: '/api/actions/rex_chat' },
+  { icon: '\uD83D\uDCDD', label: 'REX Summarize', endpoint: '/api/actions/rex_summarize' },
+  { icon: '\uD83C\uDFAF', label: 'REX Score Candidate', endpoint: '/api/actions/rex_score_candidate' },
+  { icon: '\u2709\uFE0F', label: 'REX Write Email', endpoint: '/api/actions/rex_write_email' },
+];
+
+/* ---- Cloud Engine Actions ---- */
+const CE_ACTIONS = [
+  { icon: '\uD83D\uDE80', label: 'Launch Agent Run', endpoint: '/api/jobseeker/agent/runs' },
+  { icon: '\u23F8\uFE0F', label: 'Pause Agent Run', endpoint: '/api/actions/pause_agent_run' },
+  { icon: '\uD83D\uDD17', label: 'Queue LinkedIn Connect', endpoint: '/api/actions/linkedin_connect' },
+  { icon: '\uD83D\uDCAC', label: 'Queue LinkedIn Message', endpoint: '/api/actions/linkedin_message' },
+  { icon: '\uD83C\uDFAF', label: 'Launch Sniper Job', endpoint: '/api/actions/launch_sniper_job' },
+  { icon: '\u2699\uFE0F', label: 'Update CE Settings', endpoint: '/api/jobseeker/settings/cloud-engine' },
+];
+
+/* ---- Logic / Flow Control ---- */
+const LOGIC_NODES = [
+  { icon: '\u23F3', label: 'Delay / Wait', endpoint: '/api/logic/delay' },
+  { icon: '\uD83D\uDD00', label: 'If / Else Branch', endpoint: '/api/logic/if_else' },
+  { icon: '\uD83D\uDD01', label: 'Loop / Repeat', endpoint: '/api/logic/loop' },
+  { icon: '\uD83D\uDED1', label: 'Stop Workflow', endpoint: '/api/logic/stop' },
 ];
 
 /* ------------------------------------------------------------------ */
 /*  Sidebar Item                                                       */
 /* ------------------------------------------------------------------ */
-function SidebarItem({ icon, label, endpoint, type }: { icon: string; label: string; endpoint: string; type: 'trigger' | 'action' }) {
+type SidebarNodeType = 'trigger' | 'action' | 'cloudengine' | 'logic';
+
+const typeColors: Record<SidebarNodeType, { border: string; text: string; hoverBorder: string }> = {
+  trigger: { border: 'border-gray-700', text: 'text-blue-400', hoverBorder: 'hover:border-blue-500/50' },
+  action: { border: 'border-gray-700', text: 'text-purple-400', hoverBorder: 'hover:border-purple-500/50' },
+  cloudengine: { border: 'border-gray-700', text: 'text-cyan-400', hoverBorder: 'hover:border-cyan-500/50' },
+  logic: { border: 'border-gray-700', text: 'text-amber-400', hoverBorder: 'hover:border-amber-500/50' },
+};
+
+function SidebarItem({ icon, label, endpoint, type, ceType }: { icon: string; label: string; endpoint: string; type: SidebarNodeType; ceType?: 'trigger' | 'action' }) {
   const onDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData('application/reactflow', JSON.stringify({ nodeType: type, data: { icon, label, endpoint } }));
+    const payload: any = { nodeType: type, data: { icon, label, endpoint } };
+    if (ceType) payload.data.ceType = ceType;
+    e.dataTransfer.setData('application/reactflow', JSON.stringify(payload));
     e.dataTransfer.effectAllowed = 'move';
   };
-  const isTrigger = type === 'trigger';
+  const colors = typeColors[type];
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      className={`cursor-grab active:cursor-grabbing p-3 rounded-lg flex items-center gap-3 text-sm transition-all border ${
-        isTrigger
-          ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-blue-500/50'
-          : 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-purple-500/50'
-      }`}
+      className={`cursor-grab active:cursor-grabbing p-2.5 rounded-lg flex items-center gap-2.5 text-sm transition-all border bg-gray-800 hover:bg-gray-700 ${colors.border} ${colors.hoverBorder}`}
     >
-      <span className={`text-lg ${isTrigger ? 'text-blue-400' : 'text-purple-400'}`}>{icon}</span>
+      <span className={`text-base ${colors.text}`}>{icon}</span>
       <div className="min-w-0">
-        <div className="font-medium text-white text-sm truncate">{label}</div>
-        <div className="text-[10px] text-gray-400 truncate">{endpoint}</div>
+        <div className="font-medium text-white text-[13px] truncate">{label}</div>
+        <div className="text-[9px] text-gray-500 truncate">{endpoint}</div>
       </div>
+    </div>
+  );
+}
+
+function SidebarSection({ title, color, icon, items, type, ceType, defaultOpen = false }: {
+  title: string; color: string; icon: string; items: { icon: string; label: string; endpoint: string }[]; type: SidebarNodeType; ceType?: 'trigger' | 'action'; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-3">
+      <button onClick={() => setOpen(!open)} className={`flex items-center gap-2 w-full text-left mb-1.5 group`}>
+        <i className={`fa-solid ${icon} text-[9px] ${color}`}></i>
+        <span className={`text-[11px] font-semibold uppercase tracking-wider ${color}`}>{title}</span>
+        <span className="text-[9px] text-gray-600 ml-auto">{items.length}</span>
+        <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[8px] text-gray-600 group-hover:text-gray-400 transition`}></i>
+      </button>
+      {open && (
+        <div className="space-y-1">
+          {items.map((item) => <SidebarItem key={item.endpoint} {...item} type={type} ceType={ceType} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -272,6 +444,7 @@ export default function SandboxPage() {
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
 
   // Slack state
   const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
@@ -369,7 +542,10 @@ export default function SandboxPage() {
   const isValidConnection = useCallback(
     (connection: Connection) => {
       const target = nodes.find((n) => n.id === connection.target);
+      // Can't connect into a trigger node (triggers are source-only)
       if (target?.type === 'trigger') return false;
+      // Can't connect into a cloudengine trigger node
+      if (target?.type === 'cloudengine' && target.data.ceType !== 'action') return false;
       return true;
     },
     [nodes],
@@ -497,8 +673,9 @@ export default function SandboxPage() {
     setWorkflowName('Untitled Workflow');
   };
 
-  const triggerCount = nodes.filter((n) => n.type === 'trigger').length;
-  const actionCount = nodes.filter((n) => n.type === 'action').length;
+  const triggerCount = nodes.filter((n) => n.type === 'trigger' || (n.type === 'cloudengine' && n.data.ceType !== 'action')).length;
+  const actionCount = nodes.filter((n) => n.type === 'action' || (n.type === 'cloudengine' && n.data.ceType === 'action')).length;
+  const logicCount = nodes.filter((n) => n.type === 'logic').length;
 
   /* ---------------------------------------------------------------- */
   /*  Render                                                           */
@@ -521,7 +698,7 @@ export default function SandboxPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">
-            {triggerCount} trigger{triggerCount !== 1 ? 's' : ''} &middot; {actionCount} action{actionCount !== 1 ? 's' : ''} &middot; {edges.length} connection{edges.length !== 1 ? 's' : ''}
+            {triggerCount} trigger{triggerCount !== 1 ? 's' : ''} &middot; {actionCount} action{actionCount !== 1 ? 's' : ''}{logicCount > 0 ? ` \u00b7 ${logicCount} logic` : ''} &middot; {edges.length} connection{edges.length !== 1 ? 's' : ''}
           </span>
           <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm rounded-lg font-medium transition disabled:opacity-50">
             {isSaving ? 'Saving...' : 'Save'}
@@ -532,31 +709,118 @@ export default function SandboxPage() {
       {/* Main Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-72 bg-gray-900 border-r border-gray-800 p-4 flex flex-col overflow-y-auto shrink-0">
-          <div className="mb-6">
-            <h2 className="text-xs font-semibold mb-3 text-blue-400 flex items-center gap-2 uppercase tracking-wider">
-              <i className="fa-solid fa-bolt text-[10px]"></i> Triggers
-            </h2>
-            <div className="space-y-1.5">
-              {TRIGGERS.map((t) => <SidebarItem key={t.endpoint} {...t} type="trigger" />)}
+        <aside className="w-72 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+          {/* Search */}
+          <div className="p-3 border-b border-gray-800">
+            <div className="relative">
+              <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]"></i>
+              <input
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                placeholder="Search nodes..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Triggers</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Actions</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-500"></span> Cloud</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Logic</span>
             </div>
           </div>
 
-          <div className="mb-6">
-            <h2 className="text-xs font-semibold mb-3 text-purple-400 flex items-center gap-2 uppercase tracking-wider">
-              <i className="fa-solid fa-cog text-[10px]"></i> Actions
-            </h2>
-            <div className="space-y-1.5">
-              {ACTIONS.map((a) => <SidebarItem key={a.endpoint} {...a} type="action" />)}
-            </div>
+          {/* Scrollable node list */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            {(() => {
+              const q = sidebarSearch.toLowerCase().trim();
+              const filter = (items: { icon: string; label: string; endpoint: string }[]) =>
+                q ? items.filter((i) => i.label.toLowerCase().includes(q) || i.endpoint.toLowerCase().includes(q)) : items;
+
+              const filteredPipeline = filter(TRIGGERS_PIPELINE);
+              const filteredEngagement = filter(TRIGGERS_ENGAGEMENT);
+              const filteredDeals = filter(TRIGGERS_DEALS);
+              const filteredSystem = filter(TRIGGERS_SYSTEM);
+              const filteredCETriggers = filter(CE_TRIGGERS);
+              const filteredComms = filter(ACTIONS_COMMS);
+              const filteredCRM = filter(ACTIONS_CRM);
+              const filteredExternal = filter(ACTIONS_EXTERNAL);
+              const filteredAI = filter(ACTIONS_AI);
+              const filteredCEActions = filter(CE_ACTIONS);
+              const filteredLogic = filter(LOGIC_NODES);
+
+              const hasTriggers = filteredPipeline.length + filteredEngagement.length + filteredDeals.length + filteredSystem.length > 0;
+              const hasActions = filteredComms.length + filteredCRM.length + filteredExternal.length + filteredAI.length > 0;
+              const hasCE = filteredCETriggers.length + filteredCEActions.length > 0;
+              const hasLogic = filteredLogic.length > 0;
+
+              if (!hasTriggers && !hasActions && !hasCE && !hasLogic) {
+                return <p className="text-sm text-gray-500 text-center mt-8">No nodes match &ldquo;{sidebarSearch}&rdquo;</p>;
+              }
+
+              return (
+                <>
+                  {hasTriggers && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                        <i className="fa-solid fa-bolt text-[8px]"></i> Triggers
+                        <span className="text-gray-600 font-normal ml-auto">{filteredPipeline.length + filteredEngagement.length + filteredDeals.length + filteredSystem.length}</span>
+                      </div>
+                      {filteredPipeline.length > 0 && <SidebarSection title="Pipeline & Candidates" color="text-blue-400" icon="fa-users" items={filteredPipeline} type="trigger" defaultOpen={!q} />}
+                      {filteredEngagement.length > 0 && <SidebarSection title="Outreach & Engagement" color="text-blue-400" icon="fa-envelope-open" items={filteredEngagement} type="trigger" defaultOpen={!!q} />}
+                      {filteredDeals.length > 0 && <SidebarSection title="Deals & Revenue" color="text-blue-400" icon="fa-chart-line" items={filteredDeals} type="trigger" defaultOpen={!!q} />}
+                      {filteredSystem.length > 0 && <SidebarSection title="System" color="text-blue-400" icon="fa-server" items={filteredSystem} type="trigger" defaultOpen={!!q} />}
+                    </div>
+                  )}
+
+                  {hasActions && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                        <i className="fa-solid fa-cog text-[8px]"></i> Actions
+                        <span className="text-gray-600 font-normal ml-auto">{filteredComms.length + filteredCRM.length + filteredExternal.length + filteredAI.length}</span>
+                      </div>
+                      {filteredComms.length > 0 && <SidebarSection title="Communication" color="text-purple-400" icon="fa-comment-dots" items={filteredComms} type="action" defaultOpen={!q} />}
+                      {filteredCRM.length > 0 && <SidebarSection title="CRM & Data" color="text-purple-400" icon="fa-database" items={filteredCRM} type="action" defaultOpen={!!q} />}
+                      {filteredExternal.length > 0 && <SidebarSection title="External Integrations" color="text-purple-400" icon="fa-plug" items={filteredExternal} type="action" defaultOpen={!!q} />}
+                      {filteredAI.length > 0 && <SidebarSection title="AI & REX" color="text-purple-400" icon="fa-robot" items={filteredAI} type="action" defaultOpen={!!q} />}
+                    </div>
+                  )}
+
+                  {hasCE && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                        <i className="fa-solid fa-cloud text-[8px]"></i> Cloud Engine
+                        <span className="text-gray-600 font-normal ml-auto">{filteredCETriggers.length + filteredCEActions.length}</span>
+                      </div>
+                      {filteredCETriggers.length > 0 && <SidebarSection title="CE Triggers" color="text-cyan-400" icon="fa-bolt" items={filteredCETriggers} type="cloudengine" ceType="trigger" defaultOpen={!!q} />}
+                      {filteredCEActions.length > 0 && <SidebarSection title="CE Actions" color="text-cyan-400" icon="fa-play" items={filteredCEActions} type="cloudengine" ceType="action" defaultOpen={!!q} />}
+                    </div>
+                  )}
+
+                  {hasLogic && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                        <i className="fa-solid fa-code-branch text-[8px]"></i> Logic / Flow
+                        <span className="text-gray-600 font-normal ml-auto">{filteredLogic.length}</span>
+                      </div>
+                      <SidebarSection title="Flow Control" color="text-amber-400" icon="fa-code-branch" items={filteredLogic} type="logic" defaultOpen={!!q || !q} />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
-          <div className="mt-auto pt-4 border-t border-gray-800">
-            <p className="text-[11px] text-gray-500 leading-relaxed">
-              <strong className="text-gray-400">Drag</strong> nodes onto the canvas.{' '}
-              <strong className="text-gray-400">Connect</strong> by dragging handles.{' '}
-              <strong className="text-gray-400">Click</strong> a node to configure.
+          {/* Footer hint */}
+          <div className="p-3 border-t border-gray-800">
+            <p className="text-[10px] text-gray-600 leading-relaxed">
+              <strong className="text-gray-500">Drag</strong> nodes onto canvas &bull;{' '}
+              <strong className="text-gray-500">Connect</strong> handles &bull;{' '}
+              <strong className="text-gray-500">Click</strong> to configure
             </p>
+            <div className="mt-1.5 text-[10px] text-gray-600">
+              <span className="text-white font-semibold">{nodes.length}</span> nodes &bull;{' '}
+              <span className="text-white font-semibold">{edges.length}</span> connections
+            </div>
           </div>
         </aside>
 
@@ -587,7 +851,12 @@ export default function SandboxPage() {
             <Background color="#374151" gap={20} size={1} />
             <Controls className="!bg-gray-800 !border-gray-700 !rounded-lg [&>button]:!bg-gray-800 [&>button]:!border-gray-700 [&>button]:!text-gray-300 [&>button:hover]:!bg-gray-700" />
             <MiniMap
-              nodeColor={(n) => (n.type === 'trigger' ? '#3b82f6' : '#8b5cf6')}
+              nodeColor={(n) => {
+                if (n.type === 'trigger') return '#3b82f6';
+                if (n.type === 'cloudengine') return '#06b6d4';
+                if (n.type === 'logic') return '#f59e0b';
+                return '#8b5cf6';
+              }}
               maskColor="rgba(0,0,0,0.7)"
               className="!bg-gray-900 !border-gray-700 !rounded-lg"
             />
