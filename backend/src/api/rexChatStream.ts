@@ -208,7 +208,7 @@ function applyPostProcessors(
   if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
     return 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to **Settings → Integrations** to connect.';
   }
-  if (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help) {
+  if (lastToolResult && (lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' || lastToolResult.error_code === 'LINKEDIN_NOT_CONNECTED') && lastToolResult.help) {
     return String(lastToolResult.help);
   }
 
@@ -648,7 +648,7 @@ export default async function rexChatStream(req: Request, res: Response) {
     // 7. Check if post-processor will deterministically override
     const willOverride =
       (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') ||
-      (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help);
+      (lastToolResult && (lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' || lastToolResult.error_code === 'LINKEDIN_NOT_CONNECTED') && lastToolResult.help);
 
     if (willOverride) {
       const overriddenContent = applyPostProcessors('', lastToolResult, executedSourcing, messages);
