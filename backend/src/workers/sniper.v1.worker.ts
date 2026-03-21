@@ -168,8 +168,15 @@ export const sniperV1Worker = new Worker(
         }
 
         const totalExtracted = existingItems.length + newProfiles.length;
-        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
-        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        const finalStatus = totalExtracted === 0 ? 'failed' : totalExtracted >= limit ? 'succeeded' : 'partially_succeeded';
+        await updateJob(jobId, {
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+          error_message: totalExtracted === 0 ? 'No profiles found — the post may have no visible engagers or the page failed to load' : null,
+        } as any);
+        if (totalExtracted === 0) {
+          console.warn(`[sniper] prospect_post_engagers returned 0 profiles for job=${jobId} post=${effectivePostUrl}`);
+        }
         // Deduct credits for post engagement mission
         if (totalExtracted > 0) {
           try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.prospect_post_engagers, 'api_usage', `Cloud Engine: Post Engagement (${totalExtracted} profiles)`); } catch (e: any) {
@@ -216,8 +223,15 @@ export const sniperV1Worker = new Worker(
         }
 
         const totalExtracted = existingItems.length + newProfiles.length;
-        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
-        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        const finalStatus = totalExtracted === 0 ? 'failed' : totalExtracted >= limit ? 'succeeded' : 'partially_succeeded';
+        await updateJob(jobId, {
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+          error_message: totalExtracted === 0 ? 'No profiles found — the search may have returned no results or the page failed to load' : null,
+        } as any);
+        if (totalExtracted === 0) {
+          console.warn(`[sniper] people_search returned 0 profiles for job=${jobId} url=${searchUrl}`);
+        }
         // Deduct credits for people search mission
         if (totalExtracted > 0) {
           try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.people_search, 'api_usage', `Cloud Engine: People Search (${totalExtracted} profiles)`); } catch (e: any) {
@@ -271,8 +285,15 @@ export const sniperV1Worker = new Worker(
         }
 
         const totalExtracted = existingItems.length + newJobs.length;
-        const finalStatus = totalExtracted >= limit ? 'succeeded' : (totalExtracted > 0 ? 'partially_succeeded' : 'succeeded');
-        await updateJob(jobId, { status: finalStatus, finished_at: new Date().toISOString() } as any);
+        const finalStatus = totalExtracted === 0 ? 'failed' : totalExtracted >= limit ? 'succeeded' : 'partially_succeeded';
+        await updateJob(jobId, {
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+          error_message: totalExtracted === 0 ? 'No jobs found — the search may have returned no results or the page failed to load' : null,
+        } as any);
+        if (totalExtracted === 0) {
+          console.warn(`[sniper] jobs_intent returned 0 results for job=${jobId} url=${searchUrl}`);
+        }
         // Deduct credits for jobs_intent mission
         if (totalExtracted > 0) {
           try { await CreditService.deductCredits(jobRow.created_by, MISSION_CREDITS.jobs_intent, 'api_usage', `Cloud Engine: Jobs Intent Miner (${totalExtracted} jobs)`); } catch (e: any) {
