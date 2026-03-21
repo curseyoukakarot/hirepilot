@@ -90,6 +90,11 @@ async function api(endpoint: string, options: { method: string; body?: string } 
   }
 }
 
+// Warn at startup if the internal auth token is missing — every Cloud Engine call will 401 without it.
+if (!process.env.AGENTS_API_TOKEN) {
+  console.warn('[rex/server] WARNING: AGENTS_API_TOKEN is not set. All internal API calls from REX (Cloud Engine, sniper, etc.) will fail with 401 Unauthorized.');
+}
+
 // API helper that impersonates a specific user via x-user-id header
 async function apiAsUser(userId: string, endpoint: string, options: { method: string; body?: string } = { method: 'GET' }) {
   const baseUrl = process.env.BACKEND_BASE_URL || 'http://localhost:8080';
@@ -127,8 +132,14 @@ async function ensureSniperCloudEngineEnabledOrExplain(userId: string): Promise<
       return { ok: false, error_code: 'CLOUD_ENGINE_DISABLED', help: cloudEngineEnableHelp() };
     }
     return null;
-  } catch {
-    // If we can't load settings, fail open and let downstream endpoints decide
+  } catch (err: any) {
+    // If the internal API call fails with 401, the service auth token is missing/invalid.
+    // Do NOT fail open — return a clear error so the user isn't left guessing.
+    if (err?.message?.includes('401')) {
+      console.error('[ensureSniperCloudEngineEnabledOrExplain] internal auth failed (AGENTS_API_TOKEN may be missing)');
+      return { ok: false, error_code: 'CLOUD_ENGINE_DISABLED', help: cloudEngineEnableHelp() };
+    }
+    // For non-auth errors (network blips, etc.) fail open and let downstream decide
     return null;
   }
 }
@@ -154,8 +165,26 @@ async function ensureLinkedInConnectedOrExplain(userId: string): Promise<null | 
       };
     }
     return null;
-  } catch {
-    return null; // fail open
+  } catch (err: any) {
+    if (err?.message?.includes('401')) {
+      console.error('[ensureLinkedInConnectedOrExplain] internal auth failed (AGENTS_API_TOKEN may be missing)');
+      return {
+        ok: false,
+        error_code: 'LINKEDIN_NOT_CONNECTED',
+        help: [
+          'LinkedIn is not connected to Cloud Engine yet, so I can\'t run browser-based missions.',
+          '',
+          'Connect your LinkedIn account:',
+          '1) Go to **Cloud Engine** (`/cloud-engine/settings`)',
+          '2) Make sure **Cloud Engine** is toggled ON',
+          '3) Click **Connect** and log into LinkedIn in the popup window',
+          '4) Once logged in, come back and click **Check** to verify the connection',
+          '',
+          'Once connected, tell me "retry" and I\'ll queue it again.'
+        ].join('\n')
+      };
+    }
+    return null; // non-auth errors: fail open
   }
 }
 

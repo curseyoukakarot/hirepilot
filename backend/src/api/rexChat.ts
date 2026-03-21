@@ -679,7 +679,7 @@ Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current camp
       if (lastToolResult && lastToolResult.error === 'NO_EMAIL_PROVIDER') {
         assistantMessage = { role: 'assistant', content: 'You need to connect an email service first (SendGrid, Google, or Outlook). Go to **Settings → Integrations** to connect.' } as any;
       }
-      if (lastToolResult && lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' && lastToolResult.help) {
+      if (lastToolResult && (lastToolResult.error_code === 'CLOUD_ENGINE_DISABLED' || lastToolResult.error_code === 'LINKEDIN_NOT_CONNECTED') && lastToolResult.help) {
         assistantMessage = { role: 'assistant', content: String(lastToolResult.help) } as any;
       }
 
