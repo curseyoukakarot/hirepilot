@@ -225,25 +225,31 @@ function scrapeLinkedInProfileInjected() {
 
     const name =
       text('h1.text-heading-xlarge') ||
+      text('h1[data-anonymize="person-name"]') ||
+      text('.pv-top-card h1') ||
       text('div.ph5 h1') ||
       text('div.pv-text-details__left-panel h1') ||
+      text('section.artdeco-card h1') ||
       text('h1');
 
     const headline =
       text('[data-test-id="hero__headline"]') ||
       text('.text-body-medium.break-words') ||
       text('.pv-text-details__left-panel .text-body-medium') ||
+      text('div.ph5 .text-body-medium') ||
       '';
 
     // Best-effort company pick; may be empty depending on page structure
     const company =
       text('[data-anonymize="company-name"]') ||
+      text('button[aria-label*="Current company"] span') ||
       text('.pv-text-details__right-panel .pv-text-details__right-panel-item a') ||
       text('section.pv-top-card .pv-text-details__right-panel a') ||
+      text('.experience-item:first-child .t-bold span') ||
       '';
 
     const avatarEl = document.querySelector(
-      'img.pv-top-card-profile-picture__image, img.profile-photo-edit__preview, img[alt*="profile" i]'
+      'img.pv-top-card-profile-picture__image, img.profile-photo-edit__preview, .pv-top-card--photo img, img.evi-image[alt*="photo" i], img[alt*="profile" i]'
     );
     const avatarUrl = avatarEl ? (avatarEl.currentSrc || avatarEl.src || attr('img[alt*="profile" i]', 'src')) : '';
 
@@ -683,14 +689,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             // fall through to content
           }
           // Fallback to content script scrape
-          chrome.tabs.sendMessage(tab.id, { action: 'scrapeSingleProfile' }, async (r) => {
+          chrome.tabs.sendMessage(tab.id, { action: 'scrapeSingleProfile' }, (r) => {
             console.debug('[HP-BG] source content, hasName:', !!(r && r.profile && r.profile.name));
             if (chrome.runtime.lastError || !r || !r.profile || !r.profile.name) {
               // Last-chance fallback: use older injected LI scraper
-              const inj = await scrapeSingleProfileInjected(tab.id);
-              return sendResponse(inj && inj.profile ? inj : { error: 'Profile not detected' });
+              scrapeSingleProfileInjected(tab.id).then((inj) => {
+                sendResponse(inj && inj.profile ? inj : { error: 'Profile not detected' });
+              }).catch(() => {
+                sendResponse({ error: 'Profile not detected' });
+              });
+              return;
             }
-            return sendResponse(r);
+            sendResponse(r);
           });
           return true; // keep channel open while waiting for content
         }

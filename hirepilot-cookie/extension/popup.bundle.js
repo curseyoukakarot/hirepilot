@@ -7607,7 +7607,25 @@
       // Show loading state
       if (leadName) leadName.textContent = 'Loading profile…';
       if (leadMeta) leadMeta.textContent = '';
+      let responded = false;
+      const loadTimeout = setTimeout(()=>{
+        if (!responded) {
+          responded = true;
+          console.warn('Profile scrape timed out');
+          if (leadName) leadName.textContent = '—';
+          if (leadMeta) leadMeta.textContent = 'Profile load timed out – try refreshing the page';
+        }
+      }, 18000);
       chrome.runtime.sendMessage({ action: 'scrapeSingleProfile' }, (resp)=>{
+        if (responded) return;
+        responded = true;
+        clearTimeout(loadTimeout);
+        if (chrome.runtime.lastError) {
+          console.warn('Profile scrape error:', chrome.runtime.lastError.message);
+          if (leadName) leadName.textContent = '—';
+          if (leadMeta) leadMeta.textContent = 'Unable to parse profile';
+          return;
+        }
         if (resp && resp.profile) {
           currentProfile = resp.profile;
           if (leadAvatar) leadAvatar.src = resp.profile.avatarUrl || 'img/icon48.png';
@@ -7622,6 +7640,10 @@
           });
         } else if (resp && resp.error) {
           console.warn('Profile scrape error:', resp.error);
+          if (leadName) leadName.textContent = '—';
+          if (leadMeta) leadMeta.textContent = 'Unable to parse profile';
+        } else {
+          console.warn('Profile scrape returned empty response');
           if (leadName) leadName.textContent = '—';
           if (leadMeta) leadMeta.textContent = 'Unable to parse profile';
         }
