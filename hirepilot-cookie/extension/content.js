@@ -372,11 +372,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           'h1.profile-topcard__title',
           '.profile-topcard__content h1',
           'dd[data-anonymize="person-name"]',
+          'h1[data-anonymize="person-name"]',
           '.artdeco-entity-lockup__title'
         ] : [
           '.text-heading-xlarge',
+          'h1[data-anonymize="person-name"]',
           'h1[dir="auto"]',
+          '.pv-top-card h1',
           '.pv-text-details__left-panel h1',
+          'section.artdeco-card h1',
           'h1.text-heading-xlarge.inline.t-24.v-align-middle.break-words'
         ];
 
@@ -427,6 +431,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '.profile-topcard__current-positions .t-14'
         ]) : tryText([
           '.text-body-medium.break-words',
+          'div.ph5 .text-body-medium',
           '.pv-text-details__left-panel .text-body-medium'
         ]);
 
@@ -435,9 +440,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '.profile-topcard__current-positions a',
           'dd[data-anonymize="company-name"]'
         ]) : tryText([
+          '[data-anonymize="company-name"]',
+          'button[aria-label*="Current company"] span',
           '.pv-entity__secondary-title',
           '.pv-entity__company-summary-info h2',
-          '.pv-text-details__left-panel .inline-show-more-text'
+          '.pv-text-details__left-panel .inline-show-more-text',
+          '.experience-item:first-child .t-bold span'
         ]);
 
         const avatar = ld?.image?.contentUrl || ld?.image || (isSalesNavProfile ? tryAttr([
@@ -446,7 +454,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '.artdeco-entity-image img'
         ], 'src') : tryAttr([
           '.pv-top-card-profile-picture__image',
+          '.pv-top-card--photo img',
           '.pv-top-card__photo img',
+          'img.evi-image[alt*="photo" i]',
           'img.pv-top-card-profile-picture__image'
         ], 'src'));
 
