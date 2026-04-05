@@ -18,6 +18,7 @@ import SharedProposalViewPage from './client/SharedProposalViewPage';
 import VendorPayoutViewPage from './client/VendorPayoutViewPage';
 import IgniteVendorPayoutsPage from './IgniteVendorPayoutsPage';
 import VendorPayoutWizard from './wizard/VendorPayoutWizard';
+import IgniteVendorPayoutDetailPage from './IgniteVendorPayoutDetailPage';
 import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
 import DashboardPage from '../igniteBackoffice/DashboardPage';
 import LedgerPage from '../igniteBackoffice/LedgerPage';
@@ -241,6 +242,16 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
                 <VendorPayoutWizard />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/vendor-payouts/:payoutId"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <IgniteVendorPayoutDetailPage />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }
