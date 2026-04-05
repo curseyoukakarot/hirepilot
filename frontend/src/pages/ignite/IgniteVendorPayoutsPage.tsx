@@ -207,7 +207,7 @@ export default function IgniteVendorPayoutsPage() {
           </div>
         )}
         {!loading && payouts.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <div className="rounded-xl border border-gray-200 bg-white" style={{ overflow: 'visible' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
