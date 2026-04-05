@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/ignite/templates', label: 'Templates', icon: 'fa-layer-group' },
   { to: '/ignite/rate-cards', label: 'Vendors / Rate Cards', icon: 'fa-users' },
   { to: '/ignite/clients', label: 'Clients', icon: 'fa-building' },
+  { to: '/ignite/vendor-payouts', label: 'Vendor Payouts', icon: 'fa-hand-holding-dollar' },
   { to: '/ignite/exports', label: 'Exports', icon: 'fa-download' },
 ];
 

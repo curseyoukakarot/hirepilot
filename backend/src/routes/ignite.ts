@@ -980,6 +980,51 @@ router.post('/integrations/zapier/signature-status', async (req: Request, res: R
   }
 });
 
+// PUBLIC: GET /ignite/vendor-payout/:token (no auth required)
+router.get('/vendor-payout/:token', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'token_required' });
+
+    const { data: payout, error } = await supabase
+      .from('ignite_vendor_payouts')
+      .select('*')
+      .eq('share_token', token)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!payout) return res.status(404).json({ error: 'vendor_payout_not_found' });
+
+    if (payout.status === 'sent') {
+      await supabase
+        .from('ignite_vendor_payouts')
+        .update({ status: 'viewed' })
+        .eq('id', payout.id);
+    }
+
+    return res.json({
+      vendor_payout: {
+        event_name: payout.event_name,
+        event_date: payout.event_date,
+        client_name: payout.client_name,
+        vendor_name: payout.vendor_name,
+        vendor_company: payout.vendor_company,
+        client_charged_cents: payout.client_charged_cents,
+        cost_items_json: payout.cost_items_json,
+        total_costs_cents: payout.total_costs_cents,
+        margin_cents: payout.margin_cents,
+        vendor_split_percent: payout.vendor_split_percent,
+        ignite_split_percent: payout.ignite_split_percent,
+        vendor_payout_cents: payout.vendor_payout_cents,
+        ignite_payout_cents: payout.ignite_payout_cents,
+        notes: payout.notes,
+        status: payout.status,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_vendor_payout' });
+  }
+});
+
 router.use(requireAuth as any);
 router.use(requireIgniteAccess as any);
 
@@ -2161,6 +2206,289 @@ router.get('/venue-presets', requireIgniteTeam as any, async (req: ApiRequest, r
     return res.json({ venue_presets: data || [] });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed_to_list_venue_presets' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+// Vendor Payout routes
+// ──────────────────────────────────────────────────────────
+
+function computePayoutCents(
+  clientChargedCents: number,
+  costItems: Array<{ label: string; amount_cents: number }>,
+  vendorSplitPercent: number,
+) {
+  const totalCostsCents = costItems.reduce((sum, item) => sum + toNumber(item.amount_cents, 0), 0);
+  const marginCents = clientChargedCents - totalCostsCents;
+  const igniteSplitPercent = Math.max(0, 100 - vendorSplitPercent);
+  const vendorPayoutCents = Math.round((marginCents * vendorSplitPercent) / 100);
+  const ignitePayoutCents = marginCents - vendorPayoutCents;
+  return { totalCostsCents, marginCents, igniteSplitPercent, vendorPayoutCents, ignitePayoutCents };
+}
+
+// GET /ignite/vendor-payouts
+router.get('/vendor-payouts', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    let query = supabase
+      .from('ignite_vendor_payouts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (ctx.isTeam) {
+      if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    } else {
+      return res.status(403).json({ error: 'ignite_team_required' });
+    }
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ vendor_payouts: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_list_vendor_payouts' });
+  }
+});
+
+// GET /ignite/vendor-payouts/:id
+router.get('/vendor-payouts/:id', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    if (!ctx.isTeam) return res.status(403).json({ error: 'ignite_team_required' });
+    const payoutId = String(req.params.id || '');
+    const { data, error } = await supabase
+      .from('ignite_vendor_payouts')
+      .select('*')
+      .eq('id', payoutId)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'vendor_payout_not_found' });
+    return res.json({ vendor_payout: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_fetch_vendor_payout' });
+  }
+});
+
+// POST /ignite/vendor-payouts
+router.post('/vendor-payouts', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const body = req.body || {};
+    const eventName = String(body.event_name || '').trim();
+    const vendorName = String(body.vendor_name || '').trim();
+    const vendorEmail = String(body.vendor_email || '').trim();
+    if (!eventName) return res.status(400).json({ error: 'event_name_required' });
+    if (!vendorName) return res.status(400).json({ error: 'vendor_name_required' });
+    if (!vendorEmail) return res.status(400).json({ error: 'vendor_email_required' });
+
+    const clientChargedCents = toNumber(body.client_charged_cents, 0);
+    const costItems = Array.isArray(body.cost_items) ? body.cost_items : [];
+    const vendorSplitPercent = toNumber(body.vendor_split_percent, 0);
+
+    const computed = computePayoutCents(clientChargedCents, costItems, vendorSplitPercent);
+    const shareToken = crypto.randomBytes(24).toString('hex');
+
+    const payload = {
+      workspace_id: ctx.workspaceId,
+      proposal_id: body.proposal_id || null,
+      client_id: body.client_id || null,
+      event_name: eventName,
+      event_date: body.event_date || null,
+      client_name: body.client_name || null,
+      vendor_name: vendorName,
+      vendor_email: vendorEmail,
+      vendor_company: body.vendor_company || null,
+      client_charged_cents: clientChargedCents,
+      cost_items_json: costItems,
+      total_costs_cents: computed.totalCostsCents,
+      margin_cents: computed.marginCents,
+      vendor_split_percent: vendorSplitPercent,
+      ignite_split_percent: computed.igniteSplitPercent,
+      vendor_payout_cents: computed.vendorPayoutCents,
+      ignite_payout_cents: computed.ignitePayoutCents,
+      notes: body.notes || null,
+      share_token: shareToken,
+      status: 'draft',
+      created_by: ctx.userId,
+    };
+    const { data, error } = await supabase
+      .from('ignite_vendor_payouts')
+      .insert(payload)
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json({ vendor_payout: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_create_vendor_payout' });
+  }
+});
+
+// PATCH /ignite/vendor-payouts/:id
+router.patch('/vendor-payouts/:id', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const payoutId = String(req.params.id || '');
+    const body = req.body || {};
+
+    const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+    const directFields = [
+      'event_name', 'event_date', 'client_name', 'vendor_name', 'vendor_email',
+      'vendor_company', 'notes', 'proposal_id', 'client_id', 'status',
+    ];
+    for (const key of directFields) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) patch[key] = body[key];
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(body, 'client_charged_cents') ||
+      Object.prototype.hasOwnProperty.call(body, 'cost_items') ||
+      Object.prototype.hasOwnProperty.call(body, 'vendor_split_percent')
+    ) {
+      const { data: existing } = await supabase
+        .from('ignite_vendor_payouts')
+        .select('client_charged_cents,cost_items_json,vendor_split_percent')
+        .eq('id', payoutId)
+        .maybeSingle();
+      const clientChargedCents = toNumber(
+        body.client_charged_cents ?? existing?.client_charged_cents, 0
+      );
+      const costItems = Array.isArray(body.cost_items)
+        ? body.cost_items
+        : (existing?.cost_items_json || []);
+      const vendorSplitPercent = toNumber(
+        body.vendor_split_percent ?? existing?.vendor_split_percent, 0
+      );
+      const computed = computePayoutCents(clientChargedCents, costItems, vendorSplitPercent);
+      patch.client_charged_cents = clientChargedCents;
+      patch.cost_items_json = costItems;
+      patch.total_costs_cents = computed.totalCostsCents;
+      patch.margin_cents = computed.marginCents;
+      patch.vendor_split_percent = vendorSplitPercent;
+      patch.ignite_split_percent = computed.igniteSplitPercent;
+      patch.vendor_payout_cents = computed.vendorPayoutCents;
+      patch.ignite_payout_cents = computed.ignitePayoutCents;
+    }
+
+    let query = supabase.from('ignite_vendor_payouts').update(patch).eq('id', payoutId);
+    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    const { data, error } = await query.select('*').maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'vendor_payout_not_found' });
+    return res.json({ vendor_payout: data });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_update_vendor_payout' });
+  }
+});
+
+// DELETE /ignite/vendor-payouts/:id
+router.delete('/vendor-payouts/:id', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const payoutId = String(req.params.id || '');
+    let query = supabase.from('ignite_vendor_payouts').delete().eq('id', payoutId);
+    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    const { error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_delete_vendor_payout' });
+  }
+});
+
+// POST /ignite/vendor-payouts/:id/send-email
+router.post('/vendor-payouts/:id/send-email', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const payoutId = String(req.params.id || '');
+
+    let query = supabase.from('ignite_vendor_payouts').select('*').eq('id', payoutId);
+    if (ctx.workspaceId) query = query.eq('workspace_id', ctx.workspaceId);
+    const { data: payout, error: fetchError } = await query.maybeSingle();
+    if (fetchError) return res.status(500).json({ error: fetchError.message });
+    if (!payout) return res.status(404).json({ error: 'vendor_payout_not_found' });
+
+    const vendorEmail = String(payout.vendor_email || '').trim();
+    if (!vendorEmail) return res.status(400).json({ error: 'vendor_email_missing' });
+
+    const clientHost = String(process.env.IGNITE_HOSTNAME || 'clients.ignitegtm.com');
+    const protocol = clientHost.includes('localhost') ? 'http' : 'https';
+    const publicUrl = `${protocol}://${clientHost}/vendor-payout/${payout.share_token}`;
+
+    const formatDollars = (cents: number) =>
+      (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+</head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;">
+        <tr><td style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);padding:32px 40px;">
+          <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;">IgniteGTM</h1>
+          <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Vendor Payout Statement</p>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+          <p style="color:#e2e8f0;font-size:15px;line-height:1.6;margin:0 0 20px;">
+            Hi <strong>${payout.vendor_name}</strong>,
+          </p>
+          <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 24px;">
+            Your payout statement for <strong style="color:#e2e8f0;">${payout.event_name}</strong> is ready for review.
+            Below is a summary of the breakdown:
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+            <tr>
+              <td style="padding:12px 16px;border-bottom:1px solid #334155;color:#94a3b8;font-size:13px;">Event</td>
+              <td align="right" style="padding:12px 16px;border-bottom:1px solid #334155;color:#e2e8f0;font-size:13px;font-weight:600;">${payout.event_name}</td>
+            </tr>
+            ${payout.client_name ? `<tr>
+              <td style="padding:12px 16px;border-bottom:1px solid #334155;color:#94a3b8;font-size:13px;">Client</td>
+              <td align="right" style="padding:12px 16px;border-bottom:1px solid #334155;color:#e2e8f0;font-size:13px;">${payout.client_name}</td>
+            </tr>` : ''}
+            <tr>
+              <td style="padding:12px 16px;border-bottom:1px solid #334155;color:#94a3b8;font-size:13px;">Margin Split</td>
+              <td align="right" style="padding:12px 16px;border-bottom:1px solid #334155;color:#e2e8f0;font-size:13px;">${payout.vendor_split_percent}% / ${payout.ignite_split_percent}%</td>
+            </tr>
+            <tr>
+              <td style="padding:16px;color:#94a3b8;font-size:14px;font-weight:600;">Your Payout</td>
+              <td align="right" style="padding:16px;color:#22c55e;font-size:18px;font-weight:700;">${formatDollars(payout.vendor_payout_cents)}</td>
+            </tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center" style="padding:8px 0 24px;">
+              <a href="${publicUrl}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:14px;font-weight:600;">
+                View Full Breakdown
+              </a>
+            </td></tr>
+          </table>
+          <p style="color:#64748b;font-size:12px;line-height:1.5;margin:0;">
+            This email was sent by IgniteGTM. If you have questions about this payout, reply to this email.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    const { sendEmail } = await import('../integrations/sendgrid');
+    await sendEmail({
+      from: 'events@ignitegtm.com',
+      to: vendorEmail,
+      subject: `Payout Statement: ${payout.event_name}`,
+      html,
+      replyTo: 'events@ignitegtm.com',
+    });
+
+    await supabase
+      .from('ignite_vendor_payouts')
+      .update({ status: 'sent', email_sent_at: new Date().toISOString() })
+      .eq('id', payoutId);
+
+    return res.json({ ok: true, sent_to: vendorEmail });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_send_vendor_payout_email' });
   }
 });
 

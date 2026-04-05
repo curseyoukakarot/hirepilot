@@ -15,6 +15,9 @@ import IgniteClientSignupPage from './client/IgniteClientSignupPage';
 import IgniteClientPortalPage from './client/IgniteClientPortalPage';
 import ClientProposalViewPage from './client/ClientProposalViewPage';
 import SharedProposalViewPage from './client/SharedProposalViewPage';
+import VendorPayoutViewPage from './client/VendorPayoutViewPage';
+import IgniteVendorPayoutsPage from './IgniteVendorPayoutsPage';
+import VendorPayoutWizard from './wizard/VendorPayoutWizard';
 import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
 import DashboardPage from '../igniteBackoffice/DashboardPage';
 import LedgerPage from '../igniteBackoffice/LedgerPage';
@@ -34,6 +37,7 @@ function getIgnitePageFlavor(pathname: string): string {
   if (pathname.startsWith('/ignite/proposals/') && pathname.endsWith('/preview')) return 'ignite-page-preview';
   if (pathname.startsWith('/proposals/')) return 'ignite-page-client-proposal';
   if (pathname.startsWith('/share/')) return 'ignite-page-share';
+  if (pathname.startsWith('/vendor-payout/')) return 'ignite-page-share';
   if (pathname.startsWith('/ignite/templates')) return 'ignite-page-templates';
   if (pathname.startsWith('/ignite/rate-cards')) return 'ignite-page-rate-cards';
   if (pathname.startsWith('/ignite/clients')) return 'ignite-page-clients';
@@ -61,6 +65,7 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
         <Route path="/login" element={isBackofficeHost ? <BackofficeLoginPage /> : <IgniteClientLoginPage />} />
         {!isBackofficeHost ? <Route path="/signup" element={<IgniteClientSignupPage />} /> : null}
         <Route path="/share/:token" element={<SharedProposalViewPage />} />
+        <Route path="/vendor-payout/:token" element={<VendorPayoutViewPage />} />
         <Route
           path="/proposals/:proposalId"
           element={
@@ -216,6 +221,26 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
                 <IgniteVendorRateCardsPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/vendor-payouts"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <IgniteVendorPayoutsPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/vendor-payouts/new"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <VendorPayoutWizard />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }
