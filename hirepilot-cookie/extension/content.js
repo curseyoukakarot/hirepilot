@@ -26,7 +26,7 @@ async function hpConnectAndSendDOM(message) {
   const textOf = (el) => (el && (el.textContent || '').trim()) || '';
 
   // Prefer searching within top card area to avoid sidebar "More profiles" buttons
-  const topCard = document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
+  const topCard = document.querySelector('main section') || document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
   const waitForVisible = async (selector, timeout = 18000) => new Promise((resolve) => {
     const start = Date.now();
     const tick = () => {
@@ -44,7 +44,7 @@ async function hpConnectAndSendDOM(message) {
 
   try {
     // Ensure top-card is present before attempting
-    await waitForVisible('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas');
+    await waitForVisible('main section, .pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas');
 
     let target = null;
     // Retry attempts to locate Connect
@@ -367,7 +367,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           setTimeout(()=>{ obs.disconnect(); resolve(false); }, timeoutMs + 50);
         });
 
-        const nameSelectors = isSalesNavProfile ? [
+        // ── Selector-based approach (legacy, kept as fallback) ──
+        const nameSelectorsLegacy = isSalesNavProfile ? [
           '.profile-topcard-person-entity__name',
           'h1.profile-topcard__title',
           '.profile-topcard__content h1',
@@ -384,7 +385,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           'h1.text-heading-xlarge.inline.t-24.v-align-middle.break-words'
         ];
 
-        await waitFor(() => nameSelectors.some(s => document.querySelector(s)), 12000);
+        // ── NEW: Structural approach for LinkedIn's obfuscated DOM (2025+) ──
+        // LinkedIn now uses hashed CSS class names. We use structural selectors:
+        // - Profile name is in an h1 or h2 within the first <section> in <main>
+        // - Paragraphs in the top section contain headline, company, location
+        const structuralNameSelectors = ['main section h1', 'main section h2'];
+        const allNameSelectors = [...structuralNameSelectors, ...nameSelectorsLegacy];
+
+        await waitFor(() => allNameSelectors.some(s => {
+          const el = document.querySelector(s);
+          return el && el.textContent && el.textContent.trim().length > 1;
+        }), 12000);
 
         const tryText = (selectors) => {
           for (const sel of selectors) {
@@ -402,7 +413,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return '';
         };
 
-        // JSON-LD first (LinkedIn often embeds Person schema)
+        // JSON-LD first (LinkedIn used to embed Person schema, may return)
         const getJSONLD = () => {
           try {
             const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
@@ -423,42 +434,98 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         };
 
         const ld = getJSONLD();
-        const name = ld?.name || tryText(nameSelectors);
 
-        const headline = isSalesNavProfile ? tryText([
-          '.profile-topcard__summary-position-title',
-          'dd[data-anonymize="headline"]',
-          '.profile-topcard__current-positions .t-14'
-        ]) : tryText([
-          '.text-body-medium.break-words',
-          'div.ph5 .text-body-medium',
-          '.pv-text-details__left-panel .text-body-medium'
-        ]);
+        // ── Try structural extraction first (works with obfuscated classes) ──
+        let name = ld?.name || '';
+        let headline = '';
+        let company = '';
+        let avatar = ld?.image?.contentUrl || ld?.image || '';
 
-        const company = isSalesNavProfile ? tryText([
-          'a[data-anonymize="company-name"]',
-          '.profile-topcard__current-positions a',
-          'dd[data-anonymize="company-name"]'
-        ]) : tryText([
-          '[data-anonymize="company-name"]',
-          'button[aria-label*="Current company"] span',
-          '.pv-entity__secondary-title',
-          '.pv-entity__company-summary-info h2',
-          '.pv-text-details__left-panel .inline-show-more-text',
-          '.experience-item:first-child .t-bold span'
-        ]);
+        if (!name) {
+          // Try legacy selectors first
+          name = tryText(nameSelectorsLegacy);
+        }
 
-        const avatar = ld?.image?.contentUrl || ld?.image || (isSalesNavProfile ? tryAttr([
-          'img.profile-topcard__profile-image',
-          'img.presence-entity__image',
-          '.artdeco-entity-image img'
-        ], 'src') : tryAttr([
-          '.pv-top-card-profile-picture__image',
-          '.pv-top-card--photo img',
-          '.pv-top-card__photo img',
-          'img.evi-image[alt*="photo" i]',
-          'img.pv-top-card-profile-picture__image'
-        ], 'src'));
+        if (!name) {
+          // Structural: first h1 or h2 in the top section of main
+          const topSection = document.querySelector('main section');
+          if (topSection) {
+            const nameEl = topSection.querySelector('h1') || topSection.querySelector('h2');
+            const candidateName = (nameEl?.textContent || '').trim();
+            // Validate it's a real name (not "0 notifications" etc)
+            if (candidateName && candidateName.length > 1 && !/^\d/.test(candidateName) && !/notification/i.test(candidateName)) {
+              name = candidateName;
+            }
+
+            // Extract headline, company, location from <p> tags in the section
+            const paragraphs = Array.from(topSection.querySelectorAll('p'))
+              .map(p => (p.textContent || '').trim())
+              .filter(t => t.length > 0);
+
+            for (const text of paragraphs) {
+              // Skip pronouns and connection indicators
+              if (/^(He\/Him|She\/Her|They\/Them|·\s*\d)/i.test(text)) continue;
+              if (/^\d[\d,]*\s+followers?$/i.test(text)) continue;
+              if (text === '·' || text === 'Contact info') continue;
+
+              if (!headline) {
+                headline = text;
+              } else if (!company && text.includes('·')) {
+                company = text.split('·')[0].trim();
+              } else if (!company) {
+                company = text;
+              }
+            }
+
+            // Avatar from top section
+            if (!avatar) {
+              const img = topSection.querySelector('img[src*="licdn"], img[src*="profile"]');
+              if (img) avatar = img.getAttribute('src') || '';
+            }
+          }
+        }
+
+        // ── Fallback to legacy selectors if structural didn't work ──
+        if (!headline) {
+          headline = isSalesNavProfile ? tryText([
+            '.profile-topcard__summary-position-title',
+            'dd[data-anonymize="headline"]',
+            '.profile-topcard__current-positions .t-14'
+          ]) : tryText([
+            '.text-body-medium.break-words',
+            'div.ph5 .text-body-medium',
+            '.pv-text-details__left-panel .text-body-medium'
+          ]);
+        }
+
+        if (!company) {
+          company = isSalesNavProfile ? tryText([
+            'a[data-anonymize="company-name"]',
+            '.profile-topcard__current-positions a',
+            'dd[data-anonymize="company-name"]'
+          ]) : tryText([
+            '[data-anonymize="company-name"]',
+            'button[aria-label*="Current company"] span',
+            '.pv-entity__secondary-title',
+            '.pv-entity__company-summary-info h2',
+            '.pv-text-details__left-panel .inline-show-more-text',
+            '.experience-item:first-child .t-bold span'
+          ]);
+        }
+
+        if (!avatar) {
+          avatar = isSalesNavProfile ? tryAttr([
+            'img.profile-topcard__profile-image',
+            'img.presence-entity__image',
+            '.artdeco-entity-image img'
+          ], 'src') : tryAttr([
+            '.pv-top-card-profile-picture__image',
+            '.pv-top-card--photo img',
+            '.pv-top-card__photo img',
+            'img.evi-image[alt*="photo" i]',
+            'img.pv-top-card-profile-picture__image'
+          ], 'src');
+        }
 
         // If company not found, attempt from headline pattern
         let companyFinal = company;
@@ -466,6 +533,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const m = headline.match(/\bat\s+([^|•,]+)\b/i);
           if (m) companyFinal = m[1].trim();
         }
+
+        console.log('[HirePilot Extension] Scraped profile:', { name, headline, company: companyFinal, avatar: !!avatar });
 
         const profile = {
           name: name || '',
@@ -596,7 +665,7 @@ async function scrapeLeads() {
   }
   
   // Check how many results we have before scrolling
-  const initialResults = document.querySelectorAll('.artdeco-entity-lockup');
+  const initialResults = document.querySelectorAll('.artdeco-entity-lockup') || document.querySelectorAll('main li');
   console.log('[HirePilot Extension] Results found BEFORE scrolling:', initialResults.length);
 
   // Scroll to load all results on the page using shared autoScrollPage for robustness
@@ -604,7 +673,7 @@ async function scrapeLeads() {
   await autoScrollPage({ maxRetries: 3 });
 
   // Check again after scrolling
-  const finalResults = document.querySelectorAll('.artdeco-entity-lockup');
+  const finalResults = document.querySelectorAll('.artdeco-entity-lockup') || document.querySelectorAll('main li');
   console.log('[HirePilot Extension] Results found AFTER scrolling:', finalResults.length);
 
   // Try multiple possible selectors for individual result items (with or without container)
@@ -1077,6 +1146,8 @@ function __hp_pickResultSelectors() {
     'ul.reusable-search__entity-result-list',
     'ul.search-results__result-list',
     'div.search-results__content',
+    'main ul',       // Structural fallback: first <ul> in <main>
+    'main ol',       // Structural fallback: first <ol> in <main>
     'main',
     'div.artdeco-card',
   ];
@@ -1091,6 +1162,8 @@ function __hp_pickResultSelectors() {
     '.artdeco-entity-lockup--size-4',
     '[data-view-name="search-result"]',
     '[data-anonymize="entity-result"]',
+    'main ul > li',  // Structural fallback for obfuscated DOM
+    'main ol > li',  // Structural fallback for obfuscated DOM
   ];
   let container = null;
   for (const c of containerCandidates) {
@@ -1233,6 +1306,7 @@ async function scrapeResults() {
     '[data-anonymize="person-name"]',
     '.result-lockup__name',
     'a.app-aware-link span[aria-hidden="true"]',
+    'a[href*="/in/"] span',  // Structural fallback for obfuscated DOM
   ];
   const titleSelectors = [
     '.entity-result__primary-subtitle',
