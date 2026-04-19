@@ -13,17 +13,39 @@ if (window.top !== window) {
 async function hpConnectAndSendDOM(message) {
   const wait = (ms) => new Promise(r=>setTimeout(r, ms));
   const dispatchClick = (el) => { try { el && el.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:window })); el?.click?.(); return !!el; } catch { return false; } };
+  const isVisible = (el) => !!(el && el.offsetParent !== null);
+  const textOf = (el) => (el && (el.textContent || '').trim()) || '';
+  // Reject elements that reference counts/links for OTHER people (e.g. "See 12 mutual connections",
+  // "Your connections", search result cards), which previously matched /connect/i and caused the
+  // browser to navigate to /search/results/people/ instead of clicking the top-card Connect CTA.
+  const isBadConnectCandidate = (el) => {
+    if (!el) return true;
+    const t = textOf(el).toLowerCase();
+    if (!t) return true;
+    if (/\b(connection|connections)\b/.test(t)) return true;
+    if (/\bmutual\b/.test(t)) return true;
+    if (/\bsee (all|\d)/.test(t)) return true;
+    // Anchor pointing to search results or non-profile destinations
+    if (el.tagName === 'A') {
+      const href = (el.getAttribute('href') || '').toLowerCase();
+      if (href.includes('/search/results/')) return true;
+      if (href.includes('connectionof=')) return true;
+      if (href.includes('/mynetwork/')) return true;
+    }
+    const aria = (el.getAttribute && (el.getAttribute('aria-label') || '')).toLowerCase();
+    if (aria && (/\b(connection|connections)\b/.test(aria) || /\bmutual\b/.test(aria))) return true;
+    return false;
+  };
   const findByText = (root, selector, regex) => {
     const nodes = Array.from((root || document).querySelectorAll(selector));
-    return nodes.find(n => regex.test((n.textContent || '').trim())) || null;
+    return nodes.find((n) => regex.test((n.textContent || '').trim()) && !isBadConnectCandidate(n)) || null;
   };
   const findClickableByText = (root, selector, regex) => {
     const el = findByText(root, selector, regex);
     if (!el) return null;
-    return el.closest('button, a, [role="menuitem"], [role="button"]') || el;
+    const clickable = el.closest('button, a, [role="menuitem"], [role="button"]') || el;
+    return isBadConnectCandidate(clickable) ? null : clickable;
   };
-  const isVisible = (el) => !!(el && el.offsetParent !== null);
-  const textOf = (el) => (el && (el.textContent || '').trim()) || '';
 
   // Prefer searching within top card area to avoid sidebar "More profiles" buttons
   const topCard = document.querySelector('main section') || document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
@@ -47,16 +69,33 @@ async function hpConnectAndSendDOM(message) {
     await waitForVisible('main section, .pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas');
 
     let target = null;
+    // Word-bounded Connect/Invite matcher. Word boundaries already exclude
+    // "connection"/"connections" because the trailing "i" is a word character,
+    // so \b after "connect" cannot match there.
+    const CONNECT_RX_EXACT = /^(connect|invite)$/i;
+    const CONNECT_RX_LOOSE = /\b(connect|invite)\b/i;
     // Retry attempts to locate Connect
     for (let attempt = 0; attempt < 8 && !target; attempt++) {
-      target = findClickableByText(topCard, 'button,[role="button"],a', /^(connect|invite)$/i) ||
-               findClickableByText(topCard, 'button,[role="button"],a', /(connect|invite)/i) ||
-               topCard.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]');
+      // 1) Explicit aria-label matches that clearly identify a Connect CTA (not "See N mutual connections")
+      const ariaMatches = Array.from(topCard.querySelectorAll('button[aria-label], a[aria-label]')).filter((el) => {
+        if (!isVisible(el) || isBadConnectCandidate(el)) return false;
+        const a = (el.getAttribute('aria-label') || '').toLowerCase();
+        if (!a) return false;
+        // Accept things like "Invite Jane to connect", "Connect with Jane"
+        return /\b(connect(\s+with)?|invite(?:[^\w]+\w+)*\s+to\s+connect)\b/.test(a) && !/\b(mutual|connections?|message)\b/.test(a);
+      });
+      if (ariaMatches[0]) { target = ariaMatches[0]; break; }
+
+      // 2) Exact-text Connect/Invite buttons
+      target = findClickableByText(topCard, 'button,[role="button"]', CONNECT_RX_EXACT) ||
+               findClickableByText(topCard, 'button,[role="button"]', CONNECT_RX_LOOSE);
       if (target) break;
 
-      let moreBtn = findClickableByText(topCard, 'button,[role="button"],a', /^more$/i) ||
-                    findClickableByText(topCard, 'button,[role="button"],a', /more/i) ||
-                    topCard.querySelector('button[aria-label*="More" i]') ||
+      // 3) Open the "More" dropdown (Connect often lives there for 2nd/3rd-degree connections)
+      let moreBtn = findClickableByText(topCard, 'button,[role="button"]', /^more$/i) ||
+                    findClickableByText(topCard, 'button,[role="button"]', /\bmore\b/i) ||
+                    topCard.querySelector('button[aria-label*="More actions" i]') ||
+                    topCard.querySelector('button[aria-label^="More" i]') ||
                     topCard.querySelector('button.artdeco-dropdown__trigger[aria-haspopup="menu"]') ||
                     topCard.querySelector('button[aria-expanded][aria-controls]');
       if (moreBtn) {
@@ -64,17 +103,18 @@ async function hpConnectAndSendDOM(message) {
         await wait(500 + Math.floor(Math.random()*300));
         const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
         const menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
-        target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', /connect|invite/i);
+        target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', CONNECT_RX_LOOSE);
         if (!target) {
-          const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a')).filter(n => (n.offsetParent !== null));
-          if (items.length) target = items.find(el => /connect|invite/i.test((el.textContent||'').trim())) || items[0];
+          const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a'))
+            .filter((n) => (n.offsetParent !== null) && !isBadConnectCandidate(n));
+          target = items.find((el) => CONNECT_RX_LOOSE.test((el.textContent||'').trim())) || null;
         }
       }
 
       if (!target) {
-        const brute = Array.from(topCard.querySelectorAll('button,a,[role="menuitem"],li,span'))
-          .filter(el => isVisible(el) && /connect|invite/i.test((el.textContent||'').trim()))[0];
-        if (brute) target = brute.closest('button,a,[role="menuitem"],[role="button"]') || brute;
+        const brute = Array.from(topCard.querySelectorAll('button,[role="menuitem"]'))
+          .filter((el) => isVisible(el) && !isBadConnectCandidate(el) && CONNECT_RX_LOOSE.test((el.textContent||'').trim()))[0];
+        if (brute) target = brute.closest('button,[role="menuitem"],[role="button"]') || brute;
       }
 
       if (!target) await wait(700);
@@ -94,9 +134,15 @@ async function hpConnectAndSendDOM(message) {
       const messageEl = (findClickableByText(scope, 'button,[role="button"],a,span', /^message$/i) || findClickableByText(scope, 'button,[role="button"],a,span', /^(message|open message)$/i));
 
       // Any evidence of a Connect action anywhere in top card or menus?
+      // Use word-bounded regex + filter to avoid matching "See N mutual connections".
       const hasAnyConnect = !!(
-        findClickableByText(scope, 'button,[role="button"],a,span', /\bconnect\b/i) ||
-        scope.querySelector('button[aria-label*="Connect" i], a[aria-label*="Connect" i]')
+        findClickableByText(scope, 'button,[role="button"]', /\bconnect\b/i) ||
+        Array.from(scope.querySelectorAll('button[aria-label], a[aria-label]'))
+          .some((el) => {
+            if (isBadConnectCandidate(el)) return false;
+            const a = (el.getAttribute('aria-label') || '').toLowerCase();
+            return /\bconnect\b/.test(a) && !/\b(mutual|connections?)\b/.test(a);
+          })
       );
 
       try {
