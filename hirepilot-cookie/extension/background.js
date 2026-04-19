@@ -223,24 +223,44 @@ function scrapeLinkedInProfileInjected() {
       return el ? (el.getAttribute(a) || '') : '';
     };
 
-    const name =
+    // JSON-LD first (most resilient to DOM obfuscation)
+    let ldName = '', ldAvatar = '';
+    try {
+      const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const n of nodes) {
+        try {
+          const json = JSON.parse(n.textContent || '{}');
+          if (!json) continue;
+          let person = null;
+          if (json['@type'] === 'Person') person = json;
+          else if (json.mainEntity && json.mainEntity['@type'] === 'Person') person = json.mainEntity;
+          else if (Array.isArray(json['@graph'])) person = json['@graph'].find((g) => g && g['@type'] === 'Person') || null;
+          if (person) {
+            ldName = person.name || ldName;
+            ldAvatar = (person.image && (person.image.contentUrl || person.image)) || ldAvatar;
+            break;
+          }
+        } catch {}
+      }
+    } catch {}
+
+    // Legacy selectors (older LinkedIn DOM)
+    let name = ldName ||
       text('h1.text-heading-xlarge') ||
       text('h1[data-anonymize="person-name"]') ||
       text('.pv-top-card h1') ||
       text('div.ph5 h1') ||
       text('div.pv-text-details__left-panel h1') ||
-      text('section.artdeco-card h1') ||
-      text('h1');
+      text('section.artdeco-card h1');
 
-    const headline =
+    let headline =
       text('[data-test-id="hero__headline"]') ||
       text('.text-body-medium.break-words') ||
       text('.pv-text-details__left-panel .text-body-medium') ||
       text('div.ph5 .text-body-medium') ||
       '';
 
-    // Best-effort company pick; may be empty depending on page structure
-    const company =
+    let company =
       text('[data-anonymize="company-name"]') ||
       text('button[aria-label*="Current company"] span') ||
       text('.pv-text-details__right-panel .pv-text-details__right-panel-item a') ||
@@ -248,10 +268,45 @@ function scrapeLinkedInProfileInjected() {
       text('.experience-item:first-child .t-bold span') ||
       '';
 
+    // Structural fallback for 2025+ obfuscated DOM:
+    // Profile name lives in the first <section> inside <main>, as an h1/h2.
+    // Headline/company come from <p> tags in the same section.
+    if (!name || !headline || !company) {
+      const topSection = document.querySelector('main section');
+      if (topSection) {
+        if (!name) {
+          const nameEl = topSection.querySelector('h1') || topSection.querySelector('h2');
+          const candidate = (nameEl?.textContent || '').trim();
+          if (candidate && candidate.length > 1 && !/^\d/.test(candidate) && !/notification/i.test(candidate)) {
+            name = candidate;
+          }
+        }
+        const paragraphs = Array.from(topSection.querySelectorAll('p'))
+          .map((p) => (p.textContent || '').trim())
+          .filter((t) => t.length > 0);
+        for (const t of paragraphs) {
+          if (/^(He\/Him|She\/Her|They\/Them|·\s*\d)/i.test(t)) continue;
+          if (/^\d[\d,]*\s+followers?$/i.test(t)) continue;
+          if (t === '·' || t === 'Contact info') continue;
+          if (!headline) { headline = t; continue; }
+          if (!company) {
+            company = t.includes('·') ? t.split('·')[0].trim() : t;
+            break;
+          }
+        }
+      }
+    }
+
+    // Infer company from "Title at Company" when not found directly
+    if (!company && headline && /\bat\b/i.test(headline)) {
+      const m = headline.match(/\bat\s+([^|•,·\-]+?)(?:\s*[·\-]|$)/i);
+      if (m) company = m[1].trim();
+    }
+
     const avatarEl = document.querySelector(
-      'img.pv-top-card-profile-picture__image, img.profile-photo-edit__preview, .pv-top-card--photo img, img.evi-image[alt*="photo" i], img[alt*="profile" i]'
+      'img.pv-top-card-profile-picture__image, img.profile-photo-edit__preview, .pv-top-card--photo img, img.evi-image[alt*="photo" i], main section img[src*="licdn"], img[alt*="profile" i]'
     );
-    const avatarUrl = avatarEl ? (avatarEl.currentSrc || avatarEl.src || attr('img[alt*="profile" i]', 'src')) : '';
+    const avatarUrl = ldAvatar || (avatarEl ? (avatarEl.currentSrc || avatarEl.src || attr('img[alt*="profile" i]', 'src')) : '');
 
     return { ok: !!name, name, headline, company, linkedinUrl: location.href, avatarUrl };
   } catch (e) {
@@ -551,9 +606,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // scrapeLinkedInSearch disabled for now
 
   if (msg.action === 'connectAndSend') {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.url?.includes('linkedin.com')) return sendResponse({ error: 'Not on LinkedIn tab' });
+    (async () => {
+      const tab = await resolveLinkedInTab(sender?.tab);
+      if (!tab?.id || !/linkedin\.com/i.test(tab.url || '')) {
+        return sendResponse({ error: 'No LinkedIn tab found. Open a LinkedIn profile first.' });
+      }
       try {
         // Check daily limit before attempting to send
         try {
@@ -615,15 +672,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (e) {
         sendResponse({ error: e?.message || 'Failed to auto-connect' });
       }
-    });
+    })();
     return true;
   }
 
   if (msg.action === 'navAndConnect') {
     const { url, message } = msg;
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs[0]?.id;
-      if (!tabId) return sendResponse({ error: 'No active tab' });
+    (async () => {
+      const linkedInTab = await resolveLinkedInTab(sender?.tab);
+      const tabId = linkedInTab?.id;
+      if (!tabId) return sendResponse({ error: 'No LinkedIn tab available. Open a LinkedIn tab first.' });
 
       const onUpdated = (updatedTabId, info) => {
         if (updatedTabId === tabId && info.status === 'complete') {
@@ -641,14 +699,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         chrome.tabs.onUpdated.removeListener(onUpdated);
         sendResponse({ error: e.message || 'Failed to navigate' });
       }
-    });
+    })();
     return true;
   }
 
   if (msg.action === 'scrapeSingleProfile') {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.url?.includes('linkedin.com')) return sendResponse({ error: 'Not on LinkedIn tab' });
+    (async () => {
+      const tab = await resolveLinkedInTab(sender?.tab);
+      if (!tab?.id || !/linkedin\.com/i.test(tab.url || '')) {
+        return sendResponse({ error: 'No LinkedIn tab found. Open a LinkedIn profile page first.' });
+      }
       try {
         // Route SN profile pages to dedicated scraper with MAIN world
         if (/linkedin\.com\/sales\/(people|lead)\//i.test(tab.url)) {
@@ -715,20 +775,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (e) {
         sendResponse({ error: e.message || 'Failed to scrape profile' });
       }
-    });
+    })();
     return true;
   }
 
   if (msg.action === 'prefillLinkedInMessage') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.url?.includes('linkedin.com')) {
-        chrome.tabs.sendMessage(tabs[0].id, msg, (response) => {
-          sendResponse(response);
-        });
-      } else {
-        sendResponse({ error: 'Not on LinkedIn tab' });
+    (async () => {
+      const tab = await resolveLinkedInTab(sender?.tab);
+      if (!tab?.id || !/linkedin\.com/i.test(tab.url || '')) {
+        return sendResponse({ error: 'No LinkedIn tab found. Open a LinkedIn profile first.' });
       }
-    });
+      chrome.tabs.sendMessage(tab.id, msg, (response) => {
+        if (chrome.runtime.lastError) return sendResponse({ error: chrome.runtime.lastError.message });
+        sendResponse(response);
+      });
+    })();
     return true;
   }
 
