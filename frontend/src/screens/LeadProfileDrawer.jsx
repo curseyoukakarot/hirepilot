@@ -6,6 +6,7 @@ import EditProfileModal from '../components/EditProfileModal';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import { supabase } from '../lib/supabaseClient';
 import { replaceTokens } from '../utils/tokenReplace';
+import { normalizeLinkedInProfileUrl } from '../utils/linkedinUrl';
 import ActivityLogSection from '../components/ActivityLogSection';
 import MetadataModal from '../components/MetadataModal';
 
@@ -231,20 +232,18 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
 
   const isBrightDataEngine = engineMode === 'brightdata_cloud' && brightdataEnabled;
 
-  // Helper to validate LinkedIn profile URLs and build extension trigger URL
+  // Helper to validate LinkedIn profile URLs and build extension trigger URL.
+  // Both accept lenient input (missing https://, missing www., trailing slash, etc.)
+  // because leads imported from various sources may not have fully canonical URLs.
   const isValidLinkedInProfileUrl = (profileUrl) => {
-    try {
-      const parsed = new URL(profileUrl);
-      if (parsed.hostname !== 'www.linkedin.com') return false;
-      return parsed.pathname.startsWith('/in/');
-    } catch {
-      return false;
-    }
+    return !!normalizeLinkedInProfileUrl(profileUrl);
   };
 
   const buildExtensionConnectUrl = (profileUrl) => {
+    const normalized = normalizeLinkedInProfileUrl(profileUrl);
+    if (!normalized) return null;
     try {
-      const u = new URL(profileUrl);
+      const u = new URL(normalized);
       u.searchParams.set('hirepilot_connect', '1');
       return u.toString();
     } catch {
@@ -671,17 +670,14 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
   };
 
-  // Helper to get LinkedIn URL with Apollo fallback
+  // Helper to get LinkedIn URL with Apollo fallback.
+  // Always returns a canonical https://www.linkedin.com/in/... URL when possible,
+  // so downstream consumers (connect flow, anchor links, extension) always see a valid URL.
   const getLinkedInUrl = (lead) => {
     const enrichmentData = lead.enrichment_data || {};
-    
-    // Prioritize Apollo LinkedIn URL
-    if (enrichmentData.apollo?.linkedin_url) {
-      return enrichmentData.apollo.linkedin_url;
-    }
-    
-    // Fallback to direct properties
-    return lead.linkedin_url || lead.linkedin || '';
+    const raw = enrichmentData.apollo?.linkedin_url || lead.linkedin_url || lead.linkedin || '';
+    if (!raw) return '';
+    return normalizeLinkedInProfileUrl(raw) || raw;
   };
 
   // Helper to get enriched title with Apollo fallback
@@ -1699,7 +1695,13 @@ export default function LeadProfileDrawer({ lead, onClose, isOpen, onLeadUpdated
     try {
       setIsSubmittingLinkedIn(true);
       const linkedinUrl = getLinkedInUrl(localLead);
-      const u = new URL(linkedinUrl);
+      const normalized = normalizeLinkedInProfileUrl(linkedinUrl);
+      if (!normalized) {
+        showToast('Invalid LinkedIn URL.', 'error');
+        setIsSubmittingLinkedIn(false);
+        return;
+      }
+      const u = new URL(normalized);
       u.searchParams.set('hirepilot_connect', '1');
       if (selectedLiTemplateId) {
         u.searchParams.set('hp_tpl', selectedLiTemplateId);
