@@ -47,8 +47,78 @@ async function hpConnectAndSendDOM(message) {
     return isBadConnectCandidate(clickable) ? null : clickable;
   };
 
-  // Prefer searching within top card area to avoid sidebar "More profiles" buttons
-  const topCard = document.querySelector('main section') || document.querySelector('.pv-top-card, .profile-topcard, [data-view-name="profile"], section.pv-top-card, .pv-top-card-v2-ctas') || document;
+  // Resolve the profile top card strictly — LinkedIn profile pages now have multiple
+  // <section> children inside <main> (About, Experience, "People also viewed", ...).
+  // `main section` is too greedy and can pick up sidebar sections that contain
+  // "Invite <other person> to connect" buttons. Prefer the first section that has
+  // an <h1> (top card) or known top-card class names.
+  const resolveTopCard = () => {
+    const candidates = [
+      '.pv-top-card',
+      '.profile-topcard',
+      'section.pv-top-card',
+      '.pv-top-card-v2-ctas',
+      '[data-view-name="profile"]',
+      '[data-view-name="profile-top-card"]',
+    ];
+    for (const sel of candidates) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    // Structural: first <section> inside <main> that contains the profile <h1>.
+    const main = document.querySelector('main');
+    if (main) {
+      const sections = Array.from(main.querySelectorAll(':scope > section, :scope > div > section'));
+      const withH1 = sections.find((s) => s.querySelector('h1'));
+      if (withH1) return withH1;
+      if (sections[0]) return sections[0];
+    }
+    return document.querySelector('main section') || document;
+  };
+  const topCard = resolveTopCard();
+
+  // Derive the profile owner's name so we can verify matches belong to this profile
+  // (otherwise a stray "Invite <someone else> to connect" in a sidebar/"People also
+  // viewed" card can get clicked). We compare name tokens, not full strings, because
+  // aria-label sometimes includes extras like "on LinkedIn".
+  const extractOwnerTokens = () => {
+    const h1 = topCard.querySelector('h1') || document.querySelector('main section h1') || document.querySelector('h1');
+    let name = (h1 && (h1.textContent || '').trim()) || '';
+    if (!name) {
+      try {
+        const m = location.pathname.match(/\/in\/([^\/?#]+)/i);
+        if (m) name = decodeURIComponent(m[1]).replace(/[-_]+/g, ' ');
+      } catch {}
+    }
+    const tokens = String(name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length >= 2 && !/^\d+$/.test(t));
+    return { name, tokens };
+  };
+  const owner = extractOwnerTokens();
+  const ariaNamesOtherPerson = (aria) => {
+    // If aria-label mentions a specific person by name, make sure it matches our owner.
+    // e.g. "Invite Arnav Gudibande to connect" on a profile whose owner is "Ashutosh Saxena".
+    if (!aria) return false;
+    const s = aria.toLowerCase();
+    // Capture name phrase between "invite" and "to connect", or after "connect with"
+    let namePhrase = '';
+    let m = s.match(/invite\s+([a-z][a-z\s\-.']+?)\s+to\s+connect/i);
+    if (m) namePhrase = m[1];
+    if (!namePhrase) {
+      m = s.match(/connect\s+with\s+([a-z][a-z\s\-.']+?)(?:\s+on\s+linkedin|$)/i);
+      if (m) namePhrase = m[1];
+    }
+    if (!namePhrase) return false;
+    const phraseTokens = namePhrase.split(/\s+/).filter((t) => t.length >= 2);
+    if (!phraseTokens.length) return false;
+    if (!owner.tokens.length) return false; // can't verify → accept (don't reject)
+    // Accept if any aria name token matches any owner token (handles middle names, abbreviations)
+    return !phraseTokens.some((t) => owner.tokens.includes(t));
+  };
+
   const waitForVisible = async (selector, timeout = 18000) => new Promise((resolve) => {
     const start = Date.now();
     const tick = () => {
@@ -82,16 +152,22 @@ async function hpConnectAndSendDOM(message) {
         const a = (el.getAttribute('aria-label') || '').toLowerCase();
         if (!a) return false;
         // Accept things like "Invite Jane to connect", "Connect with Jane"
-        return /\b(connect(\s+with)?|invite(?:[^\w]+\w+)*\s+to\s+connect)\b/.test(a) && !/\b(mutual|connections?|message)\b/.test(a);
+        if (!(/\b(connect(\s+with)?|invite(?:[^\w]+\w+)*\s+to\s+connect)\b/.test(a) && !/\b(mutual|connections?|message)\b/.test(a))) return false;
+        // Reject if the aria-label clearly refers to a DIFFERENT person
+        if (ariaNamesOtherPerson(a)) return false;
+        return true;
       });
       if (ariaMatches[0]) { target = ariaMatches[0]; break; }
 
-      // 2) Exact-text Connect/Invite buttons
+      // 2) Exact-text Connect/Invite buttons (scoped to top card)
       target = findClickableByText(topCard, 'button,[role="button"]', CONNECT_RX_EXACT) ||
                findClickableByText(topCard, 'button,[role="button"]', CONNECT_RX_LOOSE);
       if (target) break;
 
-      // 3) Open the "More" dropdown (Connect often lives there for 2nd/3rd-degree connections)
+      // 3) Open the "More" dropdown (Connect often lives there for 2nd/3rd-degree connections).
+      // CRITICAL: only search inside a menu that actually opened AFTER we clicked More.
+      // Previously a null/invisible menu fell through to `document`, which would then pick up
+      // "Invite <other person> to connect" buttons from "People also viewed" sidebars.
       let moreBtn = findClickableByText(topCard, 'button,[role="button"]', /^more$/i) ||
                     findClickableByText(topCard, 'button,[role="button"]', /\bmore\b/i) ||
                     topCard.querySelector('button[aria-label*="More actions" i]') ||
@@ -99,22 +175,41 @@ async function hpConnectAndSendDOM(message) {
                     topCard.querySelector('button.artdeco-dropdown__trigger[aria-haspopup="menu"]') ||
                     topCard.querySelector('button[aria-expanded][aria-controls]');
       if (moreBtn) {
+        const beforeMenus = new Set(Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content')));
         dispatchClick(moreBtn);
-        await wait(500 + Math.floor(Math.random()*300));
-        const menus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
-        const menu = menus.find(m => (m.offsetParent !== null)) || menus[0] || document;
-        target = findClickableByText(menu, 'div[role="menuitem"],li,button,a,span', CONNECT_RX_LOOSE);
-        if (!target) {
-          const items = Array.from(menu.querySelectorAll('div[role="menuitem"], li, button, a'))
-            .filter((n) => (n.offsetParent !== null) && !isBadConnectCandidate(n));
-          target = items.find((el) => CONNECT_RX_LOOSE.test((el.textContent||'').trim())) || null;
+        // Poll for a NEW visible menu to appear
+        let openedMenu = null;
+        for (let i = 0; i < 12 && !openedMenu; i++) {
+          await wait(100);
+          const nowMenus = Array.from(document.querySelectorAll('div[role="menu"], ul[role="menu"], .artdeco-dropdown__content-inner, .artdeco-dropdown__content'));
+          openedMenu = nowMenus.find((m) => isVisible(m) && !beforeMenus.has(m)) || nowMenus.find((m) => isVisible(m));
         }
+        if (openedMenu) {
+          const items = Array.from(openedMenu.querySelectorAll('div[role="menuitem"], li, button, a'))
+            .filter((n) => isVisible(n) && !isBadConnectCandidate(n));
+          target = items.find((el) => CONNECT_RX_LOOSE.test((el.textContent || '').trim())) ||
+                   items.find((el) => {
+                     const a = (el.getAttribute && (el.getAttribute('aria-label') || '')).toLowerCase();
+                     return a && CONNECT_RX_LOOSE.test(a) && !ariaNamesOtherPerson(a);
+                   }) || null;
+        }
+        // DO NOT fall back to document-wide search here.
       }
 
       if (!target) {
         const brute = Array.from(topCard.querySelectorAll('button,[role="menuitem"]'))
           .filter((el) => isVisible(el) && !isBadConnectCandidate(el) && CONNECT_RX_LOOSE.test((el.textContent||'').trim()))[0];
         if (brute) target = brute.closest('button,[role="menuitem"],[role="button"]') || brute;
+      }
+
+      // Final safety: if we somehow landed on a target that names a different person
+      // via its aria-label, discard it so the next attempt can try again.
+      if (target) {
+        const aria = (target.getAttribute && (target.getAttribute('aria-label') || '')).toLowerCase();
+        if (aria && ariaNamesOtherPerson(aria)) {
+          console.log('[HirePilot Extension] Rejecting wrong-person Connect target:', aria);
+          target = null;
+        }
       }
 
       if (!target) await wait(700);
