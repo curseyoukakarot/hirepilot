@@ -3,7 +3,7 @@ import { requireAuth } from '../../middleware/authMiddleware';
 import activeWorkspace from '../middleware/activeWorkspace';
 import { supabase } from '../lib/supabase';
 import { getDealsSharingContext } from '../lib/teamDealsScope';
-import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 
 const router = express.Router();
 router.use(requireAuth as any, activeWorkspace as any);
@@ -34,8 +34,7 @@ const scopedNoOwner = (req: Request, table: string) => {
   const base: any = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
   if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  return applyWorkspaceScope(base, { workspaceId, allowNullWorkspace: true });
 };
 
 function normRole(role: any): string {

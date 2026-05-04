@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 
 const scopedCampaigns = (workspaceId?: string | null, userId?: string | null) => {
   if (!workspaceId) return supabase.from('sourcing_campaigns');
@@ -13,8 +13,9 @@ const scopedCampaigns = (workspaceId?: string | null, userId?: string | null) =>
 const scopedLeads = (workspaceId?: string | null) => {
   const base = supabase.from('sourcing_leads');
   if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  // sourcing_leads has no per-row owner column, so include legacy
+  // workspace_id IS NULL rows alongside the active workspace.
+  return applyWorkspaceScope(base, { workspaceId, allowNullWorkspace: true });
 };
 
 export async function updateLeadOutreachStage(leadId: string, stage: string, workspaceId?: string | null) {
@@ -95,12 +96,23 @@ export async function getCampaignWithDetails(campaignId: string, workspaceId?: s
       )
     `)
     .eq('id', campaignId)
-    .single();
-  
-  if (campaignError) throw campaignError;
-  
+    .maybeSingle();
+
+  if (campaignError) {
+    // Surface the real Postgres/PostgREST error to the caller so the route
+    // can decide whether to return 404 vs 500 and log meaningful context.
+    throw Object.assign(campaignError, { _stage: 'getCampaignWithDetails:select' });
+  }
+  if (!campaign) {
+    // Distinguish "no matching row in scope" from unexpected errors.
+    const err = new Error('campaign_not_found') as any;
+    err.code = 'CAMPAIGN_NOT_FOUND';
+    err._stage = 'getCampaignWithDetails:select';
+    throw err;
+  }
+
   const stats = await getCampaignStats(campaignId, workspaceId);
-  
+
   return {
     ...campaign,
     stats

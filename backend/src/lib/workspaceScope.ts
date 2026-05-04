@@ -5,17 +5,27 @@ type WorkspaceScopeArgs = {
   workspaceId?: string | null;
   userId?: string | null;
   ownerColumn?: string;
+  /**
+   * When true, in non-strict mode, include rows where workspace_id IS NULL
+   * (legacy/un-migrated rows) without requiring an owner-column match.
+   * Use this for tables that do not have a user-owner column or where
+   * legacy data is shared regardless of owner.
+   */
+  allowNullWorkspace?: boolean;
 };
 
 export function applyWorkspaceScope<T = any>(
   query: T,
-  { workspaceId, userId, ownerColumn = 'user_id' }: WorkspaceScopeArgs
+  { workspaceId, userId, ownerColumn = 'user_id', allowNullWorkspace = false }: WorkspaceScopeArgs
 ): T {
   if (!workspaceId || !query) return query;
   const applyScope = (builder: any) => {
     if (!builder || typeof builder.eq !== 'function') return builder;
     if (WORKSPACES_ENFORCE_STRICT) {
       return builder.eq('workspace_id', workspaceId);
+    }
+    if (allowNullWorkspace) {
+      return builder.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
     }
     if (!userId) return builder.eq('workspace_id', workspaceId);
     return builder.or(

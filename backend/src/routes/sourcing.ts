@@ -10,7 +10,7 @@ import activeWorkspace from '../middleware/activeWorkspace';
 import { ApiRequest } from '../../types/api';
 import { sendTieredTemplateToCampaign, generateAndSendNewSequenceToCampaign, sendSingleMessageToCampaign } from '../services/messagingCampaign';
 import { createZapEvent, EVENT_TYPES } from '../lib/events';
-import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 
 const router = express.Router();
 router.use(requireAuth as any, activeWorkspace as any);
@@ -29,8 +29,7 @@ const scopedNoOwner = (req: Request, table: string) => {
   const base: any = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
   if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  return applyWorkspaceScope(base, { workspaceId, allowNullWorkspace: true });
 };
 
 // Create new campaign
@@ -145,10 +144,12 @@ router.post('/campaigns/:id/schedule', requireAuth, async (req: ApiRequest, res:
 
 // Get campaign with details
 router.get('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id || null;
+  const workspaceId = (req as any).workspaceId || null;
   try {
-    const { id } = req.params;
-    const full = await getCampaignWithDetails(id, (req as any).workspaceId, req.user?.id || null);
-    const leads = await getLeadsForCampaign(id, 200, 0, (req as any).workspaceId);
+    const full = await getCampaignWithDetails(id, workspaceId, userId);
+    const leads = await getLeadsForCampaign(id, 200, 0, workspaceId);
 
     const campaign = {
       id: full.id,
@@ -166,8 +167,27 @@ router.get('/campaigns/:id', requireAuth, async (req: ApiRequest, res: Response)
 
     return res.json({ campaign, sequence, leads });
   } catch (error: any) {
-    console.error('Error fetching campaign:', error);
-    return res.status(404).json({ error: 'Campaign not found' });
+    // PostgREST signals "no rows from .single/.maybeSingle" via PGRST116,
+    // and our service layer throws CAMPAIGN_NOT_FOUND when scope filters it out.
+    const code = String(error?.code || '');
+    const isNotFound = code === 'CAMPAIGN_NOT_FOUND' || code === 'PGRST116';
+    console.error('[sourcing] GET /campaigns/:id failed', {
+      campaignId: id,
+      userId,
+      workspaceId,
+      stage: error?._stage || null,
+      code: code || null,
+      message: error?.message || null,
+      details: error?.details || null,
+      hint: error?.hint || null
+    });
+    if (isNotFound) {
+      return res.status(404).json({ error: 'campaign_not_found' });
+    }
+    return res.status(500).json({
+      error: 'campaign_fetch_failed',
+      detail: error?.message || 'Unexpected error fetching campaign'
+    });
   }
 });
 

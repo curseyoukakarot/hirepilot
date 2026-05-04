@@ -107,7 +107,9 @@ export async function api(endpoint: string, options: ApiOptions = {}) {
   // Handle other non-OK responses
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.error || error.message || `${response.status} ${response.statusText}`);
+    const base = error.error || error.message || `${response.status} ${response.statusText}`;
+    const detail = error.detail ? `: ${error.detail}` : '';
+    throw new Error(`${base}${detail}`);
   }
 
   return response.json();

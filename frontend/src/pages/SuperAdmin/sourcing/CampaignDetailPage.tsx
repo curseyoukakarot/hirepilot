@@ -247,6 +247,11 @@ export default function CampaignDetailPage() {
   }
 
   if (error || !data) {
+    const raw = String(error || '');
+    const isMissing = /campaign_not_found|Campaign not found/i.test(raw);
+    const friendly = isMissing
+      ? 'This campaign no longer exists, or it belongs to a different workspace than the one currently active in your session.'
+      : raw || 'Failed to load campaign';
     return (
       <div className="p-6 bg-gray-900 min-h-screen">
         <Link to="/super-admin/sourcing" className="text-blue-400 hover:underline mb-4 inline-block">
@@ -254,7 +259,10 @@ export default function CampaignDetailPage() {
         </Link>
         <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg">
           <p className="font-medium">Error loading campaign</p>
-          <p className="text-sm mt-1">{error || 'Campaign not found'}</p>
+          <p className="text-sm mt-1">{friendly}</p>
+          {!isMissing && raw && (
+            <p className="text-xs mt-2 text-red-200/80 break-all">{raw}</p>
+          )}
         </div>
       </div>
     );

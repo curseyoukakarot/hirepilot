@@ -7,7 +7,7 @@ import {
   ZAP_EVENT_TYPES,
   generatePipelineStageEvent,
 } from '../../lib/zapEventEmitter';
-import { applyWorkspaceScope, WORKSPACES_ENFORCE_STRICT } from '../lib/workspaceScope';
+import { applyWorkspaceScope } from '../lib/workspaceScope';
 
 const router = express.Router();
 router.use(requireAuth as any, activeWorkspace as any);
@@ -23,8 +23,7 @@ const scopedNoOwner = (req: Request, table: string) => {
   const base = supabase.from(table);
   const workspaceId = (req as any).workspaceId;
   if (!workspaceId) return base;
-  if (WORKSPACES_ENFORCE_STRICT) return base.eq('workspace_id', workspaceId);
-  return base.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+  return applyWorkspaceScope(base, { workspaceId, allowNullWorkspace: true });
 };
 
 // GET /api/pipelines?jobId=...
