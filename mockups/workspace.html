@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Workspace</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444', accent: '#EC4899',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; min-height: 100vh; }
+
+  body::before {
+    content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.05), transparent 70%),
+      radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%);
+  }
+
+  body.autopilot::after {
+    content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100;
+    background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent);
+    background-size: 200% 100%; animation: shim 4s ease-in-out infinite;
+  }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}.d-7{animation-delay:.28s}.d-8{animation-delay:.32s}.d-9{animation-delay:.36s}.d-10{animation-delay:.4s}.d-11{animation-delay:.44s}.d-12{animation-delay:.48s}
+
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-success{background:linear-gradient(135deg,#10B981,#0C5CF4);}
+  .grad-warm{background:linear-gradient(135deg,#F59E0B,#EC4899);}
+  .grad-emerald{background:linear-gradient(135deg,#10B981,#34D399);}
+  .grad-blue{background:linear-gradient(135deg,#0C5CF4,#3B82F6);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:#D1D5DB;}
+
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+
+  .trust-badge{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;
+    border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;
+    background:linear-gradient(135deg,#10B981,#0C5CF4);
+    box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);
+    transition:all .2s;
+  }
+  .trust-badge:hover{transform:translateY(-1px);box-shadow:0 8px 16px -4px rgba(16,185,129,.5);}
+
+  .status-pill{
+    display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;
+    border-radius:9999px;background:white;border:1px solid #E5E7EB;
+    font-size:11px;color:#4A4A68;font-weight:500;
+  }
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;display:flex;align-items:center;justify-content:center;}
+  .status-pill .ping-wrap::before,
+  .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+
+  /* Workspace overview cards */
+  .ws-card{
+    background:white;border:1px solid #ECECEC;border-radius:16px;padding:16px;
+    transition:transform .25s cubic-bezier(0.4,0,0.2,1),box-shadow .25s cubic-bezier(0.4,0,0.2,1),border-color .25s;
+    cursor:pointer;display:flex;flex-direction:column;gap:10px;height:100%;
+  }
+  .ws-card:hover{transform:translateY(-2px);box-shadow:0 12px 24px -10px rgba(26,26,46,.10);border-color:rgba(107,70,193,.2);}
+  .ws-card .card-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;box-shadow:0 4px 10px -3px rgba(26,26,46,.15);}
+
+  .stat-big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;}
+  .stat-sub{font-size:11.5px;color:#8E8EA0;}
+  .ws-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;margin-top:auto;border-top:1px solid #F4F4F8;font-size:11.5px;}
+  .ws-footer .lhs{font-weight:600;color:#4A4A68;}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+
+  .stat-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;font-size:13px;}
+  .stat-line .stat{font-weight:700;color:#1A1A2E;font-variant-numeric:tabular-nums;}
+  .stat-line .stat.primary{color:#6B46C1;}
+  .stat-line .stat.success{color:#059669;}
+  .stat-line .stat.warn{color:#B45309;}
+  .stat-line .lbl{color:#4A4A68;font-weight:500;font-size:12px;}
+  .stat-line .sep{color:#D1D5DB;}
+
+  .btn-solid{
+    display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;
+    font-size:12.5px;font-weight:600;color:white;cursor:pointer;
+    background:linear-gradient(135deg,#10B981,#0C5CF4);
+    box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);
+    transition:all .15s;border:none;
+  }
+  .btn-solid:hover{transform:translateY(-1px);}
+
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+
+  /* Decision strip */
+  .decision-strip{
+    background:linear-gradient(90deg, rgba(245,158,11,.1), rgba(245,158,11,.02) 70%);
+    border:1px solid rgba(245,158,11,.2);
+    border-left:3px solid #F59E0B;
+    border-radius:12px;padding:10px 14px;
+    display:flex;align-items:center;gap:10px;
+  }
+
+  /* REX briefing hero */
+  .rex-bubble{background:#F4F4F8;border:1px solid #ECECEC;border-radius:14px;padding:16px 18px;}
+
+  /* REX FLOATING BUTTON */
+  .rex-fab{
+    position:fixed;bottom:28px;right:28px;z-index:50;
+    width:60px;height:60px;border-radius:9999px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);
+    background-size:300% 300%;
+    animation:orbit 6s ease-in-out infinite;
+    box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);
+    color:white;font-size:18px;
+    transition:transform .25s cubic-bezier(0.4,0,0.2,1);
+  }
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{
+    content:'';position:absolute;inset:-12px;border-radius:9999px;
+    background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);
+    filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;
+  }
+  .rex-fab-label{
+    position:fixed;bottom:38px;right:96px;z-index:50;
+    background:rgba(15,15,26,.92);color:white;padding:5px 10px;border-radius:8px;
+    font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:6px;
+    box-shadow:0 8px 20px -6px rgba(0,0,0,.25);
+    opacity:0;pointer-events:none;transform:translateX(8px);transition:all .2s;
+  }
+  .rex-fab:hover + .rex-fab-label,
+  .rex-fab-wrap:hover .rex-fab-label{opacity:1;transform:translateX(0);}
+
+  /* sparkline mini */
+  .spark{height:24px;width:100%;}
+
+  /* Avatar stack */
+  .avatar-stack > * + *{margin-left:-6px;}
+  .stacked-avatar{width:20px;height:20px;border-radius:9999px;border:2px solid white;display:inline-block;}
+
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+
+  /* Activity timeline strip */
+  .activity-row{display:flex;align-items:center;gap:12px;padding:9px 0;}
+  .activity-row + .activity-row{border-top:1px solid #F4F4F8;}
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex min-h-screen relative z-10">
+
+  <!-- ============ SIDEBAR — full stack visible ============ -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <!-- Workspace -->
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>REX is working</div>
+      </div>
+      <button class="text-text-muted hover:text-text-main"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>
+    </div>
+
+    <!-- Search + new -->
+    <div class="px-3 py-2.5 space-y-2">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted">
+        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+        <span class="flex-1">Jump to anything</span>
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <!-- HOME -->
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-sun w-4 text-[11px]"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Activity</span></a></li>
+        </ul>
+      </div>
+
+      <!-- WORKSPACE — the breadth -->
+      <div>
+        <div class="mb-1.5 flex items-center justify-between px-1.5">
+          <span class="nav-section-h">Workspace</span>
+          <button class="text-text-muted hover:text-text-main"><i class="fa-solid fa-plus text-[10px]"></i></button>
+        </div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Candidates</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">5</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-crosshairs w-4 text-[11px] text-text-muted"></i><span class="flex-1">Sourcing</span><span class="w-1.5 h-1.5 rounded-full bg-success" title="REX is sourcing now"></span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted"></i><span class="flex-1">Campaigns</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-primary">12</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$284k</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-chart-line w-4 text-[11px] text-text-muted"></i><span class="flex-1">Reports</span></a></li>
+        </ul>
+      </div>
+
+      <!-- TOOLS -->
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-diagram-project w-4 text-[11px] text-text-muted"></i><span class="flex-1">Workflows</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-puzzle-piece w-4 text-[11px] text-text-muted"></i><span class="flex-1">Integrations</span></a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0">
+
+    <!-- HEADER -->
+    <header class="border-b border-gray-100 px-8 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-sun text-warn text-xs"></i>Today</div>
+        <div class="text-[10.5px] text-text-muted">Saturday, May 2</div>
+      </div>
+
+      <!-- REX status -->
+      <div class="status-pill ml-3" title="REX is currently drafting messages">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+        <span>drafting <span class="font-semibold text-text-main tabular-nums">102 / 142</span></span>
+        <span class="text-text-muted">·</span>
+        <span class="text-primary font-bold tabular-nums">72%</span>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="trust-badge" title="Click to change posture">
+          <i class="fa-solid fa-rocket text-[10px]"></i>
+          Autopilot
+          <i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i>
+        </button>
+        <button class="ghost-btn"><i class="fa-solid fa-bell text-[11px]"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="px-8 py-7 space-y-7 max-w-[1400px] mx-auto">
+
+      <!-- ===== HERO: REX briefing ===== -->
+      <section class="float-in d-1">
+        <article class="flex gap-3">
+          <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white shrink-0 mt-1 shadow-md shadow-primary/30"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2 mb-2">
+              <span class="font-semibold text-[14px]">REX</span>
+              <span class="tag tag-primary">Briefing</span>
+              <span class="text-[11px] text-text-muted">7:00 AM · 1h ago</span>
+            </div>
+            <div class="rex-bubble">
+              <p class="text-[15px] leading-relaxed mb-3">Good morning, Brandon. Here's where things stand:</p>
+              <div class="stat-line mb-3">
+                <span><span class="stat primary">47</span> <span class="lbl">sent overnight</span></span>
+                <span class="sep">·</span>
+                <span><span class="stat">71%</span> <span class="lbl">open</span></span>
+                <span class="sep">·</span>
+                <span><span class="stat success">14.2%</span> <span class="lbl">reply</span></span>
+                <span class="sep">·</span>
+                <span><span class="stat warn">12</span> <span class="lbl">hot</span></span>
+                <span class="sep">·</span>
+                <span class="stat success">+38% above avg</span>
+              </div>
+              <ul class="text-[14.5px] leading-relaxed space-y-1.5 text-text-secondary">
+                <li class="flex gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">8 REX drafts ready</strong> for your hot replies — Sarah Chen, Priya Patel and 6 more.</span></li>
+                <li class="flex gap-2"><i class="fa-solid fa-circle-question text-warn text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">1 decision pending</strong> — Marcus Rodriguez asked about comp; my draft is above your autopilot threshold.</span></li>
+                <li class="flex gap-2"><i class="fa-solid fa-rocket text-primary text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">2 goals running</strong> — Q2 Senior Engineers (72%) and Sales Reps – SF (33%). On track.</span></li>
+              </ul>
+              <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-200/60">
+                <button class="btn-solid"><i class="fa-solid fa-bolt text-[10px]"></i>Open 12 hot replies</button>
+                <button class="ghost-btn">Show today's plan</button>
+                <button class="ghost-btn">Open overnight summary</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- ===== Decision strip ===== -->
+      <div class="decision-strip float-in d-2">
+        <i class="fa-solid fa-circle-question text-warn"></i>
+        <div class="flex-1 text-[13px]">
+          <span class="font-semibold text-text-main">1 decision waiting</span>
+          <span class="text-text-secondary">· Marcus Rodriguez (Linear) — comp answer · drafted 12:14 PM</span>
+        </div>
+        <button class="btn-solid"><i class="fa-solid fa-arrow-right text-[10px]"></i>Review</button>
+      </div>
+
+      <!-- ===== WORKSPACE OVERVIEW (the breadth) ===== -->
+      <section>
+        <div class="float-in d-3 flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-[20px] font-bold tracking-tight">Your workspace</h2>
+            <p class="text-text-muted text-[13px] mt-0.5">Sourcing · ATS · CRM · outreach · reporting — all in one place.</p>
+          </div>
+          <button class="ghost-btn"><i class="fa-solid fa-sliders text-[11px]"></i>Customize</button>
+        </div>
+
+        <!-- Row 1: REX-active surfaces -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+
+          <!-- GOALS -->
+          <a href="#" class="ws-card float-in d-4 relative shimmer-top">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-rex"><i class="fa-solid fa-rocket"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold flex items-center gap-1.5">Goals <span class="tag tag-primary">REX</span></div>
+                <div class="text-[10.5px] text-text-muted">Running outcomes</div>
+              </div>
+              <span class="live-dot mt-1"></span>
+            </div>
+            <div>
+              <div class="stat-big text-primary">2 <span class="text-[13px] text-text-muted font-medium">running</span></div>
+              <div class="stat-sub mt-1">Q2 Engineers · Sales Reps SF</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="flex-1 h-1 bg-surface rounded-full overflow-hidden"><div class="h-full grad-icon rounded-full" style="width:72%"></div></div>
+              <span class="text-[10.5px] text-text-secondary font-semibold">72%</span>
+            </div>
+            <div class="ws-footer">
+              <span class="lhs">Q2 Engineers</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- INBOX -->
+          <a href="#" class="ws-card float-in d-5">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-icon"><i class="fa-solid fa-envelope"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Inbox</div>
+                <div class="text-[10.5px] text-text-muted">Replies + drafts</div>
+              </div>
+              <span class="tag tag-warn">1 needs you</span>
+            </div>
+            <div>
+              <div class="stat-big">12 <span class="text-[13px] text-text-muted font-medium">unread</span></div>
+              <div class="stat-sub mt-1">8 REX drafts ready · 5 auto-sent today</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="avatar-stack flex">
+                <span class="stacked-avatar bg-gradient-to-br from-emerald-400 to-emerald-600"></span>
+                <span class="stacked-avatar bg-gradient-to-br from-blue-400 to-blue-600"></span>
+                <span class="stacked-avatar bg-gradient-to-br from-amber-400 to-orange-500"></span>
+                <span class="stacked-avatar bg-gradient-to-br from-rose-400 to-pink-600"></span>
+              </div>
+              <span class="text-[10.5px] text-text-muted">+8 more</span>
+            </div>
+            <div class="ws-footer">
+              <span class="lhs text-warn">Marcus needs you</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- CAMPAIGNS -->
+          <a href="#" class="ws-card float-in d-6 relative shimmer-top">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-icon"><i class="fa-solid fa-paper-plane"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Campaigns</div>
+                <div class="text-[10.5px] text-text-muted">Outreach</div>
+              </div>
+              <span class="live-dot mt-1"></span>
+            </div>
+            <div>
+              <div class="stat-big">3 <span class="text-[13px] text-text-muted font-medium">sending</span></div>
+              <div class="stat-sub mt-1">1,284 sent · 14.2% reply · <span class="text-success font-semibold">+38%</span></div>
+            </div>
+            <svg viewBox="0 0 200 24" class="spark"><path d="M0,18 L25,16 L50,17 L75,12 L100,13 L125,8 L150,9 L175,5 L200,3" fill="none" stroke="#6B46C1" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="ws-footer">
+              <span class="lhs">Q2 Senior Engineers</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- SOURCING -->
+          <a href="#" class="ws-card float-in d-7 relative shimmer-top">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-emerald"><i class="fa-solid fa-crosshairs"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Sourcing</div>
+                <div class="text-[10.5px] text-text-muted">Find new leads</div>
+              </div>
+              <span class="live-dot mt-1"></span>
+            </div>
+            <div>
+              <div class="stat-big text-success">247 <span class="text-[13px] text-text-muted font-medium">new today</span></div>
+              <div class="stat-sub mt-1">2 saved searches · LinkedIn + Apollo + databases</div>
+            </div>
+            <div class="text-[11px] text-text-secondary flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+              REX is sourcing for Q2 Engineers
+            </div>
+            <div class="ws-footer">
+              <span class="lhs">Run a new search</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Row 2: data surfaces -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          <!-- CANDIDATES -->
+          <a href="#" class="ws-card float-in d-8">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-blue"><i class="fa-solid fa-database"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Candidates</div>
+                <div class="text-[10.5px] text-text-muted">Database</div>
+              </div>
+            </div>
+            <div>
+              <div class="stat-big">3,247</div>
+              <div class="stat-sub mt-1">847 active · <span class="text-warn font-semibold">12 hot</span> · 23 bookmarked</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="flex-1 flex h-1 rounded-full overflow-hidden bg-surface">
+                <div class="bg-success" style="width:32%"></div>
+                <div class="bg-warn" style="width:18%"></div>
+                <div class="bg-secondary" style="width:22%"></div>
+                <div class="bg-text-muted/30" style="width:28%"></div>
+              </div>
+            </div>
+            <div class="ws-footer">
+              <span class="lhs">Browse database</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- PIPELINES (ATS) -->
+          <a href="#" class="ws-card float-in d-9">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-warm"><i class="fa-solid fa-table-columns"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Pipelines</div>
+                <div class="text-[10.5px] text-text-muted">ATS · hiring stages</div>
+              </div>
+              <span class="tag tag-warn">2 due Fri</span>
+            </div>
+            <div>
+              <div class="stat-big">5 <span class="text-[13px] text-text-muted font-medium">open reqs</span></div>
+              <div class="stat-sub mt-1">62 candidates in flight · 9 in offer stage</div>
+            </div>
+            <!-- mini stage strip -->
+            <div class="flex gap-1">
+              <div class="flex-1 h-1.5 rounded-full bg-text-muted/20"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-secondary"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-warn"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-success"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-text-muted/20"></div>
+            </div>
+            <div class="ws-footer">
+              <span class="lhs">Senior Backend · Linear</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- DEALS (CRM) -->
+          <a href="#" class="ws-card float-in d-10">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-emerald"><i class="fa-solid fa-handshake"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Deals</div>
+                <div class="text-[10.5px] text-text-muted">CRM</div>
+              </div>
+              <span class="tag tag-success">3 closing</span>
+            </div>
+            <div>
+              <div class="stat-big text-success">$284k</div>
+              <div class="stat-sub mt-1">$92k commit · $45k Stripe · $28k Linear · $12k Figma</div>
+            </div>
+            <svg viewBox="0 0 200 24" class="spark"><path d="M0,20 L40,18 L80,12 L120,14 L160,8 L200,4" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="ws-footer">
+              <span class="lhs">Stripe placement · $45k</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- REPORTS -->
+          <a href="#" class="ws-card float-in d-11">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6)"><i class="fa-solid fa-chart-line"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Reports</div>
+                <div class="text-[10.5px] text-text-muted">Analytics + dashboards</div>
+              </div>
+            </div>
+            <div>
+              <div class="stat-big">This week</div>
+              <div class="stat-sub mt-1">Reply rate <span class="text-success font-semibold">↑ 4.1%</span> · Sent <span class="text-success font-semibold">↑ 12%</span></div>
+            </div>
+            <svg viewBox="0 0 200 24" class="spark"><path d="M0,16 L25,18 L50,12 L75,14 L100,8 L125,10 L150,6 L175,8 L200,2" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="ws-footer">
+              <span class="lhs">3 saved dashboards</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <!-- ===== Today's REX activity ===== -->
+      <section>
+        <div class="float-in d-12 flex items-end justify-between mb-3">
+          <h2 class="text-[15px] font-bold tracking-tight">Today's activity</h2>
+          <button class="ghost-btn">View all →</button>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 float-in d-12">
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[12px] text-text-muted shrink-0 w-16">1:14 PM</span>
+            <span class="text-[13px] flex-1"><strong>Auto-sent</strong> intro to Aisha Okafor (Replit · 93)</span>
+            <span class="text-[11px] text-text-muted">Q2 Engineers</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-warn shrink-0"></span>
+            <span class="text-[12px] text-text-muted shrink-0 w-16">12:42 PM</span>
+            <span class="text-[13px] flex-1"><strong>Held 2 sends</strong> — caught Jane Doe + Alex Kim on blocklist</span>
+            <span class="text-[11px] text-text-muted">Q2 Engineers</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-warn shrink-0"></span>
+            <span class="text-[12px] text-text-muted shrink-0 w-16">12:14 PM</span>
+            <span class="text-[13px] flex-1"><strong>Drafted comp answer</strong> for Marcus Rodriguez · awaiting your approval</span>
+            <span class="text-[11px] text-text-muted">Inbox</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[12px] text-text-muted shrink-0 w-16">11:36 AM</span>
+            <span class="text-[13px] flex-1"><strong>Sarah Chen</strong> (Stripe) replied — auto-sent calendar invite for Thu 2:30 PT</span>
+            <span class="text-[11px] text-text-muted">Q2 Engineers</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-secondary shrink-0"></span>
+            <span class="text-[12px] text-text-muted shrink-0 w-16">8:14 AM</span>
+            <span class="text-[13px] flex-1"><strong>Started "Scale Q2 Engineers"</strong> — sourcing 200 more leads matching top responders</span>
+            <span class="text-[11px] text-text-muted">Goals</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ============ FLOATING REX BUTTON ============ -->
+<div class="rex-fab-wrap">
+  <button class="rex-fab" title="Ask REX (⌘K)">
+    <i class="fa-solid fa-wand-magic-sparkles"></i>
+  </button>
+  <span class="rex-fab-label">Ask REX <span class="kbd">⌘K</span></span>
+</div>
+
+<!-- Variant switcher -->
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1 glass border border-gray-200 rounded-full px-2 py-1 shadow-lg text-xs">
+  <span class="text-text-muted px-2">Architecture</span>
+  <a href="workspace.html" class="px-2.5 py-0.5 rounded-full grad-success text-white font-semibold shadow-md shadow-success/25">Workspace ★</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="autopilot-v3.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Autopilot v3</a>
+  <a href="cockpit.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Cockpit</a>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v2</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="index.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface"><i class="fa-solid fa-grip text-[10px]"></i></a>
+</div>
+
+</body>
+</html>

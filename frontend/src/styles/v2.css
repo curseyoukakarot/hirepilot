@@ -1,0 +1,705 @@
+/* ============================================================
+   HirePilot v2 — shared stylesheet
+   Extracted directly from mockups/*.html so React pages can use
+   the EXACT same Tailwind + custom classes as the mockups.
+
+   Imports Inter + JetBrains Mono fonts via @import.
+   Self-contained — does not modify or override existing styles.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
+
+/* ============================================================
+   Scope: only apply v2 styles inside `.v2-app` container so we don't
+   leak into legacy screens until ready.
+   ============================================================ */
+.v2-app {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #FAFAFA;
+  color: #1A1A2E;
+  min-height: 100vh;
+}
+
+.v2-app *::-webkit-scrollbar { width: 8px; height: 8px; }
+.v2-app *::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+.v2-app *::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+
+/* ============================================================
+   Atmosphere — soft radial glow on the page background
+   ============================================================ */
+.v2-app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.05), transparent 70%),
+    radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%);
+}
+
+/* ============================================================
+   Autopilot ribbon — global status indicator at the top
+   Apply class `autopilot` on the v2-app wrapper to enable.
+   ============================================================ */
+.v2-app.autopilot::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 100;
+  background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent);
+  background-size: 200% 100%;
+  animation: v2-shim 4s ease-in-out infinite;
+}
+
+@keyframes v2-shim { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+
+/* ============================================================
+   Primary color override — scope only inside .v2-app so legacy
+   screens keep their existing blue primary. v2 uses #6B46C1 (purple).
+   ============================================================ */
+.v2-app .text-primary       { color: #6B46C1; }
+.v2-app .bg-primary         { background-color: #6B46C1; }
+.v2-app .border-primary     { border-color: #6B46C1; }
+.v2-app .hover\:text-primary:hover { color: #6B46C1; }
+.v2-app .hover\:bg-primary:hover   { background-color: #6B46C1; }
+.v2-app .ring-primary       { --tw-ring-color: #6B46C1; }
+
+/* Opacity variants commonly used: bg-primary/5, /10, /15, /20, /30 */
+.v2-app .bg-primary\/5   { background-color: rgba(107,70,193,.05); }
+.v2-app .bg-primary\/10  { background-color: rgba(107,70,193,.10); }
+.v2-app .bg-primary\/15  { background-color: rgba(107,70,193,.15); }
+.v2-app .bg-primary\/20  { background-color: rgba(107,70,193,.20); }
+.v2-app .bg-primary\/30  { background-color: rgba(107,70,193,.30); }
+.v2-app .border-primary\/15 { border-color: rgba(107,70,193,.15); }
+.v2-app .border-primary\/20 { border-color: rgba(107,70,193,.20); }
+.v2-app .border-primary\/25 { border-color: rgba(107,70,193,.25); }
+.v2-app .border-primary\/30 { border-color: rgba(107,70,193,.30); }
+.v2-app .border-primary\/40 { border-color: rgba(107,70,193,.40); }
+.v2-app .text-primary\/60   { color: rgba(107,70,193,.60); }
+.v2-app .ring-primary\/15   { --tw-ring-color: rgba(107,70,193,.15); }
+.v2-app .ring-primary\/20   { --tw-ring-color: rgba(107,70,193,.20); }
+.v2-app .ring-primary\/30   { --tw-ring-color: rgba(107,70,193,.30); }
+.v2-app .shadow-primary\/20 { --tw-shadow-color: rgba(107,70,193,.20); --tw-shadow: var(--tw-shadow-colored); }
+.v2-app .shadow-primary\/25 { --tw-shadow-color: rgba(107,70,193,.25); --tw-shadow: var(--tw-shadow-colored); }
+.v2-app .shadow-primary\/30 { --tw-shadow-color: rgba(107,70,193,.30); --tw-shadow: var(--tw-shadow-colored); }
+.v2-app .shadow-primary\/40 { --tw-shadow-color: rgba(107,70,193,.40); --tw-shadow: var(--tw-shadow-colored); }
+
+/* Sourcer accent (used inline in agent-sourcer mockup) */
+.v2-app .text-sourcer  { color: #06B6D4; }
+.v2-app .bg-sourcer    { background-color: #06B6D4; }
+.v2-app .border-sourcer\/15 { border-color: rgba(6,182,212,.15); }
+.v2-app .border-sourcer\/20 { border-color: rgba(6,182,212,.20); }
+.v2-app .border-sourcer\/30 { border-color: rgba(6,182,212,.30); }
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes float-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.v2-app .float-in { animation: float-in .55s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.v2-app .d-1 { animation-delay: .04s }
+.v2-app .d-2 { animation-delay: .08s }
+.v2-app .d-3 { animation-delay: .12s }
+.v2-app .d-4 { animation-delay: .16s }
+.v2-app .d-5 { animation-delay: .2s }
+.v2-app .d-6 { animation-delay: .24s }
+.v2-app .d-7 { animation-delay: .28s }
+.v2-app .d-8 { animation-delay: .32s }
+.v2-app .d-9 { animation-delay: .36s }
+.v2-app .d-10 { animation-delay: .4s }
+.v2-app .d-11 { animation-delay: .44s }
+.v2-app .d-12 { animation-delay: .48s }
+
+@keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.5); } }
+.v2-app .pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
+
+@keyframes ping-soft { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(2.4); opacity: 0; } }
+
+@keyframes orbit { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.v2-app .shimmer-top { position: relative; overflow: hidden; }
+.v2-app .shimmer-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(107,70,193,.7) 35%, rgba(12,92,244,.7) 65%, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.v2-app .typing-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #6B46C1;
+  margin: 0 1.5px;
+  animation: blink 1.4s infinite both;
+}
+.v2-app .typing-dot:nth-child(2) { animation-delay: .2s }
+.v2-app .typing-dot:nth-child(3) { animation-delay: .4s }
+
+@keyframes slide-in-right { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+.v2-app .slide-in-right { animation: slide-in-right .4s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/* ============================================================
+   Gradient backgrounds
+   ============================================================ */
+.v2-app .grad-icon       { background: linear-gradient(135deg, #6B46C1 0%, #0C5CF4 100%); }
+.v2-app .grad-icon-soft  { background: linear-gradient(135deg, rgba(107,70,193,.12), rgba(12,92,244,.12)); }
+.v2-app .grad-success    { background: linear-gradient(135deg, #10B981, #0C5CF4); }
+.v2-app .grad-emerald    { background: linear-gradient(135deg, #10B981, #34D399); }
+.v2-app .grad-warm       { background: linear-gradient(135deg, #F59E0B, #EC4899); }
+.v2-app .grad-blue       { background: linear-gradient(135deg, #0C5CF4, #3B82F6); }
+
+.v2-app .grad-rex {
+  background: linear-gradient(135deg, #6B46C1, #0C5CF4, #EC4899, #6B46C1);
+  background-size: 300% 300%;
+  animation: orbit 6s ease-in-out infinite;
+}
+
+.v2-app .grad-text {
+  background: linear-gradient(135deg, #6B46C1, #0C5CF4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.v2-app .grad-text-rex {
+  background: linear-gradient(120deg, #10B981, #6B46C1, #0C5CF4, #EC4899, #10B981);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: orbit 6s ease-in-out infinite;
+}
+
+/* Per-agent gradients */
+.v2-app .grad-sourcer     { background: linear-gradient(135deg, #06B6D4, #3B82F6); }
+.v2-app .grad-recruiter   { background: linear-gradient(135deg, #10B981, #14B8A6); }
+.v2-app .grad-coordinator { background: linear-gradient(135deg, #8B5CF6, #EC4899); }
+.v2-app .grad-researcher  { background: linear-gradient(135deg, #7C3AED, #4F46E5); }
+.v2-app .grad-bd          { background: linear-gradient(135deg, #F59E0B, #EA580C); }
+.v2-app .grad-closer      { background: linear-gradient(135deg, #F43F5E, #E11D48); }
+.v2-app .grad-account     { background: linear-gradient(135deg, #0EA5E9, #0D9488); }
+.v2-app .grad-refcheck    { background: linear-gradient(135deg, #475569, #1E40AF); }
+
+/* Team color palette (8 swatches) */
+.v2-app .grad-team-indigo  { background: linear-gradient(135deg, #6B46C1, #0C5CF4); }
+.v2-app .grad-team-emerald { background: linear-gradient(135deg, #10B981, #0D9488); }
+.v2-app .grad-team-amber   { background: linear-gradient(135deg, #F59E0B, #EA580C); }
+.v2-app .grad-team-rose    { background: linear-gradient(135deg, #F43F5E, #E11D48); }
+.v2-app .grad-team-teal    { background: linear-gradient(135deg, #0EA5E9, #0D9488); }
+.v2-app .grad-team-slate   { background: linear-gradient(135deg, #475569, #1E40AF); }
+.v2-app .grad-team-violet  { background: linear-gradient(135deg, #7C3AED, #4F46E5); }
+.v2-app .grad-team-sky     { background: linear-gradient(135deg, #38BDF8, #0284C7); }
+
+/* ============================================================
+   Live dot — pulsing green status indicator
+   ============================================================ */
+.v2-app .live-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #10B981;
+  display: inline-block;
+}
+.v2-app .live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: #10B981;
+  opacity: .4;
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+.v2-app .live-dot.cyan { background: #06B6D4; }
+.v2-app .live-dot.cyan::after { background: #06B6D4; }
+
+/* ============================================================
+   Glass / blur effect
+   ============================================================ */
+.v2-app .glass {
+  background: rgba(255, 255, 255, .72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ============================================================
+   Sidebar nav active states
+   ============================================================ */
+.v2-app .channel-active {
+  background: rgba(107, 70, 193, .10);
+  color: #6B46C1;
+  font-weight: 600;
+}
+.v2-app .channel-active i { color: #6B46C1; }
+
+.v2-app .nav-section-h {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #8E8EA0;
+  padding: 0 10px;
+}
+
+/* ============================================================
+   Trust badge — the spine of the product
+   ============================================================ */
+.v2-app .trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 9px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(135deg, #10B981, #0C5CF4);
+  box-shadow: 0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: all .2s;
+  border: none;
+}
+.v2-app .trust-badge:hover { transform: translateY(-1px); }
+
+/* ============================================================
+   Status pill — REX status indicator
+   ============================================================ */
+.v2-app .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 9999px;
+  background: white;
+  border: 1px solid #E5E7EB;
+  font-size: 11px;
+  color: #4A4A68;
+  font-weight: 500;
+}
+.v2-app .status-pill .ping-wrap {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.v2-app .status-pill .ping-wrap::before,
+.v2-app .status-pill .ping-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #6B46C1;
+}
+.v2-app .status-pill .ping-wrap::after {
+  animation: ping-soft 2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.v2-app .ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4A4A68;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+}
+.v2-app .ghost-btn:hover {
+  background: white;
+  border-color: #E5E7EB;
+  color: #1A1A2E;
+}
+
+.v2-app .btn-solid {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(135deg, #10B981, #0C5CF4);
+  box-shadow: 0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: all .15s;
+  border: none;
+}
+.v2-app .btn-solid:hover { transform: translateY(-1px); }
+
+.v2-app .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6B46C1, #0C5CF4);
+  box-shadow: 0 6px 14px -4px rgba(107,70,193,.4), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: all .15s;
+  border: none;
+}
+.v2-app .btn-primary:hover { transform: translateY(-1px); }
+
+.v2-app .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4A4A68;
+  background: white;
+  border: 1px solid #E5E7EB;
+  cursor: pointer;
+  transition: all .15s;
+}
+.v2-app .btn-outline:hover { border-color: rgba(107,70,193,.3); color: #1A1A2E; }
+
+/* ============================================================
+   Tags
+   ============================================================ */
+.v2-app .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+.v2-app .tag-success     { background: rgba(16,185,129,.1);  color: #059669; }
+.v2-app .tag-warn        { background: rgba(245,158,11,.1);  color: #B45309; }
+.v2-app .tag-primary     { background: rgba(107,70,193,.1);  color: #6B46C1; }
+.v2-app .tag-secondary   { background: rgba(12,92,244,.1);   color: #0C5CF4; }
+.v2-app .tag-muted       { background: #F4F4F8;              color: #8E8EA0; }
+.v2-app .tag-sourcer     { background: rgba(6,182,212,.1);   color: #0891B2; }
+.v2-app .tag-recruiter   { background: rgba(16,185,129,.1);  color: #059669; }
+.v2-app .tag-coordinator { background: rgba(139,92,246,.1);  color: #7C3AED; }
+
+/* ============================================================
+   Workspace overview cards
+   ============================================================ */
+.v2-app .ws-card {
+  background: white;
+  border: 1px solid #ECECEC;
+  border-radius: 16px;
+  padding: 16px;
+  transition:
+    transform .25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow .25s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color .25s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+.v2-app .ws-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -10px rgba(26,26,46,.10);
+  border-color: rgba(107,70,193,.2);
+}
+.v2-app .ws-card .card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  box-shadow: 0 4px 10px -3px rgba(26,26,46,.15);
+}
+
+.v2-app .stat-big {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.v2-app .stat-sub { font-size: 11.5px; color: #8E8EA0; }
+.v2-app .ws-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  margin-top: auto;
+  border-top: 1px solid #F4F4F8;
+  font-size: 11.5px;
+}
+
+/* Stat-line — bold inline scannable stats */
+.v2-app .stat-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  font-size: 13px;
+}
+.v2-app .stat-line .stat { font-weight: 700; color: #1A1A2E; font-variant-numeric: tabular-nums; }
+.v2-app .stat-line .stat.primary { color: #6B46C1; }
+.v2-app .stat-line .stat.success { color: #059669; }
+.v2-app .stat-line .stat.warn    { color: #B45309; }
+.v2-app .stat-line .lbl  { color: #4A4A68; font-weight: 500; font-size: 12px; }
+.v2-app .stat-line .sep  { color: #D1D5DB; }
+
+/* ============================================================
+   Decision strip (yellow-flagged callout for pending decision)
+   ============================================================ */
+.v2-app .decision-strip {
+  background: linear-gradient(90deg, rgba(245,158,11,.1), rgba(245,158,11,.02) 70%, transparent);
+  border: 1px solid rgba(245,158,11,.2);
+  border-left: 3px solid #F59E0B;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* REX briefing bubble */
+.v2-app .rex-bubble {
+  background: #F4F4F8;
+  border: 1px solid #ECECEC;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+/* ============================================================
+   REX FAB — floating orb bottom-right
+   ============================================================ */
+.v2-app .rex-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 50;
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6B46C1, #0C5CF4, #EC4899, #6B46C1);
+  background-size: 300% 300%;
+  animation: orbit 6s ease-in-out infinite;
+  box-shadow: 0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);
+  color: white;
+  font-size: 16px;
+  transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+.v2-app .rex-fab:hover { transform: translateY(-2px) scale(1.05); }
+.v2-app .rex-fab::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(107,70,193,.4), rgba(12,92,244,.2) 60%, transparent 80%);
+  filter: blur(16px);
+  z-index: -1;
+  animation: pulse-soft 3.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   KBD pill (keyboard shortcut display)
+   ============================================================ */
+.v2-app .kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #8E8EA0;
+}
+
+/* ============================================================
+   Activity timeline row
+   ============================================================ */
+.v2-app .activity-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.v2-app .activity-row + .activity-row { border-top: 1px solid #F4F4F8; }
+
+/* ============================================================
+   Agent card (Team page) — full and dashed variants
+   ============================================================ */
+.v2-app .agent-card {
+  background: white;
+  border: 1px solid #ECECEC;
+  border-radius: 18px;
+  padding: 18px;
+  cursor: pointer;
+  transition:
+    transform .25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow .25s,
+    border-color .25s;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+.v2-app .agent-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px -10px rgba(26,26,46,.12);
+  border-color: rgba(107,70,193,.25);
+}
+.v2-app .agent-card.dashed {
+  border-style: dashed;
+  background: rgba(244,244,248,.4);
+}
+.v2-app .agent-card.dashed:hover {
+  border-color: rgba(107,70,193,.35);
+  background: rgba(107,70,193,.03);
+}
+
+.v2-app .rex-hero {
+  background: linear-gradient(135deg, rgba(107,70,193,.04), rgba(12,92,244,.03) 50%, rgba(236,72,153,.02));
+  border: 1px solid rgba(107,70,193,.18);
+  border-radius: 22px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.v2-app .rex-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(107,70,193,.6) 35%, rgba(12,92,244,.6) 65%, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.v2-app .agent-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+.v2-app .agent-avatar::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+  opacity: .3;
+  filter: blur(12px);
+  z-index: -1;
+}
+.v2-app .agent-avatar.rex::before         { background: linear-gradient(135deg, #6B46C1, #0C5CF4, #EC4899); }
+.v2-app .agent-avatar.sourcer::before     { background: linear-gradient(135deg, #06B6D4, #3B82F6); }
+.v2-app .agent-avatar.recruiter::before   { background: linear-gradient(135deg, #10B981, #14B8A6); }
+.v2-app .agent-avatar.coordinator::before { background: linear-gradient(135deg, #8B5CF6, #EC4899); }
+.v2-app .agent-avatar.researcher::before  { background: linear-gradient(135deg, #7C3AED, #4F46E5); }
+.v2-app .agent-avatar.bd::before          { background: linear-gradient(135deg, #F59E0B, #EA580C); }
+.v2-app .agent-avatar.closer::before      { background: linear-gradient(135deg, #F43F5E, #E11D48); }
+.v2-app .agent-avatar.account::before     { background: linear-gradient(135deg, #0EA5E9, #0D9488); }
+.v2-app .agent-avatar.refcheck::before    { background: linear-gradient(135deg, #475569, #1E40AF); }
+
+/* Skill chip */
+.v2-app .skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: white;
+  border: 1px solid #ECECEC;
+  color: #4A4A68;
+}
+.v2-app .skill-chip i { font-size: 9px; color: #8E8EA0; }
+.v2-app .skill-chip.add { border-style: dashed; color: #8E8EA0; }
+
+/* Per-agent trust mini-toggle */
+.v2-app .trust-mini {
+  display: inline-flex;
+  align-items: center;
+  background: #F4F4F8;
+  border: 1px solid #E5E7EB;
+  border-radius: 9999px;
+  padding: 1.5px;
+  gap: 1px;
+  font-size: 9.5px;
+}
+.v2-app .trust-mini-seg {
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-weight: 600;
+  color: #8E8EA0;
+  cursor: pointer;
+}
+.v2-app .trust-mini-seg.active           { background: linear-gradient(135deg, #10B981, #0C5CF4); color: white; }
+.v2-app .trust-mini-seg.active.suggest   { background: linear-gradient(135deg, #6B46C1, #0C5CF4); }
+.v2-app .trust-mini-seg.active.manual    { background: white; color: #1A1A2E; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+
+/* Quiet progress line (used inside agent cards) */
+.v2-app .progress-quiet {
+  height: 3px;
+  background: rgba(107,70,193,.12);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.v2-app .progress-quiet > div {
+  height: 100%;
+  background: linear-gradient(90deg, #6B46C1, #0C5CF4);
+  border-radius: 9999px;
+}
+.v2-app .progress-sourcer {
+  height: 3px;
+  background: rgba(6,182,212,.15);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.v2-app .progress-sourcer > div {
+  height: 100%;
+  background: linear-gradient(90deg, #06B6D4, #3B82F6);
+  border-radius: 9999px;
+}
+.v2-app .progress-recruiter {
+  height: 3px;
+  background: rgba(16,185,129,.15);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.v2-app .progress-recruiter > div {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981, #14B8A6);
+  border-radius: 9999px;
+}

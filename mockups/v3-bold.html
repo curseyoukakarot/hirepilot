@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — v3 Bold (REX Cockpit)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: '#8B5CF6',
+          'primary-hover': '#7C3AED',
+          secondary: '#3B82F6',
+          accent: '#EC4899',
+          ink: '#0B0B16',
+          'ink-soft': '#16162A',
+          'ink-card': '#1E1E36',
+          'ink-line': '#2A2A45',
+          'text-main': '#F5F5FA',
+          'text-secondary': '#B8B8D0',
+          'text-muted': '#7A7A92',
+          success: '#34D399',
+          warn: '#FBBF24',
+          danger: '#F87171',
+        },
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      },
+    },
+  };
+</script>
+<style>
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0B0B16;
+    color: #F5F5FA;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Ambient background glow */
+  body::before {
+    content: ''; position: fixed; inset: -10%;
+    background:
+      radial-gradient(60% 40% at 30% 20%, rgba(139,92,246,.18), transparent 70%),
+      radial-gradient(50% 40% at 80% 30%, rgba(59,130,246,.14), transparent 70%),
+      radial-gradient(40% 35% at 50% 90%, rgba(236,72,153,.10), transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+
+  @keyframes float-in { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: translateY(0);} }
+  .float-in { animation: float-in .65s cubic-bezier(0.4,0,0.2,1) both; }
+  .d-1 { animation-delay: .05s } .d-2 { animation-delay: .1s } .d-3 { animation-delay: .15s }
+  .d-4 { animation-delay: .2s } .d-5 { animation-delay: .25s } .d-6 { animation-delay: .3s }
+  .d-7 { animation-delay: .35s } .d-8 { animation-delay: .4s } .d-9 { animation-delay: .45s }
+
+  @keyframes pulse-soft { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .55; transform: scale(1.4);} }
+  .pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
+
+  /* ====== REX ORB ====== */
+  .orb-wrap { position: relative; width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; }
+
+  @keyframes orb-breathe { 0%,100% { transform: scale(1);} 50% { transform: scale(1.06);} }
+  @keyframes orb-glow-outer { 0%,100% { transform: scale(1); opacity:.55;} 50% { transform: scale(1.2); opacity:.8;} }
+  @keyframes orb-glow-mid   { 0%,100% { transform: scale(1); opacity:.7;}  50% { transform: scale(1.12); opacity:.95;} }
+  @keyframes orb-rotate     { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+  @keyframes ring-expand    { 0% { transform: scale(1); opacity:.55;} 100% { transform: scale(1.6); opacity: 0;} }
+  @keyframes gradient-orbit { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+  .orb-outer {
+    position: absolute; inset: -40px; border-radius: 9999px;
+    background: radial-gradient(circle, rgba(139,92,246,.45) 0%, rgba(59,130,246,.25) 40%, transparent 70%);
+    filter: blur(40px); animation: orb-glow-outer 4s ease-in-out infinite;
+  }
+  .orb-mid {
+    position: absolute; inset: -10px; border-radius: 9999px;
+    background: radial-gradient(circle, rgba(139,92,246,.7), rgba(59,130,246,.4) 70%, transparent);
+    filter: blur(20px); animation: orb-glow-mid 3.5s ease-in-out infinite;
+  }
+  .orb-core {
+    position: relative; width: 160px; height: 160px; border-radius: 9999px;
+    background: linear-gradient(135deg, #8B5CF6, #3B82F6, #EC4899, #8B5CF6);
+    background-size: 300% 300%;
+    animation: gradient-orbit 6s ease-in-out infinite, orb-breathe 4s ease-in-out infinite;
+    box-shadow: inset 0 0 40px rgba(255,255,255,.18), 0 20px 60px -10px rgba(139,92,246,.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .orb-core::after {
+    content: ''; position: absolute; inset: 14px; border-radius: 9999px;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.5), transparent 50%);
+  }
+  .orb-ring {
+    position: absolute; inset: -10px; border-radius: 9999px;
+    border: 2px solid rgba(139,92,246,.45);
+    animation: ring-expand 2.4s ease-out infinite;
+  }
+  .orb-ring.delay { animation-delay: 1.2s; }
+
+  .glass-dark { background: rgba(30,30,54,.55); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.06); }
+  .glass-input { background: rgba(30,30,54,.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.08); }
+
+  .grad-icon { background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); }
+  .grad-text { background: linear-gradient(135deg,#8B5CF6,#3B82F6,#EC4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .grad-border { position: relative; background-clip: padding-box; }
+  .grad-border::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+    background: linear-gradient(135deg, rgba(139,92,246,.5), rgba(59,130,246,.4), rgba(236,72,153,.3));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .live-dot { position: relative; width: 8px; height: 8px; border-radius: 9999px; background: #34D399; }
+  .live-dot::after { content:''; position: absolute; inset: -5px; border-radius: 9999px; background: #34D399; opacity:.4; animation: pulse-soft 2s ease-in-out infinite; }
+
+  .nav-active { background: linear-gradient(135deg, rgba(139,92,246,.18), rgba(59,130,246,.12)); color: #C4B5FD; box-shadow: 0 0 0 1px rgba(139,92,246,.3) inset; }
+
+  .card-hover { transition: transform .3s cubic-bezier(0.4,0,0.2,1), box-shadow .3s cubic-bezier(0.4,0,0.2,1), border-color .3s; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(139,92,246,.25); border-color: rgba(139,92,246,.3); }
+
+  /* chip stagger */
+  .chip-stagger > * { animation: float-in .55s cubic-bezier(0.4,0,0.2,1) both; }
+  .chip-stagger > *:nth-child(1) { animation-delay: .35s }
+  .chip-stagger > *:nth-child(2) { animation-delay: .42s }
+  .chip-stagger > *:nth-child(3) { animation-delay: .49s }
+  .chip-stagger > *:nth-child(4) { animation-delay: .56s }
+  .chip-stagger > *:nth-child(5) { animation-delay: .63s }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2A2A45; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3A3A60; }
+
+  /* streaming dots */
+  @keyframes blink { 0%,80%,100% { opacity: .25;} 40% { opacity: 1;} }
+  .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: #C4B5FD; margin: 0 2px; animation: blink 1.4s infinite both; }
+  .typing-dot:nth-child(2) { animation-delay: .2s }
+  .typing-dot:nth-child(3) { animation-delay: .4s }
+
+  @keyframes count-up { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+  .count-up { display: inline-block; animation: count-up .8s cubic-bezier(0.4,0,0.2,1) both; }
+</style>
+</head>
+<body class="text-text-main">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 bottom-0 w-16 glass-dark border-r border-white/5 flex flex-col items-center py-4 z-30">
+  <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white font-bold mb-6 shadow-lg shadow-primary/40">HP</div>
+  <nav class="flex-1 flex flex-col gap-1">
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center nav-active"><i class="fa-solid fa-house"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-paper-plane"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main relative"><i class="fa-solid fa-envelope"></i><span class="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-users"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-table-columns"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-chart-line"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5 hover:text-text-main"><i class="fa-solid fa-wand-magic-sparkles"></i></a>
+  </nav>
+  <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-white/5"><i class="fa-solid fa-gear"></i></a>
+  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 mt-4 ring-2 ring-white/10"></div>
+</aside>
+
+<!-- Topbar -->
+<header class="fixed top-0 left-16 right-0 h-14 glass-dark border-b border-white/5 flex items-center px-6 z-20">
+  <div class="flex-1">
+    <h1 class="text-[15px] font-semibold">REX Cockpit</h1>
+    <p class="text-xs text-text-muted">Wednesday, April 30</p>
+  </div>
+  <div class="flex-1 max-w-md mx-auto">
+    <div class="flex items-center gap-2 glass-input rounded-xl px-3 py-2 text-sm text-text-muted">
+      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+      <span>Jump to anything…</span>
+      <span class="ml-auto text-[11px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono">⌘K</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-success/10 text-success font-medium border border-success/20"><span class="live-dot"></span> Live</span>
+    <button class="w-9 h-9 rounded-lg hover:bg-white/5 flex items-center justify-center relative">
+      <i class="fa-solid fa-bell text-text-secondary"></i>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
+    </button>
+    <div class="flex items-center gap-2 ml-2">
+      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white/10"></div>
+      <div class="text-sm">
+        <div class="font-medium leading-tight">Brandon</div>
+        <div class="text-xs text-text-muted leading-tight">HirePilot Pro</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="ml-16 mt-14 px-8 py-8 pb-40 relative z-10">
+
+  <!-- HERO: REX Orb + greeting + suggestion chips -->
+  <section class="float-in d-1 relative grid grid-cols-12 gap-8 items-center mb-8">
+    <div class="col-span-12 md:col-span-4 flex justify-center md:justify-start">
+      <div class="orb-wrap">
+        <div class="orb-outer"></div>
+        <div class="orb-mid"></div>
+        <div class="orb-ring"></div>
+        <div class="orb-ring delay"></div>
+        <div class="orb-core">
+          <i class="fa-solid fa-wand-magic-sparkles text-white text-3xl drop-shadow-lg relative z-10"></i>
+        </div>
+      </div>
+    </div>
+    <div class="col-span-12 md:col-span-8">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-xs font-semibold tracking-[.2em] uppercase grad-text">REX is awake</span>
+        <span class="text-xs text-text-muted">· monitoring 3 campaigns</span>
+      </div>
+      <h2 class="text-4xl md:text-[44px] font-bold tracking-tight leading-tight mb-3">
+        Good afternoon, Brandon. <br/>
+        <span class="grad-text">Twelve replies need you.</span>
+      </h2>
+      <p class="text-text-secondary text-[17px] leading-relaxed max-w-2xl">
+        Q2 Senior Engineers is outperforming average reply rate by <span class="text-success font-semibold">+38%</span>.
+        Sarah Chen (Stripe) and Marcus Rodriguez (Linear) are highest-intent.
+        I've drafted 8 of 12 replies — ready when you are.
+      </p>
+
+      <!-- chips -->
+      <div class="mt-5 flex flex-wrap gap-2 chip-stagger">
+        <button class="text-sm px-4 py-2 rounded-full grad-icon text-white font-medium shadow-lg shadow-primary/30 hover:opacity-95 transition">
+          <i class="fa-solid fa-bolt text-xs mr-1.5"></i>Open 12 replies
+        </button>
+        <button class="text-sm px-4 py-2 rounded-full glass-input text-text-main font-medium hover:bg-white/10 transition">Find more like Sarah</button>
+        <button class="text-sm px-4 py-2 rounded-full glass-input text-text-main font-medium hover:bg-white/10 transition">Scale Q2 Engineers</button>
+        <button class="text-sm px-4 py-2 rounded-full glass-input text-text-main font-medium hover:bg-white/10 transition">Show today's pipeline</button>
+        <button class="text-sm px-4 py-2 rounded-full glass-input text-text-secondary font-medium hover:bg-white/10 transition"><i class="fa-solid fa-microphone text-xs mr-1.5"></i>Voice mode</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPI ribbon (compact, glassy) -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="float-in d-2 grad-border glass-dark rounded-2xl p-4 card-hover">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Sent today</span>
+        <i class="fa-solid fa-paper-plane text-primary text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold count-up">1,284</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 12% vs yesterday</div>
+    </div>
+    <div class="float-in d-3 grad-border glass-dark rounded-2xl p-4 card-hover">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Open rate</span>
+        <i class="fa-solid fa-envelope-open text-secondary text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold count-up">62.4%</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 4.1% vs last week</div>
+    </div>
+    <div class="float-in d-4 grad-border glass-dark rounded-2xl p-4 card-hover">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Reply rate</span>
+        <i class="fa-solid fa-comment-dots text-success text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold count-up">11.8%</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 1.6% vs last week</div>
+    </div>
+    <div class="float-in d-5 grad-border glass-dark rounded-2xl p-4 card-hover">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Hot leads</span>
+        <i class="fa-solid fa-fire text-warn text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold count-up">12</div>
+      <div class="text-[11px] text-warn font-semibold mt-0.5">Awaiting your reply</div>
+    </div>
+  </div>
+
+  <!-- Two-column body -->
+  <div class="grid grid-cols-12 gap-6">
+
+    <!-- LEFT: REX conversation thread -->
+    <section class="float-in d-6 col-span-12 lg:col-span-7 glass-dark rounded-3xl p-6 border border-white/5 shadow-2xl shadow-black/20">
+      <div class="flex items-center gap-2 mb-5">
+        <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white text-xs"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold">REX</div>
+          <div class="text-[11px] text-text-muted flex items-center gap-1">
+            <span class="live-dot scale-75"></span> Working on your behalf
+          </div>
+        </div>
+        <button class="text-xs text-text-muted hover:text-text-main"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+
+      <!-- Conversation messages -->
+      <div class="space-y-4">
+        <!-- User -->
+        <div class="flex justify-end">
+          <div class="max-w-[80%] bg-white/5 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">Catch me up on today.</div>
+        </div>
+        <!-- REX -->
+        <div class="flex gap-3">
+          <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white text-xs shrink-0 mt-1"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="flex-1 max-w-[85%] bg-white/[0.04] border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] leading-relaxed">
+            Here's the snapshot. <span class="grad-text font-semibold">Q2 Senior Engineers</span> is having its strongest day this quarter — 49 replies, +38% over your average.
+            <div class="mt-3 grid grid-cols-3 gap-2">
+              <div class="bg-primary/10 border border-primary/20 rounded-xl p-2.5">
+                <div class="text-[10px] text-text-muted uppercase tracking-wider">Replies</div>
+                <div class="text-xl font-bold text-primary">49</div>
+              </div>
+              <div class="bg-secondary/10 border border-secondary/20 rounded-xl p-2.5">
+                <div class="text-[10px] text-text-muted uppercase tracking-wider">Hot</div>
+                <div class="text-xl font-bold text-secondary">12</div>
+              </div>
+              <div class="bg-success/10 border border-success/20 rounded-xl p-2.5">
+                <div class="text-[10px] text-text-muted uppercase tracking-wider">Open rate</div>
+                <div class="text-xl font-bold text-success">62%</div>
+              </div>
+            </div>
+            <div class="mt-3 text-text-secondary text-sm">
+              I've drafted replies for 8 of the 12 hot leads. Two requisitions still need closing notes by Friday.
+              Your sniper queue paused at 142 of 200 — want me to resume?
+            </div>
+          </div>
+        </div>
+
+        <!-- REX action card -->
+        <div class="flex gap-3">
+          <div class="w-7 h-7 shrink-0"></div>
+          <div class="flex-1 max-w-[85%] grad-border glass-input rounded-2xl p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-envelope text-primary text-xs"></i>
+              <span class="text-xs font-semibold uppercase tracking-wider grad-text">Draft ready · Sarah Chen</span>
+            </div>
+            <p class="text-sm text-text-secondary leading-relaxed">
+              "Sarah — Thursday after 2pm works perfectly. I'll send a calendar invite for 2:30 PT with a Google Meet link.
+              In the meantime, here's a 2-min overview of the team and the role…"
+            </p>
+            <div class="flex items-center gap-2 mt-3">
+              <button class="text-xs px-3 py-1.5 rounded-lg grad-icon text-white font-semibold">Send</button>
+              <button class="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10">Edit</button>
+              <button class="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10">Regenerate</button>
+              <span class="ml-auto text-[11px] text-text-muted">8 of 12 ready</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- typing -->
+        <div class="flex gap-3 items-center">
+          <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white text-xs shrink-0"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="bg-white/[0.04] border border-white/5 rounded-2xl px-4 py-3 text-sm text-text-muted">
+            <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+            <span class="ml-1.5">Drafting reply for Marcus Rodriguez…</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Live pulse + Hot leads -->
+    <aside class="col-span-12 lg:col-span-5 space-y-6">
+
+      <!-- Live pulse -->
+      <section class="float-in d-7 glass-dark rounded-3xl p-6 border border-white/5 shadow-2xl shadow-black/20">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2"><h3 class="font-semibold">Live pulse</h3><span class="flex items-center gap-1.5 text-xs text-success font-medium"><span class="live-dot"></span> Now · 1:42 PM</span></div>
+          <button class="text-xs text-text-muted hover:text-text-main">Today</button>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <div class="w-8 h-8 rounded-lg grad-icon flex items-center justify-center text-white"><i class="fa-solid fa-paper-plane text-xs"></i></div>
+            <div class="flex-1 text-sm">
+              <div class="font-semibold">Sales Reps – SF</div>
+              <div class="text-xs text-text-muted">142 / 200 sent · 47 in flight</div>
+            </div>
+            <span class="text-success text-xs font-semibold">+3 replies/hr</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <div class="w-8 h-8 rounded-lg bg-success/15 text-success flex items-center justify-center"><i class="fa-solid fa-comment-dots text-xs"></i></div>
+            <div class="flex-1 text-sm">
+              <div class="font-semibold">Q2 Senior Engineers</div>
+              <div class="text-xs text-text-muted">49 replies · 12 hot</div>
+            </div>
+            <span class="text-secondary text-xs font-semibold">14.2%</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <div class="w-8 h-8 rounded-lg bg-warn/15 text-warn flex items-center justify-center"><i class="fa-solid fa-clock text-xs"></i></div>
+            <div class="flex-1 text-sm">
+              <div class="font-semibold">Designers – Remote</div>
+              <div class="text-xs text-text-muted">Scheduled for 3:00 PM</div>
+            </div>
+            <span class="text-text-muted text-xs">Queued</span>
+          </div>
+        </div>
+        <!-- mini pulse bars -->
+        <div class="mt-5">
+          <div class="text-[11px] text-text-muted uppercase tracking-wider mb-2">Replies last 6 hours</div>
+          <div class="flex items-end gap-1.5 h-12">
+            <div class="flex-1 rounded-t bg-primary/30" style="height: 30%"></div>
+            <div class="flex-1 rounded-t bg-primary/40" style="height: 45%"></div>
+            <div class="flex-1 rounded-t bg-primary/50" style="height: 60%"></div>
+            <div class="flex-1 rounded-t bg-primary/70" style="height: 75%"></div>
+            <div class="flex-1 rounded-t bg-primary/85" style="height: 90%"></div>
+            <div class="flex-1 rounded-t grad-icon shadow-lg shadow-primary/40" style="height: 100%"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-text-muted mt-1.5">
+            <span>8a</span><span>10a</span><span>12p</span><span>2p</span><span>now</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hot leads -->
+      <section class="float-in d-8 glass-dark rounded-3xl p-6 border border-white/5 shadow-2xl shadow-black/20">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-fire text-warn"></i> Hot leads</h3>
+          <span class="text-xs text-text-muted">12 awaiting</span>
+        </div>
+        <ul class="space-y-2">
+          <li class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] cursor-pointer transition">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">SC</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate">Sarah Chen <span class="text-text-muted font-normal">· Stripe</span></div>
+              <div class="text-xs text-text-muted">"Thursday after 2pm works."</div>
+            </div>
+            <i class="fa-solid fa-wand-magic-sparkles text-primary text-xs" title="REX draft ready"></i>
+          </li>
+          <li class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] cursor-pointer transition">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">MR</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate">Marcus Rodriguez <span class="text-text-muted font-normal">· Linear</span></div>
+              <div class="text-xs text-text-muted">"Send more details on comp?"</div>
+            </div>
+            <i class="fa-solid fa-wand-magic-sparkles text-primary text-xs"></i>
+          </li>
+          <li class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] cursor-pointer transition">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-semibold">PP</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate">Priya Patel <span class="text-text-muted font-normal">· Figma</span></div>
+              <div class="text-xs text-text-muted">"What's the team makeup?"</div>
+            </div>
+            <i class="fa-solid fa-wand-magic-sparkles text-primary text-xs"></i>
+          </li>
+          <li class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] cursor-pointer transition">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-white text-xs font-semibold">JW</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate">Jamal Williams <span class="text-text-muted font-normal">· Vercel</span></div>
+              <div class="text-xs text-text-muted">"Open to learning more."</div>
+            </div>
+            <i class="fa-regular fa-circle text-text-muted text-xs"></i>
+          </li>
+        </ul>
+        <button class="mt-3 w-full text-sm py-2 rounded-xl bg-white/5 hover:bg-white/10 text-text-secondary font-medium transition">View all 12 hot leads</button>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<!-- REX command bar (large, prominent) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-3xl px-6">
+  <div class="relative">
+    <div class="absolute inset-0 grad-icon rounded-2xl blur-2xl opacity-30 -z-10"></div>
+    <div class="grad-border glass-input rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-2xl shadow-black/40">
+      <div class="w-9 h-9 rounded-xl grad-icon flex items-center justify-center text-white shadow-lg shadow-primary/40">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </div>
+      <input class="flex-1 bg-transparent outline-none text-[15px] placeholder:text-text-muted text-text-main" placeholder="Talk to REX — find candidates, draft replies, scale a campaign…" />
+      <button class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-text-secondary"><i class="fa-solid fa-microphone text-sm"></i></button>
+      <button class="w-9 h-9 rounded-xl grad-icon flex items-center justify-center text-white shadow-lg shadow-primary/30"><i class="fa-solid fa-arrow-up text-sm"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- Variant switcher -->
+<div class="fixed top-3 right-6 z-50 flex items-center gap-1 glass-dark border border-white/10 rounded-full px-2 py-1 shadow-lg text-xs">
+  <span class="text-text-muted px-2">Mockups</span>
+  <span class="w-px h-4 bg-white/15"></span>
+  <a href="v1-refined.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">v1</a>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">v2</a>
+  <a href="v3-bold.html" class="px-2 py-0.5 rounded-full grad-icon text-white font-medium">v3</a>
+  <span class="w-px h-4 bg-white/15"></span>
+  <a href="apps.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">Apps</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">Leads</a>
+  <a href="messages.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">Messages</a>
+  <a href="campaigns.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">Campaigns</a>
+  <a href="settings.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">Settings</a>
+  <span class="w-px h-4 bg-white/15"></span>
+  <a href="design-system.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-white/10">System</a>
+</div>
+
+</body>
+</html>

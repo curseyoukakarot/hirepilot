@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Sourcer (specialist agent)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444',
+      sourcer: '#06B6D4', 'sourcer-2': '#3B82F6',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; min-height: 100vh; }
+  body::before { content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(28% 24% at 18% 12%, rgba(6,182,212,.05), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(59,130,246,.05), transparent 70%); }
+  body.autopilot::after { content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size: 200% 100%; animation: shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}.d-7{animation-delay:.28s}.d-8{animation-delay:.32s}.d-9{animation-delay:.36s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#06B6D4 35%,#3B82F6 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  @keyframes blink { 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+  .typing-dot{display:inline-block;width:4px;height:4px;border-radius:9999px;background:#06B6D4;margin:0 1.5px;animation:blink 1.4s infinite both;}
+  .typing-dot:nth-child(2){animation-delay:.2s} .typing-dot:nth-child(3){animation-delay:.4s}
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-sourcer{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text-sourcer{background:linear-gradient(135deg,#06B6D4,#3B82F6);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+  .live-dot.cyan{background:#06B6D4;}
+  .live-dot.cyan::after{background:#06B6D4;}
+
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .2s;}
+  .trust-badge:hover{transform:translateY(-1px);}
+
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;display:flex;align-items:center;justify-content:center;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#06B6D4;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-solid:hover{transform:translateY(-1px);}
+
+  .btn-sourcer{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#06B6D4,#3B82F6);box-shadow:0 6px 14px -4px rgba(6,182,212,.35), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-sourcer:hover{transform:translateY(-1px);}
+
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;transition:all .15s;}
+  .btn-outline:hover{border-color:rgba(6,182,212,.3);color:#1A1A2E;}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-sourcer{background:rgba(6,182,212,.1);color:#0891B2;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+
+  .trust-mini{display:inline-flex;align-items:center;background:#F4F4F8;border:1px solid #E5E7EB;border-radius:9999px;padding:1.5px;gap:1px;font-size:9.5px;}
+  .trust-mini-seg{padding:3px 8px;border-radius:9999px;font-weight:600;color:#8E8EA0;cursor:pointer;}
+  .trust-mini-seg.active{background:linear-gradient(135deg,#10B981,#0C5CF4);color:white;}
+
+  /* === LIVE BROWSERBASE FRAME === */
+  .browser-frame{background:#1F2937;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -12px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.05);}
+  .browser-chrome{background:#374151;padding:9px 12px;display:flex;align-items:center;gap:10px;}
+  .browser-dot{width:11px;height:11px;border-radius:9999px;}
+  .browser-url{flex:1;background:#1F2937;border-radius:7px;padding:5px 11px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9CA3AF;font-family:'JetBrains Mono',monospace;}
+  .browser-url i{font-size:9px;color:#10B981;}
+  .browser-tabs{position:absolute;top:6px;right:80px;display:flex;gap:4px;}
+  .browser-body{background:white;min-height:280px;position:relative;padding:20px 28px;color:#1A1A2E;}
+
+  /* annotation callout overlays */
+  .anno{position:absolute;background:rgba(15,15,26,.95);color:white;font-size:10.5px;font-weight:600;padding:5px 9px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;box-shadow:0 8px 20px -6px rgba(6,182,212,.5);z-index:10;}
+  .anno i{color:#06B6D4;font-size:9px;}
+  .anno::before{content:'';position:absolute;width:0;height:0;border-style:solid;}
+  .anno.tl::before{bottom:-6px;left:14px;border-width:6px 6px 0 6px;border-color:rgba(15,15,26,.95) transparent transparent transparent;}
+  .anno.bl::before{top:-6px;left:14px;border-width:0 6px 6px 6px;border-color:transparent transparent rgba(15,15,26,.95) transparent;}
+
+  /* highlighted area on the page being scraped */
+  .highlight{position:relative;background:rgba(6,182,212,.12);outline:2px solid rgba(6,182,212,.5);outline-offset:2px;border-radius:4px;animation:highlight-pulse 2s ease-in-out infinite;}
+  @keyframes highlight-pulse { 0%,100%{outline-color:rgba(6,182,212,.5);} 50%{outline-color:rgba(6,182,212,.85);} }
+
+  /* console */
+  .console{font-family:'JetBrains Mono',monospace;font-size:11px;background:#0F0F1A;color:#C4B5FD;border-radius:10px;padding:12px 14px;line-height:1.7;}
+  .console .ts{color:#6B7280;}
+  .console .ok{color:#34D399;}
+  .console .info{color:#60A5FA;}
+  .console .warn{color:#FBBF24;}
+
+  /* skill cards */
+  .skill-card{background:white;border:1px solid #ECECEC;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:transform .25s,box-shadow .25s,border-color .25s;}
+  .skill-card:hover{transform:translateY(-1px);box-shadow:0 8px 16px -6px rgba(26,26,46,.08);border-color:rgba(6,182,212,.25);}
+  .skill-card.running{border-color:rgba(6,182,212,.4);background:linear-gradient(135deg,rgba(6,182,212,.04),white 30%);}
+  .skill-card.dashed{border-style:dashed;background:rgba(244,244,248,.4);}
+
+  .skill-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;}
+
+  /* schedule entries */
+  .sched-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #F4F4F8;}
+  .sched-row:first-child{border-top:none;}
+
+  /* Activity row */
+  .activity-row{display:flex;align-items:center;gap:12px;padding:9px 0;}
+  .activity-row + .activity-row{border-top:1px solid #F4F4F8;}
+
+  /* REX FAB */
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1);}
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+
+  .agent-avatar-glow{position:relative;}
+  .agent-avatar-glow::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(6,182,212,.45),rgba(59,130,246,.2) 60%,transparent);filter:blur(20px);z-index:-1;}
+
+  .progress-sourcer{height:4px;background:rgba(6,182,212,.15);border-radius:9999px;overflow:hidden;}
+  .progress-sourcer>div{height:100%;background:linear-gradient(90deg,#06B6D4,#3B82F6);border-radius:9999px;}
+  .progress-glow{position:relative;overflow:hidden;}
+  .progress-glow::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);background-size:200% 100%;animation:shimmer 1.6s ease-in-out infinite;}
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex min-h-screen relative z-10">
+
+  <!-- ============ WORKSPACE SIDEBAR ============ -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>3 agents working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted"><i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+          <li><a href="team.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-users-gear w-4 text-[11px]"></i><span class="flex-1">Team</span><span class="text-[10px] text-primary font-bold">3</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted"></i><span class="flex-1">Campaigns</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-chart-line w-4 text-[11px] text-text-muted"></i><span class="flex-1">Reports</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0">
+
+    <!-- TOPBAR with breadcrumb -->
+    <header class="border-b border-gray-100 px-8 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <a href="team.html" class="ghost-btn"><i class="fa-solid fa-arrow-left text-[10px]"></i>Team</a>
+      <div class="text-text-muted text-xs">/</div>
+      <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-crosshairs text-sourcer text-xs"></i>Sourcer</div>
+
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-globe text-sourcer text-[10px]"></i>
+        <span>Browserbase session · <span class="font-semibold text-text-main tabular-nums">2m 14s</span></span>
+        <span class="text-text-muted">·</span>
+        <span class="text-sourcer font-bold">live</span>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="px-8 py-7 space-y-7 max-w-[1400px] mx-auto">
+
+      <!-- ============ AGENT HERO ============ -->
+      <section class="float-in d-1 bg-gradient-to-br from-sourcer/[0.04] via-secondary/[0.03] to-transparent border border-sourcer/15 rounded-3xl p-6 shimmer-top relative">
+        <div class="flex items-start gap-5 flex-wrap">
+          <!-- Avatar with glow -->
+          <div class="agent-avatar-glow w-20 h-20 rounded-full grad-sourcer flex items-center justify-center text-white shrink-0 shadow-2xl" style="box-shadow:0 16px 40px -10px rgba(6,182,212,.45);">
+            <i class="fa-solid fa-crosshairs text-[26px]"></i>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <h1 class="text-[26px] font-extrabold tracking-tight">Sourcer</h1>
+              <span class="tag tag-sourcer"><i class="fa-solid fa-bolt text-[8px]"></i>Specialist</span>
+              <span class="tag tag-success"><span class="live-dot cyan"></span>Working</span>
+              <span class="text-[11px] text-text-muted">· hired 14 days ago</span>
+            </div>
+            <p class="text-text-secondary text-[14px] mb-3 max-w-2xl">Finds and qualifies new leads. Owns the funnel before outreach — runs LinkedIn, Apollo, ICP, and Browserbase research on your behalf.</p>
+
+            <!-- Quick stats -->
+            <div class="flex items-center gap-5 flex-wrap text-[12.5px]">
+              <div><span class="font-bold text-text-main tabular-nums">247</span> <span class="text-text-muted">sourced this week</span></div>
+              <div class="w-px h-3 bg-gray-300"></div>
+              <div><span class="font-bold text-warn tabular-nums">12</span> <span class="text-text-muted">hot</span></div>
+              <div class="w-px h-3 bg-gray-300"></div>
+              <div><span class="font-bold text-success tabular-nums">14.2%</span> <span class="text-text-muted">avg reply rate on Sourcer leads</span></div>
+              <div class="w-px h-3 bg-gray-300"></div>
+              <div><span class="font-bold text-success tabular-nums">+38%</span> <span class="text-text-muted">vs your historical avg</span></div>
+            </div>
+          </div>
+
+          <!-- Per-agent trust + actions -->
+          <div class="flex flex-col items-end gap-2 shrink-0">
+            <div class="trust-mini">
+              <span class="trust-mini-seg">Manual</span>
+              <span class="trust-mini-seg">Suggest</span>
+              <span class="trust-mini-seg active">Autopilot</span>
+            </div>
+            <button class="btn-sourcer"><i class="fa-solid fa-bolt text-[10px]"></i>Give Sourcer a goal</button>
+            <div class="flex items-center gap-1">
+              <button class="ghost-btn"><i class="fa-solid fa-pause text-[10px]"></i>Pause</button>
+              <button class="ghost-btn"><i class="fa-solid fa-sliders text-[10px]"></i>Configure</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LIVE BROWSERBASE SESSION ============ -->
+      <section>
+        <div class="float-in d-2 flex items-end justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-[0.15em] grad-text-sourcer mb-1"><i class="fa-solid fa-globe text-[9px] mr-1"></i>Skill running</div>
+            <h2 class="text-[18px] font-bold tracking-tight">Browser Researcher · researching <span class="grad-text-sourcer">stripe.com</span></h2>
+            <p class="text-text-muted text-[12px] mt-0.5">Goal: Build company intel for Q2 Senior Engineers ICP fingerprint · started 2m 14s ago</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button class="ghost-btn"><i class="fa-solid fa-expand text-[10px]"></i>Open session</button>
+            <button class="ghost-btn"><i class="fa-solid fa-pause text-[10px]"></i>Pause</button>
+            <button class="ghost-btn"><i class="fa-solid fa-stop text-[10px]"></i>Stop</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <!-- Browser frame (2 cols on lg) -->
+          <div class="lg:col-span-2 float-in d-3 browser-frame">
+            <!-- Chrome -->
+            <div class="browser-chrome">
+              <div class="flex items-center gap-1.5">
+                <span class="browser-dot bg-red-400"></span>
+                <span class="browser-dot bg-yellow-400"></span>
+                <span class="browser-dot bg-green-400"></span>
+              </div>
+              <div class="browser-url"><i class="fa-solid fa-lock"></i>https://stripe.com/jobs/teams/engineering</div>
+              <span class="text-[10.5px] text-gray-400 font-mono whitespace-nowrap">via Browserbase</span>
+              <i class="fa-solid fa-rotate text-gray-400 text-[10px]"></i>
+            </div>
+
+            <!-- Body — simulated stripe.com careers page -->
+            <div class="browser-body">
+
+              <!-- Annotation 1: top -->
+              <div class="anno tl" style="top:14px; right:24px;">
+                <i class="fa-solid fa-circle-check"></i>Page loaded · 1.2s
+              </div>
+
+              <!-- Stripe brand -->
+              <div class="flex items-center gap-2 mb-5">
+                <span class="font-bold text-[20px]" style="color:#635BFF;">stripe</span>
+                <span class="text-[11px] text-gray-400">/ Jobs / Engineering</span>
+              </div>
+
+              <h3 class="text-[22px] font-bold tracking-tight mb-1.5">Engineering at Stripe</h3>
+              <p class="text-[13px] text-gray-600 mb-4">We build the financial infrastructure that powers the internet. Engineers at Stripe work across payments, banking, and developer tools.</p>
+
+              <!-- Highlighted "company stats" being scraped -->
+              <div class="grid grid-cols-3 gap-2 mb-4">
+                <div class="highlight bg-gray-50 rounded-md p-2 text-center">
+                  <div class="text-[10px] text-gray-500 uppercase">Engineering org</div>
+                  <div class="text-[17px] font-bold">~800</div>
+                </div>
+                <div class="highlight bg-gray-50 rounded-md p-2 text-center" style="animation-delay:.3s">
+                  <div class="text-[10px] text-gray-500 uppercase">Funding</div>
+                  <div class="text-[17px] font-bold">Series H · $1B</div>
+                </div>
+                <div class="highlight bg-gray-50 rounded-md p-2 text-center" style="animation-delay:.6s">
+                  <div class="text-[10px] text-gray-500 uppercase">Total</div>
+                  <div class="text-[17px] font-bold">7,500</div>
+                </div>
+              </div>
+
+              <h4 class="text-[14px] font-bold mb-2">Open engineering roles · 47</h4>
+              <div class="space-y-1.5">
+                <div class="highlight bg-gray-50 rounded-md p-2.5 flex items-center justify-between text-[12px]">
+                  <span><strong>Senior Backend Engineer</strong> — Payments Infra</span>
+                  <span class="text-gray-500">Remote · NYC · SF</span>
+                </div>
+                <div class="bg-gray-50 rounded-md p-2.5 flex items-center justify-between text-[12px]">
+                  <span><strong>Staff Engineer</strong> — Atlas</span>
+                  <span class="text-gray-500">Remote</span>
+                </div>
+                <div class="bg-gray-50 rounded-md p-2.5 flex items-center justify-between text-[12px]">
+                  <span><strong>ML Engineer</strong> — Risk</span>
+                  <span class="text-gray-500">SF</span>
+                </div>
+                <div class="text-[11px] text-gray-400 italic pl-2.5">+ 44 more open roles…</div>
+              </div>
+
+              <!-- Annotation 2: extracting -->
+              <div class="anno bl" style="bottom:50px; right:24px;">
+                <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+                <span class="ml-1">Extracting tech stack…</span>
+              </div>
+
+              <!-- Annotation 3: side -->
+              <div class="anno tl" style="top:120px; left:24px;">
+                <i class="fa-solid fa-bolt"></i>47 roles found
+              </div>
+            </div>
+
+            <!-- Streaming console below browser -->
+            <div class="bg-[#0F0F1A] p-4 console !rounded-none">
+              <div><span class="ts">14:32:18</span> <span class="ok">✓</span> Started Browserbase session <span class="info">bs_a8f3...</span></div>
+              <div><span class="ts">14:32:19</span> <span class="ok">✓</span> Navigated to <span class="info">stripe.com/jobs/teams/engineering</span></div>
+              <div><span class="ts">14:32:21</span> <span class="ok">✓</span> Page loaded · 1.2s · 134 elements</div>
+              <div><span class="ts">14:32:24</span> <span class="ok">✓</span> Extracted company size · funding stage · eng org count</div>
+              <div><span class="ts">14:32:31</span> <span class="ok">✓</span> Found 47 open engineering roles</div>
+              <div><span class="ts">14:32:38</span> <span class="ok">✓</span> Reading "Senior Backend Engineer · Payments Infra"</div>
+              <div><span class="ts">14:32:42</span> <span class="info">i</span> Tech stack: Go · Rust · Ruby · Python · Postgres</div>
+              <div><span class="ts">14:32:46</span> <span class="ok">✓</span> Extracted required years experience: 5+</div>
+              <div class="text-purple-400 mt-1.5"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> reading job description for ICP fingerprint…</div>
+            </div>
+          </div>
+
+          <!-- Live extracted intel panel -->
+          <div class="float-in d-4 bg-white border border-gray-100 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-database text-sourcer text-sm"></i>
+              <h3 class="text-[14px] font-bold">Company intel · live</h3>
+              <span class="ml-auto text-[10px] text-success font-bold uppercase tracking-wider flex items-center gap-1"><span class="live-dot cyan"></span>filling</span>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Company</div>
+              <div class="font-bold text-[14px]">Stripe</div>
+              <div class="text-[11.5px] text-text-muted">Series H · $1B raised · 7,500 employees</div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Engineering org</div>
+              <div class="text-[12.5px] space-y-1">
+                <div class="flex justify-between"><span class="text-text-secondary">Total engineers</span><span class="font-semibold">~800</span></div>
+                <div class="flex justify-between"><span class="text-text-secondary">Open eng roles</span><span class="font-semibold text-warn">47</span></div>
+                <div class="flex justify-between"><span class="text-text-secondary">YoY headcount</span><span class="font-semibold text-success">+23%</span></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Tech stack</div>
+              <div class="flex flex-wrap gap-1">
+                <span class="tag tag-sourcer">Go</span>
+                <span class="tag tag-sourcer">Rust</span>
+                <span class="tag tag-sourcer">Ruby</span>
+                <span class="tag tag-sourcer">Python</span>
+                <span class="tag tag-sourcer">Postgres</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">ICP fingerprint <span class="text-[9px] font-medium text-text-muted normal-case tracking-normal">· building…</span></div>
+              <ul class="text-[12px] text-text-secondary space-y-1">
+                <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-success text-[9px] mt-1"></i><span>5+ years senior backend</span></li>
+                <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-success text-[9px] mt-1"></i><span>Payments / fintech infra</span></li>
+                <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-success text-[9px] mt-1"></i><span>Go or Rust primary</span></li>
+                <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-success text-[9px] mt-1"></i><span>Distributed systems</span></li>
+                <li class="flex items-start gap-1.5 text-text-muted"><span class="typing-dot"></span><span class="ml-1">Compensation band…</span></li>
+              </ul>
+            </div>
+
+            <button class="w-full btn-sourcer justify-center !text-[11.5px] !py-2 mt-1"><i class="fa-solid fa-arrow-right text-[9px]"></i>Use as ICP for Q2 Engineers</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SKILLS INVENTORY ============ -->
+      <section>
+        <div class="float-in d-5 flex items-end justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 class="text-[18px] font-bold tracking-tight">Skills</h2>
+            <p class="text-text-muted text-[12px] mt-0.5">4 installed · 4 more available in the catalog.</p>
+          </div>
+          <button class="btn-outline"><i class="fa-solid fa-plus text-[10px]"></i>Add Skill</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+
+          <!-- LinkedIn Sourcer -->
+          <div class="skill-card float-in d-6">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon" style="background:#0077B5"><i class="fa-brands fa-linkedin"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">LinkedIn Sourcer</div>
+                <div class="text-[10.5px] text-text-muted">Scrapes profiles · enriches via Sniper</div>
+              </div>
+              <span class="tag tag-muted">Idle</span>
+            </div>
+            <div class="text-[11px] text-text-muted">Last run · 2h ago · sourced 87 leads</div>
+          </div>
+
+          <!-- Apollo Enrich -->
+          <div class="skill-card float-in d-6 running">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon grad-sourcer"><i class="fa-solid fa-database"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Apollo Enrich</div>
+                <div class="text-[10.5px] text-text-muted">Email · phone · firmographics</div>
+              </div>
+              <span class="tag tag-success"><span class="live-dot cyan"></span>Active</span>
+            </div>
+            <div class="text-[11px] text-text-secondary">Enriched 245 of 247 · avg score 84</div>
+          </div>
+
+          <!-- ICP Researcher -->
+          <div class="skill-card float-in d-7">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon grad-sourcer"><i class="fa-solid fa-bullseye"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">ICP Researcher</div>
+                <div class="text-[10.5px] text-text-muted">Builds ideal-customer profile</div>
+              </div>
+              <span class="tag tag-muted">Idle</span>
+            </div>
+            <div class="text-[11px] text-text-muted">Top 12 responder fingerprint · 1d ago</div>
+          </div>
+
+          <!-- Browser Researcher -->
+          <div class="skill-card float-in d-7 running shimmer-top">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon grad-sourcer"><i class="fa-solid fa-globe"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Browser Researcher</div>
+                <div class="text-[10.5px] text-text-muted">Browserbase · deep web research</div>
+              </div>
+              <span class="tag tag-success"><span class="live-dot cyan"></span>Live</span>
+            </div>
+            <div class="text-[11px] text-text-secondary">Researching stripe.com · 2m 14s</div>
+          </div>
+        </div>
+
+        <!-- Available -->
+        <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-2">Available to install · 4</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="skill-card dashed float-in d-8">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon" style="background:#FF7A59"><i class="fa-solid fa-envelope-circle-check"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Hunter</div>
+                <div class="text-[10.5px] text-text-muted">Email finder + verifier</div>
+              </div>
+            </div>
+            <button class="text-[11.5px] text-sourcer font-semibold hover:underline self-start"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Install</button>
+          </div>
+          <div class="skill-card dashed float-in d-8">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon" style="background:#10B981"><i class="fa-solid fa-shield-check"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Skrapp</div>
+                <div class="text-[10.5px] text-text-muted">Email validator</div>
+              </div>
+            </div>
+            <button class="text-[11.5px] text-sourcer font-semibold hover:underline self-start"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Install</button>
+          </div>
+          <div class="skill-card dashed float-in d-9">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon" style="background:#171515"><i class="fa-brands fa-github"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">GitHub Sourcer</div>
+                <div class="text-[10.5px] text-text-muted">Find devs by code activity</div>
+              </div>
+            </div>
+            <button class="text-[11.5px] text-sourcer font-semibold hover:underline self-start"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Install</button>
+          </div>
+          <div class="skill-card dashed float-in d-9">
+            <div class="flex items-start gap-2.5">
+              <div class="skill-icon" style="background:#000000"><i class="fa-brands fa-x-twitter"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">X / Twitter Sourcer</div>
+                <div class="text-[10.5px] text-text-muted">Find people by post signal</div>
+              </div>
+            </div>
+            <button class="text-[11.5px] text-sourcer font-semibold hover:underline self-start"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Install</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCHEDULE + ACTIVITY (2-col) ============ -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        <!-- SCHEDULE -->
+        <section class="float-in d-9 bg-white border border-gray-100 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-[15px] font-bold tracking-tight">Schedule</h2>
+            <button class="ghost-btn"><i class="fa-solid fa-plus text-[10px]"></i>Add</button>
+          </div>
+          <div class="sched-row">
+            <i class="fa-solid fa-clock-rotate-left text-sourcer text-[11px] w-4"></i>
+            <div class="flex-1 text-[12.5px]">
+              <div class="font-semibold">Daily ICP refresh</div>
+              <div class="text-[11px] text-text-muted">Re-analyzes top responders · 9:00 AM PT every weekday</div>
+            </div>
+            <span class="text-[10.5px] text-text-muted">Next · tomorrow 9 AM</span>
+          </div>
+          <div class="sched-row">
+            <i class="fa-solid fa-arrows-rotate text-sourcer text-[11px] w-4"></i>
+            <div class="flex-1 text-[12.5px]">
+              <div class="font-semibold">Weekly LinkedIn sweep</div>
+              <div class="text-[11px] text-text-muted">Sources matching ICP · Mondays 6 AM PT</div>
+            </div>
+            <span class="text-[10.5px] text-text-muted">Next · Mon 6 AM</span>
+          </div>
+          <div class="sched-row">
+            <i class="fa-solid fa-bell text-sourcer text-[11px] w-4"></i>
+            <div class="flex-1 text-[12.5px]">
+              <div class="font-semibold">Apollo daily enrich</div>
+              <div class="text-[11px] text-text-muted">Enriches new leads on intake · continuous</div>
+            </div>
+            <span class="text-[10.5px] text-success font-semibold">Always on</span>
+          </div>
+          <div class="sched-row">
+            <i class="fa-solid fa-globe text-sourcer text-[11px] w-4"></i>
+            <div class="flex-1 text-[12.5px]">
+              <div class="font-semibold">On-demand Browser Research</div>
+              <div class="text-[11px] text-text-muted">Triggered by REX or by you</div>
+            </div>
+            <span class="text-[10.5px] text-text-muted">Manual</span>
+          </div>
+        </section>
+
+        <!-- ACTIVITY -->
+        <section class="float-in d-9 bg-white border border-gray-100 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-[15px] font-bold tracking-tight">Recent runs · 24h</h2>
+            <button class="ghost-btn">View all →</button>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-sourcer shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">2m ago</span>
+            <span class="text-[12.5px] flex-1"><strong>Browser Researcher</strong> started · stripe.com</span>
+            <span class="tag tag-sourcer">Running</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">14m ago</span>
+            <span class="text-[12.5px] flex-1"><strong>Apollo Enrich</strong> · 245 of 247 enriched · avg score 84</span>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">38m ago</span>
+            <span class="text-[12.5px] flex-1"><strong>LinkedIn Sourcer</strong> · 87 candidates from "Senior Backend Engineer" search</span>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-warn shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">42m ago</span>
+            <span class="text-[12.5px] flex-1">Caught 2 leads on blocklist · held for review</span>
+            <span class="tag tag-warn">Held</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">1h ago</span>
+            <span class="text-[12.5px] flex-1"><strong>ICP Researcher</strong> · top 12 responder fingerprint built</span>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0"></span>
+            <span class="text-[11px] text-text-muted shrink-0 w-14">4h ago</span>
+            <span class="text-[12.5px] flex-1"><strong>LinkedIn Sourcer</strong> · 38 SDR leads · James's goal</span>
+            <span class="tag tag-success">Done</span>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============ GUARDRAILS / SETTINGS PREVIEW ============ -->
+      <section class="float-in d-9 bg-white border border-gray-100 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-[15px] font-bold tracking-tight">Guardrails</h2>
+            <p class="text-[11.5px] text-text-muted mt-0.5">What Sourcer is allowed to do on autopilot. Edit any of these to tighten or loosen.</p>
+          </div>
+          <button class="ghost-btn"><i class="fa-solid fa-pen text-[10px]"></i>Edit</button>
+        </div>
+        <ul class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[12.5px]">
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1"></i><span><strong>Source up to 500 leads/day</strong> per goal</span></li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1"></i><span><strong>Auto-enrich</strong> any new lead via Apollo + Decodo</span></li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1"></i><span><strong>Browserbase research</strong> up to 30 min per goal</span></li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1"></i><span><strong>Auto-skip blocklist matches</strong> · alert me</span></li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-exclamation text-warn text-[10px] mt-1"></i><span><strong>Always ask before</strong> · sourcing &gt; 1,000 leads in one batch</span></li>
+          <li class="flex items-start gap-2"><i class="fa-solid fa-circle-exclamation text-warn text-[10px] mt-1"></i><span><strong>Always ask before</strong> · spending &gt; $50 on enrichment in one run</span></li>
+        </ul>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1 glass border border-gray-200 rounded-full px-2 py-1 shadow-lg text-xs">
+  <a href="workspace.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Today</a>
+  <a href="team.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Team</a>
+  <a href="agent-sourcer.html" class="px-2.5 py-0.5 rounded-full grad-sourcer text-white font-semibold">Sourcer ★</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="pipelines.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Pipelines</a>
+  <a href="deals.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Deals</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="index.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface"><i class="fa-solid fa-grip text-[10px]"></i></a>
+</div>
+
+</body>
+</html>

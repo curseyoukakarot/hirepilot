@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Messages</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444', accent: '#EC4899',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .5s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.05s}.d-2{animation-delay:.1s}.d-3{animation-delay:.15s}.d-4{animation-delay:.2s}.d-5{animation-delay:.25s}.d-6{animation-delay:.3s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.55;transform:scale(1.4);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:8px;height:8px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-5px;border-radius:9999px;background:#10B981;opacity:.35;animation:pulse-soft 2s ease-in-out infinite;}
+  .nav-active{background:linear-gradient(135deg,rgba(107,70,193,.12),rgba(12,92,244,.10));color:#6B46C1;}
+  .nav-active i{color:#6B46C1;}
+  .glass{background:rgba(255,255,255,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .conv-active{background:linear-gradient(90deg,rgba(107,70,193,.08),rgba(12,92,244,.04));border-left:3px solid #6B46C1;}
+  .tag-pill{font-size:11px;padding:2px 8px;border-radius:9999px;font-weight:500;}
+  /* typing dots */
+  @keyframes blink { 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+  .typing-dot{display:inline-block;width:5px;height:5px;border-radius:9999px;background:#6B46C1;margin:0 1.5px;animation:blink 1.4s infinite both;}
+  .typing-dot:nth-child(2){animation-delay:.2s}
+  .typing-dot:nth-child(3){animation-delay:.4s}
+
+  /* Autopilot global ribbon */
+  body.autopilot::before {
+    content:''; position:fixed; top:0; left:64px; right:0; height:3px; z-index:100;
+    background: linear-gradient(90deg, transparent, rgba(16,185,129,.6), rgba(107,70,193,.7), rgba(12,92,244,.6), rgba(16,185,129,.6), transparent);
+    background-size: 200% 100%;
+    animation: shimmer-strip 4s ease-in-out infinite;
+  }
+  @keyframes shimmer-strip { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+
+  /* Trust toggle */
+  .trust-toggle{display:inline-flex;align-items:center;background:#F4F4F8;border:1px solid #E5E7EB;border-radius:9999px;padding:3px;gap:2px;}
+  .trust-seg{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:9999px;font-size:11px;font-weight:600;color:#8E8EA0;cursor:pointer;transition:all .2s;}
+  .trust-seg:hover{color:#1A1A2E;}
+  .trust-seg.active.auto{background:linear-gradient(135deg,#10B981,#0C5CF4);color:white;box-shadow:0 4px 12px -4px rgba(16,185,129,.4);}
+
+  .grad-icon-green{background:linear-gradient(135deg,#10B981 0%,#0C5CF4 100%);}
+</style>
+</head>
+<body class="autopilot">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 bottom-0 w-16 bg-white border-r border-gray-100 flex flex-col items-center py-4 z-30">
+  <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white font-bold mb-6 shadow-md shadow-primary/30">HP</div>
+  <nav class="flex-1 flex flex-col gap-1">
+    <a href="cockpit.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-house"></i></a>
+    <a href="agent.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-robot"></i></a>
+    <a href="apps.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-grip"></i></a>
+    <a href="campaigns.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-paper-plane"></i></a>
+    <a href="messages.html" class="w-10 h-10 rounded-lg flex items-center justify-center nav-active relative"><i class="fa-solid fa-envelope"></i><span class="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span></a>
+    <a href="leads.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-users"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-chart-line"></i></a>
+  </nav>
+  <a href="settings.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-gear"></i></a>
+  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 mt-4 ring-2 ring-white shadow"></div>
+</aside>
+
+<!-- Topbar -->
+<header class="fixed top-0 left-16 right-0 h-14 glass border-b border-gray-100 flex items-center px-6 z-20">
+  <div class="flex-1">
+    <h1 class="text-[15px] font-semibold">Messages</h1>
+    <p class="text-xs text-text-muted">12 unread · 8 REX drafts ready · 5 auto-sent today</p>
+  </div>
+
+  <!-- TRUST TOGGLE — global control -->
+  <div class="flex items-center gap-2">
+    <span class="text-[10px] uppercase tracking-wider font-semibold text-text-muted">REX Trust</span>
+    <div class="trust-toggle">
+      <button class="trust-seg" title="You do everything. REX stays out of the way."><i class="fa-solid fa-hand text-[10px]"></i>Manual</button>
+      <button class="trust-seg" title="REX drafts and recommends. You approve every action."><i class="fa-solid fa-lightbulb text-[10px]"></i>Suggest</button>
+      <button class="trust-seg active auto" title="REX auto-sends within guardrails."><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot</button>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3 ml-6">
+    <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center relative">
+      <i class="fa-solid fa-bell text-text-secondary"></i>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
+    </button>
+    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+  </div>
+</header>
+
+<main class="ml-16 mt-14 flex h-[calc(100vh-3.5rem)]">
+
+  <!-- LEFT: conversation list -->
+  <section class="w-80 shrink-0 border-r border-gray-100 bg-white/40 flex flex-col">
+    <!-- Filter pills -->
+    <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-1.5 text-xs">
+      <button class="px-2.5 py-1 rounded-full bg-primary text-white font-medium">All <span class="opacity-80">12</span></button>
+      <button class="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">Unread <span class="text-text-muted">12</span></button>
+      <button class="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">Hot <span class="text-text-muted">5</span></button>
+      <button class="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium ml-auto"><i class="fa-solid fa-filter text-[10px]"></i></button>
+    </div>
+
+    <!-- Conversation list -->
+    <ul class="flex-1 overflow-y-auto">
+      <li class="float-in d-1 conv-active px-4 py-3 cursor-pointer">
+        <div class="flex items-start gap-3">
+          <div class="relative shrink-0">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">SC</div>
+            <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success ring-2 ring-white"></div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Sarah Chen</span>
+              <span class="text-[11px] text-text-muted shrink-0">2m</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate">"Yes, I'd love to chat — Thursday after 2pm works."</p>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span class="tag-pill bg-success/10 text-success">Hot</span>
+              <span class="text-[11px] text-primary font-semibold flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i>Draft</span>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="float-in d-2 px-4 py-3 cursor-pointer hover:bg-surface/50 border-l-3 border-transparent">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">MR</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Marcus Rodriguez</span>
+              <span class="text-[11px] text-primary font-bold shrink-0">14m</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate font-medium">"Send more details on comp?"</p>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span class="tag-pill bg-warn/10 text-warn">Warm</span>
+              <span class="text-[11px] text-primary font-semibold flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i>Draft</span>
+            </div>
+          </div>
+          <div class="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0"></div>
+        </div>
+      </li>
+      <li class="float-in d-3 px-4 py-3 cursor-pointer hover:bg-surface/50">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">PP</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Priya Patel</span>
+              <span class="text-[11px] text-primary font-bold shrink-0">28m</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate font-medium">"Interested. What's the team makeup?"</p>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span class="tag-pill bg-success/10 text-success">Hot</span>
+              <span class="text-[11px] text-primary font-semibold flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i>Draft</span>
+            </div>
+          </div>
+          <div class="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0"></div>
+        </div>
+      </li>
+      <li class="float-in d-4 px-4 py-3 cursor-pointer hover:bg-surface/50">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-white text-sm font-semibold shrink-0">JW</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Jamal Williams</span>
+              <span class="text-[11px] text-text-muted shrink-0">52m</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate">"Not the right time but keep me on the list."</p>
+            <span class="tag-pill bg-surface text-text-muted mt-1.5 inline-block">Cold</span>
+          </div>
+        </div>
+      </li>
+      <li class="float-in d-5 px-4 py-3 cursor-pointer hover:bg-surface/50">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">EK</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Emily Kovacs</span>
+              <span class="text-[11px] text-primary font-bold shrink-0">2h</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate font-medium">"Are you open to a 15-min intro call?"</p>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span class="tag-pill bg-success/10 text-success">Hot</span>
+              <span class="text-[11px] text-primary font-semibold flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i>Draft</span>
+            </div>
+          </div>
+          <div class="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0"></div>
+        </div>
+      </li>
+      <li class="float-in d-6 px-4 py-3 cursor-pointer hover:bg-surface/50">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">DT</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Devin Tran</span>
+              <span class="text-[11px] text-text-muted shrink-0">4h</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate">"Thanks for the intro — taking a look now."</p>
+            <span class="tag-pill bg-warn/10 text-warn mt-1.5 inline-block">Warm</span>
+          </div>
+        </div>
+      </li>
+      <li class="px-4 py-3 cursor-pointer hover:bg-surface/50">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">AO</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-sm truncate">Aisha Okafor</span>
+              <span class="text-[11px] text-text-muted shrink-0">5h</span>
+            </div>
+            <p class="text-xs text-text-secondary truncate">"Let's set up a chat next week."</p>
+            <span class="tag-pill bg-success/10 text-success mt-1.5 inline-block">Hot</span>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- CENTER: thread -->
+  <section class="flex-1 flex flex-col min-w-0 bg-white">
+    <!-- Thread header -->
+    <div class="float-in border-b border-gray-100 px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-primary/15">SC</div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-semibold">Sarah Chen</h2>
+            <span class="tag-pill bg-success/10 text-success">● Hot</span>
+            <span class="flex items-center gap-1 text-xs text-success font-medium"><span class="live-dot"></span> online</span>
+          </div>
+          <p class="text-xs text-text-muted">Senior Backend Engineer · Stripe · Q2 Senior Engineers campaign</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center text-text-secondary"><i class="fa-solid fa-phone text-sm"></i></button>
+        <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center text-text-secondary"><i class="fa-solid fa-calendar text-sm"></i></button>
+        <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center text-text-secondary"><i class="fa-solid fa-share-nodes text-sm"></i></button>
+        <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center text-text-secondary"><i class="fa-solid fa-ellipsis text-sm"></i></button>
+      </div>
+    </div>
+
+    <!-- AUTOPILOT STRIP — per-thread trust visibility -->
+    <div class="px-6 py-2.5 bg-gradient-to-r from-success/[0.06] via-primary/[0.04] to-transparent border-b border-success/15 flex items-center gap-3 text-xs">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md grad-icon-green flex items-center justify-center text-white"><i class="fa-solid fa-rocket text-[10px]"></i></div>
+        <span class="font-semibold text-text-main">REX is autopilot for this thread</span>
+      </div>
+      <span class="text-text-muted">·</span>
+      <span class="text-text-secondary">Sarah's score is <span class="font-semibold text-success">94</span> — above your auto-send threshold of 90</span>
+      <button class="ml-auto text-text-muted hover:text-text-main font-medium"><i class="fa-solid fa-sliders text-[10px] mr-1"></i>Adjust threshold</button>
+      <button class="text-text-muted hover:text-text-main font-medium"><i class="fa-solid fa-pause text-[10px] mr-1"></i>Pause for this lead</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+      <!-- Date divider -->
+      <div class="flex items-center gap-3 text-xs text-text-muted">
+        <div class="flex-1 h-px bg-gray-100"></div>
+        <span class="font-semibold uppercase tracking-wider">Yesterday</span>
+        <div class="flex-1 h-px bg-gray-100"></div>
+      </div>
+
+      <!-- Outbound -->
+      <div class="flex gap-3 justify-end">
+        <div class="max-w-[70%]">
+          <div class="grad-icon text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-md shadow-primary/20">
+            <p class="text-sm leading-relaxed">Hi Sarah — your work on Stripe's payments infra caught my eye. We're hiring a Senior Backend Engineer at <strong>Linear</strong> to lead the new sync engine. Would you be open to a 15-min chat?</p>
+          </div>
+          <div class="text-[11px] text-text-muted mt-1 text-right flex items-center gap-1.5 justify-end">
+            <i class="fa-solid fa-paper-plane text-[10px]"></i>
+            <span>Sent · 9:14 AM · Q2 Senior Engineers</span>
+            <i class="fa-solid fa-check-double text-secondary text-[10px]" title="Read"></i>
+          </div>
+        </div>
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 shrink-0 ring-2 ring-white"></div>
+      </div>
+
+      <!-- Inbound (open event) -->
+      <div class="text-center">
+        <span class="text-[11px] text-text-muted bg-surface px-3 py-1 rounded-full inline-flex items-center gap-1.5"><i class="fa-solid fa-envelope-open text-[10px]"></i>Sarah opened your message · 10:42 AM (1st of 3 opens)</span>
+      </div>
+
+      <!-- Date divider -->
+      <div class="flex items-center gap-3 text-xs text-text-muted">
+        <div class="flex-1 h-px bg-gray-100"></div>
+        <span class="font-semibold uppercase tracking-wider">Today</span>
+        <div class="flex-1 h-px bg-gray-100"></div>
+      </div>
+
+      <!-- Inbound -->
+      <div class="flex gap-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">SC</div>
+        <div class="max-w-[70%]">
+          <div class="bg-surface rounded-2xl rounded-tl-sm px-4 py-3">
+            <p class="text-sm leading-relaxed text-text-main">Yes, I'd love to chat — Thursday after 2pm works. Do you have a calendar link, or would you rather propose a few times?</p>
+          </div>
+          <div class="text-[11px] text-text-muted mt-1 flex items-center gap-1.5">
+            <span>Sarah Chen · 1:40 PM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- REX draft (highlighted) -->
+      <div class="flex gap-3 ml-11">
+        <div class="flex-1 max-w-[80%] relative shimmer-top rounded-2xl bg-gradient-to-br from-primary/[0.06] via-secondary/[0.04] to-transparent border border-primary/15 p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white text-xs"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <span class="text-xs font-bold uppercase tracking-wider grad-text">REX drafted a reply</span>
+            <span class="ml-auto text-[11px] text-text-muted">just now</span>
+          </div>
+          <p class="text-sm text-text-main leading-relaxed">Sarah — Thursday after 2pm works perfectly. I'll send a calendar invite for <strong>2:30 PT</strong> with a Google Meet link. In the meantime, here's a 2-min overview of the team and the role: <span class="text-primary underline">linear.app/careers/senior-backend</span><br/><br/>Looking forward to it.<br/>— Brandon</p>
+          <div class="flex items-center gap-2 mt-3 pt-3 border-t border-primary/10">
+            <button class="text-xs px-3 py-1.5 rounded-lg grad-icon text-white font-semibold shadow-md shadow-primary/25"><i class="fa-solid fa-paper-plane text-[10px] mr-1"></i>Send as-is</button>
+            <button class="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-primary/30">Edit</button>
+            <button class="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-primary/30"><i class="fa-solid fa-rotate text-[10px] mr-1"></i>Regenerate</button>
+            <span class="ml-auto text-[11px] text-text-muted flex items-center gap-1"><i class="fa-solid fa-shield-check text-[10px]"></i>Tone: warm professional</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestion chips -->
+      <div class="ml-11 flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] text-text-muted font-semibold uppercase tracking-wider">Or ask REX to:</span>
+        <button class="text-xs px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Propose specific times</button>
+        <button class="text-xs px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Send the role brief</button>
+        <button class="text-xs px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in hiring manager</button>
+      </div>
+    </div>
+
+    <!-- Composer -->
+    <div class="border-t border-gray-100 px-6 py-3 bg-white/60">
+      <div class="rounded-2xl border border-gray-200 hover:border-primary/30 focus-within:border-primary/40 focus-within:shadow-md focus-within:shadow-primary/10 transition bg-white">
+        <textarea class="w-full px-4 py-3 text-sm outline-none resize-none rounded-2xl" rows="2" placeholder="Type a reply, or hit ⌘K to ask REX…"></textarea>
+        <div class="flex items-center justify-between px-3 pb-2.5">
+          <div class="flex items-center gap-1 text-text-muted">
+            <button class="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i class="fa-solid fa-paperclip text-xs"></i></button>
+            <button class="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i class="fa-solid fa-image text-xs"></i></button>
+            <button class="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i class="fa-solid fa-link text-xs"></i></button>
+            <button class="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i class="fa-solid fa-calendar text-xs"></i></button>
+            <button class="text-xs px-2 py-1 rounded hover:bg-surface text-primary font-semibold"><i class="fa-solid fa-wand-magic-sparkles text-[10px] mr-1"></i>Improve with REX</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-text-muted flex items-center gap-1"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> REX is suggesting…</span>
+            <button class="text-sm px-4 py-1.5 rounded-xl grad-icon text-white font-semibold shadow-md shadow-primary/25">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: lead context -->
+  <aside class="w-80 shrink-0 border-l border-gray-100 bg-white/40 overflow-y-auto px-5 py-5">
+    <div class="float-in d-2 text-center mb-5">
+      <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xl font-semibold ring-4 ring-primary/15 mx-auto mb-2">SC</div>
+      <h3 class="font-bold text-lg">Sarah Chen</h3>
+      <p class="text-xs text-text-muted">Senior Backend Engineer · Stripe</p>
+      <div class="flex items-center justify-center gap-2 mt-3">
+        <button class="text-xs px-3 py-1.5 rounded-lg bg-surface text-text-secondary"><i class="fa-brands fa-linkedin mr-1"></i>LinkedIn</button>
+        <button class="text-xs px-3 py-1.5 rounded-lg bg-surface text-text-secondary"><i class="fa-solid fa-envelope mr-1"></i>Email</button>
+      </div>
+    </div>
+
+    <div class="float-in d-3 bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+      <h4 class="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">REX score</h4>
+      <div class="flex items-baseline gap-2 mb-1.5">
+        <span class="text-2xl font-bold grad-text">94</span>
+        <span class="text-xs text-text-muted">/ 100</span>
+        <span class="ml-auto text-xs text-success font-semibold">Top 6%</span>
+      </div>
+      <div class="h-2 rounded-full bg-surface overflow-hidden"><div class="h-full grad-icon rounded-full" style="width:94%"></div></div>
+      <p class="text-xs text-text-muted mt-2 leading-relaxed">7yr senior backend at Stripe · payments infra · Go + Rust · open to remote · responded within 4h on first touch.</p>
+    </div>
+
+    <div class="float-in d-4 bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+      <h4 class="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Engagement</h4>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between"><span class="text-text-secondary"><i class="fa-solid fa-envelope-open w-4 text-text-muted"></i> Opens</span><span class="font-semibold">3</span></div>
+        <div class="flex items-center justify-between"><span class="text-text-secondary"><i class="fa-solid fa-link w-4 text-text-muted"></i> Clicks</span><span class="font-semibold">1</span></div>
+        <div class="flex items-center justify-between"><span class="text-text-secondary"><i class="fa-solid fa-comment-dots w-4 text-text-muted"></i> Replies</span><span class="font-semibold text-success">1</span></div>
+        <div class="flex items-center justify-between"><span class="text-text-secondary"><i class="fa-solid fa-clock w-4 text-text-muted"></i> Avg response</span><span class="font-semibold">4h 12m</span></div>
+      </div>
+    </div>
+
+    <div class="float-in d-5 bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+      <h4 class="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">Tags</h4>
+      <div class="flex flex-wrap gap-1.5">
+        <span class="tag-pill bg-purple-100 text-purple-700">Engineering</span>
+        <span class="tag-pill bg-amber-100 text-amber-700">Senior</span>
+        <span class="tag-pill bg-emerald-100 text-emerald-700">Remote-OK</span>
+        <button class="tag-pill bg-surface text-text-muted hover:bg-gray-200"><i class="fa-solid fa-plus text-[10px]"></i></button>
+      </div>
+    </div>
+
+    <div class="float-in d-6 bg-gradient-to-br from-primary/[0.06] via-secondary/[0.04] to-transparent border border-primary/15 rounded-2xl p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-xs"></i>
+        <h4 class="text-xs font-bold uppercase tracking-wider grad-text">REX suggests</h4>
+      </div>
+      <ul class="space-y-2 text-xs text-text-secondary">
+        <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success mt-0.5"></i><span>Send the calendar invite for Thursday 2:30 PT</span></li>
+        <li class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-success mt-0.5"></i><span>Loop in @hiring-manager (Linear backend lead)</span></li>
+        <li class="flex items-start gap-2"><i class="fa-regular fa-circle text-text-muted mt-0.5"></i><span>Find 3 more candidates like Sarah</span></li>
+      </ul>
+    </div>
+  </aside>
+
+</main>
+
+<!-- Variant switcher -->
+<div class="fixed top-3 right-6 z-50 hidden xl:flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm text-xs">
+  <span class="text-text-muted px-2">Mockups</span>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="cockpit.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Cockpit</a>
+  <a href="agent.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Agent</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v2</a>
+  <a href="apps.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Apps</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="messages.html" class="px-2 py-0.5 rounded-full bg-primary text-white font-medium">Messages</a>
+  <a href="campaigns.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Campaigns</a>
+  <a href="settings.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Settings</a>
+  <a href="design-system.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">System</a>
+</div>
+
+</body>
+</html>

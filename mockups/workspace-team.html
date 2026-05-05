@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Apex Recruiting (team workspace)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444',
+      team: '#10B981', 'team-2': '#0D9488', 'team-deep': '#047857',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  /* ===== TEAM COLOR TOKENS ===== */
+  :root {
+    --team-1: #10B981;
+    --team-2: #0D9488;
+    --team-deep: #047857;
+    --team-soft: rgba(16,185,129,.06);
+    --team-tint: rgba(16,185,129,.025);
+  }
+
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; min-height: 100vh; }
+  body::before { content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(28% 24% at 18% 12%, var(--team-soft), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%); }
+  body.autopilot::after { content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size: 200% 100%; animation: shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}.d-7{animation-delay:.28s}.d-8{animation-delay:.32s}.d-9{animation-delay:.36s}.d-10{animation-delay:.4s}.d-11{animation-delay:.44s}.d-12{animation-delay:.48s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--team-1) 35%,var(--team-2) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-team{background:linear-gradient(135deg,var(--team-1),var(--team-2));}
+  .grad-success{background:linear-gradient(135deg,#10B981,#0C5CF4);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .grad-text-team{background:linear-gradient(135deg,var(--team-1),var(--team-2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+  /* Per-agent gradients reused */
+  .grad-sourcer{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .grad-recruiter{background:linear-gradient(135deg,#10B981,#14B8A6);}
+  .grad-coordinator{background:linear-gradient(135deg,#8B5CF6,#EC4899);}
+
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+
+  /* ===== TEAM-TINTED RAIL ===== */
+  .rail-team { background: linear-gradient(180deg, var(--team-tint) 0%, rgba(255,255,255,.72) 60%); border-right-color: rgba(16,185,129,.1); }
+
+  /* Team active nav item — uses team color */
+  .channel-active-team{background:rgba(16,185,129,.12);color:var(--team-deep);font-weight:600;}
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .2s;}
+  .trust-badge:hover{transform:translateY(-1px);}
+
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;display:flex;align-items:center;justify-content:center;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+
+  /* ===== ADMIN PILL ===== */
+  .admin-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:10px;font-weight:700;letter-spacing:.04em;color:white;background:linear-gradient(135deg,#475569,#1E293B);}
+
+  /* ===== MINE/TEAM TOGGLE ===== */
+  .scope-toggle{display:inline-flex;align-items:center;background:#F4F4F8;border:1px solid #E5E7EB;border-radius:9999px;padding:2px;gap:1px;font-size:11px;}
+  .scope-seg{padding:5px 11px;border-radius:9999px;font-weight:600;color:#8E8EA0;cursor:pointer;}
+  .scope-seg.active{background:linear-gradient(135deg,var(--team-1),var(--team-2));color:white;box-shadow:0 4px 12px -4px rgba(16,185,129,.4);}
+  .scope-seg.active.mine{background:white;color:#1A1A2E;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-solid:hover{transform:translateY(-1px);}
+
+  .btn-team{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,var(--team-1),var(--team-2));box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-team:hover{transform:translateY(-1px);}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-team{background:rgba(16,185,129,.1);color:#047857;}
+  .tag-mine{background:#F4F4F8;color:#4A4A68;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+
+  /* Workspace overview cards */
+  .ws-card{background:white;border:1px solid #ECECEC;border-radius:16px;padding:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1),box-shadow .25s,border-color .25s;cursor:pointer;display:flex;flex-direction:column;gap:10px;height:100%;}
+  .ws-card:hover{transform:translateY(-2px);box-shadow:0 12px 24px -10px rgba(26,26,46,.10);border-color:rgba(16,185,129,.25);}
+  .ws-card .card-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;box-shadow:0 4px 10px -3px rgba(26,26,46,.15);}
+
+  .stat-big{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;}
+  .stat-sub{font-size:11.5px;color:#8E8EA0;}
+  .ws-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;margin-top:auto;border-top:1px solid #F4F4F8;font-size:11.5px;}
+
+  /* Decision strip */
+  .decision-strip{background:linear-gradient(90deg, rgba(245,158,11,.1), rgba(245,158,11,.02) 70%);border:1px solid rgba(245,158,11,.2);border-left:3px solid #F59E0B;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;}
+
+  /* REX briefing bubble */
+  .rex-bubble{background:#F4F4F8;border:1px solid #ECECEC;border-radius:14px;padding:16px 18px;}
+
+  /* REX FAB */
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1);}
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+
+  /* Activity row */
+  .activity-row{display:flex;align-items:center;gap:12px;padding:9px 0;}
+  .activity-row + .activity-row{border-top:1px solid #F4F4F8;}
+
+  /* online dot on avatar */
+  .av-online{position:relative;}
+  .av-online::after{content:'';position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:9999px;background:#10B981;border:2px solid white;}
+
+  /* avatar stack */
+  .avatar-stack > * + *{margin-left:-6px;}
+  .stacked-avatar{width:22px;height:22px;border-radius:9999px;border:2px solid white;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:600;}
+
+  /* tooltip-ish small label */
+  .ws-switcher-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:-22px;padding:2px 7px;border-radius:5px;background:rgba(15,15,26,.92);color:white;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;}
+  .ws-switcher:hover .ws-switcher-hint{opacity:1;}
+
+  /* sparkline */
+  .spark{height:24px;width:100%;}
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex min-h-screen relative z-10">
+
+  <!-- ============ TEAM-TINTED SIDEBAR ============ -->
+  <aside class="w-[228px] shrink-0 glass rail-team border-r flex flex-col h-screen sticky top-0">
+
+    <!-- Workspace header (with switcher hint) -->
+    <div class="px-3.5 py-3 border-b border-gray-100 ws-switcher relative cursor-pointer hover:bg-white/40 transition">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg grad-team flex items-center justify-center text-white font-bold text-[11px] shadow-md" style="box-shadow:0 4px 12px -3px rgba(16,185,129,.4);">AR</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[12.5px] font-semibold truncate flex items-center gap-1">Apex Recruiting <i class="fa-solid fa-chevron-down text-[8px] text-text-muted"></i></div>
+          <div class="text-[10.5px] text-text-muted">4 members · Pro Team</div>
+        </div>
+      </div>
+      <span class="ws-switcher-hint">Switch workspace · ⌘W</span>
+    </div>
+
+    <!-- Search -->
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-white/60 rounded-lg px-2.5 py-1.5 text-xs text-text-muted">
+        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+        <span class="flex-1">Jump to anything</span>
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace-team.html" class="channel-active-team flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-sun w-4 text-[11px]"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-team-deep">5</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">3</span></a></li>
+          <li><a href="team.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-users-gear w-4 text-[11px] text-text-muted"></i><span class="flex-1">Team</span><span class="text-[10px] font-bold text-team-deep">3</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace · shared</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">8,402</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">12</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted"></i><span class="flex-1">Campaigns</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-team-deep">38</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$847k</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-chart-line w-4 text-[11px] text-text-muted"></i><span class="flex-1">Reports</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/50 text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span></a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer with admin badge -->
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12px] font-semibold truncate flex items-center gap-1.5">Brandon <span class="admin-pill !text-[8.5px] !py-0.5 !px-1.5"><i class="fa-solid fa-shield-halved text-[7px]"></i>Admin</span></div>
+      </div>
+      <button class="w-6 h-6 rounded hover:bg-white/50 flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0">
+
+    <!-- HEADER -->
+    <header class="border-b border-gray-100 px-8 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-sun text-warn text-xs"></i>Today</div>
+        <div class="text-[10.5px] text-text-muted">Saturday, May 3 · Apex Recruiting</div>
+      </div>
+
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+        <span>3 agents working <span class="font-semibold text-text-main">team-wide</span></span>
+        <span class="text-text-muted">·</span>
+        <span class="text-warn font-bold">3 awaiting</span>
+      </div>
+
+      <div class="ml-auto flex items-center gap-3">
+        <!-- Online team avatar cluster -->
+        <div class="hidden md:flex items-center gap-2">
+          <span class="text-[10.5px] text-text-muted font-semibold">4 online</span>
+          <div class="avatar-stack flex">
+            <div class="stacked-avatar bg-gradient-to-br from-purple-400 to-blue-400 av-online" title="Brandon (you)">B</div>
+            <div class="stacked-avatar bg-gradient-to-br from-rose-400 to-pink-600 av-online" title="Sarah Mitchell">SM</div>
+            <div class="stacked-avatar bg-gradient-to-br from-amber-400 to-orange-500 av-online" title="James Park">JP</div>
+            <div class="stacked-avatar bg-gradient-to-br from-cyan-400 to-blue-500 av-online" title="Aaliyah Thomas">AT</div>
+          </div>
+        </div>
+
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+
+        <div class="flex items-center gap-1.5">
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+          <span class="admin-pill"><i class="fa-solid fa-shield-halved text-[8px]"></i>Admin</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="px-8 py-7 space-y-7 max-w-[1400px] mx-auto">
+
+      <!-- Team-aware hero -->
+      <section class="float-in flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <div class="text-[11px] font-bold uppercase tracking-[0.2em] grad-text-team mb-1.5"><i class="fa-solid fa-people-roof text-[10px] mr-1"></i>Apex Recruiting</div>
+          <h1 class="text-[32px] font-extrabold tracking-tight">Good afternoon, Brandon.</h1>
+          <p class="text-text-secondary text-[14.5px] mt-1.5">4 teammates working today · 3 AI agents · <strong>5 goals</strong> running across the team</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="ghost-btn"><i class="fa-solid fa-people-arrows text-[11px]"></i>Invite teammates</button>
+          <button class="ghost-btn"><i class="fa-solid fa-clock-rotate-left text-[11px]"></i>Activity</button>
+        </div>
+      </section>
+
+      <!-- ===== REX team briefing ===== -->
+      <section class="float-in d-1">
+        <article class="flex gap-3">
+          <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white shrink-0 mt-1 shadow-md shadow-primary/30"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2 mb-2">
+              <span class="font-semibold text-[14px]">REX</span>
+              <span class="tag tag-primary">Team briefing</span>
+              <span class="text-[11px] text-text-muted">7:00 AM · for the whole team</span>
+            </div>
+            <div class="rex-bubble">
+              <p class="text-[15px] leading-relaxed mb-3">Good morning, Apex. Here's where the team stands:</p>
+              <ul class="text-[14.5px] leading-relaxed space-y-1.5 text-text-secondary">
+                <li class="flex gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">142 sent</strong> overnight across the team — <strong>Brandon's Q2 Engineers</strong> drove most of it; <strong>James's Sales SDR sourcing</strong> added 38</span></li>
+                <li class="flex gap-2"><i class="fa-solid fa-circle-check text-success text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">8 hot replies</strong> waiting — Recruiter has drafts ready; Coordinator has 3 invites queued</span></li>
+                <li class="flex gap-2"><i class="fa-solid fa-circle-question text-warn text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-text-main">3 decisions pending</strong> — 1 yours (Marcus comp), 1 Sarah's (Linear submittal), 1 James's (BD outreach approval)</span></li>
+                <li class="flex gap-2"><i class="fa-solid fa-rocket text-primary text-[10px] mt-1.5 shrink-0"></i><span><strong class="text-team-deep">$847k team pipeline</strong> · $284k commit · 3 closing this month</span></li>
+              </ul>
+              <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-200/60">
+                <button class="btn-team"><i class="fa-solid fa-bolt text-[10px]"></i>Open team decisions</button>
+                <button class="ghost-btn">Show team standup</button>
+                <button class="ghost-btn">Just my work →</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Decision strip — assigned to me -->
+      <div class="decision-strip float-in d-2">
+        <i class="fa-solid fa-circle-question text-warn"></i>
+        <div class="flex-1 text-[13px]">
+          <span class="font-semibold text-text-main">Assigned to you</span>
+          <span class="text-text-secondary">· Marcus Rodriguez (Linear) — comp answer · drafted 12:14 PM by Recruiter</span>
+        </div>
+        <button class="btn-solid"><i class="fa-solid fa-arrow-right text-[10px]"></i>Review</button>
+      </div>
+
+      <!-- ===== WORKSPACE OVERVIEW with Mine/Team toggle ===== -->
+      <section>
+        <div class="float-in d-3 flex items-end justify-between mb-4 flex-wrap gap-3">
+          <div>
+            <h2 class="text-[20px] font-bold tracking-tight">Apex Recruiting workspace</h2>
+            <p class="text-text-muted text-[13px] mt-0.5">Sourcing · ATS · CRM · outreach · reporting — shared across the team.</p>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <span class="text-[10.5px] uppercase tracking-wider font-bold text-text-muted">View</span>
+            <div class="scope-toggle">
+              <span class="scope-seg" title="Just your data">Mine</span>
+              <span class="scope-seg active" title="Whole team">Team</span>
+            </div>
+            <span class="admin-pill" title="Admin sees all team data regardless of toggle"><i class="fa-solid fa-shield-halved text-[8px]"></i>Admin override</span>
+          </div>
+        </div>
+
+        <!-- Card grid — TEAM aggregates with my-share callouts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+
+          <!-- LEADS (shared pool) -->
+          <a href="leads.html" class="ws-card float-in d-4">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-team"><i class="fa-solid fa-database"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold flex items-center gap-1.5">Leads <span class="tag tag-team">Shared pool</span></div>
+                <div class="text-[10.5px] text-text-muted">Database · all teammates</div>
+              </div>
+            </div>
+            <div>
+              <div class="stat-big">8,402</div>
+              <div class="stat-sub mt-1">2,184 active · <span class="text-warn font-semibold">42 hot</span> · <span class="text-text-secondary">235 yours</span></div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="avatar-stack flex">
+                <div class="stacked-avatar bg-gradient-to-br from-purple-400 to-blue-400">B</div>
+                <div class="stacked-avatar bg-gradient-to-br from-rose-400 to-pink-600">SM</div>
+                <div class="stacked-avatar bg-gradient-to-br from-amber-400 to-orange-500">JP</div>
+                <div class="stacked-avatar bg-gradient-to-br from-cyan-400 to-blue-500">AT</div>
+              </div>
+              <span class="text-[10.5px] text-text-muted">contributing</span>
+            </div>
+            <div class="ws-footer">
+              <span class="font-semibold text-team-deep">42 hot leads waiting</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- PIPELINES (collaborator-aware) -->
+          <a href="pipelines.html" class="ws-card float-in d-5">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon" style="background:linear-gradient(135deg,#F59E0B,#EC4899)"><i class="fa-solid fa-table-columns"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold">Pipelines</div>
+                <div class="text-[10.5px] text-text-muted">12 open reqs · per-job collaborators</div>
+              </div>
+              <span class="tag tag-warn">3 due Fri</span>
+            </div>
+            <div>
+              <div class="stat-big">12 <span class="text-[13px] text-text-muted font-medium">open reqs</span></div>
+              <div class="stat-sub mt-1">147 candidates in flight · <span class="text-text-secondary">5 yours</span></div>
+            </div>
+            <div class="flex gap-1">
+              <div class="flex-1 h-1.5 rounded-full bg-text-muted/20"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-secondary"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-warn"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-success"></div>
+              <div class="flex-1 h-1.5 rounded-full bg-text-muted/20"></div>
+            </div>
+            <div class="ws-footer">
+              <span class="font-semibold text-text-secondary">Senior Backend · Linear</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- DEALS (shared kanban) -->
+          <a href="deals.html" class="ws-card float-in d-6">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon grad-team"><i class="fa-solid fa-handshake"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold flex items-center gap-1.5">Deals <span class="tag tag-team">Shared</span></div>
+                <div class="text-[10.5px] text-text-muted">CRM · team pipeline</div>
+              </div>
+              <span class="tag tag-success">5 closing</span>
+            </div>
+            <div>
+              <div class="stat-big text-success">$847k</div>
+              <div class="stat-sub mt-1">$284k commit · <span class="text-text-secondary">$92k yours</span></div>
+            </div>
+            <svg viewBox="0 0 200 24" class="spark"><path d="M0,20 L40,18 L80,12 L120,14 L160,8 L200,4" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="ws-footer">
+              <span class="font-semibold text-success">Sarah's Linear retainer · $84k</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+
+          <!-- REPORTS (per-user opt-in) -->
+          <a href="#" class="ws-card float-in d-7">
+            <div class="flex items-start gap-2.5">
+              <div class="card-icon" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6)"><i class="fa-solid fa-chart-line"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold flex items-center gap-1.5">Reports <span class="tag tag-mine">Mixed</span></div>
+                <div class="text-[10.5px] text-text-muted">3 of 4 sharing numbers</div>
+              </div>
+            </div>
+            <div>
+              <div class="stat-big">This week</div>
+              <div class="stat-sub mt-1">Reply rate <span class="text-success font-semibold">↑ 6.2%</span> · Sent <span class="text-success font-semibold">↑ 18%</span></div>
+            </div>
+            <svg viewBox="0 0 200 24" class="spark"><path d="M0,16 L25,18 L50,12 L75,14 L100,8 L125,10 L150,6 L175,8 L200,2" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="ws-footer">
+              <span class="text-text-muted">Aaliyah hasn't shared yet</span>
+              <span class="text-text-muted">→</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Per-teammate snapshot -->
+        <div class="float-in d-7 bg-white border border-gray-100 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[13px] font-bold tracking-tight">Today's snapshot · by teammate</h3>
+            <button class="text-[11.5px] text-text-muted hover:text-team-deep">View team report →</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-[12px]">
+            <div class="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface/40">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white text-[10px] font-semibold av-online">B</div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold flex items-center gap-1">Brandon <span class="admin-pill !text-[8px] !py-px !px-1">A</span></div>
+                <div class="text-[10.5px] text-text-muted">2 goals · 1 decision waiting</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface/40">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-[10px] font-semibold av-online">SM</div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold">Sarah Mitchell</div>
+                <div class="text-[10.5px] text-text-muted">3 submittals sent · 1 decision</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface/40">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[10px] font-semibold av-online">JP</div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold">James Park</div>
+                <div class="text-[10.5px] text-text-muted">38 leads sourced · 1 decision</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface/40">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-[10px] font-semibold av-online">AT</div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold flex items-center gap-1">Aaliyah Thomas <i class="fa-solid fa-eye-slash text-text-muted text-[8px]" title="Numbers private"></i></div>
+                <div class="text-[10.5px] text-text-muted">Numbers private · admin can view</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TEAM ACTIVITY (humans + agents mixed) ============ -->
+      <section>
+        <div class="float-in d-8 flex items-end justify-between mb-3">
+          <h2 class="text-[15px] font-bold tracking-tight">Team activity · today</h2>
+          <button class="ghost-btn">View all →</button>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 float-in d-9">
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white text-[10px] font-semibold">B</div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">8:14 AM</span>
+            <span class="text-[13px] flex-1"><strong>Brandon</strong> kicked off "Scale Q2 Engineers" goal · delegated to Sourcer + Recruiter</span>
+            <span class="text-[10.5px] text-text-muted">Goals</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-[10px] font-semibold">SM</div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">9:32 AM</span>
+            <span class="text-[13px] flex-1"><strong>Sarah Mitchell</strong> submitted <strong>Aisha Okafor</strong> (Replit · Eng Mgr) to Linear · waiting on hiring manager</span>
+            <span class="tag tag-success">Sent</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md grad-sourcer flex items-center justify-center text-white text-[10px]"><i class="fa-solid fa-crosshairs"></i></div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">10:14 AM</span>
+            <span class="text-[13px] flex-1"><strong>Sourcer</strong> enriched 247 candidates · avg score 84 · 2 caught on team blocklist</span>
+            <span class="text-[10.5px] text-text-muted">Q2 Engineers · Brandon</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[10px] font-semibold">JP</div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">10:48 AM</span>
+            <span class="text-[13px] flex-1"><strong>James Park</strong> imported 38 SDR leads via CSV → started "Sales SDR sourcing" goal</span>
+            <span class="tag tag-team">Imported</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md grad-recruiter flex items-center justify-center text-white text-[10px]"><i class="fa-solid fa-user-tie"></i></div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">11:36 AM</span>
+            <span class="text-[13px] flex-1"><strong>Recruiter</strong> auto-sent calendar invite to <strong>Sarah Chen</strong> (Stripe · score 94) for Thu 2:30 PT</span>
+            <span class="text-[10.5px] text-text-muted">shared inbox · Brandon</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-[10px] font-semibold">SM</div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">12:14 PM</span>
+            <span class="text-[13px] flex-1"><strong>Sarah Mitchell</strong> drafted submittal for <strong>Linear retainer</strong> · awaiting team review</span>
+            <span class="tag tag-warn">Awaiting review</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md grad-recruiter flex items-center justify-center text-white text-[10px]"><i class="fa-solid fa-user-tie"></i></div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">12:14 PM</span>
+            <span class="text-[13px] flex-1"><strong>Recruiter</strong> drafted comp answer for Marcus Rodriguez · held for <strong>Brandon</strong></span>
+            <span class="tag tag-warn">Awaiting Brandon</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md grad-coordinator flex items-center justify-center text-white text-[10px]"><i class="fa-solid fa-calendar-check"></i></div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">12:48 PM</span>
+            <span class="text-[13px] flex-1"><strong>Coordinator</strong> booked phone screen for Sarah Chen on Thu 2:30 PT · invite + 24h reminder</span>
+            <span class="text-[10.5px] text-text-muted">team-wide</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-[10px] font-semibold">AT</div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">1:22 PM</span>
+            <span class="text-[13px] flex-1"><strong>Aaliyah Thomas</strong> moved 4 candidates through phone-screen → interview on <strong>Stripe Senior Backend</strong></span>
+            <span class="tag tag-success">4 advanced</span>
+          </div>
+
+          <div class="activity-row">
+            <div class="w-7 h-7 rounded-md grad-sourcer flex items-center justify-center text-white text-[10px]"><i class="fa-solid fa-crosshairs"></i></div>
+            <span class="text-[11px] text-text-muted shrink-0 w-16">1:42 PM</span>
+            <span class="text-[13px] flex-1"><strong>Sourcer</strong> drafting personalized variants for 142 leads · 102/142 · 72%</span>
+            <span class="tag tag-primary">Running</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TEAM IDENTITY FOOTER ============ -->
+      <section class="float-in d-12 bg-gradient-to-r from-team/[0.04] via-team-2/[0.03] to-transparent border border-team/15 rounded-2xl p-5 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl grad-team flex items-center justify-center text-white font-bold text-[15px] shadow-lg" style="box-shadow:0 8px 20px -6px rgba(16,185,129,.4);">AR</div>
+        <div class="flex-1">
+          <h3 class="font-bold text-[15px]">Apex Recruiting</h3>
+          <p class="text-[12.5px] text-text-muted">Pro Team · 4 members · founded May 2025 · workspace color: Emerald</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="ghost-btn"><i class="fa-solid fa-palette text-[11px]"></i>Change color</button>
+          <button class="ghost-btn"><i class="fa-solid fa-pen text-[11px]"></i>Rename</button>
+          <button class="btn-team"><i class="fa-solid fa-user-plus text-[10px]"></i>Invite teammate</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1 glass border border-gray-200 rounded-full px-2 py-1 shadow-lg text-xs">
+  <a href="workspace.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Solo Today</a>
+  <a href="workspace-team.html" class="px-2.5 py-0.5 rounded-full grad-team text-white font-semibold">Team Today ★</a>
+  <a href="team.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Team (agents)</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="pipelines.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Pipelines</a>
+  <a href="deals.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Deals</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="index.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface"><i class="fa-solid fa-grip text-[10px]"></i></a>
+</div>
+
+</body>
+</html>

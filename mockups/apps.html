@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Apps</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        primary: '#6B46C1', 'primary-hover': '#553C9A', secondary: '#0C5CF4',
+        surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+        'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+        success: '#10B981', warn: '#F59E0B', danger: '#EF4444', accent: '#EC4899',
+      },
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+    }}
+  };
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+  @keyframes float-in { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: translateY(0);} }
+  .float-in { animation: float-in .55s cubic-bezier(0.4,0,0.2,1) both; }
+  .d-1{animation-delay:.05s}.d-2{animation-delay:.1s}.d-3{animation-delay:.15s}.d-4{animation-delay:.2s}.d-5{animation-delay:.25s}.d-6{animation-delay:.3s}.d-7{animation-delay:.35s}.d-8{animation-delay:.4s}.d-9{animation-delay:.45s}.d-10{animation-delay:.5s}.d-11{animation-delay:.55s}.d-12{animation-delay:.6s}.d-13{animation-delay:.65s}.d-14{animation-delay:.7s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.55;transform:scale(1.4);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);
+    background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+  .card-hover{transition:transform .3s cubic-bezier(0.4,0,0.2,1),box-shadow .3s cubic-bezier(0.4,0,0.2,1),border-color .3s;}
+  .card-hover:hover{transform:translateY(-3px);box-shadow:0 16px 32px -10px rgba(26,26,46,.14);border-color:rgba(107,70,193,.25);}
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-icon-soft{background:linear-gradient(135deg,rgba(107,70,193,.12),rgba(12,92,244,.12));}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:8px;height:8px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-5px;border-radius:9999px;background:#10B981;opacity:.35;animation:pulse-soft 2s ease-in-out infinite;}
+  .nav-active{background:linear-gradient(135deg,rgba(107,70,193,.12),rgba(12,92,244,.10));color:#6B46C1;}
+  .nav-active i{color:#6B46C1;}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .glass{background:rgba(255,255,255,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  .rex-bar{box-shadow:0 12px 32px -8px rgba(26,26,46,.18);}
+  /* category color variants */
+  .cat-recruit{background:linear-gradient(135deg,rgba(107,70,193,.10),rgba(107,70,193,.02));}
+  .cat-sales{background:linear-gradient(135deg,rgba(16,185,129,.10),rgba(16,185,129,.02));}
+  .cat-source{background:linear-gradient(135deg,rgba(12,92,244,.10),rgba(12,92,244,.02));}
+  .cat-data{background:linear-gradient(135deg,rgba(245,158,11,.10),rgba(245,158,11,.02));}
+  .cat-auto{background:linear-gradient(135deg,rgba(236,72,153,.10),rgba(236,72,153,.02));}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 bottom-0 w-16 bg-white border-r border-gray-100 flex flex-col items-center py-4 z-30">
+  <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white font-bold mb-6 shadow-md shadow-primary/30">HP</div>
+  <nav class="flex-1 flex flex-col gap-1">
+    <a href="v2-rebuilt.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Dashboard"><i class="fa-solid fa-house"></i></a>
+    <a href="apps.html" class="w-10 h-10 rounded-lg flex items-center justify-center nav-active" title="Apps"><i class="fa-solid fa-grip"></i></a>
+    <a href="campaigns.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Campaigns"><i class="fa-solid fa-paper-plane"></i></a>
+    <a href="messages.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Messages"><i class="fa-solid fa-envelope"></i></a>
+    <a href="leads.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Leads"><i class="fa-solid fa-users"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-chart-line"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-wand-magic-sparkles"></i></a>
+  </nav>
+  <a href="settings.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-gear"></i></a>
+  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 mt-4 ring-2 ring-white shadow"></div>
+</aside>
+
+<!-- Topbar -->
+<header class="fixed top-0 left-16 right-0 h-14 glass border-b border-gray-100 flex items-center px-6 z-20">
+  <div class="flex-1">
+    <h1 class="text-[15px] font-semibold">Apps</h1>
+    <p class="text-xs text-text-muted">Customize your workspace</p>
+  </div>
+  <div class="flex-1 max-w-md mx-auto">
+    <div class="flex items-center gap-2 bg-surface rounded-xl px-3 py-2 text-sm text-text-muted">
+      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+      <span>Search apps…</span>
+      <span class="ml-auto text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono">⌘K</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center relative">
+      <i class="fa-solid fa-bell text-text-secondary"></i>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
+    </button>
+    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+  </div>
+</header>
+
+<main class="ml-16 mt-14 px-8 py-6 pb-32">
+
+  <!-- Header strip -->
+  <div class="float-in flex items-end justify-between mb-7">
+    <div>
+      <h2 class="text-3xl font-bold tracking-tight">Your apps</h2>
+      <p class="text-text-muted mt-1">Toggle apps on or off — they'll appear in your sidebar.</p>
+    </div>
+    <div class="flex items-center gap-2 text-sm">
+      <span class="px-3 py-1.5 rounded-full bg-primary/10 text-primary font-semibold text-xs">
+        <i class="fa-solid fa-circle-check mr-1"></i> 11 apps active
+      </span>
+      <button class="px-4 py-2 rounded-xl grad-icon text-white text-sm font-semibold shadow-md shadow-primary/25 hover:opacity-95">
+        <i class="fa-solid fa-plus text-xs mr-1.5"></i>Add custom app
+      </button>
+    </div>
+  </div>
+
+  <!-- Featured / hero strip -->
+  <section class="float-in d-1 relative bg-white border border-gray-100 rounded-3xl p-6 shadow-sm shimmer-top mb-8 overflow-hidden">
+    <div class="absolute -top-12 -right-12 w-64 h-64 rounded-full grad-icon opacity-10 blur-3xl"></div>
+    <div class="relative flex items-start gap-5">
+      <div class="w-14 h-14 rounded-2xl grad-icon flex items-center justify-center text-white shadow-lg shadow-primary/30 shrink-0">
+        <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+      </div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-xs font-bold uppercase tracking-wider grad-text">New</span>
+          <span class="text-xs text-text-muted">· just shipped</span>
+        </div>
+        <h3 class="text-xl font-bold tracking-tight mb-1">REX Workflows</h3>
+        <p class="text-text-secondary leading-relaxed max-w-2xl">Chain together actions across leads, campaigns, and pipeline stages. Trigger REX to draft replies, move deals, or schedule outreach automatically.</p>
+        <div class="flex items-center gap-2 mt-4">
+          <button class="text-sm px-4 py-2 rounded-full grad-icon text-white font-medium shadow-md shadow-primary/25">Enable REX Workflows</button>
+          <button class="text-sm px-4 py-2 rounded-full bg-surface text-text-main font-medium hover:bg-gray-200">Watch 60-sec demo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recently used row -->
+  <section class="mb-10">
+    <div class="float-in d-2 flex items-center justify-between mb-3">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Recently used</h3>
+      <button class="text-xs text-primary font-semibold hover:underline">Customize order</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <a href="leads.html" class="float-in d-3 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group">
+        <div class="w-12 h-12 rounded-2xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25 mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-users"></i></div>
+        <div class="text-sm font-semibold">Leads</div>
+        <div class="text-[11px] text-text-muted">2 min ago</div>
+      </a>
+      <a href="messages.html" class="float-in d-4 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group relative">
+        <span class="absolute top-2 right-2 text-[10px] font-bold bg-danger text-white rounded-full px-1.5">12</span>
+        <div class="w-12 h-12 rounded-2xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25 mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-envelope"></i></div>
+        <div class="text-sm font-semibold">Messages</div>
+        <div class="text-[11px] text-text-muted">8 min ago</div>
+      </a>
+      <a href="campaigns.html" class="float-in d-5 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group">
+        <div class="w-12 h-12 rounded-2xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25 mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-paper-plane"></i></div>
+        <div class="text-sm font-semibold flex items-center gap-1">Campaigns <span class="live-dot"></span></div>
+        <div class="text-[11px] text-text-muted">Sending now</div>
+      </a>
+      <a href="#" class="float-in d-6 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-md mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-handshake"></i></div>
+        <div class="text-sm font-semibold">Deals</div>
+        <div class="text-[11px] text-text-muted">1 hour ago</div>
+      </a>
+      <a href="#" class="float-in d-7 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-table-columns"></i></div>
+        <div class="text-sm font-semibold">Pipeline</div>
+        <div class="text-[11px] text-text-muted">Yesterday</div>
+      </a>
+      <a href="#" class="float-in d-8 card-hover bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center text-center group">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-white shadow-md mb-2 group-hover:scale-110 transition-transform"><i class="fa-solid fa-crosshairs"></i></div>
+        <div class="text-sm font-semibold">Sniper</div>
+        <div class="text-[11px] text-text-muted">2 days ago</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Categories -->
+  <section class="mb-8">
+    <div class="float-in d-3 flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Recruiting</h3>
+      <span class="text-xs text-text-muted">5 apps</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Campaigns -->
+      <div class="float-in d-4 card-hover cat-recruit border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-paper-plane"></i></div>
+          <div class="relative inline-flex items-center cursor-pointer">
+            <div class="w-10 h-6 bg-primary rounded-full"></div>
+            <div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div>
+          </div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Campaigns</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Multi-step outreach sequences with REX-drafted variants.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span class="flex items-center gap-1"><span class="live-dot"></span> 3 sending</span>
+          <span>·</span>
+          <span>49 replies today</span>
+        </div>
+      </div>
+      <!-- Leads -->
+      <div class="float-in d-5 card-hover cat-recruit border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-users"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-primary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Leads</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Your candidate database with bulk enrichment & tagging.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>847 active</span><span>·</span><span class="text-warn font-semibold">12 hot</span>
+        </div>
+      </div>
+      <!-- Messages -->
+      <div class="float-in d-6 card-hover cat-recruit border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-envelope"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-primary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Messages</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Unified inbox across email, LinkedIn, and SMS.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span class="text-danger font-semibold">12 unread</span><span>·</span><span>8 REX drafts ready</span>
+        </div>
+      </div>
+      <!-- Jobs -->
+      <div class="float-in d-7 card-hover cat-recruit border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-briefcase"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-primary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Jobs</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Requisitions, public job pages, and applicant tracking.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>14 open reqs</span><span>·</span><span class="text-warn">2 due Friday</span>
+        </div>
+      </div>
+      <!-- Candidates -->
+      <div class="float-in d-8 card-hover cat-recruit border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-user-tie"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-primary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Candidates</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Pipeline view of who's progressing through hiring stages.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>62 in pipeline</span><span>·</span><span class="text-success">9 in offer</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sales -->
+  <section class="mb-8">
+    <div class="float-in d-5 flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Sales</h3>
+      <span class="text-xs text-text-muted">3 apps</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="float-in d-6 card-hover cat-sales border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-handshake"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-success rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Deals</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Sales opportunities, MRR tracking, and stage automation.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>$284k pipeline</span><span>·</span><span class="text-success">$92k commit</span>
+        </div>
+      </div>
+      <div class="float-in d-7 card-hover cat-sales border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-table-columns"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-success rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Pipeline (Kanban)</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Drag-drop boards for hiring stages or sales workflows.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>4 boards</span><span>·</span><span>156 cards</span>
+        </div>
+      </div>
+      <div class="float-in d-8 card-hover cat-sales border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-list-check"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-success rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Tasks</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Follow-ups, reminders, and team task assignment.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span class="text-warn font-semibold">7 due today</span><span>·</span><span>3 overdue</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sourcing -->
+  <section class="mb-8">
+    <div class="float-in d-7 flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Sourcing &amp; Automation</h3>
+      <span class="text-xs text-text-muted">3 apps</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="float-in d-8 card-hover cat-source border border-gray-100 rounded-2xl p-5 cursor-pointer relative shimmer-top">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-secondary flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-crosshairs"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-secondary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <div class="flex items-center gap-2 mb-1">
+          <h4 class="font-semibold text-[15px]">Sniper</h4>
+          <span class="text-[10px] font-bold uppercase bg-success/10 text-success px-1.5 py-0.5 rounded">Live</span>
+        </div>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">LinkedIn automation — connection requests, follow-ups, scraping.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span class="flex items-center gap-1"><span class="live-dot"></span> 142 / 200 sent</span>
+        </div>
+      </div>
+      <div class="float-in d-9 card-hover cat-source border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-secondary flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-robot"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-secondary rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Agent Mode</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Hand REX a goal — it builds, runs, and reports the campaign.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span>2 agents running</span>
+        </div>
+      </div>
+      <div class="float-in d-10 card-hover cat-source border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-secondary flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-id-badge"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-gray-300 rounded-full"></div><div class="absolute left-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Personas</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Save ICP definitions and reuse them across campaigns.</p>
+        <div class="flex items-center gap-3 mt-3 pt-3 border-t border-black/5 text-xs text-text-muted">
+          <span class="text-text-muted">Disabled · 0 personas</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data & Tools -->
+  <section class="mb-8">
+    <div class="float-in d-9 flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Data &amp; Tools</h3>
+      <span class="text-xs text-text-muted">4 apps</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="float-in d-10 card-hover cat-data border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-table"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-warn rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Tables</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Custom airtable-style data views.</p>
+        <div class="text-xs text-text-muted mt-3 pt-3 border-t border-black/5">8 tables</div>
+      </div>
+      <div class="float-in d-11 card-hover cat-data border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-chart-bar"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-warn rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">Dashboards</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Build custom dashboards with widgets.</p>
+        <div class="text-xs text-text-muted mt-3 pt-3 border-t border-black/5">4 dashboards</div>
+      </div>
+      <div class="float-in d-12 card-hover cat-data border border-gray-100 rounded-2xl p-5 cursor-pointer relative">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-clipboard-list"></i></div>
+          <span class="text-[10px] font-bold uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-1"><i class="fa-solid fa-lock text-[8px]"></i>Pro</span>
+        </div>
+        <h4 class="font-semibold text-[15px]">Forms</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Public intake forms, applications, screeners.</p>
+        <div class="text-xs text-primary font-semibold mt-3 pt-3 border-t border-black/5">Upgrade to enable</div>
+      </div>
+      <div class="float-in d-13 card-hover cat-data border border-gray-100 rounded-2xl p-5 cursor-pointer relative">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-globe"></i></div>
+          <span class="text-[10px] font-bold uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-1"><i class="fa-solid fa-lock text-[8px]"></i>Pro</span>
+        </div>
+        <h4 class="font-semibold text-[15px]">Landing Pages</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Hosted landing pages tied to campaigns.</p>
+        <div class="text-xs text-primary font-semibold mt-3 pt-3 border-t border-black/5">Upgrade to enable</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflows -->
+  <section>
+    <div class="float-in d-11 flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-text-muted">Automation</h3>
+      <span class="text-xs text-text-muted">2 apps</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="float-in d-12 card-hover cat-auto border border-gray-100 rounded-2xl p-5 cursor-pointer relative shimmer-top">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-400 to-accent flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-diagram-project"></i></div>
+          <span class="text-[10px] font-bold uppercase bg-accent/10 text-accent px-1.5 py-0.5 rounded">New</span>
+        </div>
+        <h4 class="font-semibold text-[15px]">REX Workflows</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Connect actions across leads, campaigns, deals, and pipeline.</p>
+        <button class="w-full mt-3 py-2 rounded-xl grad-icon text-white text-sm font-semibold">Enable</button>
+      </div>
+      <div class="float-in d-13 card-hover cat-auto border border-gray-100 rounded-2xl p-5 cursor-pointer">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-400 to-accent flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-key"></i></div>
+          <div class="relative inline-flex items-center"><div class="w-10 h-6 bg-accent rounded-full"></div><div class="absolute right-0.5 w-5 h-5 bg-white rounded-full shadow"></div></div>
+        </div>
+        <h4 class="font-semibold text-[15px]">API Keys</h4>
+        <p class="text-xs text-text-muted leading-relaxed mt-1">Programmatic access to leads, campaigns, and webhooks.</p>
+        <div class="text-xs text-text-muted mt-3 pt-3 border-t border-black/5">3 keys active</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- REX command bar -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-6">
+  <div class="rex-bar glass border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-3 transition-all">
+    <div class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/30"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></div>
+    <input class="flex-1 bg-transparent outline-none text-sm placeholder:text-text-muted" placeholder="Ask REX — find leads, draft messages, summarize replies…" />
+    <span class="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono text-text-muted">⌘K</span>
+    <button class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white"><i class="fa-solid fa-arrow-up text-xs"></i></button>
+  </div>
+</div>
+
+<!-- Variant switcher -->
+<div class="fixed top-3 right-6 z-50 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm text-xs">
+  <span class="text-text-muted px-2">Mockups</span>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="v1-refined.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v1</a>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v2</a>
+  <a href="v3-bold.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v3</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="apps.html" class="px-2 py-0.5 rounded-full bg-primary text-white font-medium">Apps</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="messages.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Messages</a>
+  <a href="campaigns.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Campaigns</a>
+  <a href="settings.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Settings</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="design-system.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">System</a>
+</div>
+
+</body>
+</html>
