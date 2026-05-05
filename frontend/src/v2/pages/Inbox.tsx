@@ -13,6 +13,8 @@
 
 import React, { useEffect } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
+import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
+import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import '../../styles/v2.css';
 
 interface Conv {
@@ -221,6 +223,19 @@ export default function InboxPage() {
                 <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in Marcus (VP Eng)</button>
                 <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Draft submittal for Marcus</button>
               </div>
+
+              {/* Skills strip — invoke a Skill on this thread's lead */}
+              <div className="ml-11 mt-1">
+                <InboxSkillsBar
+                  lead={{
+                    firstName: 'Sarah',
+                    lastName: 'Chen',
+                    title: 'Senior Backend Engineer',
+                    company: 'Stripe',
+                  }}
+                  lastInboundText="Yes, I'd love to chat — Thursday after 2pm works. Do you have a calendar link, or would you rather propose a few times?"
+                />
+              </div>
             </div>
 
             {/* Composer */}
@@ -296,5 +311,68 @@ export default function InboxPage() {
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
     </div>
+  );
+}
+
+/**
+ * Skills strip rendered inline in the message thread. Wires the Recruiter's
+ * reply_handler to the last inbound message (so the held draft includes the
+ * original text REX is responding to) plus outreach_writer + submittal_drafter
+ * for switching gears mid-thread.
+ */
+function InboxSkillsBar({
+  lead,
+  lastInboundText,
+}: {
+  lead: { firstName?: string; lastName?: string; title?: string; company?: string };
+  lastInboundText?: string;
+}) {
+  const { agents } = useAgents();
+  const recruiter = findAgentByRole(agents, 'recruiter');
+
+  if (!recruiter) {
+    return <RexSkillsHireCTA message="Hire a Recruiter to draft replies, outreach, and submittals from inside this thread." />;
+  }
+
+  const skills: SkillButtonSpec[] = [];
+  const has = (id: string) => recruiter.skills?.some((s) => s.skill_id === id);
+
+  if (has('reply_handler') && lastInboundText) {
+    skills.push({
+      agentId: recruiter.id, skillId: 'reply_handler',
+      label: 'Draft reply', icon: 'comments', cost: 'held → review',
+      input: { lead, original_text: lastInboundText, score: 90 },
+    });
+  }
+  if (has('outreach_writer')) {
+    skills.push({
+      agentId: recruiter.id, skillId: 'outreach_writer',
+      label: 'Draft fresh outreach', icon: 'paper-plane', cost: 'held → review',
+      input: {
+        lead: { first_name: lead.firstName, last_name: lead.lastName, title: lead.title, company: lead.company },
+        jobTitle: 'Senior role',
+      },
+    });
+  }
+  if (has('submittal_drafter')) {
+    skills.push({
+      agentId: recruiter.id, skillId: 'submittal_drafter',
+      label: 'Draft submittal', icon: 'file-lines', cost: 'always held',
+      input: {
+        candidate: { first_name: lead.firstName, last_name: lead.lastName, title: lead.title, company: lead.company },
+        job: { title: 'Senior role' },
+      },
+    });
+  }
+
+  if (!skills.length) return null;
+
+  return (
+    <RexSkillButtons
+      skills={skills}
+      title="Recruiter Skills"
+      subtitle="run on this thread"
+      compact
+    />
   );
 }

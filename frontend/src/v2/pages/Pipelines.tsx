@@ -13,6 +13,8 @@
 
 import React, { useEffect } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
+import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
+import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import '../../styles/v2.css';
 
 interface JobReq {
@@ -173,6 +175,21 @@ export default function PipelinesPage() {
           </div>
         </div>
 
+        {/* Skills bar — shown when a candidate is "active" in the kanban.
+            For now scoped to the mockup's hot candidate (Sarah Chen). */}
+        <div className="px-7 pt-3 float-in d-2">
+          <PipelinesSkillsBar
+            candidate={{
+              id: 'mock-candidate-id',
+              firstName: 'Sarah',
+              lastName: 'Chen',
+              title: 'Senior Backend Engineer',
+              company: 'Stripe',
+            }}
+            jobTitle="Senior Backend Engineer · Stripe req"
+          />
+        </div>
+
         {/* Filter pills */}
         <div className="px-7 py-3 flex items-center gap-1.5 flex-wrap">
           <span className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">All · 12</span>
@@ -273,5 +290,81 @@ export default function PipelinesPage() {
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
     </div>
+  );
+}
+
+/**
+ * Skills bar surfaced under the REX context strip on Pipelines. Wires the
+ * Recruiter's pipeline_manager + submittal_drafter and Researcher's
+ * company_intel + comp_benchmark into the active candidate.
+ */
+function PipelinesSkillsBar({
+  candidate,
+  jobTitle,
+}: {
+  candidate: { id?: string; firstName?: string; lastName?: string; title?: string; company?: string };
+  jobTitle?: string;
+}) {
+  const { agents } = useAgents();
+  const recruiter = findAgentByRole(agents, 'recruiter');
+  const researcher = findAgentByRole(agents, 'researcher');
+
+  if (!recruiter && !researcher) {
+    return <RexSkillsHireCTA message="Hire a Recruiter or Researcher to run Skills on this candidate." />;
+  }
+
+  const skills: SkillButtonSpec[] = [];
+
+  if (recruiter) {
+    const has = (id: string) => recruiter.skills?.some((s) => s.skill_id === id);
+    if (has('pipeline_manager')) {
+      skills.push({
+        agentId: recruiter.id, skillId: 'pipeline_manager',
+        label: 'Advance stage', icon: 'arrow-right', cost: 'free',
+        input: { candidate_id: candidate.id, target_stage_id: 'Phone Screen', kind: 'advance', score: 88 },
+      });
+      skills.push({
+        agentId: recruiter.id, skillId: 'pipeline_manager',
+        label: 'Reject', icon: 'circle-xmark', cost: 'always held',
+        input: { candidate_id: candidate.id, target_stage_id: 'Rejected', kind: 'reject' },
+      });
+    }
+    if (has('submittal_drafter')) {
+      skills.push({
+        agentId: recruiter.id, skillId: 'submittal_drafter',
+        label: 'Draft submittal', icon: 'file-lines', cost: 'always held',
+        input: {
+          candidate: { first_name: candidate.firstName, last_name: candidate.lastName, title: candidate.title, company: candidate.company },
+          job: { title: jobTitle || 'Senior role' },
+        },
+      });
+    }
+  }
+  if (researcher) {
+    const has = (id: string) => researcher.skills?.some((s) => s.skill_id === id);
+    if (has('company_intel')) {
+      skills.push({
+        agentId: researcher.id, skillId: 'company_intel',
+        label: `Intel on ${candidate.company || 'company'}`, icon: 'building', cost: 'free',
+        input: { company: candidate.company },
+      });
+    }
+    if (has('comp_benchmark')) {
+      skills.push({
+        agentId: researcher.id, skillId: 'comp_benchmark',
+        label: 'Comp benchmark', icon: 'coins', cost: 'free',
+        input: { role: candidate.title || 'Senior Engineer' },
+      });
+    }
+  }
+
+  if (!skills.length) return null;
+
+  return (
+    <RexSkillButtons
+      skills={skills}
+      title={`Skills · ${candidate.firstName || 'candidate'}`}
+      subtitle="run on the active candidate"
+    />
   );
 }
