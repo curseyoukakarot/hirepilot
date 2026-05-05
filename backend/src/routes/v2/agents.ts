@@ -422,4 +422,61 @@ router.delete('/:id/skills/:skillId', async (req: Request, res: Response) => {
   }
 });
 
+// ====================================================================
+// POST /api/v2/agents/:id/skills/:skillId/invoke
+// Directly invoke a Skill on a hired specialist (UI buttons → here).
+// Same code path as REX's hp_invoke_skill, just exposed over HTTP.
+// Body: { input?: object }
+// ====================================================================
+router.post('/:id/skills/:skillId/invoke', async (req: Request, res: Response) => {
+  try {
+    const workspaceId = getWorkspaceId(req, res);
+    if (!workspaceId) return;
+    const userId = (req as any)?.user?.id;
+    if (!userId) return res.status(401).json({ error: 'unauthenticated' });
+
+    // Verify agent is in this workspace + grab its role
+    const { data: agent, error: agentErr } = await supabase
+      .from('agents')
+      .select('id, role, paused')
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (agentErr) return res.status(500).json({ error: agentErr.message });
+    if (!agent) return res.status(404).json({ error: 'agent_not_found' });
+    if ((agent as any).paused) return res.status(409).json({ error: 'agent_paused' });
+
+    // Verify skill is installed
+    const { data: installed } = await supabase
+      .from('agent_skills')
+      .select('skill_id')
+      .eq('agent_id', agent.id)
+      .eq('skill_id', req.params.skillId)
+      .maybeSingle();
+    if (!installed) return res.status(404).json({ error: 'skill_not_installed' });
+
+    // Load context + handler
+    const { loadAgentContext } = await import('../../rex/agentLoader');
+    const { getSkillHandler } = await import('../../rex/skills/registry');
+    const ctx = await loadAgentContext(workspaceId, userId, (agent as any).role);
+    if (!ctx) return res.status(404).json({ error: 'agent_context_unavailable' });
+
+    const handler = getSkillHandler(req.params.skillId);
+    if (!handler) return res.status(404).json({ error: 'no_handler_registered' });
+
+    const result = await handler(req.body?.input || {}, ctx);
+
+    // Bump last_run_at regardless of held/executed.
+    await supabase
+      .from('agent_skills')
+      .update({ last_run_at: new Date().toISOString() })
+      .eq('agent_id', agent.id)
+      .eq('skill_id', req.params.skillId);
+
+    return res.json(result);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'invoke_skill_failed' });
+  }
+});
+
 export default router;
