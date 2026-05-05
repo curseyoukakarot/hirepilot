@@ -12,9 +12,10 @@
  *   - REX context strip → REX agent active goal context
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
+import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import '../../styles/v2.css';
 
@@ -379,163 +380,66 @@ export default function LeadsPage() {
 }
 
 /**
- * In-drawer panel that lets the user invoke a Skill on a hired specialist
- * for the currently-selected lead. Drops near the REX context block.
- *
- * Each button:
- *   - Maps to a (role, skill_id) pair
- *   - Only renders if that specialist is hired and has the Skill installed
- *   - Shows pending / held / executed state inline
- *
- * NOTE: Currently pulls lead identity from the mockup props. When Leads.tsx
- * wires to real /api/v2/leads data, the `lead` prop becomes the live row.
+ * In-drawer panel: filters the workspace's hired specialists down to the
+ * Skills that make sense on a lead row, then renders RexSkillButtons.
  */
 export function RexSkillsPanel({
   lead,
 }: {
   lead: { id?: string; firstName?: string; lastName?: string; company?: string; domain?: string; linkedinUrl?: string };
 }) {
-  const { agents, invokeSkill } = useAgents();
+  const { agents } = useAgents();
   const sourcer = findAgentByRole(agents, 'sourcer');
   const researcher = findAgentByRole(agents, 'researcher');
-  const [result, setResult] = useState<{ skill: string; status: 'held' | 'ok' | 'error'; message: string } | null>(null);
-  const [activeSkill, setActiveSkill] = useState<string | null>(null);
 
-  const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
-
-  const run = async (
-    agentId: string,
-    skillId: string,
-    label: string,
-    skillInput: any,
-  ) => {
-    setActiveSkill(skillId);
-    setResult(null);
-    try {
-      const res: any = await invokeSkill.mutateAsync({ agentId, skillId, input: skillInput });
-      if (res?.held) {
-        setResult({ skill: label, status: 'held', message: res.message || 'Held for review on the Decisions page.' });
-      } else if (res?.ok === false || res?.error) {
-        setResult({ skill: label, status: 'error', message: res.message || res.error || 'Failed.' });
-      } else {
-        const credits = res?.data?._credit_meta?.credits_charged;
-        setResult({
-          skill: label,
-          status: 'ok',
-          message: credits ? `Done · ${credits} credit${credits === 1 ? '' : 's'} charged.` : 'Done.',
-        });
-      }
-    } catch (e: any) {
-      setResult({ skill: label, status: 'error', message: e?.message || 'Failed.' });
-    } finally {
-      setActiveSkill(null);
-    }
-  };
-
-  // If the user hasn't hired anyone, render a hire CTA.
   if (!sourcer && !researcher) {
     return (
-      <div className="mx-5 mb-4 p-3.5 rounded-xl border border-dashed border-primary/25 bg-white/40">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-1.5">
-          <i className="fa-solid fa-wand-magic-sparkles text-[10px] mr-1" />Skills
-        </div>
-        <p className="text-[12.5px] text-text-secondary mb-2">Hire a Sourcer or Researcher to run Skills on this lead.</p>
-        <Link to="/v2/hire" className="text-[11.5px] text-primary font-semibold hover:underline">
-          Browse the catalog →
-        </Link>
+      <div className="mx-5 mb-4">
+        <RexSkillsHireCTA message="Hire a Sourcer or Researcher to run Skills on this lead." />
       </div>
     );
   }
 
-  const buttons: Array<{ agentId: string; skillId: string; label: string; icon: string; cost?: string; input: any }> = [];
+  const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
+  const skills: SkillButtonSpec[] = [];
+
   if (sourcer) {
-    if (sourcer.skills?.some((s) => s.skill_id === 'apollo_enrich')) {
-      buttons.push({
-        agentId: sourcer.id, skillId: 'apollo_enrich',
-        label: 'Apollo enrich', icon: 'fa-database', cost: '1 cr (house)',
-        input: { leadId: lead.id, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, linkedinUrl: lead.linkedinUrl },
-      });
-    }
-    if (sourcer.skills?.some((s) => s.skill_id === 'hunter_skill')) {
-      buttons.push({
-        agentId: sourcer.id, skillId: 'hunter_skill',
-        label: 'Hunter find', icon: 'fa-envelope', cost: 'free',
-        input: { fullName, domain: lead.domain || lead.company },
-      });
-    }
-    if (sourcer.skills?.some((s) => s.skill_id === 'skrapp_skill')) {
-      buttons.push({
-        agentId: sourcer.id, skillId: 'skrapp_skill',
-        label: 'Skrapp find', icon: 'fa-shield-check', cost: 'free',
-        input: { fullName, domain: lead.domain || lead.company, companyName: lead.company },
-      });
-    }
+    const has = (id: string) => sourcer.skills?.some((s) => s.skill_id === id);
+    if (has('apollo_enrich')) skills.push({
+      agentId: sourcer.id, skillId: 'apollo_enrich',
+      label: 'Apollo enrich', icon: 'database', cost: '1 cr (house)',
+      input: { leadId: lead.id, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, linkedinUrl: lead.linkedinUrl },
+    });
+    if (has('hunter_skill')) skills.push({
+      agentId: sourcer.id, skillId: 'hunter_skill',
+      label: 'Hunter find', icon: 'envelope', cost: 'free',
+      input: { fullName, domain: lead.domain || lead.company },
+    });
+    if (has('skrapp_skill')) skills.push({
+      agentId: sourcer.id, skillId: 'skrapp_skill',
+      label: 'Skrapp find', icon: 'shield-check', cost: 'free',
+      input: { fullName, domain: lead.domain || lead.company, companyName: lead.company },
+    });
   }
   if (researcher) {
-    if (researcher.skills?.some((s) => s.skill_id === 'company_intel')) {
-      buttons.push({
-        agentId: researcher.id, skillId: 'company_intel',
-        label: 'Company intel', icon: 'fa-building', cost: 'free',
-        input: { company: lead.company, domain: lead.domain },
-      });
-    }
-    if (researcher.skills?.some((s) => s.skill_id === 'comp_benchmark')) {
-      buttons.push({
-        agentId: researcher.id, skillId: 'comp_benchmark',
-        label: 'Comp benchmark', icon: 'fa-coins', cost: 'free',
-        input: { role: lead.firstName ? `Senior ${lead.company || ''}` : 'Senior Engineer' },
-      });
-    }
+    const has = (id: string) => researcher.skills?.some((s) => s.skill_id === id);
+    if (has('company_intel')) skills.push({
+      agentId: researcher.id, skillId: 'company_intel',
+      label: 'Company intel', icon: 'building', cost: 'free',
+      input: { company: lead.company, domain: lead.domain },
+    });
+    if (has('comp_benchmark')) skills.push({
+      agentId: researcher.id, skillId: 'comp_benchmark',
+      label: 'Comp benchmark', icon: 'coins', cost: 'free',
+      input: { role: 'Senior Engineer' },
+    });
   }
 
-  if (!buttons.length) return null;
+  if (!skills.length) return null;
 
   return (
-    <div className="mx-5 mb-4 p-3.5 rounded-xl bg-white" style={{ border: '1px solid #ECECEC' }}>
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="w-6 h-6 rounded-md grad-icon flex items-center justify-center text-white shrink-0">
-          <i className="fa-solid fa-bolt text-[10px]" />
-        </div>
-        <span className="text-[11px] font-bold uppercase tracking-wider grad-text">REX Skills</span>
-        <span className="text-[10.5px] text-text-muted ml-auto">your team can run these</span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {buttons.map((b) => {
-          const pending = activeSkill === b.skillId;
-          return (
-            <button
-              key={b.skillId}
-              onClick={() => run(b.agentId, b.skillId, b.label, b.input)}
-              disabled={pending || invokeSkill.isPending}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11.5px] font-semibold border border-gray-200 hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
-            >
-              <i className={`fa-solid ${pending ? 'fa-spinner fa-spin' : b.icon} text-[10px]`} style={{ color: '#6B46C1' }} />
-              {b.label}
-              {b.cost && <span className="text-text-muted text-[10px] font-normal">· {b.cost}</span>}
-            </button>
-          );
-        })}
-      </div>
-      {result && (
-        <div
-          className={`mt-2.5 px-2.5 py-2 rounded-md text-[11.5px] flex items-start gap-2 ${
-            result.status === 'held' ? 'bg-warn/10 text-warn border border-warn/25'
-              : result.status === 'error' ? 'bg-danger/10 text-danger border border-danger/25'
-              : 'bg-success/10 text-success border border-success/25'
-          }`}
-        >
-          <i className={`fa-solid ${
-            result.status === 'held' ? 'fa-circle-question' :
-            result.status === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'
-          } text-[10px] mt-0.5`} />
-          <div>
-            <span className="font-semibold">{result.skill}</span> — {result.message}
-            {result.status === 'held' && (
-              <Link to="/v2/decisions" className="underline ml-1">Open Decisions →</Link>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="mx-5 mb-4">
+      <RexSkillButtons skills={skills} />
     </div>
   );
 }
