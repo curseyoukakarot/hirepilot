@@ -265,6 +265,11 @@ export default async function rexChat(req: Request, res: Response) {
       },
       { type:'function',function:{name:'enrich_lead',parameters:{ type:'object', properties:{ userId:{type:'string'}, linkedin_url:{type:'string'}}, required:['userId','linkedin_url']}}},
       { type:'function',function:{name:'get_campaign_metrics',parameters:{ type:'object', properties:{ userId:{type:'string'}, campaign_id:{type:'string'}}, required:['userId','campaign_id']}}},
+      // === v2 specialist routing ===
+      // Use these to discover the user's hired team and delegate work to them.
+      // hp_list_specialists shows who's hired (and what Skills they have); hp_invoke_skill calls a Skill on a hired specialist with autopilot guardrails applied.
+      { type:'function', function:{ name:'hp_list_specialists', parameters:{ type:'object', properties:{ userId:{ type:'string' } }, required:['userId'] } } },
+      { type:'function', function:{ name:'hp_invoke_skill', parameters:{ type:'object', properties:{ userId:{ type:'string' }, role:{ type:'string', description:'sourcer | recruiter | coordinator | researcher | business_dev | closer | account_manager | reference_checker' }, skill_id:{ type:'string', description:'The skills_catalog.id to invoke (e.g. apollo_enrich, reply_handler, linkedin_sourcer)' }, input:{ type:'object', description:'Skill-specific input payload', additionalProperties: true } }, required:['userId','role','skill_id'] } } },
       // Slack setup guide
       { type:'function', function:{ name:'slack_setup_guide', parameters:{ type:'object', properties:{ userId:{ type:'string' } }, required:['userId'] } } },
       // Lead sourcing and filtering
@@ -410,6 +415,28 @@ export default async function rexChat(req: Request, res: Response) {
       jobBlock = `\n\n**Job context instructions:**\n- When the user asks about sourcing or outreach for a role, ask: "Do you already have a job requisition for this role? If so, what's the name? I can search your jobs with search_jobs." If not, offer to create one with create_job_requisition.\n- Once a job is identified, use add_candidate_to_job to place sourced candidates into the job's pipeline.`;
     }
 
+    // Build the v2 "Your team" block — REX needs to know what specialists are
+    // hired so it can delegate work via hp_invoke_skill instead of trying to
+    // do everything itself.
+    let teamBlock = '';
+    try {
+      const { specialistTools } = await import('../rex/specialistTools');
+      const team = await (specialistTools as any).hp_list_specialists.handler({ userId });
+      if (team?.specialists?.length) {
+        const lines = team.specialists.map((s: any) => {
+          const skillNames = (s.skills || []).slice(0, 6).map((sk: any) => sk.skill_id).join(', ');
+          const more = (s.skills || []).length > 6 ? ` (+${s.skills.length - 6} more)` : '';
+          const status = s.paused ? 'PAUSED' : `trust=${s.trust_level}`;
+          return `- **${s.display_name}** (role: ${s.role}, ${status}) · skills: ${skillNames || '—'}${more}`;
+        }).join('\n');
+        teamBlock = `\n\n**Your team (v2 specialists):**\n${lines}\n\n**When to delegate:**\n- Use \`hp_list_specialists\` if you need to re-check the team mid-conversation.\n- Use \`hp_invoke_skill { role, skill_id, input }\` to delegate to a specialist's installed Skill. The registry applies trust-ladder + autopilot guardrails automatically. If a Skill is held back, the action surfaces on the user's Decisions page and you should tell them.\n- Sourcer owns finding/enriching/scoring. Recruiter owns drafting/replying/submittals. Coordinator owns scheduling. Researcher owns intel. Closer owns offers (always held). Account Manager owns client comms. Reference Checker owns references.\n- Don't delegate trivial work — only call a specialist when their domain matches the request and the Skill is genuinely needed.`;
+      } else {
+        teamBlock = `\n\n**Your team (v2 specialists):**\nNo specialists hired yet. If the user asks for sourcing/recruiting/scheduling help that would benefit from a specialist, suggest they visit /v2/hire to hire one (Sourcer, Recruiter, or Coordinator are good starters).`;
+      }
+    } catch (e: any) {
+      console.warn('[rexChat] team block lookup failed:', e?.message || e);
+    }
+
     const contextMessage = {
       role: 'system',
       content: `You are REX, a recruiting and career AI assistant built into HirePilot. You help recruiters source leads, send outreach, manage campaigns, analyze resumes, and automate LinkedIn workflows.
@@ -476,7 +503,7 @@ Use exactly these step patterns when applicable — the execution engine recogni
 - "Outreach" or "Email" or "Sequence" for messaging
 
 After presenting the plan, the user can approve it for automated execution. Each step runs in sequence with real tool calls.
-${jobBlock}
+${jobBlock}${teamBlock}
 
 Always pass userId="${userId}" when calling tools.${campaign_id ? ` Current campaign: ${campaign_id}.` : ''}`
     } as any;

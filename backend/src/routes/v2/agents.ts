@@ -156,24 +156,28 @@ router.post('/', async (req: Request, res: Response) => {
     const userId = (req as any)?.user?.id || null;
 
     // Pull the workspace's default trust level if the request didn't specify one.
+    // team_settings is keyed off team_id; resolve via users.team_id.
     let resolvedTrust = trust_level || 'suggest';
     if (!trust_level) {
-      // team_settings is keyed off team_id; resolve via team
-      const { data: ws } = await supabase
-        .from('workspaces')
-        .select('team_id')
-        .eq('id', workspaceId)
-        .maybeSingle();
-      if ((ws as any)?.team_id) {
-        const { data: ts } = await supabase
-          .from('team_settings')
-          .select('default_trust_level')
-          .eq('team_id', (ws as any).team_id)
+      try {
+        let teamId: string | null = null;
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('team_id')
+          .eq('id', userId)
           .maybeSingle();
-        if ((ts as any)?.default_trust_level) {
-          resolvedTrust = (ts as any).default_trust_level;
+        teamId = (userRow as any)?.team_id || null;
+        if (teamId) {
+          const { data: ts } = await supabase
+            .from('team_settings')
+            .select('default_trust_level')
+            .eq('team_id', teamId)
+            .maybeSingle();
+          if ((ts as any)?.default_trust_level) {
+            resolvedTrust = (ts as any).default_trust_level;
+          }
         }
-      }
+      } catch {}
     }
 
     const { data: agent, error } = await supabase

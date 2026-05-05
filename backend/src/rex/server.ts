@@ -10,6 +10,7 @@ import { canonicalFlows, searchSupport, whitelistPages } from './knowledge.widge
 import { widgetTools } from './widgetTools';
 import { buildLinkedinTools } from './agents-mcp/linkedin.tools';
 import { resumeTools } from './agents-mcp/resume.tools';
+import { specialistTools } from './specialistTools';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   sourceLeads,
@@ -269,6 +270,8 @@ server.registerCapabilities({
     ...Object.fromEntries(Object.entries(widgetTools).map(([k,v]) => [k, { parameters:{}, handler: v.handler } ])),
     ...linkedinTools,
     ...resumeTools,
+    // === v2 specialist routing (bridges to skills/registry.ts) ===
+    ...specialistTools,
     // === Scheduler (MCP) tools ===
     scheduler_create_job: {
       parameters: { userId:{type:'string'}, name:{type:'string'}, action_type:{type:'string'}, persona_id:{type:'string', optional:true}, campaign_id:{type:'string', optional:true}, payload:{type:'object', optional:true}, schedule_kind:{type:'string'}, cron_expr:{type:'string', optional:true}, run_at:{type:'string', optional:true} },

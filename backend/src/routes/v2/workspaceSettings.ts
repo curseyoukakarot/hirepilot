@@ -35,13 +35,34 @@ const SELECT_COLS = [
   'allow_team_editing'
 ].join(', ');
 
-async function resolveTeamIdForWorkspace(workspaceId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('workspaces')
-    .select('team_id')
-    .eq('id', workspaceId)
+/**
+ * team_id lives on users.team_id (legacy team concept). Resolve via the
+ * caller's user → user.team_id → fall back to the workspace owner's team_id.
+ */
+async function resolveTeamIdForWorkspace(workspaceId: string, userId?: string): Promise<string | null> {
+  if (userId) {
+    const { data } = await supabase
+      .from('users')
+      .select('team_id')
+      .eq('id', userId)
+      .maybeSingle();
+    if ((data as any)?.team_id) return String((data as any).team_id);
+  }
+  const { data: ownerRow } = await supabase
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', workspaceId)
+    .eq('role', 'owner')
+    .eq('status', 'active')
     .maybeSingle();
-  return (data as any)?.team_id ? String((data as any).team_id) : null;
+  const ownerId = (ownerRow as any)?.user_id;
+  if (!ownerId) return null;
+  const { data: ownerUser } = await supabase
+    .from('users')
+    .select('team_id')
+    .eq('id', ownerId)
+    .maybeSingle();
+  return (ownerUser as any)?.team_id ? String((ownerUser as any).team_id) : null;
 }
 
 router.get('/', async (req: Request, res: Response) => {
@@ -49,7 +70,7 @@ router.get('/', async (req: Request, res: Response) => {
     const workspaceId = (req as any).workspaceId;
     if (!workspaceId) return res.status(400).json({ error: 'no_active_workspace' });
 
-    const teamId = await resolveTeamIdForWorkspace(workspaceId);
+    const teamId = await resolveTeamIdForWorkspace(workspaceId, (req as any)?.user?.id);
     if (!teamId) {
       // Workspace exists but has no team_id linkage yet — return defaults.
       return res.json({
@@ -106,7 +127,7 @@ router.patch('/', async (req: Request, res: Response) => {
     const workspaceId = (req as any).workspaceId;
     if (!workspaceId) return res.status(400).json({ error: 'no_active_workspace' });
 
-    const teamId = await resolveTeamIdForWorkspace(workspaceId);
+    const teamId = await resolveTeamIdForWorkspace(workspaceId, (req as any)?.user?.id);
     if (!teamId) return res.status(400).json({ error: 'workspace_has_no_team' });
 
     const {
