@@ -166,6 +166,7 @@ import rexConversationsRouter from './src/routes/rexConversations';
 import { rexTools as rexToolsRouter } from './src/routes/rex/tools';
 import workspacesRouter from './src/routes/workspaces';
 import workspaceInvitesRouter from './src/routes/workspaceInvites';
+import v2Router from './src/routes/v2';
 import salesPolicyRouter from './src/routes/sales/policy.routes';
 import salesInboundRouter from './src/routes/sales/inbound.routes';
 import salesOpsRouter from './src/routes/sales/ops.routes';
@@ -574,6 +575,8 @@ app.use('/api/ignite/backoffice', igniteBackofficeRouter);
 app.use('/api/ignite', igniteRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/workspace-invites', workspaceInvitesRouter);
+// v2 — workspace-scoped agents/skills/goals/decisions/workspace-settings
+app.use('/api/v2', v2Router);
 app.use('/api/repo-agent', repoAgentRouter);
 // Public API routes (no authentication required) — mount BEFORE generic /api router
 app.get('/api/public/jobs/:id', require('./api/public/jobs/[id]').default);

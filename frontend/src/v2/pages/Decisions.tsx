@@ -3,31 +3,47 @@
  *
  * HTML preserved EXACTLY from mockups/decisions.html main content block.
  *
- * TODO wire to backend:
- *   - GET /api/v2/decisions?status=pending → list
- *   - POST /api/v2/decisions/:id/approve | edit | reject | snooze | graduate
- *   - Tag agent_id → agent role chip via JOIN agents
- *   - "Always auto-send these like this" → POST /api/v2/decisions/:id/graduate {rule}
- *     writes graduated_rule jsonb so REX matches future events to this rule.
+ * Wired to backend:
+ *   - GET /api/v2/decisions?status=pending → drives the topbar count + the live list
+ *   - POST /api/v2/decisions/:id/{approve|reject|snooze|graduate} for the live list
+ *
+ * Still placeholder (rich draft text + custom delegation visuals):
+ *   - The 3 hardcoded mockup decision cards (D-0312/D-0311/D-0310) — kept as visual reference
+ *     until we have real decision-payload rendering for reply_draft / scale_recommendation /
+ *     guardrail_override types.
  */
 
 import React from 'react';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar from '../components/WorkspaceTopbar';
+import { useDecisions } from '../hooks/useDecisions';
+import type { Decision } from '../types';
 
 export default function DecisionsPage() {
+  const pendingQ = useDecisions({ status: 'pending' });
+  const pending = pendingQ.decisions;
+  const oldest = pending.length
+    ? pending.reduce((acc, d) => (new Date(d.created_at) < new Date(acc.created_at) ? d : acc), pending[0])
+    : null;
+  const oldestAge = oldest ? formatAge(oldest.created_at) : null;
+
   return (
     <WorkspaceShell autopilot>
       <WorkspaceTopbar
         pageTitle="Decisions"
         pageIcon="fa-solid fa-inbox"
         pageIconColor="text-warn"
-        pageSubtitle="3 awaiting your approval · oldest is 1h 14m old"
+        pageSubtitle={pendingQ.isLoading
+          ? 'Loading…'
+          : pending.length === 0
+            ? 'Nothing waiting on you · REX is handling things'
+            : `${pending.length} awaiting your approval${oldestAge ? ` · oldest is ${oldestAge}` : ''}`
+        }
         statusPill={
           <div className="status-pill ml-3">
             <span className="ping-wrap" />
             <i className="fa-solid fa-circle-question text-warn text-[10px]" />
-            <span><span className="font-semibold text-text-main">3</span> held by REX above autopilot threshold</span>
+            <span><span className="font-semibold text-text-main">{pending.length}</span> held by REX above autopilot threshold</span>
           </div>
         }
       />
@@ -53,12 +69,29 @@ export default function DecisionsPage() {
 
         {/* Filter pills */}
         <div className="float-in d-1 flex items-center gap-1.5 flex-wrap">
-          <span className="px-3 py-1 rounded-full bg-warn text-white text-[11.5px] font-semibold">All · 3</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Comp · 1</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Scale · 1</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Guardrail · 1</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Snoozed · 2</span>
+          <span className="px-3 py-1 rounded-full bg-warn text-white text-[11.5px] font-semibold">All · {pending.length}</span>
+          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Pending · {pending.length}</span>
+          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Snoozed · 0</span>
         </div>
+
+        {/* Real workspace decisions (live from DB) */}
+        {pending.length > 0 && (
+          <section className="float-in d-1 space-y-2">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted px-1">
+              Your workspace · {pending.length} pending
+            </div>
+            {pending.map((d) => (
+              <DecisionListRow
+                key={d.id}
+                decision={d}
+                onApprove={() => pendingQ.approve.mutate(d.id)}
+                onReject={() => pendingQ.reject.mutate({ id: d.id })}
+                onSnooze1d={() => pendingQ.snooze.mutate({ id: d.id, snoozedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() })}
+                isPending={pendingQ.approve.isPending || pendingQ.reject.isPending || pendingQ.snooze.isPending}
+              />
+            ))}
+          </section>
+        )}
 
         {/* DECISION 1 — comp answer */}
         <DecisionCard d="d-2" id="D-0312" tagText="Comp answer" agent="recruiter" agentLabel="Recruiter held" timeText="1h 14m ago"
@@ -274,5 +307,73 @@ function DecisionCard({
         </button>
       </div>
     </article>
+  );
+}
+
+function formatAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return 'just now';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m old`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m old`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d old`;
+}
+
+function decisionTypeLabel(type: Decision['type']): string {
+  switch (type) {
+    case 'reply_draft':           return 'Reply draft';
+    case 'scale_recommendation':  return 'Scale recommendation';
+    case 'guardrail_override':    return 'Guardrail catch';
+    case 'offer_send':            return 'Offer send';
+    case 'pipeline_move':         return 'Pipeline move';
+    case 'submittal_send':        return 'Submittal send';
+    case 'custom':                return 'Custom decision';
+  }
+}
+
+/** Compact row for real workspace decisions from the DB. */
+function DecisionListRow({
+  decision,
+  onApprove,
+  onReject,
+  onSnooze1d,
+  isPending,
+}: {
+  decision: Decision;
+  onApprove: () => void;
+  onReject: () => void;
+  onSnooze1d: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl p-3.5 hover:shadow-sm transition">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg grad-warm flex items-center justify-center text-white shrink-0">
+          <i className="fa-solid fa-circle-question text-[11px]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+            <span className="tag tag-warn">{decisionTypeLabel(decision.type)}</span>
+            <span className="text-[10.5px] text-text-muted">{formatAge(decision.created_at)}</span>
+          </div>
+          {decision.reason && (
+            <div className="text-[12.5px] text-text-secondary truncate">{decision.reason}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={onApprove} disabled={isPending} className="ghost-btn disabled:opacity-50">
+            <i className="fa-solid fa-check text-[10px]" />Approve
+          </button>
+          <button onClick={onSnooze1d} disabled={isPending} className="ghost-btn disabled:opacity-50">
+            <i className="fa-solid fa-clock text-[10px]" />Snooze 1d
+          </button>
+          <button onClick={onReject} disabled={isPending} className="ghost-btn !text-danger disabled:opacity-50">
+            <i className="fa-solid fa-xmark text-[10px]" />Reject
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

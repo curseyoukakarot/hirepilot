@@ -3,18 +3,22 @@
  *
  * HTML preserved EXACTLY from mockups/goals.html main content block.
  *
- * TODO wire to backend:
- *   - List goals from `goals` table where workspace_id = current
- *   - Filter pills: status IN ('running', 'awaiting_approval', 'completed')
- *   - "Plan goal" button → POST /api/v2/goals { prompt } → REX plans → status='awaiting_approval'
- *   - Approve & run → POST /api/v2/goals/:id/approve
- *   - Live execution console → SSE stream from /api/v2/goals/:id/log
- *   - Agent delegation chips from goal.plan.assigned_agents[]
+ * Wired to backend:
+ *   - GET /api/v2/goals — drives the topbar counts + the "Your workspace goals" list
+ *   - POST /api/v2/goals — the Plan goal input creates a goal in 'planning' status
+ *   - POST /api/v2/goals/:id/{approve|pause|resume|cancel} — controls
+ *
+ * Still placeholder (rich animation/visuals; no SSE log yet):
+ *   - "Live execution" terminal
+ *   - "Plan · 5 steps" timeline (needs rex_activity_log + plan jsonb shape)
+ *   - The mockup's hardcoded G-0142 / G-0140 / G-0138 cards stay as visual reference
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
+import { useGoals } from '../hooks/useGoals';
+import type { Goal, GoalStatus } from '../types';
 
 // Local helper styles for goal-specific cards
 const goalCardStyles: Record<string, React.CSSProperties> = {
@@ -30,15 +34,34 @@ const goalCardStyles: Record<string, React.CSSProperties> = {
 };
 
 export default function GoalsPage() {
+  const { goals, isLoading, create, approve, pause, resume, cancel } = useGoals();
+  const [draft, setDraft] = useState('');
+
+  const counts: Record<GoalStatus | 'total', number> = {
+    planning: 0, awaiting_approval: 0, running: 0, paused: 0,
+    completed: 0, failed: 0, cancelled: 0, total: goals.length
+  } as any;
+  for (const g of goals) counts[g.status as GoalStatus] = (counts[g.status as GoalStatus] || 0) + 1;
+
+  const handlePlan = () => {
+    const title = draft.trim();
+    if (!title || create.isPending) return;
+    create.mutate({ title, prompt: title }, {
+      onSuccess: () => setDraft(''),
+    });
+  };
+
   return (
     <WorkspaceShell autopilot>
       <WorkspaceTopbar
         pageTitle="Goals"
         pageIcon="fa-solid fa-rocket"
         pageIconColor="text-primary"
-        pageSubtitle="REX-driven outcomes · 2 running · 1 awaiting"
+        pageSubtitle={isLoading ? 'Loading goals…' : `REX-driven outcomes · ${counts.running} running · ${counts.awaiting_approval} awaiting`}
         statusPill={
-          <RexStatusPill text="2 goals running · " highlight="~28m to next milestone" highlightClass="text-text-main font-semibold" />
+          counts.running > 0
+            ? <RexStatusPill text={`${counts.running} goal${counts.running === 1 ? '' : 's'} running · `} highlight={`${counts.awaiting_approval} awaiting`} highlightClass="text-warn font-semibold" />
+            : <RexStatusPill text="REX is " highlight="ready for your next goal" highlightClass="text-primary font-semibold" />
         }
       />
 
@@ -55,11 +78,11 @@ export default function GoalsPage() {
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="text-[12px] flex items-center gap-3">
-              <div><span className="font-bold text-primary tabular-nums">2</span> <span className="text-text-muted">running</span></div>
+              <div><span className="font-bold text-primary tabular-nums">{counts.running}</span> <span className="text-text-muted">running</span></div>
               <div className="w-px h-3 bg-gray-300" />
-              <div><span className="font-bold text-warn tabular-nums">1</span> <span className="text-text-muted">awaiting you</span></div>
+              <div><span className="font-bold text-warn tabular-nums">{counts.awaiting_approval}</span> <span className="text-text-muted">awaiting you</span></div>
               <div className="w-px h-3 bg-gray-300" />
-              <div><span className="font-bold text-success tabular-nums">8</span> <span className="text-text-muted">done this week</span></div>
+              <div><span className="font-bold text-success tabular-nums">{counts.completed}</span> <span className="text-text-muted">completed</span></div>
             </div>
           </div>
         </section>
@@ -85,20 +108,50 @@ export default function GoalsPage() {
           </div>
           <input
             type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handlePlan(); }}
             className="w-full bg-white rounded-lg px-3 py-2.5 text-[14px] outline-none border border-gray-200 focus:border-primary/40 transition placeholder:text-text-muted"
             placeholder="e.g. 'Find 50 senior backend engineers in NY at Series B startups, score them, start outreach to top 30'"
           />
           <div className="flex items-center justify-between mt-2.5 flex-wrap gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Templates</span>
-              <button className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Source &amp; outreach</button>
-              <button className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Scale a campaign</button>
-              <button className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Pipeline review</button>
-              <button className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Auto-respond</button>
+              <button onClick={() => setDraft('Source 50 senior engineers and start outreach to the top 30')} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Source &amp; outreach</button>
+              <button onClick={() => setDraft('Scale our active campaign — find 200 more matching the top responders')} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Scale a campaign</button>
+              <button onClick={() => setDraft('Review every pipeline and surface stalled candidates')} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Pipeline review</button>
+              <button onClick={() => setDraft('Auto-respond to every reply that scores above 0.85')} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-gray-200 hover:border-primary/30 text-text-secondary">Auto-respond</button>
             </div>
-            <button className="btn-primary"><i className="fa-solid fa-arrow-up text-[10px]" />Plan goal</button>
+            <button
+              onClick={handlePlan}
+              disabled={!draft.trim() || create.isPending}
+              className="btn-primary disabled:opacity-50"
+            >
+              <i className={`fa-solid ${create.isPending ? 'fa-spinner fa-spin' : 'fa-arrow-up'} text-[10px]`} />
+              {create.isPending ? 'Planning…' : 'Plan goal'}
+            </button>
           </div>
         </section>
+
+        {/* Real workspace goals (live from DB) */}
+        {goals.length > 0 && (
+          <section className="float-in d-2 space-y-2">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted px-1">
+              Your workspace · {goals.length} goal{goals.length === 1 ? '' : 's'}
+            </div>
+            {goals.map((g) => (
+              <GoalListRow
+                key={g.id}
+                goal={g}
+                onApprove={() => approve.mutate(g.id)}
+                onPause={() => pause.mutate(g.id)}
+                onResume={() => resume.mutate(g.id)}
+                onCancel={() => cancel.mutate(g.id)}
+                isPending={approve.isPending || pause.isPending || resume.isPending || cancel.isPending}
+              />
+            ))}
+          </section>
+        )}
 
         {/* Filter pills */}
         <div className="float-in d-2 flex items-center gap-1.5 flex-wrap">
@@ -329,5 +382,74 @@ export default function GoalsPage() {
 
       </div>
     </WorkspaceShell>
+  );
+}
+
+/**
+ * Compact row for workspace goals from the DB.
+ * Lives below the visual mockup blocks until the rich plan/log surfaces are wired.
+ */
+function GoalListRow({
+  goal,
+  onApprove,
+  onPause,
+  onResume,
+  onCancel,
+  isPending,
+}: {
+  goal: Goal;
+  onApprove: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const statusTag = (status: GoalStatus) => {
+    switch (status) {
+      case 'planning':         return <span className="tag tag-muted"><i className="fa-solid fa-sparkles text-[8px]" />Planning</span>;
+      case 'awaiting_approval': return <span className="tag tag-warn"><i className="fa-solid fa-circle-question text-[8px]" />Awaiting you</span>;
+      case 'running':          return <span className="tag tag-primary"><span className="live-dot" />Running</span>;
+      case 'paused':           return <span className="tag tag-muted"><i className="fa-solid fa-pause text-[8px]" />Paused</span>;
+      case 'completed':        return <span className="tag tag-success"><i className="fa-solid fa-check text-[8px]" />Done</span>;
+      case 'failed':           return <span className="tag tag-danger"><i className="fa-solid fa-circle-exclamation text-[8px]" />Failed</span>;
+      case 'cancelled':        return <span className="tag tag-muted"><i className="fa-solid fa-xmark text-[8px]" />Cancelled</span>;
+    }
+  };
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl p-3.5 flex items-center gap-3 hover:shadow-sm transition">
+      <div className="w-8 h-8 rounded-lg grad-rex flex items-center justify-center text-white shrink-0">
+        <i className="fa-solid fa-rocket text-[12px]" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+          {statusTag(goal.status)}
+          <span className="text-[10.5px] text-text-muted">created {new Date(goal.created_at).toLocaleDateString()}</span>
+        </div>
+        <div className="font-semibold text-[13.5px] truncate">{goal.title}</div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {(goal.status === 'planning' || goal.status === 'awaiting_approval') && (
+          <button onClick={onApprove} disabled={isPending} className="ghost-btn disabled:opacity-50">
+            <i className="fa-solid fa-play text-[10px]" />Approve &amp; run
+          </button>
+        )}
+        {goal.status === 'running' && (
+          <button onClick={onPause} disabled={isPending} className="ghost-btn disabled:opacity-50">
+            <i className="fa-solid fa-pause text-[10px]" />Pause
+          </button>
+        )}
+        {goal.status === 'paused' && (
+          <button onClick={onResume} disabled={isPending} className="ghost-btn disabled:opacity-50">
+            <i className="fa-solid fa-play text-[10px]" />Resume
+          </button>
+        )}
+        {(goal.status === 'planning' || goal.status === 'awaiting_approval' || goal.status === 'running' || goal.status === 'paused') && (
+          <button onClick={onCancel} disabled={isPending} className="ghost-btn !text-danger disabled:opacity-50">
+            <i className="fa-solid fa-xmark text-[10px]" />Cancel
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
