@@ -74,19 +74,65 @@ export const linkedinSourcer: SkillHandler = async (input, ctx): Promise<SkillRe
 };
 
 /**
- * Apollo Enrich — wraps existing services/apollo/enrichLead.enrichWithApollo
- * for a single lead. Read-only enrichment is autopilot-safe (no guardrail).
+ * Apollo Enrich — wraps services/apollo/enrichLead.enrichWithApollo for a
+ * single lead. Apollo is a HOUSE ACCOUNT shared across all users:
+ *
+ *   - If the user has connected their PERSONAL Apollo API key
+ *     (user_settings.apollo_api_key) → no platform credits charged.
+ *   - Otherwise the platform's SUPER_ADMIN_APOLLO_API_KEY is used and
+ *     1 credit is deducted per enrichment.
+ *
+ * This handler enforces the gate. Without it, REX/v2 would bypass the
+ * credit system entirely for users on the house account.
  *
  * Input: { leadId, firstName?, lastName?, company?, linkedinUrl? }
  */
+const APOLLO_ENRICH_CREDIT_COST = 1;
+
 export const apolloEnrich: SkillHandler = async (input, ctx): Promise<SkillResult> => {
   const { leadId, firstName, lastName, company, linkedinUrl } = input || {};
   if (!leadId) return { ok: false, error: 'leadId_required' };
 
+  // 1) Detect whether the user is on the house Apollo account or their own.
+  let usingHouseApollo = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { supabase } = require('../../../lib/supabase');
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('apollo_api_key')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if ((settings as any)?.apollo_api_key) usingHouseApollo = false;
+  } catch {
+    // If user_settings lookup fails, default to charging (safer for the platform)
+    usingHouseApollo = true;
+  }
+
+  // 2) Pre-check credits if on the house account.
+  if (usingHouseApollo) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { CreditService } = require('../../../../services/creditService');
+      const ok = await CreditService.hasSufficientCredits(ctx.userId, APOLLO_ENRICH_CREDIT_COST);
+      if (!ok) {
+        return {
+          ok: false,
+          error: 'insufficient_credits',
+          message: `Apollo house enrichment costs ${APOLLO_ENRICH_CREDIT_COST} credit. You're out of credits — top up under Settings → Billing, or connect your own Apollo API key for unlimited free enrichment.`,
+        };
+      }
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'credit_check_failed' };
+    }
+  }
+
+  // 3) Run enrichment.
+  let enriched: any;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { enrichWithApollo } = require('../../../services/apollo/enrichLead');
-    const enriched = await enrichWithApollo({
+    enriched = await enrichWithApollo({
       leadId,
       userId: ctx.userId,
       firstName,
@@ -94,10 +140,43 @@ export const apolloEnrich: SkillHandler = async (input, ctx): Promise<SkillResul
       company,
       linkedinUrl,
     });
-    return { ok: true, data: enriched };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'apollo_enrich_failed' };
   }
+
+  // 4) Deduct credits ONLY if the platform's super-admin key actually backed
+  //    this call. enrichWithApollo returns api_key_info telling us which key
+  //    was used; trust it over our pre-detection in case enrichment fell
+  //    through to the house key after the user's personal key failed.
+  const usedHouseKey = enriched?.api_key_info?.using_personal_key === false;
+  let creditsCharged = 0;
+  if (usedHouseKey && enriched?.success) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { CreditService } = require('../../../../services/creditService');
+      await CreditService.deductCredits(
+        ctx.userId,
+        APOLLO_ENRICH_CREDIT_COST,
+        'api_usage',
+        `REX apollo_enrich (house account): lead ${leadId}`,
+      );
+      creditsCharged = APOLLO_ENRICH_CREDIT_COST;
+    } catch (creditErr: any) {
+      // Non-fatal: log but don't fail the enrichment the user already got.
+      console.warn('[apollo_enrich] credit deduction failed:', creditErr?.message || creditErr);
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...enriched,
+      _credit_meta: {
+        using_house_apollo: usedHouseKey,
+        credits_charged: creditsCharged,
+      },
+    },
+  };
 };
 
 /**
