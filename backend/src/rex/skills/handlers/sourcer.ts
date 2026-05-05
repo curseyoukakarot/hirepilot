@@ -100,9 +100,59 @@ export const apolloEnrich: SkillHandler = async (input, ctx): Promise<SkillResul
   }
 };
 
+/**
+ * Hunter — finds an email by full name + company domain.
+ * Read-only, autopilot-safe. Returns null if no email scores high enough.
+ *
+ * Input: { fullName, domain }
+ */
+export const hunterSkill: SkillHandler = async (input, ctx): Promise<SkillResult> => {
+  const { fullName, domain } = input || {};
+  if (!fullName || !domain) return { ok: false, error: 'fullName_and_domain_required' };
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getUserIntegrations } = require('../../../../utils/userIntegrationsHelper');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { enrichWithHunter } = require('../../../../services/hunter');
+    const integrations = await getUserIntegrations(ctx.userId);
+    if (!integrations?.hunter_api_key) {
+      return { ok: false, error: 'hunter_not_configured', message: 'Connect your Hunter.io API key under Settings → Integrations.' };
+    }
+    const email = await enrichWithHunter(integrations.hunter_api_key, fullName, domain);
+    return { ok: true, data: { email } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'hunter_failed' };
+  }
+};
+
+/**
+ * Skrapp — email finder + validator.
+ * Read-only, autopilot-safe.
+ *
+ * Input: { fullName, domain, companyName? }
+ */
+export const skrappSkill: SkillHandler = async (input, ctx): Promise<SkillResult> => {
+  const { fullName, domain, companyName } = input || {};
+  if (!fullName || !domain) return { ok: false, error: 'fullName_and_domain_required' };
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getUserIntegrations } = require('../../../../utils/userIntegrationsHelper');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { enrichWithSkrapp } = require('../../../../services/skrapp');
+    const integrations = await getUserIntegrations(ctx.userId);
+    if (!integrations?.skrapp_api_key) {
+      return { ok: false, error: 'skrapp_not_configured', message: 'Connect your Skrapp.io API key under Settings → Integrations.' };
+    }
+    const email = await enrichWithSkrapp(integrations.skrapp_api_key, fullName, domain, companyName);
+    return { ok: true, data: { email } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'skrapp_failed' };
+  }
+};
+
 export const icpResearcher      = stub('icp_researcher');
 export const browserResearcher  = stub('browser_researcher');
-export const hunterSkill        = stub('hunter_skill');
-export const skrappSkill        = stub('skrapp_skill');
 export const githubSourcer      = stub('github_sourcer');
 export const twitterSourcer     = stub('twitter_sourcer');

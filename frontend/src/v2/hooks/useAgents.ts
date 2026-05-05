@@ -62,6 +62,22 @@ export function useAgents() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QK }),
   });
 
+  /**
+   * Directly invoke an installed Skill on a hired specialist.
+   * Returns the SkillResult shape: { ok, held?, data?, error? }
+   * Trigger from UI buttons (e.g. "Run intel" on a candidate row).
+   */
+  const invokeSkill = useMutation({
+    mutationFn: (input: { agentId: string; skillId: string; input?: any }) =>
+      apiPost(`/api/v2/agents/${input.agentId}/skills/${input.skillId}/invoke`, { input: input.input || {} }),
+    onSuccess: () => {
+      // last_run_at bumps; invalidate so the UI re-renders with fresh timestamps.
+      queryClient.invalidateQueries({ queryKey: QK });
+      // Held actions create decisions — invalidate that query too.
+      queryClient.invalidateQueries({ queryKey: ['v2', 'decisions'] });
+    },
+  });
+
   return {
     agents: query.data?.agents ?? [],
     isLoading: query.isLoading,
@@ -74,6 +90,7 @@ export function useAgents() {
     installSkill,
     updateSkill,
     uninstallSkill,
+    invokeSkill,
   };
 }
 
