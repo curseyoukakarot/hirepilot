@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Hire team member</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; min-height: 100vh; }
+  body::before { content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.06), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.05), transparent 70%); }
+  body.autopilot::after { content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size: 200% 100%; animation: shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}.d-7{animation-delay:.28s}.d-8{animation-delay:.32s}.d-9{animation-delay:.36s}.d-10{animation-delay:.4s}.d-11{animation-delay:.44s}.d-12{animation-delay:.48s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .grad-text-rex{background:linear-gradient(120deg,#10B981,#6B46C1,#0C5CF4,#EC4899,#10B981);background-size:300% 300%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:orbit 6s ease-in-out infinite;}
+
+  /* Agent gradients */
+  .grad-sourcer{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .grad-recruiter{background:linear-gradient(135deg,#10B981,#14B8A6);}
+  .grad-coordinator{background:linear-gradient(135deg,#8B5CF6,#EC4899);}
+  .grad-researcher{background:linear-gradient(135deg,#7C3AED,#4F46E5);}
+  .grad-bd{background:linear-gradient(135deg,#F59E0B,#EA580C);}
+  .grad-closer{background:linear-gradient(135deg,#F43F5E,#E11D48);}
+  .grad-account{background:linear-gradient(135deg,#0EA5E9,#0D9488);}
+  .grad-refcheck{background:linear-gradient(135deg,#475569,#1E40AF);}
+
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .2s;}
+  .trust-badge:hover{transform:translateY(-1px);}
+
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-solid:hover{transform:translateY(-1px);}
+
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;transition:all .15s;}
+  .btn-outline:hover{border-color:rgba(107,70,193,.3);color:#1A1A2E;}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-secondary{background:rgba(12,92,244,.1);color:#0C5CF4;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+
+  /* Skill chip */
+  .skill-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:9999px;font-size:10.5px;font-weight:500;background:white;border:1px solid #ECECEC;color:#4A4A68;}
+  .skill-chip.add{border-style:dashed;color:#8E8EA0;}
+  .skill-chip i{font-size:9px;}
+
+  /* Filter pills */
+  .filter-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:9999px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;transition:all .15s;}
+  .filter-chip:hover{border-color:rgba(107,70,193,.3);}
+  .filter-chip.active{background:linear-gradient(135deg,#6B46C1,#0C5CF4);color:white;border-color:transparent;font-weight:600;box-shadow:0 4px 12px -4px rgba(107,70,193,.3);}
+
+  /* Agent catalog card */
+  .agent-card{background:white;border:1px solid #ECECEC;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;transition:transform .25s cubic-bezier(0.4,0,0.2,1),box-shadow .25s,border-color .25s;cursor:pointer;height:100%;position:relative;overflow:hidden;}
+  .agent-card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -10px rgba(26,26,46,.10);border-color:rgba(107,70,193,.25);}
+  .agent-card.hired{background:linear-gradient(135deg,rgba(16,185,129,.03),white 30%);border-color:rgba(16,185,129,.18);}
+
+  /* Hired ribbon */
+  .hired-ribbon{position:absolute;top:18px;right:18px;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:9999px;background:rgba(16,185,129,.1);color:#059669;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+
+  .agent-avatar{position:relative;width:52px;height:52px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;}
+  .agent-avatar::before{content:'';position:absolute;inset:-10px;border-radius:9999px;opacity:.35;filter:blur(14px);z-index:-1;}
+  .agent-avatar.sourcer::before{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .agent-avatar.recruiter::before{background:linear-gradient(135deg,#10B981,#14B8A6);}
+  .agent-avatar.coordinator::before{background:linear-gradient(135deg,#8B5CF6,#EC4899);}
+  .agent-avatar.researcher::before{background:linear-gradient(135deg,#7C3AED,#4F46E5);}
+  .agent-avatar.bd::before{background:linear-gradient(135deg,#F59E0B,#EA580C);}
+  .agent-avatar.closer::before{background:linear-gradient(135deg,#F43F5E,#E11D48);}
+  .agent-avatar.account::before{background:linear-gradient(135deg,#0EA5E9,#0D9488);}
+  .agent-avatar.refcheck::before{background:linear-gradient(135deg,#475569,#1E40AF);}
+
+  /* Featured workflow callout */
+  .workflow-card{background:linear-gradient(135deg,rgba(107,70,193,.04),rgba(12,92,244,.02));border:1px solid rgba(107,70,193,.1);border-radius:11px;padding:11px 13px;}
+  .workflow-card .label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B46C1;margin-bottom:4px;display:flex;align-items:center;gap:5px;}
+
+  /* Plan banner */
+  .plan-banner{background:linear-gradient(90deg,rgba(107,70,193,.04),rgba(12,92,244,.02) 70%,transparent);border:1px solid rgba(107,70,193,.12);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px;}
+
+  /* REX FAB */
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1);}
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+
+  /* Surface chip — which surfaces this agent works in */
+  .surface-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:500;color:#6B46C1;background:rgba(107,70,193,.06);border:1px solid rgba(107,70,193,.12);}
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex min-h-screen relative z-10">
+
+  <!-- ============ WORKSPACE SIDEBAR ============ -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>3 agents working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted"><i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+          <li><a href="team.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-users-gear w-4 text-[11px]"></i><span class="flex-1">Team</span><span class="text-[10px] text-primary font-bold">3</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted"></i><span class="flex-1">Campaigns</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-chart-line w-4 text-[11px] text-text-muted"></i><span class="flex-1">Reports</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0">
+
+    <!-- TOPBAR with breadcrumb -->
+    <header class="border-b border-gray-100 px-8 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <a href="team.html" class="ghost-btn"><i class="fa-solid fa-arrow-left text-[10px]"></i>Team</a>
+      <div class="text-text-muted text-xs">/</div>
+      <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-user-plus text-primary text-xs"></i>Hire team member</div>
+
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="px-8 py-7 space-y-6 max-w-[1400px] mx-auto">
+
+      <!-- HERO -->
+      <section class="float-in flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <div class="text-[11px] font-bold uppercase tracking-[0.2em] grad-text-rex mb-1.5"><i class="fa-solid fa-people-group text-[10px] mr-1"></i>Catalog</div>
+          <h1 class="text-[32px] font-extrabold tracking-tight">Build your AI team.</h1>
+          <p class="text-text-secondary text-[14.5px] mt-1.5 max-w-2xl">Hire specialists for every stage of recruiting — sourcing, engagement, scheduling, deal-closing. Each comes pre-loaded with Skills and integrates with the team you already have.</p>
+        </div>
+      </section>
+
+      <!-- PLAN CONTEXT BANNER -->
+      <section class="float-in d-1 plan-banner">
+        <div class="w-9 h-9 rounded-xl grad-icon flex items-center justify-center text-white shrink-0 shadow-md shadow-primary/25"><i class="fa-solid fa-circle-check text-sm"></i></div>
+        <div class="flex-1">
+          <div class="text-[13px] font-semibold">You're on Starter — all 8 specialists are available</div>
+          <div class="text-[11.5px] text-text-muted mt-0.5">$59/mo · 500 credits · unlimited goals · all Skills · single workspace</div>
+        </div>
+        <button class="btn-outline"><i class="fa-solid fa-people-roof text-[10px]"></i>Need teammates? Upgrade to Team — $79/user/mo</button>
+      </section>
+
+      <!-- FILTER PILLS -->
+      <div class="float-in d-2 flex items-center gap-1.5 flex-wrap">
+        <span class="filter-chip active">All · 8</span>
+        <span class="filter-chip">Top of funnel · 3</span>
+        <span class="filter-chip">Engagement · 2</span>
+        <span class="filter-chip">Closing · 3</span>
+        <span class="filter-chip"><i class="fa-solid fa-circle-check text-success text-[9px]"></i>Already hired · 3</span>
+        <span class="filter-chip ml-auto"><i class="fa-solid fa-arrow-up-wide-short text-[9px]"></i>Sort: Most popular</span>
+      </div>
+
+      <!-- ============ AGENT CATALOG GRID ============ -->
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+
+        <!-- ============ SOURCER (HIRED) ============ -->
+        <div class="agent-card hired float-in d-3">
+          <span class="hired-ribbon"><i class="fa-solid fa-check text-[8px]"></i>Hired</span>
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar sourcer grad-sourcer"><i class="fa-solid fa-crosshairs"></i></div>
+            <div class="flex-1 min-w-0 pr-12">
+              <h3 class="text-[18px] font-bold tracking-tight">Sourcer</h3>
+              <p class="text-[11.5px] text-text-muted">Top of funnel · finds &amp; qualifies new leads</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">Tirelessly scans LinkedIn, Apollo, GitHub, and the open web for people who match your ICP. Enriches contact info, scores them, and queues the best for your Recruiter.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">"Find 50 senior backend at Series B startups in NY" → I source via LinkedIn + Apollo, enrich every result, score them against your ICP, and queue the top 30 for outreach.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 4 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-brands fa-linkedin" style="color:#0077B5"></i>LinkedIn Sourcer</span>
+              <span class="skill-chip"><i class="fa-solid fa-database" style="color:#0891B2"></i>Apollo Enrich</span>
+              <span class="skill-chip"><i class="fa-solid fa-bullseye" style="color:#06B6D4"></i>ICP Researcher</span>
+              <span class="skill-chip"><i class="fa-solid fa-globe" style="color:#3B82F6"></i>Browser Researcher</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-database text-[9px]"></i>Leads</span>
+              <span class="surface-chip"><i class="fa-solid fa-rocket text-[9px]"></i>Goals</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">247 sourced this week</span>
+            <a href="agent-sourcer.html" class="btn-outline !py-1.5"><i class="fa-solid fa-arrow-right text-[9px]"></i>Manage</a>
+          </div>
+        </div>
+
+        <!-- ============ RECRUITER (HIRED) ============ -->
+        <div class="agent-card hired float-in d-4">
+          <span class="hired-ribbon"><i class="fa-solid fa-check text-[8px]"></i>Hired</span>
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar recruiter grad-recruiter"><i class="fa-solid fa-user-tie"></i></div>
+            <div class="flex-1 min-w-0 pr-12">
+              <h3 class="text-[18px] font-bold tracking-tight">Recruiter</h3>
+              <p class="text-[11.5px] text-text-muted">Engagement · drafts · screens · submittals</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">Owns everything between "lead found" and "interview booked" — drafts personalized outreach, handles replies, screens candidates, writes the submittal you'd send to a hiring manager.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">When Sarah replies to your campaign, I draft the perfect response in your tone, schedule next step, and write the submittal for your hiring manager.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 4 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-paper-plane" style="color:#10B981"></i>Outreach Writer</span>
+              <span class="skill-chip"><i class="fa-solid fa-comments" style="color:#14B8A6"></i>Reply Handler</span>
+              <span class="skill-chip"><i class="fa-solid fa-file-lines" style="color:#10B981"></i>Submittal Drafter</span>
+              <span class="skill-chip"><i class="fa-solid fa-table-columns" style="color:#059669"></i>Pipeline Manager</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-envelope text-[9px]"></i>Inbox</span>
+              <span class="surface-chip"><i class="fa-solid fa-paper-plane text-[9px]"></i>Campaigns</span>
+              <span class="surface-chip"><i class="fa-solid fa-table-columns text-[9px]"></i>Pipelines</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">49 replies handled this week</span>
+            <button class="btn-outline !py-1.5"><i class="fa-solid fa-arrow-right text-[9px]"></i>Manage</button>
+          </div>
+        </div>
+
+        <!-- ============ COORDINATOR (HIRED) ============ -->
+        <div class="agent-card hired float-in d-5">
+          <span class="hired-ribbon"><i class="fa-solid fa-check text-[8px]"></i>Hired</span>
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar coordinator grad-coordinator"><i class="fa-solid fa-calendar-check"></i></div>
+            <div class="flex-1 min-w-0 pr-12">
+              <h3 class="text-[18px] font-bold tracking-tight">Coordinator</h3>
+              <p class="text-[11.5px] text-text-muted">Logistics · scheduling · reminders</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">The most overlooked role in agencies — handles all calendar back-and-forth, books interviews, sends reminders, manages reschedules. Recruiters reclaim 6+ hours/week.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">When a candidate clears phone screen, I instantly book the technical interview across 3 calendars, send invites + reminders, and handle reschedules without you noticing.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 4 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-calendar" style="color:#8B5CF6"></i>Calendar Sync</span>
+              <span class="skill-chip"><i class="fa-solid fa-clock" style="color:#A855F7"></i>Interview Booker</span>
+              <span class="skill-chip"><i class="fa-solid fa-bell" style="color:#EC4899"></i>Reminder Bot</span>
+              <span class="skill-chip"><i class="fa-solid fa-rotate" style="color:#8B5CF6"></i>Reschedule Mgr</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-table-columns text-[9px]"></i>Pipelines</span>
+              <span class="surface-chip"><i class="fa-solid fa-envelope text-[9px]"></i>Inbox</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">28 interviews scheduled this week</span>
+            <button class="btn-outline !py-1.5"><i class="fa-solid fa-arrow-right text-[9px]"></i>Manage</button>
+          </div>
+        </div>
+
+        <!-- ============ RESEARCHER ============ -->
+        <div class="agent-card float-in d-6">
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar researcher grad-researcher"><i class="fa-solid fa-magnifying-glass-arrow-right"></i></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[18px] font-bold tracking-tight">Researcher</h3>
+              <p class="text-[11.5px] text-text-muted">Deep intel · companies · people · comp</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">When a quick LinkedIn skim isn't enough. Spins up a full Browserbase session to deep-dive a company, hiring manager, or candidate — reads news, careers pages, funding rounds, team org charts.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">Drop me a company URL — I read their careers page, news, funding history, and team org, then hand you a 1-page intel brief before you hop on the call.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 3 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-globe" style="color:#7C3AED"></i>Browser Researcher</span>
+              <span class="skill-chip"><i class="fa-solid fa-building" style="color:#4F46E5"></i>Company Intel</span>
+              <span class="skill-chip"><i class="fa-solid fa-coins" style="color:#7C3AED"></i>Comp Benchmark</span>
+              <span class="skill-chip add"><i class="fa-solid fa-plus"></i>News Watch</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-database text-[9px]"></i>Leads</span>
+              <span class="surface-chip"><i class="fa-solid fa-handshake text-[9px]"></i>Deals</span>
+              <span class="surface-chip"><i class="fa-solid fa-rocket text-[9px]"></i>Goals</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-success font-semibold flex items-center gap-1"><i class="fa-solid fa-fire text-[9px]"></i>Most popular this month</span>
+            <button class="btn-solid !py-1.5"><i class="fa-solid fa-user-plus text-[9px]"></i>Hire Researcher</button>
+          </div>
+        </div>
+
+        <!-- ============ BUSINESS DEV ============ -->
+        <div class="agent-card float-in d-7">
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar bd grad-bd"><i class="fa-solid fa-handshake-angle"></i></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[18px] font-bold tracking-tight">Business Dev</h3>
+              <p class="text-[11.5px] text-text-muted">Top of funnel · finds new clients</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">Finds you new client companies before your pipeline runs dry. Watches funding announcements, job board signals, hiring patterns — flags companies likely to need you.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">I scan job boards and funding announcements daily. When a Series B startup posts 5+ engineering roles, I ping you with a draft cold-outreach to their TA leader.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 3 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-satellite-dish" style="color:#F59E0B"></i>Hiring Signal Watch</span>
+              <span class="skill-chip"><i class="fa-solid fa-paper-plane" style="color:#EA580C"></i>Cold Outreach</span>
+              <span class="skill-chip"><i class="fa-solid fa-list-ul" style="color:#F59E0B"></i>Job Board Scrape</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-handshake text-[9px]"></i>Deals</span>
+              <span class="surface-chip"><i class="fa-solid fa-paper-plane text-[9px]"></i>Campaigns</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">For freelancers + small agencies</span>
+            <button class="btn-solid !py-1.5"><i class="fa-solid fa-user-plus text-[9px]"></i>Hire Business Dev</button>
+          </div>
+        </div>
+
+        <!-- ============ CLOSER ============ -->
+        <div class="agent-card float-in d-8">
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar closer grad-closer"><i class="fa-solid fa-trophy"></i></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[18px] font-bold tracking-tight">Closer</h3>
+              <p class="text-[11.5px] text-text-muted">Closing · offers · negotiation</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">When a candidate is in offer stage, this is the agent that gets it across the line. Drafts offer letters, handles negotiations, predicts counter-offers, drives deals to signed.</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">Drafts your offer letters with current comp benchmarks. When the candidate counter-offers, I draft your response and forecast their likely reaction based on similar deals.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 3 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-file-signature" style="color:#F43F5E"></i>Offer Drafter</span>
+              <span class="skill-chip"><i class="fa-solid fa-comments-dollar" style="color:#E11D48"></i>Negotiation</span>
+              <span class="skill-chip"><i class="fa-solid fa-rotate-left" style="color:#F43F5E"></i>Counter-handler</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-table-columns text-[9px]"></i>Pipelines</span>
+              <span class="surface-chip"><i class="fa-solid fa-handshake text-[9px]"></i>Deals</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">Best paired with Recruiter</span>
+            <button class="btn-solid !py-1.5"><i class="fa-solid fa-user-plus text-[9px]"></i>Hire Closer</button>
+          </div>
+        </div>
+
+        <!-- ============ ACCOUNT MANAGER ============ -->
+        <div class="agent-card float-in d-9">
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar account grad-account"><i class="fa-solid fa-building-user"></i></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[18px] font-bold tracking-tight">Account Manager</h3>
+              <p class="text-[11.5px] text-text-muted">Client retention · status reports · renewals</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">Keeps your existing clients warm so they keep retaining you. Sends weekly status updates, flags when pipeline health dips, nudges on renewals. The reason your clients say "you're easy to work with."</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">Every Friday, I send each active client a clean status report — pipeline health, candidates in flight, time-to-hire vs SLA. They feel covered without you typing a word.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 3 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-file-lines" style="color:#0EA5E9"></i>Weekly Reports</span>
+              <span class="skill-chip"><i class="fa-solid fa-arrow-trend-up" style="color:#0D9488"></i>Pipeline Updater</span>
+              <span class="skill-chip"><i class="fa-solid fa-bell" style="color:#0EA5E9"></i>Renewal Nudge</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-handshake text-[9px]"></i>Deals</span>
+              <span class="surface-chip"><i class="fa-solid fa-chart-line text-[9px]"></i>Reports</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">Best for retainer agencies</span>
+            <button class="btn-solid !py-1.5"><i class="fa-solid fa-user-plus text-[9px]"></i>Hire Account Mgr</button>
+          </div>
+        </div>
+
+        <!-- ============ REFERENCE CHECKER ============ -->
+        <div class="agent-card float-in d-10">
+          <div class="flex items-start gap-3.5">
+            <div class="agent-avatar refcheck grad-refcheck"><i class="fa-solid fa-shield-check"></i></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[18px] font-bold tracking-tight">Reference Checker</h3>
+              <p class="text-[11.5px] text-text-muted">Late stage · references · back-channels</p>
+            </div>
+          </div>
+
+          <p class="text-[13px] text-text-secondary leading-relaxed">Drafts and sends reference request emails, follows up with reviewers who ghost, synthesizes feedback. Also runs back-channel inquiries when needed (people you trust who know the candidate).</p>
+
+          <div class="workflow-card">
+            <div class="label"><i class="fa-solid fa-bolt text-[9px]"></i>What they'd do</div>
+            <p class="text-[12px] text-text-secondary leading-relaxed italic">I draft reference request emails, follow up if reviewers ghost, and synthesize their feedback into a 5-line summary for your hiring manager — saves 90 min/candidate.</p>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Comes with · 3 Skills</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="skill-chip"><i class="fa-solid fa-envelope" style="color:#475569"></i>Reference Outreach</span>
+              <span class="skill-chip"><i class="fa-solid fa-comment-dots" style="color:#1E40AF"></i>Back-channel</span>
+              <span class="skill-chip"><i class="fa-solid fa-list-check" style="color:#475569"></i>Synthesis</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Works in</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="surface-chip"><i class="fa-solid fa-table-columns text-[9px]"></i>Pipelines</span>
+              <span class="surface-chip"><i class="fa-solid fa-envelope text-[9px]"></i>Inbox</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-100 flex items-center justify-between mt-auto">
+            <span class="text-[11px] text-text-muted">For senior &amp; exec placements</span>
+            <button class="btn-solid !py-1.5"><i class="fa-solid fa-user-plus text-[9px]"></i>Hire Reference</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============ COMING SOON ============ -->
+      <section class="float-in d-12 mt-8">
+        <div class="flex items-center gap-3 mb-4">
+          <h2 class="text-[15px] font-bold tracking-tight">Coming next quarter</h2>
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <button class="text-[11.5px] text-primary font-semibold hover:underline">Suggest a specialist →</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="bg-white border border-dashed border-gray-200 rounded-xl p-4 opacity-80">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm" style="background:linear-gradient(135deg,#84CC16,#10B981);"><i class="fa-solid fa-coins"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Comp Benchmarker</div>
+                <div class="text-[10.5px] text-text-muted">Live market salary data</div>
+              </div>
+            </div>
+            <div class="text-[10.5px] text-text-muted italic">Q3 2026</div>
+          </div>
+          <div class="bg-white border border-dashed border-gray-200 rounded-xl p-4 opacity-80">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm" style="background:linear-gradient(135deg,#06B6D4,#8B5CF6);"><i class="fa-solid fa-map"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Talent Mapper</div>
+                <div class="text-[10.5px] text-text-muted">Industry-wide org charts</div>
+              </div>
+            </div>
+            <div class="text-[10.5px] text-text-muted italic">Q3 2026</div>
+          </div>
+          <div class="bg-white border border-dashed border-gray-200 rounded-xl p-4 opacity-80">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm" style="background:linear-gradient(135deg,#EC4899,#F43F5E);"><i class="fa-solid fa-pen-nib"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Content Writer</div>
+                <div class="text-[10.5px] text-text-muted">LinkedIn posts + newsletters</div>
+              </div>
+            </div>
+            <div class="text-[10.5px] text-text-muted italic">Q4 2026</div>
+          </div>
+          <div class="bg-white border border-dashed border-gray-200 rounded-xl p-4 opacity-80">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm" style="background:linear-gradient(135deg,#475569,#0EA5E9);"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-[13px]">Diligence Auditor</div>
+                <div class="text-[10.5px] text-text-muted">Background + employment verify</div>
+              </div>
+            </div>
+            <div class="text-[10.5px] text-text-muted italic">Q4 2026</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FOOTER NOTE ============ -->
+      <section class="float-in d-12 mt-2 text-center text-[11.5px] text-text-muted">
+        <p>Every specialist comes with a default Skill set. You can install additional Skills, set schedules, and customize trust levels per agent. <a href="#" class="text-primary font-semibold hover:underline">See how Skills work →</a></p>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1 glass border border-gray-200 rounded-full px-2 py-1 shadow-lg text-xs">
+  <a href="workspace.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Today</a>
+  <a href="team.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Team</a>
+  <a href="agent-sourcer.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Sourcer</a>
+  <a href="hire-catalog.html" class="px-2.5 py-0.5 rounded-full grad-icon text-white font-semibold">Hire ★</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="index.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface"><i class="fa-solid fa-grip text-[10px]"></i></a>
+</div>
+
+</body>
+</html>

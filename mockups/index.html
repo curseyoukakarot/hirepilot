@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Mockup Gallery</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+
+  @keyframes float-in { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .6s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.05s}.d-2{animation-delay:.1s}.d-3{animation-delay:.15s}.d-4{animation-delay:.2s}.d-5{animation-delay:.25s}.d-6{animation-delay:.3s}.d-7{animation-delay:.35s}.d-8{animation-delay:.4s}.d-9{animation-delay:.45s}
+
+  @keyframes gradient-shift { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  .grad-text {
+    background: linear-gradient(120deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);
+    background-size: 300% 300%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: gradient-shift 6s ease-in-out infinite;
+  }
+
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  .card { transition: transform .35s cubic-bezier(0.4,0,0.2,1), box-shadow .35s cubic-bezier(0.4,0,0.2,1), border-color .35s; }
+  .card:hover { transform: translateY(-6px); box-shadow: 0 24px 48px -12px rgba(26,26,46,.18); border-color: rgba(107,70,193,.3); }
+
+  .grad-icon-1 { background: linear-gradient(135deg,#6B46C1,#0C5CF4); }
+  .grad-icon-2 { background: linear-gradient(135deg,#0C5CF4,#10B981); }
+  .grad-icon-3 { background: linear-gradient(135deg,#EC4899,#6B46C1,#0C5CF4); background-size: 200% 200%; animation: gradient-shift 5s ease-in-out infinite; }
+  .grad-icon-4 { background: linear-gradient(135deg,#F59E0B,#EC4899); }
+  .grad-icon-5 { background: linear-gradient(135deg,#6B46C1,#EC4899); }
+
+  .preview { aspect-ratio: 16 / 10; background: linear-gradient(135deg, rgba(107,70,193,.06), rgba(12,92,244,.04)); border-radius: 14px; position: relative; overflow: hidden; border: 1px solid rgba(107,70,193,.08); }
+  .preview-dark { background: #0B0B16; border-color: rgba(255,255,255,.05); }
+
+  .mini-card { background: white; border: 1px solid #F1F1F5; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<main class="max-w-7xl mx-auto px-6 py-14">
+
+  <!-- Hero -->
+  <header class="text-center mb-12 float-in">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 shadow-sm mb-5 text-xs font-medium text-gray-600">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+      11 mockups · REX as the operating layer
+    </div>
+    <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight">
+      HirePilot, but <span class="grad-text">alive.</span>
+    </h1>
+    <p class="text-lg text-gray-500 mt-4 max-w-2xl mx-auto leading-relaxed">
+      REX stops being a feature inside HirePilot and becomes the operating layer.
+      Every page shows what REX is doing, and a global trust toggle dials autonomy from Manual → Suggest → Autopilot.
+    </p>
+  </header>
+
+  <!-- ============ A+C: REX FRONT DOOR ============ -->
+  <section class="mb-14">
+    <div class="float-in d-1 flex items-center gap-3 mb-5">
+      <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400">01 · The new direction (A + C)</span>
+      <div class="flex-1 h-px bg-gray-200"></div>
+      <span class="text-xs text-gray-400">REX as front door · trust toggle everywhere</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-3">
+      <!-- Cockpit -->
+      <a href="cockpit.html" class="card float-in d-2 block bg-white rounded-2xl border border-gray-100 p-6 shadow-sm relative shimmer-top">
+        <div class="absolute -top-3 left-5 px-2.5 py-1 rounded-full grad-icon-3 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">★ Recommended home</div>
+        <div class="preview mb-5 p-3 relative">
+          <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"></div>
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5">
+            <div class="w-4 h-4 rounded grad-icon-1"></div><div class="w-4 h-4 rounded bg-gray-200"></div><div class="w-4 h-4 rounded bg-gray-200"></div>
+          </div>
+          <!-- mini hero with orb -->
+          <div class="ml-9 flex items-center gap-2 h-16">
+            <div class="relative w-12 h-12 rounded-full grad-icon-3 shadow-lg shadow-purple-500/40 shrink-0"><div class="absolute inset-0 rounded-full bg-purple-400/30 blur-lg"></div></div>
+            <div class="flex-1"><div class="h-1.5 bg-gray-300 rounded w-4/5 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/5"></div></div>
+            <!-- trust toggle indicator -->
+            <div class="bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-1 flex gap-0.5"><div class="w-3 h-3 rounded-full bg-gray-200"></div><div class="w-3 h-3 rounded-full bg-gray-200"></div><div class="w-3 h-3 rounded-full grad-icon-2"></div></div>
+          </div>
+          <!-- goal input -->
+          <div class="ml-9 mt-1.5 mini-card h-6 p-1.5 flex items-center gap-1.5 relative overflow-hidden">
+            <div class="w-3 h-3 rounded grad-icon-1"></div>
+            <div class="h-1 bg-gray-200 rounded w-3/4"></div>
+          </div>
+          <!-- running goal -->
+          <div class="ml-9 mt-1.5 mini-card p-1.5 relative overflow-hidden border border-purple-200" style="background: linear-gradient(135deg, rgba(107,70,193,.05), rgba(12,92,244,.03));">
+            <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
+            <div class="flex items-center gap-1 mb-1"><i class="fa-solid fa-rocket text-purple-500 text-[8px]"></i><div class="h-0.5 bg-purple-300 rounded w-1/2"></div></div>
+            <div class="flex gap-0.5"><div class="w-2 h-2 rounded-full bg-emerald-400"></div><div class="w-2 h-2 rounded-full bg-emerald-400"></div><div class="w-2 h-2 rounded-full bg-emerald-400"></div><div class="w-2 h-2 rounded-full grad-icon-1"></div><div class="w-2 h-2 rounded-full bg-gray-200"></div></div>
+            <div class="h-1 bg-gray-100 rounded mt-1"><div class="h-1 grad-icon-1 rounded" style="width: 72%"></div></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 rounded-xl grad-icon-3 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-house"></i></div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-0.5"><span class="text-xs font-bold uppercase tracking-wider grad-text">Cockpit</span><span class="text-xs text-emerald-600 font-bold uppercase">A + C</span></div>
+            <h3 class="text-lg font-semibold mt-0.5">REX as the front door</h3>
+            <p class="text-sm text-gray-500 mt-1 leading-relaxed">"While you were away, I worked." Goal input, running plans, decisions awaiting your approval, autopilot ribbon glowing at the top.</p>
+            <div class="flex items-center gap-1.5 mt-3 flex-wrap">
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Trust toggle</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Goal input</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Awaiting approval pile</span>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Agent -->
+      <a href="agent.html" class="card float-in d-3 block bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="preview mb-5 p-3 relative">
+          <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"></div>
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5">
+            <div class="w-4 h-4 rounded bg-gray-200"></div><div class="w-4 h-4 rounded grad-icon-1"></div>
+          </div>
+          <!-- new goal -->
+          <div class="ml-9 mini-card p-1.5 mb-1.5">
+            <div class="flex items-center gap-1 mb-0.5"><div class="w-3 h-3 rounded grad-icon-1"></div><div class="h-0.5 bg-gray-200 rounded w-2/3"></div></div>
+            <div class="h-2 bg-gray-50 rounded"></div>
+          </div>
+          <!-- running goal with plan -->
+          <div class="ml-9 mini-card p-1.5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
+            <div class="flex items-center gap-1 mb-1"><div class="w-2.5 h-2.5 rounded grad-icon-1"></div><div class="h-1 bg-gray-300 rounded flex-1"></div></div>
+            <!-- plan steps -->
+            <div class="space-y-0.5 mb-1">
+              <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div><div class="h-0.5 bg-gray-200 rounded w-3/4"></div></div>
+              <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div><div class="h-0.5 bg-gray-200 rounded w-2/3"></div></div>
+              <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div><div class="h-0.5 bg-gray-200 rounded w-3/4"></div></div>
+              <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full grad-icon-1"></div><div class="h-0.5 bg-purple-300 rounded w-1/2"></div></div>
+              <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-gray-300"></div><div class="h-0.5 bg-gray-100 rounded w-2/3"></div></div>
+            </div>
+            <!-- mini console -->
+            <div class="bg-gray-900 rounded p-1 text-[7px] text-purple-300 font-mono leading-tight">
+              <div>13:42 ✓ drafted lead_2841</div>
+              <div>13:42 ✓ drafted lead_2840</div>
+              <div class="text-purple-400">drafting…</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-robot"></i></div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-0.5"><span class="text-xs font-bold uppercase tracking-wider grad-text">Agent</span><span class="text-xs text-emerald-600 font-bold uppercase">A + C</span></div>
+            <h3 class="text-lg font-semibold mt-0.5">Goal → Plan → Execute</h3>
+            <p class="text-sm text-gray-500 mt-1 leading-relaxed">Where REX thinks. Tell it an outcome, watch it draft a 5-step plan, approve it, then watch the live execution console stream as it runs.</p>
+            <div class="flex items-center gap-1.5 mt-3 flex-wrap">
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Goal templates</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Live console</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Plan-then-run</span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 mt-3"><strong>messages.html</strong> has been updated to show A+C threading on an existing surface — global trust toggle in the topbar + per-thread autopilot strip + autopilot ribbon at the top of the page.</p>
+  </section>
+
+  <!-- ============ EARLIER DASHBOARDS ============ -->
+  <section class="mb-14">
+    <div class="float-in d-2 flex items-center gap-3 mb-5">
+      <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400">02 · Earlier dashboard explorations</span>
+      <div class="flex-1 h-px bg-gray-200"></div>
+      <span class="text-xs text-gray-400">Kept for reference</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- v1 -->
+      <a href="v1-refined.html" class="card float-in d-2 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3">
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5">
+            <div class="w-4 h-4 rounded grad-icon-1"></div>
+            <div class="w-4 h-4 rounded bg-gray-200"></div><div class="w-4 h-4 rounded bg-gray-200"></div>
+          </div>
+          <div class="ml-9 grid grid-cols-4 gap-1.5">
+            <div class="mini-card h-9"></div><div class="mini-card h-9"></div><div class="mini-card h-9"></div><div class="mini-card h-9"></div>
+          </div>
+          <div class="ml-9 mt-2 grid grid-cols-3 gap-1.5">
+            <div class="col-span-2 mini-card h-24 p-2"><svg viewBox="0 0 100 30" class="w-full h-full"><path d="M0,22 L20,18 L40,20 L60,12 L80,14 L100,6" fill="none" stroke="#6B46C1" stroke-width="1.5"/></svg></div>
+            <div class="mini-card h-24"></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-wand-sparkles"></i></div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-0.5"><span class="text-xs font-bold uppercase tracking-wider text-purple-600">v1</span><h3 class="text-lg font-semibold">Refined</h3></div>
+            <p class="text-sm text-gray-500 leading-relaxed">Same dashboard, polished. Float-in stagger, gradient KPIs, animated sparklines, hover lifts.</p>
+            <div class="flex items-center gap-1.5 mt-3"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Lowest risk</span><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">~1 week</span></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- v2 -->
+      <a href="v2-rebuilt.html" class="card float-in d-3 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm relative">
+        <div class="preview mb-4 p-3">
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5">
+            <div class="w-4 h-4 rounded grad-icon-2"></div><div class="w-4 h-4 rounded bg-gray-200"></div><div class="w-4 h-4 rounded bg-gray-200"></div>
+          </div>
+          <div class="ml-9 mini-card h-12 p-1.5 flex items-center gap-1.5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
+            <div class="w-5 h-5 rounded grad-icon-2"></div>
+            <div class="flex-1"><div class="h-1 bg-gray-200 rounded w-3/4 mb-0.5"></div><div class="h-1 bg-gray-100 rounded w-1/2"></div></div>
+          </div>
+          <div class="ml-9 mt-1.5 grid grid-cols-3 gap-1.5">
+            <div class="bg-red-50 border border-red-100 rounded h-10"></div><div class="bg-amber-50 border border-amber-100 rounded h-10"></div><div class="bg-blue-50 border border-blue-100 rounded h-10"></div>
+          </div>
+          <div class="ml-9 mt-1.5 mini-card h-14 p-1.5">
+            <div class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div><div class="h-0.5 bg-gray-200 flex-1"></div><div class="w-2 h-2 rounded-full grad-icon-2"></div><div class="h-0.5 bg-gray-100 flex-1"></div><div class="w-1.5 h-1.5 rounded-full bg-gray-300"></div></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-2 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-bolt"></i></div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-0.5"><span class="text-xs font-bold uppercase tracking-wider text-emerald-600">v2</span><h3 class="text-lg font-semibold">Rebuilt</h3></div>
+            <p class="text-sm text-gray-500 leading-relaxed">Briefing hero · color-coded Attention cards · Live Pulse timeline · Recent Replies feed.</p>
+            <div class="flex items-center gap-1.5 mt-3"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Best balance</span><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">~3 weeks</span></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- v3 -->
+      <a href="v3-bold.html" class="card float-in d-4 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview preview-dark mb-4 p-3">
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-black/30 border-r border-white/5 flex flex-col items-center py-2 gap-1.5">
+            <div class="w-4 h-4 rounded grad-icon-3"></div><div class="w-4 h-4 rounded bg-white/10"></div><div class="w-4 h-4 rounded bg-white/10"></div>
+          </div>
+          <div class="ml-9 flex items-center gap-2 h-20">
+            <div class="relative w-14 h-14 rounded-full grad-icon-3 shadow-lg shadow-purple-500/40"><div class="absolute inset-0 rounded-full bg-purple-400/30 blur-xl"></div></div>
+            <div class="flex-1"><div class="h-1.5 bg-white/30 rounded w-4/5 mb-1"></div><div class="h-1 bg-white/15 rounded w-2/3 mb-1"></div><div class="h-1 bg-white/10 rounded w-1/2"></div></div>
+          </div>
+          <div class="ml-9 mt-1.5 flex gap-1"><div class="h-3 px-2 bg-purple-500/40 rounded-full"></div><div class="h-3 px-3 bg-white/10 rounded-full"></div><div class="h-3 px-3 bg-white/10 rounded-full"></div></div>
+          <div class="ml-9 mt-1.5 grid grid-cols-4 gap-1"><div class="bg-white/5 border border-white/10 rounded h-7"></div><div class="bg-white/5 border border-white/10 rounded h-7"></div><div class="bg-white/5 border border-white/10 rounded h-7"></div><div class="bg-white/5 border border-white/10 rounded h-7"></div></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-3 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-0.5"><span class="text-xs font-bold uppercase tracking-wider text-pink-600">v3</span><h3 class="text-lg font-semibold">Bold (REX Cockpit)</h3></div>
+            <p class="text-sm text-gray-500 leading-relaxed">Dark theme · animated REX Orb · conversational thread · voice-enabled command bar.</p>
+            <div class="flex items-center gap-1.5 mt-3"><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-pink-50 text-pink-700">Most ambitious</span><span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">~6 weeks</span></div>
+          </div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ PAGE TEMPLATES ============ -->
+  <section class="mb-14">
+    <div class="float-in d-2 flex items-center gap-3 mb-5">
+      <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400">03 · Page templates</span>
+      <div class="flex-1 h-px bg-gray-200"></div>
+      <span class="text-xs text-gray-400">The system applied across surfaces</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- Apps -->
+      <a href="apps.html" class="card float-in d-3 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3">
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5"><div class="w-4 h-4 rounded grad-icon-1"></div><div class="w-4 h-4 rounded grad-icon-1 opacity-70"></div></div>
+          <div class="ml-9 grid grid-cols-3 gap-1.5">
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded grad-icon-1 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded grad-icon-2 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded grad-icon-4 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded grad-icon-5 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded grad-icon-3 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+            <div class="mini-card p-1.5"><div class="w-4 h-4 rounded bg-amber-300 mb-1"></div><div class="h-1 bg-gray-200 rounded w-3/4"></div></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-grip"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Apps launcher</h3>
+            <p class="text-sm text-gray-500 mt-0.5">/apps — category-grouped tile grid with toggles &amp; live stats.</p>
+          </div>
+        </div>
+      </a>
+
+      <!-- Leads -->
+      <a href="leads.html" class="card float-in d-4 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3 flex">
+          <div class="w-7 bg-white border-r border-gray-100 flex flex-col items-center py-2 gap-1.5"><div class="w-4 h-4 rounded bg-gray-200"></div><div class="w-4 h-4 rounded grad-icon-1"></div></div>
+          <div class="w-12 bg-white/60 border-r border-gray-100 p-1.5"><div class="h-1 bg-purple-300 rounded w-full mb-1"></div><div class="h-1 bg-gray-200 rounded w-2/3"></div></div>
+          <div class="flex-1 p-2 space-y-1">
+            <div class="mini-card h-3"></div><div class="mini-card h-3"></div><div class="mini-card h-3"></div><div class="mini-card h-3"></div>
+          </div>
+          <div class="w-16 bg-white border-l border-gray-100 p-1.5"><div class="w-6 h-6 rounded-full bg-emerald-300 mx-auto mb-1"></div><div class="h-1 bg-gray-200 rounded w-full mb-0.5"></div><div class="h-1 bg-gray-100 rounded w-2/3 mx-auto"></div></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-users"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Leads</h3>
+            <p class="text-sm text-gray-500 mt-0.5">List + drawer pattern — table with bulk actions and slide-in detail.</p>
+          </div>
+        </div>
+      </a>
+
+      <!-- Messages -->
+      <a href="messages.html" class="card float-in d-5 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3 flex">
+          <div class="w-7 bg-white border-r border-gray-100"></div>
+          <div class="w-16 bg-white/60 border-r border-gray-100 p-1.5 space-y-1.5">
+            <div class="flex gap-1"><div class="w-3 h-3 rounded-full bg-emerald-300"></div><div class="flex-1 space-y-0.5"><div class="h-0.5 bg-gray-200 rounded"></div><div class="h-0.5 bg-gray-100 rounded w-2/3"></div></div></div>
+            <div class="flex gap-1"><div class="w-3 h-3 rounded-full bg-blue-300"></div><div class="flex-1 space-y-0.5"><div class="h-0.5 bg-gray-200 rounded"></div><div class="h-0.5 bg-gray-100 rounded w-2/3"></div></div></div>
+            <div class="flex gap-1"><div class="w-3 h-3 rounded-full bg-amber-300"></div><div class="flex-1 space-y-0.5"><div class="h-0.5 bg-gray-200 rounded"></div><div class="h-0.5 bg-gray-100 rounded w-2/3"></div></div></div>
+          </div>
+          <div class="flex-1 p-2 space-y-1.5">
+            <div class="flex justify-end"><div class="w-2/3 h-4 grad-icon-1 rounded-lg"></div></div>
+            <div class="flex"><div class="w-2/3 h-3 bg-gray-200 rounded-lg"></div></div>
+            <div class="flex"><div class="w-3/4 h-6 bg-purple-50 border border-purple-200 rounded-lg shimmer-top relative overflow-hidden"></div></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-envelope"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Messages</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Three-pane inbox with REX-drafted replies inline.</p>
+          </div>
+        </div>
+      </a>
+
+      <!-- Campaigns -->
+      <a href="campaigns.html" class="card float-in d-6 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3">
+          <div class="absolute left-0 top-0 bottom-0 w-7 bg-white border-r border-gray-100"></div>
+          <div class="ml-9 grid grid-cols-2 gap-1.5">
+            <div class="mini-card p-1.5 relative shimmer-top">
+              <div class="flex justify-between mb-1"><div class="w-3 h-3 rounded grad-icon-1"></div><div class="w-1 h-1 rounded-full bg-emerald-500"></div></div>
+              <div class="h-0.5 bg-gray-200 rounded w-3/4 mb-1"></div>
+              <div class="h-1 bg-gray-100 rounded w-full mb-1"><div class="h-1 grad-icon-1 rounded" style="width:70%"></div></div>
+            </div>
+            <div class="mini-card p-1.5 relative shimmer-top">
+              <div class="flex justify-between mb-1"><div class="w-3 h-3 rounded grad-icon-1"></div><div class="w-1 h-1 rounded-full bg-emerald-500"></div></div>
+              <div class="h-0.5 bg-gray-200 rounded w-3/4 mb-1"></div>
+              <div class="h-1 bg-gray-100 rounded w-full mb-1"><div class="h-1 grad-icon-1 rounded" style="width:48%"></div></div>
+            </div>
+            <div class="mini-card p-1.5 opacity-60">
+              <div class="flex justify-between mb-1"><div class="w-3 h-3 rounded bg-gray-300"></div></div>
+              <div class="h-0.5 bg-gray-200 rounded w-3/4 mb-1"></div>
+            </div>
+            <div class="border-2 border-dashed border-purple-200 rounded p-1.5 flex items-center justify-center"><i class="fa-solid fa-plus text-purple-400 text-xs"></i></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-paper-plane"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Campaigns</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Campaign cards with shimmer borders on actively-sending ones.</p>
+          </div>
+        </div>
+      </a>
+
+      <!-- Settings -->
+      <a href="settings.html" class="card float-in d-7 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div class="preview mb-4 p-3 flex">
+          <div class="w-7 bg-white border-r border-gray-100"></div>
+          <div class="w-16 bg-white/60 border-r border-gray-100 p-1.5 space-y-1">
+            <div class="h-1.5 bg-purple-200 rounded"></div><div class="h-1 bg-gray-200 rounded w-2/3"></div><div class="h-1 bg-gray-200 rounded w-2/3"></div><div class="h-1 bg-gray-200 rounded w-2/3"></div>
+          </div>
+          <div class="flex-1 p-2 space-y-1.5">
+            <div class="mini-card p-1.5 flex items-center gap-1.5"><div class="w-5 h-5 rounded-full grad-icon-1"></div><div class="flex-1 space-y-0.5"><div class="h-1 bg-gray-200 rounded"></div><div class="h-0.5 bg-gray-100 rounded w-2/3"></div></div></div>
+            <div class="mini-card p-1.5 flex items-center gap-1.5"><div class="w-3 h-3 rounded bg-blue-300"></div><div class="flex-1 h-0.5 bg-gray-200 rounded"></div><div class="w-3 h-1.5 rounded-full grad-icon-1"></div></div>
+            <div class="mini-card p-1.5 flex items-center gap-1.5"><div class="w-3 h-3 rounded bg-red-300"></div><div class="flex-1 h-0.5 bg-gray-200 rounded"></div><div class="w-3 h-1.5 rounded-full grad-icon-1"></div></div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-1 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-gear"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Settings</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Calmer treatment for low-traffic surfaces. Forms, integrations, REX prefs.</p>
+          </div>
+        </div>
+      </a>
+
+      <!-- Design system -->
+      <a href="design-system.html" class="card float-in d-8 block bg-white rounded-2xl border border-gray-100 p-5 shadow-sm relative">
+        <div class="absolute -top-3 left-5 px-2.5 py-1 rounded-full grad-icon-3 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">Source of truth</div>
+        <div class="preview mb-4 p-3 grid grid-cols-4 gap-1.5">
+          <div class="rounded grad-icon-1 aspect-square"></div>
+          <div class="rounded grad-icon-2 aspect-square"></div>
+          <div class="rounded grad-icon-3 aspect-square"></div>
+          <div class="rounded grad-icon-4 aspect-square"></div>
+          <div class="col-span-4 mini-card p-1.5 flex items-center gap-1.5"><div class="h-2 px-2 rounded-full grad-icon-1"></div><div class="h-2 px-2 rounded-full bg-gray-200"></div><div class="h-2 px-2 rounded-full bg-gray-200"></div></div>
+          <div class="col-span-2 mini-card h-10"></div>
+          <div class="col-span-2 mini-card h-10 relative shimmer-top"></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl grad-icon-3 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-shapes"></i></div>
+          <div class="flex-1">
+            <h3 class="font-semibold">Design system</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Tokens, typography, cards, buttons, badges, forms, motion. The single source of truth.</p>
+          </div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer summary -->
+  <footer class="text-center text-sm text-gray-500 mt-8 pt-8 border-t border-gray-200">
+    <p class="max-w-2xl mx-auto leading-relaxed">
+      Every mockup uses the same shell, same palette, same motion library. The variant switcher at the top-right of every page lets you flip between them.
+      Once you pick a direction, we ship the design system first (1.5 weeks), then convert the top 5 surfaces (3 weeks), and the rest converges as files are touched.
+    </p>
+  </footer>
+</main>
+
+</body>
+</html>

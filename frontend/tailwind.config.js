@@ -48,6 +48,19 @@ module.exports = {
           100: "#F3F4F6",
           700: "#374151",
         },
+        // ===== v2 redesign palette =====
+        // Top-level semantic colors used across mockups (workspace.html etc.).
+        // Existing `primary` nested config is preserved; v2 pages override
+        // primary via .v2-app scope in styles/v2.css.
+        secondary: "#0C5CF4",
+        success: "#10B981",
+        warn: "#F59E0B",
+        danger: "#EF4444",
+        surface: "#F4F4F8",
+        "bg-main": "#FAFAFA",
+        "text-main": "#1A1A2E",
+        "text-secondary": "#4A4A68",
+        "text-muted": "#8E8EA0",
       },
       borderRadius: {
         xl: "1rem",

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — v1 Refined Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: '#6B46C1',
+          'primary-hover': '#553C9A',
+          secondary: '#0C5CF4',
+          surface: '#F4F4F8',
+          'bg-main': '#FAFAFA',
+          'text-main': '#1A1A2E',
+          'text-secondary': '#4A4A68',
+          'text-muted': '#8E8EA0',
+          success: '#10B981',
+          warn: '#F59E0B',
+          danger: '#EF4444',
+        },
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+
+  @keyframes float-in { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: translateY(0);} }
+  .float-in { animation: float-in 0.55s cubic-bezier(0.4,0,0.2,1) both; }
+  .d-1 { animation-delay: .05s } .d-2 { animation-delay: .1s } .d-3 { animation-delay: .15s }
+  .d-4 { animation-delay: .2s }  .d-5 { animation-delay: .25s } .d-6 { animation-delay: .3s }
+  .d-7 { animation-delay: .35s } .d-8 { animation-delay: .4s }
+
+  @keyframes pulse-soft { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .55; transform: scale(1.4);} }
+  .pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
+
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  .shimmer-top { position: relative; overflow: hidden; }
+  .shimmer-top::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent 0%, rgba(107,70,193,0.7) 35%, rgba(12,92,244,0.7) 65%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .card-hover { transition: transform .3s cubic-bezier(0.4,0,0.2,1), box-shadow .3s cubic-bezier(0.4,0,0.2,1), border-color .3s; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -10px rgba(26,26,46,.14); }
+
+  .grad-icon { background: linear-gradient(135deg, #6B46C1 0%, #0C5CF4 100%); }
+  .grad-icon-soft { background: linear-gradient(135deg, rgba(107,70,193,.12), rgba(12,92,244,.12)); }
+  .grad-text { background: linear-gradient(135deg,#6B46C1,#0C5CF4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .live-dot { position: relative; width: 8px; height: 8px; border-radius: 9999px; background: #10B981; }
+  .live-dot::after { content:''; position: absolute; inset: -5px; border-radius: 9999px; background: #10B981; opacity:.35; animation: pulse-soft 2s ease-in-out infinite; }
+
+  .nav-active { background: linear-gradient(135deg, rgba(107,70,193,.12), rgba(12,92,244,.10)); color: #6B46C1; }
+  .nav-active i { color: #6B46C1; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+
+  .glass { background: rgba(255,255,255,.7); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+  /* sparkline path animation */
+  @keyframes draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+  .spark-path { stroke-dasharray: 600; animation: draw 1.6s cubic-bezier(0.4,0,0.2,1) both; }
+
+  /* number count-up effect (cosmetic — uses transform) */
+  @keyframes count-up { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+  .count-up { display: inline-block; animation: count-up .8s cubic-bezier(0.4,0,0.2,1) both; }
+
+  /* rex bar */
+  .rex-bar { box-shadow: 0 12px 32px -8px rgba(26,26,46,.18); }
+  .rex-bar:focus-within { box-shadow: 0 16px 40px -8px rgba(107,70,193,.25); }
+</style>
+</head>
+<body>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="fixed left-0 top-0 bottom-0 w-16 bg-white border-r border-gray-100 flex flex-col items-center py-4 z-30">
+  <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white font-bold mb-6 shadow-md shadow-primary/30">HP</div>
+  <nav class="flex-1 flex flex-col gap-1">
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center nav-active" title="Dashboard"><i class="fa-solid fa-house"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Campaigns"><i class="fa-solid fa-paper-plane"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Messages">
+      <i class="fa-solid fa-envelope"></i>
+      <span class="absolute ml-5 mt-[-14px] w-2 h-2 bg-danger rounded-full"></span>
+    </a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Leads"><i class="fa-solid fa-users"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Jobs"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Pipeline"><i class="fa-solid fa-table-columns"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Analytics"><i class="fa-solid fa-chart-line"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="REX"><i class="fa-solid fa-wand-magic-sparkles"></i></a>
+  </nav>
+  <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface" title="Settings"><i class="fa-solid fa-gear"></i></a>
+  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 mt-4 ring-2 ring-white shadow"></div>
+</aside>
+
+<!-- ============ TOPBAR ============ -->
+<header class="fixed top-0 left-16 right-0 h-14 glass border-b border-gray-100 flex items-center px-6 z-20">
+  <div class="flex-1">
+    <h1 class="text-[15px] font-semibold">Dashboard</h1>
+    <p class="text-xs text-text-muted">Wednesday, April 30</p>
+  </div>
+  <div class="flex-1 max-w-md mx-auto">
+    <div class="flex items-center gap-2 bg-surface rounded-xl px-3 py-2 text-sm text-text-muted">
+      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+      <span>Search candidates, campaigns, jobs…</span>
+      <span class="ml-auto text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono">⌘K</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center relative">
+      <i class="fa-solid fa-bell text-text-secondary"></i>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
+    </button>
+    <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center">
+      <i class="fa-solid fa-circle-question text-text-secondary"></i>
+    </button>
+    <div class="flex items-center gap-2 ml-2">
+      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400"></div>
+      <div class="text-sm">
+        <div class="font-medium leading-tight">Brandon</div>
+        <div class="text-xs text-text-muted leading-tight">HirePilot Pro</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN ============ -->
+<main class="ml-16 mt-14 px-8 py-6 pb-32">
+
+  <!-- Greeting strip -->
+  <div class="float-in mb-6">
+    <h2 class="text-2xl font-bold tracking-tight">Good afternoon, Brandon <span class="text-text-muted font-normal">— here's where you stand today.</span></h2>
+  </div>
+
+  <!-- KPI ribbon -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <!-- KPI 1 -->
+    <div class="float-in d-1 card-hover bg-white rounded-2xl border border-gray-100 p-5 shadow-sm relative shimmer-top">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25">
+          <i class="fa-solid fa-paper-plane text-sm"></i>
+        </div>
+        <span class="text-xs font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">+12%</span>
+      </div>
+      <div class="text-text-muted text-xs uppercase tracking-wide mb-1">Sent today</div>
+      <div class="text-3xl font-bold tracking-tight count-up">1,284</div>
+      <svg viewBox="0 0 200 40" class="w-full h-8 mt-2"><path class="spark-path" d="M0,30 L20,28 L40,32 L60,22 L80,24 L100,18 L120,20 L140,12 L160,15 L180,8 L200,10" fill="none" stroke="#6B46C1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- KPI 2 -->
+    <div class="float-in d-2 card-hover bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl grad-icon-soft flex items-center justify-center text-primary">
+          <i class="fa-solid fa-envelope-open text-sm"></i>
+        </div>
+        <span class="text-xs font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">+4.1%</span>
+      </div>
+      <div class="text-text-muted text-xs uppercase tracking-wide mb-1">Open rate</div>
+      <div class="text-3xl font-bold tracking-tight count-up">62.4<span class="text-lg text-text-muted font-semibold">%</span></div>
+      <svg viewBox="0 0 200 40" class="w-full h-8 mt-2"><path class="spark-path" d="M0,28 L25,26 L50,22 L75,24 L100,16 L125,18 L150,12 L175,14 L200,8" fill="none" stroke="#0C5CF4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- KPI 3 -->
+    <div class="float-in d-3 card-hover bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl grad-icon-soft flex items-center justify-center text-primary">
+          <i class="fa-solid fa-comment-dots text-sm"></i>
+        </div>
+        <span class="text-xs font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">+8 today</span>
+      </div>
+      <div class="text-text-muted text-xs uppercase tracking-wide mb-1">Reply rate</div>
+      <div class="text-3xl font-bold tracking-tight count-up">11.8<span class="text-lg text-text-muted font-semibold">%</span></div>
+      <svg viewBox="0 0 200 40" class="w-full h-8 mt-2"><path class="spark-path" d="M0,30 L25,32 L50,26 L75,28 L100,22 L125,24 L150,18 L175,20 L200,14" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- KPI 4 -->
+    <div class="float-in d-4 card-hover bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-10 h-10 rounded-xl grad-icon-soft flex items-center justify-center text-primary">
+          <i class="fa-solid fa-fire text-sm"></i>
+        </div>
+        <span class="text-xs font-medium text-warn bg-warn/10 px-2 py-0.5 rounded-full">12 hot</span>
+      </div>
+      <div class="text-text-muted text-xs uppercase tracking-wide mb-1">Active leads</div>
+      <div class="text-3xl font-bold tracking-tight count-up">847</div>
+      <svg viewBox="0 0 200 40" class="w-full h-8 mt-2"><path class="spark-path" d="M0,30 L25,28 L50,30 L75,24 L100,20 L125,22 L150,16 L175,18 L200,12" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+
+  <!-- Two-column body -->
+  <div class="grid grid-cols-12 gap-6">
+
+    <!-- LEFT: charts + activity -->
+    <div class="col-span-12 lg:col-span-8 space-y-6">
+
+      <!-- Reply rate over time -->
+      <section class="float-in d-5 card-hover bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-semibold">Reply rate over time</h3>
+            <p class="text-xs text-text-muted">Last 90 days · trending up</p>
+          </div>
+          <div class="flex items-center gap-1 text-xs">
+            <button class="px-2.5 py-1 rounded-lg bg-surface text-text-main font-medium">90d</button>
+            <button class="px-2.5 py-1 rounded-lg text-text-muted hover:bg-surface">30d</button>
+            <button class="px-2.5 py-1 rounded-lg text-text-muted hover:bg-surface">7d</button>
+          </div>
+        </div>
+        <svg viewBox="0 0 800 220" class="w-full h-56">
+          <defs>
+            <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#6B46C1" stop-opacity=".22" />
+              <stop offset="100%" stop-color="#6B46C1" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g stroke="#F1F1F5" stroke-width="1">
+            <line x1="0" y1="40"  x2="800" y2="40"/>
+            <line x1="0" y1="90"  x2="800" y2="90"/>
+            <line x1="0" y1="140" x2="800" y2="140"/>
+            <line x1="0" y1="190" x2="800" y2="190"/>
+          </g>
+          <path class="spark-path" d="M0,160 C60,150 100,170 150,140 C200,110 240,130 290,100 C340,80 390,110 440,80 C490,55 540,90 590,60 C640,40 700,70 800,30 L800,220 L0,220 Z" fill="url(#g1)"/>
+          <path class="spark-path" d="M0,160 C60,150 100,170 150,140 C200,110 240,130 290,100 C340,80 390,110 440,80 C490,55 540,90 590,60 C640,40 700,70 800,30" fill="none" stroke="#6B46C1" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="800" cy="30" r="5" fill="#6B46C1"/>
+          <circle cx="800" cy="30" r="10" fill="#6B46C1" opacity=".25" class="pulse-soft"/>
+        </svg>
+      </section>
+
+      <!-- Recent activity stream -->
+      <section class="float-in d-7 card-hover bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold">Recent activity</h3>
+            <span class="flex items-center gap-1.5 text-xs text-success font-medium"><span class="live-dot"></span> Live</span>
+          </div>
+          <button class="text-xs text-primary font-medium hover:underline">View all</button>
+        </div>
+        <ul class="divide-y divide-gray-100">
+          <li class="flex items-center gap-3 py-3">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">SC</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm"><span class="font-semibold">Sarah Chen</span> replied to <span class="text-primary">Q2 Senior Engineers</span></p>
+              <p class="text-xs text-text-muted">"Yes, I'd love to chat — Thursday after 2pm works."</p>
+            </div>
+            <span class="text-xs text-text-muted">2m ago</span>
+          </li>
+          <li class="flex items-center gap-3 py-3">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">MR</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm"><span class="font-semibold">Marcus Rodriguez</span> opened your message</p>
+              <p class="text-xs text-text-muted">3rd open · campaign Sales Reps – SF</p>
+            </div>
+            <span class="text-xs text-text-muted">8m ago</span>
+          </li>
+          <li class="flex items-center gap-3 py-3">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-semibold">PP</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm"><span class="font-semibold">Priya Patel</span> connected on LinkedIn</p>
+              <p class="text-xs text-text-muted">Senior Designer at Figma</p>
+            </div>
+            <span class="text-xs text-text-muted">22m ago</span>
+          </li>
+          <li class="flex items-center gap-3 py-3">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-white text-xs font-semibold">JW</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm"><span class="font-semibold">Jamal Williams</span> moved to <span class="text-primary">Phone screen</span></p>
+              <p class="text-xs text-text-muted">Backend Engineer · Stripe</p>
+            </div>
+            <span class="text-xs text-text-muted">1h ago</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- RIGHT: secondary widgets -->
+    <div class="col-span-12 lg:col-span-4 space-y-6">
+
+      <!-- Engagement breakdown -->
+      <section class="float-in d-6 card-hover bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h3 class="font-semibold mb-4">Engagement breakdown</h3>
+        <div class="relative w-full flex items-center justify-center">
+          <svg viewBox="0 0 200 200" class="w-44 h-44 -rotate-90">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#F1F1F5" stroke-width="22"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#6B46C1" stroke-width="22" stroke-dasharray="240 502" stroke-linecap="round"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#0C5CF4" stroke-width="22" stroke-dasharray="80 502" stroke-dashoffset="-240" stroke-linecap="round"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#10B981" stroke-width="22" stroke-dasharray="50 502" stroke-dashoffset="-320" stroke-linecap="round"/>
+          </svg>
+          <div class="absolute text-center">
+            <div class="text-3xl font-bold tracking-tight count-up">62%</div>
+            <div class="text-xs text-text-muted">Open rate</div>
+          </div>
+        </div>
+        <div class="mt-4 space-y-2 text-sm">
+          <div class="flex items-center justify-between"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-primary"></span>Opens</span><span class="font-semibold">62%</span></div>
+          <div class="flex items-center justify-between"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary"></span>Replies</span><span class="font-semibold">12%</span></div>
+          <div class="flex items-center justify-between"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-success"></span>Clicks</span><span class="font-semibold">8%</span></div>
+        </div>
+      </section>
+
+      <!-- Active campaigns -->
+      <section class="float-in d-8 card-hover bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold">Active campaigns</h3>
+          <span class="flex items-center gap-1.5 text-xs text-success font-medium"><span class="live-dot"></span> Sending</span>
+        </div>
+        <ul class="space-y-3">
+          <li class="p-3 rounded-xl bg-surface hover:bg-gray-100 transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-sm font-semibold">Q2 Senior Engineers</span>
+              <span class="text-xs font-medium text-primary">14.2%</span>
+            </div>
+            <div class="w-full h-1.5 bg-white rounded-full overflow-hidden">
+              <div class="h-full grad-icon rounded-full" style="width: 72%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-text-muted mt-1.5"><span>342 sent</span><span>49 replies</span></div>
+          </li>
+          <li class="p-3 rounded-xl bg-surface hover:bg-gray-100 transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-sm font-semibold">Sales Reps – SF</span>
+              <span class="text-xs font-medium text-primary">9.8%</span>
+            </div>
+            <div class="w-full h-1.5 bg-white rounded-full overflow-hidden">
+              <div class="h-full grad-icon rounded-full" style="width: 48%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-text-muted mt-1.5"><span>198 sent</span><span>19 replies</span></div>
+          </li>
+          <li class="p-3 rounded-xl bg-surface hover:bg-gray-100 transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-sm font-semibold">Designers – Remote</span>
+              <span class="text-xs font-medium text-primary">11.0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-white rounded-full overflow-hidden">
+              <div class="h-full grad-icon rounded-full" style="width: 35%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-text-muted mt-1.5"><span>122 sent</span><span>13 replies</span></div>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- ============ REX COMMAND BAR (floating) ============ -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-6">
+  <div class="rex-bar glass border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-3 transition-all">
+    <div class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/30">
+      <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+    </div>
+    <input class="flex-1 bg-transparent outline-none text-sm placeholder:text-text-muted" placeholder="Ask REX — find leads, draft messages, summarize replies…" />
+    <span class="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono text-text-muted">⌘K</span>
+    <button class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white">
+      <i class="fa-solid fa-arrow-up text-xs"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Variant switcher (visible on all mockups) -->
+<div class="fixed top-3 right-6 z-50 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm text-xs">
+  <span class="text-text-muted px-2">Mockups</span>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="v1-refined.html" class="px-2 py-0.5 rounded-full bg-primary text-white font-medium">v1</a>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v2</a>
+  <a href="v3-bold.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v3</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="apps.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Apps</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="messages.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Messages</a>
+  <a href="campaigns.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Campaigns</a>
+  <a href="settings.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Settings</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="design-system.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">System</a>
+</div>
+
+</body>
+</html>

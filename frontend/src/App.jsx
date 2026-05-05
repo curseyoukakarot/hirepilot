@@ -87,6 +87,28 @@ import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './context/ThemeContext';
 import { useAppMode } from './lib/appMode';
 import PublicJobPage from './screens/PublicJobPage.jsx';
+
+// === v2 redesign — lazy-loaded so legacy bundle stays unchanged ===
+const V2Today = lazy(() => import('./v2/pages/Today'));
+const V2Team = lazy(() => import('./v2/pages/Team'));
+const V2Goals = lazy(() => import('./v2/pages/Goals'));
+const V2Decisions = lazy(() => import('./v2/pages/Decisions'));
+const V2HireCatalog = lazy(() => import('./v2/pages/HireCatalog'));
+const V2AgentSourcer = lazy(() => import('./v2/pages/AgentSourcer'));
+const V2Leads = lazy(() => import('./v2/pages/Leads'));
+const V2Pipelines = lazy(() => import('./v2/pages/Pipelines'));
+const V2Deals = lazy(() => import('./v2/pages/Deals'));
+const V2Inbox = lazy(() => import('./v2/pages/Inbox'));
+const V2TeamSettings = lazy(() => import('./v2/pages/TeamSettings'));
+
+// Tiny loading placeholder that uses our v2 visual style
+function V2Loading() {
+  return (
+    <div style={{ padding: 40, fontFamily: 'Inter, system-ui, sans-serif', color: '#8E8EA0' }}>
+      Loading…
+    </div>
+  );
+}
 import ApplyForm from './screens/ApplyForm.jsx';
 import ApplySuccess from './screens/ApplySuccess.jsx';
 import UseCases from './screens/UseCases';
@@ -857,6 +879,24 @@ function InnerApp() {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
               <Route path="/dashboard" element={<Dashboard />} />
+
+              {/* === v2 redesign routes — gated by VITE_V2_ENABLED === */}
+              {flags.v2 && (
+                <>
+                  <Route path="/v2" element={<Navigate to="/v2/today" replace />} />
+                  <Route path="/v2/today"        element={<Suspense fallback={<V2Loading />}><V2Today /></Suspense>} />
+                  <Route path="/v2/team"         element={<Suspense fallback={<V2Loading />}><V2Team /></Suspense>} />
+                  <Route path="/v2/goals"        element={<Suspense fallback={<V2Loading />}><V2Goals /></Suspense>} />
+                  <Route path="/v2/decisions"    element={<Suspense fallback={<V2Loading />}><V2Decisions /></Suspense>} />
+                  <Route path="/v2/hire"         element={<Suspense fallback={<V2Loading />}><V2HireCatalog /></Suspense>} />
+                  <Route path="/v2/agents/sourcer" element={<Suspense fallback={<V2Loading />}><V2AgentSourcer /></Suspense>} />
+                  <Route path="/v2/leads"        element={<Suspense fallback={<V2Loading />}><V2Leads /></Suspense>} />
+                  <Route path="/v2/pipelines"    element={<Suspense fallback={<V2Loading />}><V2Pipelines /></Suspense>} />
+                  <Route path="/v2/deals"        element={<Suspense fallback={<V2Loading />}><V2Deals /></Suspense>} />
+                  <Route path="/v2/inbox"        element={<Suspense fallback={<V2Loading />}><V2Inbox /></Suspense>} />
+                  <Route path="/v2/settings/team" element={<Suspense fallback={<V2Loading />}><V2TeamSettings /></Suspense>} />
+                </>
+              )}
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/campaigns/new/*" element={<CampaignWizard />} />
               <Route path="/messages" element={<MessagingCenter />} />

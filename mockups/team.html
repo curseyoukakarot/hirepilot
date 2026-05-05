@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Team (your AI team)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444',
+      sourcer: '#06B6D4', recruiter: '#10B981', sdr: '#F59E0B',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; min-height: 100vh; }
+  body::before { content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.06), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.05), transparent 70%); }
+  body.autopilot::after { content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size: 200% 100%; animation: shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}.d-7{animation-delay:.28s}.d-8{animation-delay:.32s}.d-9{animation-delay:.36s}.d-10{animation-delay:.4s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  /* === Agent gradients (each agent has a distinct visual identity) === */
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-sourcer{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .grad-recruiter{background:linear-gradient(135deg,#10B981,#14B8A6);}
+  .grad-coordinator{background:linear-gradient(135deg,#8B5CF6,#EC4899);}
+  .grad-researcher{background:linear-gradient(135deg,#7C3AED,#4F46E5);}
+  .grad-bd{background:linear-gradient(135deg,#F59E0B,#EA580C);}
+  .grad-closer{background:linear-gradient(135deg,#F43F5E,#E11D48);}
+  .grad-account{background:linear-gradient(135deg,#0EA5E9,#0D9488);}
+  .grad-refcheck{background:linear-gradient(135deg,#475569,#1E40AF);}
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-success{background:linear-gradient(135deg,#10B981,#0C5CF4);}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .grad-text-rex{background:linear-gradient(120deg,#10B981,#6B46C1,#0C5CF4,#EC4899,#10B981);background-size:300% 300%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:orbit 6s ease-in-out infinite;}
+
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .2s;}
+  .trust-badge:hover{transform:translateY(-1px);}
+
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;display:flex;align-items:center;justify-content:center;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-solid:hover{transform:translateY(-1px);}
+
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;transition:all .15s;}
+  .btn-outline:hover{border-color:rgba(107,70,193,.3);color:#1A1A2E;}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-secondary{background:rgba(12,92,244,.1);color:#0C5CF4;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+  .tag-sourcer{background:rgba(6,182,212,.1);color:#0891B2;}
+  .tag-recruiter{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-sdr{background:rgba(245,158,11,.1);color:#B45309;}
+
+  /* Skill chip */
+  .skill-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:9999px;font-size:10.5px;font-weight:500;background:white;border:1px solid #ECECEC;color:#4A4A68;}
+  .skill-chip i{font-size:9px;color:#8E8EA0;}
+
+  /* Per-agent trust mini-toggle */
+  .trust-mini{display:inline-flex;align-items:center;background:#F4F4F8;border:1px solid #E5E7EB;border-radius:9999px;padding:1.5px;gap:1px;font-size:9.5px;}
+  .trust-mini-seg{padding:2px 7px;border-radius:9999px;font-weight:600;color:#8E8EA0;cursor:pointer;}
+  .trust-mini-seg.active{background:linear-gradient(135deg,#10B981,#0C5CF4);color:white;}
+  .trust-mini-seg.active.suggest{background:linear-gradient(135deg,#6B46C1,#0C5CF4);}
+  .trust-mini-seg.active.manual{background:white;color:#1A1A2E;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+
+  /* Agent card */
+  .agent-card{background:white;border:1px solid #ECECEC;border-radius:18px;padding:18px;cursor:pointer;transition:transform .25s cubic-bezier(0.4,0,0.2,1),box-shadow .25s,border-color .25s;display:flex;flex-direction:column;gap:14px;}
+  .agent-card:hover{transform:translateY(-3px);box-shadow:0 16px 32px -10px rgba(26,26,46,.12);border-color:rgba(107,70,193,.25);}
+  .agent-card.dashed{border-style:dashed;background:rgba(244,244,248,.4);}
+  .agent-card.dashed:hover{border-color:rgba(107,70,193,.35);background:rgba(107,70,193,.03);}
+
+  /* REX hero card */
+  .rex-hero{background:linear-gradient(135deg, rgba(107,70,193,.04), rgba(12,92,244,.03) 50%, rgba(236,72,153,.02));border:1px solid rgba(107,70,193,.18);border-radius:22px;padding:24px;position:relative;overflow:hidden;}
+  .rex-hero::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.6) 35%,rgba(12,92,244,.6) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+
+  /* avatar glow */
+  .agent-avatar{position:relative;display:flex;align-items:center;justify-content:center;color:white;border-radius:9999px;flex-shrink:0;}
+  .agent-avatar::before{content:'';position:absolute;inset:-8px;border-radius:9999px;opacity:.3;filter:blur(12px);z-index:-1;}
+  .agent-avatar.rex::before{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899);}
+  .agent-avatar.sourcer::before{background:linear-gradient(135deg,#06B6D4,#3B82F6);}
+  .agent-avatar.recruiter::before{background:linear-gradient(135deg,#10B981,#14B8A6);}
+  .agent-avatar.sdr::before{background:linear-gradient(135deg,#F59E0B,#EC4899);}
+
+  /* progress quiet */
+  .progress-quiet{height:3px;background:rgba(107,70,193,.12);border-radius:9999px;overflow:hidden;}
+  .progress-quiet>div{height:100%;background:linear-gradient(90deg,#6B46C1,#0C5CF4);border-radius:9999px;}
+  .progress-sourcer{height:3px;background:rgba(6,182,212,.15);border-radius:9999px;overflow:hidden;}
+  .progress-sourcer>div{height:100%;background:linear-gradient(90deg,#06B6D4,#3B82F6);border-radius:9999px;}
+  .progress-recruiter{height:3px;background:rgba(16,185,129,.15);border-radius:9999px;overflow:hidden;}
+  .progress-recruiter>div{height:100%;background:linear-gradient(90deg,#10B981,#14B8A6);border-radius:9999px;}
+
+  /* REX FAB */
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1);}
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+
+  /* Activity timeline */
+  .activity-row{display:flex;align-items:center;gap:12px;padding:9px 0;}
+  .activity-row + .activity-row{border-top:1px solid #F4F4F8;}
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex min-h-screen relative z-10">
+
+  <!-- ============ WORKSPACE SIDEBAR (Team highlighted) ============ -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>3 agents working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted"><i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+          <li><a href="team.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-users-gear w-4 text-[11px]"></i><span class="flex-1">Team</span><span class="text-[10px] text-primary font-bold">3</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">5</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted"></i><span class="flex-1">Campaigns</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-primary">12</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$284k</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-chart-line w-4 text-[11px] text-text-muted"></i><span class="flex-1">Reports</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span></a></li>
+          <li><a href="#" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Topbar -->
+    <header class="border-b border-gray-100 px-8 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-users-gear text-primary text-xs"></i>Team</div>
+        <div class="text-[10.5px] text-text-muted">Your AI team · 3 agents · 2 active</div>
+      </div>
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+        <span>team is working <span class="font-semibold text-text-main">3 in flight</span></span>
+        <span class="text-text-muted">·</span>
+        <span class="text-warn font-bold">1 awaiting you</span>
+      </div>
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="px-8 py-7 space-y-7 max-w-[1400px] mx-auto">
+
+      <!-- Page hero -->
+      <section class="float-in flex items-end justify-between">
+        <div>
+          <div class="text-[11px] font-bold uppercase tracking-[0.2em] grad-text-rex mb-1.5">Your AI team</div>
+          <h1 class="text-[32px] font-extrabold tracking-tight">REX, plus the specialists you've hired.</h1>
+          <p class="text-text-secondary text-[14.5px] mt-1.5 max-w-2xl">REX is your team lead — they coordinate everything. Hire specialist agents to scale specific functions. Each agent runs on its own trust setting and you can give them goals or schedules.</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button class="ghost-btn"><i class="fa-solid fa-clock-rotate-left text-[11px]"></i>Activity</button>
+          <button class="btn-solid"><i class="fa-solid fa-user-plus text-[10px]"></i>Hire team member</button>
+        </div>
+      </section>
+
+      <!-- ============ REX HERO ============ -->
+      <section class="float-in d-1 rex-hero">
+        <div class="flex items-start gap-5">
+          <!-- Avatar -->
+          <div class="agent-avatar rex grad-rex w-20 h-20 shadow-2xl shadow-primary/30">
+            <i class="fa-solid fa-wand-magic-sparkles text-[26px] drop-shadow-lg"></i>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <h2 class="text-[22px] font-extrabold tracking-tight">REX</h2>
+              <span class="tag tag-primary"><i class="fa-solid fa-star text-[8px]"></i>Team Lead</span>
+              <span class="tag tag-success"><span class="live-dot"></span>Working</span>
+            </div>
+            <p class="text-[13.5px] text-text-secondary mb-3">Coordinates your team and runs anything none of your specialists handle. The glue between every Skill, every channel, and every surface in HirePilot.</p>
+
+            <!-- Currently doing -->
+            <div class="bg-white/70 border border-primary/15 rounded-xl p-3 mb-3">
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Currently</div>
+              <ul class="text-[13px] space-y-1.5">
+                <li class="flex items-start gap-2"><i class="fa-solid fa-rocket text-primary text-[10px] mt-1 shrink-0"></i><span>Watching <strong>2 goals</strong> — Q2 Senior Engineers (72%) · Sales Reps SF (33%)</span></li>
+                <li class="flex items-start gap-2"><i class="fa-solid fa-circle-question text-warn text-[10px] mt-1 shrink-0"></i><span><strong>1 decision pending</strong> — Marcus Rodriguez comp answer</span></li>
+                <li class="flex items-start gap-2"><i class="fa-solid fa-people-arrows text-secondary text-[10px] mt-1 shrink-0"></i><span>Coordinating <strong>2 specialists</strong> — Sourcer · Recruiter</span></li>
+              </ul>
+            </div>
+
+            <!-- Skills available -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">All skills available</span>
+              <span class="skill-chip"><i class="fa-solid fa-wand-magic-sparkles"></i>24 installed</span>
+              <span class="skill-chip"><i class="fa-solid fa-comment-dots"></i>Inbox draft</span>
+              <span class="skill-chip"><i class="fa-solid fa-calendar"></i>Calendar</span>
+              <span class="skill-chip"><i class="fa-solid fa-rocket"></i>Goal planner</span>
+              <span class="skill-chip text-text-muted">+ 21 more</span>
+            </div>
+          </div>
+
+          <!-- Per-agent trust + actions -->
+          <div class="flex flex-col items-end gap-2 shrink-0">
+            <div class="trust-mini">
+              <span class="trust-mini-seg">Manual</span>
+              <span class="trust-mini-seg">Suggest</span>
+              <span class="trust-mini-seg active">Auto</span>
+            </div>
+            <button class="btn-solid"><i class="fa-solid fa-comments text-[10px]"></i>Talk to REX</button>
+            <button class="ghost-btn"><i class="fa-solid fa-sliders text-[11px]"></i>Configure</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SPECIALIST AGENTS GRID ============ -->
+      <section>
+        <div class="float-in d-2 flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-[18px] font-bold tracking-tight">Specialists you've hired</h2>
+            <p class="text-text-muted text-[12.5px] mt-0.5">Each specialist owns a function and runs on its own trust setting.</p>
+          </div>
+          <div class="flex items-center gap-2 text-[11.5px] text-text-muted">
+            <span><span class="font-bold text-text-main">2</span> active</span>
+            <span>·</span>
+            <span><span class="font-bold text-text-main">8</span> Skills installed</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- ============ SOURCER ============ -->
+          <div class="agent-card float-in d-3 shimmer-top">
+            <div class="flex items-start gap-3">
+              <div class="agent-avatar sourcer grad-sourcer w-12 h-12 shadow-lg" style="box-shadow:0 8px 20px -6px rgba(6,182,212,.4);"><i class="fa-solid fa-crosshairs text-[16px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <h3 class="text-[16px] font-bold">Sourcer</h3>
+                  <span class="tag tag-success"><span class="live-dot"></span>Running</span>
+                </div>
+                <p class="text-[11.5px] text-text-muted">Finds and qualifies new leads. Owns the funnel before outreach.</p>
+              </div>
+              <div class="trust-mini shrink-0">
+                <span class="trust-mini-seg">M</span>
+                <span class="trust-mini-seg">S</span>
+                <span class="trust-mini-seg active">A</span>
+              </div>
+            </div>
+
+            <!-- Currently doing -->
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
+              <p class="text-[13px] text-text-secondary mb-2"><strong>Sourcing 200 senior backend engineers</strong> matching the top 12 responders from Q2.</p>
+              <div class="flex items-center gap-2.5">
+                <div class="flex-1 progress-sourcer"><div style="width:72%"></div></div>
+                <span class="text-[11px] font-semibold text-sourcer tabular-nums">102 / 142 · ~28m</span>
+              </div>
+            </div>
+
+            <!-- Skills -->
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Skills · 4 installed · 4 available</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="skill-chip"><i class="fa-brands fa-linkedin" style="color:#0077B5"></i>LinkedIn Sourcer</span>
+                <span class="skill-chip"><i class="fa-solid fa-database" style="color:#0891B2"></i>Apollo Enrich</span>
+                <span class="skill-chip"><i class="fa-solid fa-bullseye" style="color:#06B6D4"></i>ICP Researcher</span>
+                <span class="skill-chip"><i class="fa-solid fa-globe" style="color:#3B82F6"></i>Browser Researcher</span>
+              </div>
+            </div>
+
+            <!-- Footer stats -->
+            <div class="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-3 text-text-muted">
+                <span><span class="font-bold text-text-main tabular-nums">247</span> sourced this week</span>
+                <span>·</span>
+                <span><span class="font-bold text-warn tabular-nums">12</span> hot</span>
+              </div>
+              <button class="ghost-btn !p-1"><i class="fa-solid fa-arrow-right text-[10px]"></i></button>
+            </div>
+          </div>
+
+          <!-- ============ RECRUITER ============ -->
+          <div class="agent-card float-in d-4">
+            <div class="flex items-start gap-3">
+              <div class="agent-avatar recruiter grad-recruiter w-12 h-12 shadow-lg" style="box-shadow:0 8px 20px -6px rgba(16,185,129,.4);"><i class="fa-solid fa-user-tie text-[16px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <h3 class="text-[16px] font-bold">Recruiter</h3>
+                  <span class="tag tag-warn"><i class="fa-solid fa-circle-question text-[8px]"></i>1 needs you</span>
+                </div>
+                <p class="text-[11.5px] text-text-muted">Engages candidates, drafts replies, manages pipelines, schedules interviews.</p>
+              </div>
+              <div class="trust-mini shrink-0">
+                <span class="trust-mini-seg">M</span>
+                <span class="trust-mini-seg active suggest">S</span>
+                <span class="trust-mini-seg">A</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
+              <p class="text-[13px] text-text-secondary mb-2"><strong>Drafting replies for 8 hot leads</strong> · 1 above your trust threshold (comp answer to Marcus).</p>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <div class="flex -space-x-1.5">
+                  <div class="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[9px] font-semibold ring-2 ring-white">SC</div>
+                  <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[9px] font-semibold ring-2 ring-white">MR</div>
+                  <div class="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[9px] font-semibold ring-2 ring-white">PP</div>
+                  <div class="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-[9px] font-semibold ring-2 ring-white">EK</div>
+                </div>
+                <span class="text-[10.5px] text-text-muted">+ 4 more</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Skills · 4 installed · 3 available</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="skill-chip"><i class="fa-solid fa-paper-plane" style="color:#10B981"></i>Outreach Writer</span>
+                <span class="skill-chip"><i class="fa-solid fa-comments" style="color:#14B8A6"></i>Reply Handler</span>
+                <span class="skill-chip"><i class="fa-solid fa-file-lines" style="color:#10B981"></i>Submittal Drafter</span>
+                <span class="skill-chip"><i class="fa-solid fa-table-columns" style="color:#059669"></i>Pipeline Manager</span>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-3 text-text-muted">
+                <span><span class="font-bold text-text-main">49</span> replies handled</span>
+                <span>·</span>
+                <span><span class="font-bold text-success">12</span> invites sent</span>
+              </div>
+              <button class="ghost-btn !p-1"><i class="fa-solid fa-arrow-right text-[10px]"></i></button>
+            </div>
+          </div>
+
+          <!-- ============ COORDINATOR (active scheduling) ============ -->
+          <div class="agent-card float-in d-5 shimmer-top">
+            <div class="flex items-start gap-3">
+              <div class="agent-avatar grad-coordinator w-12 h-12 shadow-lg flex items-center justify-center text-white" style="box-shadow:0 8px 20px -6px rgba(139,92,246,.4); border-radius:9999px;"><i class="fa-solid fa-calendar-check text-[16px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <h3 class="text-[16px] font-bold">Coordinator</h3>
+                  <span class="tag tag-success"><span class="live-dot"></span>Working</span>
+                </div>
+                <p class="text-[11.5px] text-text-muted">Schedules interviews, sends invites, handles reschedules + reminders.</p>
+              </div>
+              <div class="trust-mini shrink-0">
+                <span class="trust-mini-seg">M</span>
+                <span class="trust-mini-seg">S</span>
+                <span class="trust-mini-seg active">A</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
+              <p class="text-[13px] text-text-secondary mb-2"><strong>Booking 3 interviews</strong> for Senior Backend role · 2 invites sent · 1 awaiting candidate confirm.</p>
+              <div class="flex items-center gap-2 text-[11px] text-text-muted">
+                <span class="flex items-center gap-1"><i class="fa-brands fa-google text-[10px]"></i>Google Cal · synced</span>
+                <span>·</span>
+                <span class="flex items-center gap-1"><i class="fa-brands fa-microsoft text-[10px]"></i>Outlook · synced</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Skills · 4 installed</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="skill-chip"><i class="fa-solid fa-calendar" style="color:#8B5CF6"></i>Calendar Sync</span>
+                <span class="skill-chip"><i class="fa-solid fa-clock" style="color:#A855F7"></i>Interview Booker</span>
+                <span class="skill-chip"><i class="fa-solid fa-bell" style="color:#EC4899"></i>Reminder Bot</span>
+                <span class="skill-chip"><i class="fa-solid fa-rotate" style="color:#8B5CF6"></i>Reschedule Mgr</span>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-3 text-text-muted">
+                <span><span class="font-bold text-text-main">28</span> scheduled this week</span>
+                <span>·</span>
+                <span><span class="font-bold text-success">0</span> conflicts</span>
+              </div>
+              <button class="ghost-btn !p-1"><i class="fa-solid fa-arrow-right text-[10px]"></i></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ AVAILABLE TO HIRE ============ -->
+      <section>
+        <div class="float-in d-6 flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-[18px] font-bold tracking-tight">Available to hire</h2>
+            <p class="text-text-muted text-[12.5px] mt-0.5">More specialists join the catalog over time.</p>
+          </div>
+          <button class="ghost-btn"><i class="fa-solid fa-grip text-[11px]"></i>Browse catalog</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+
+          <!-- Researcher -->
+          <div class="agent-card dashed float-in d-7 !p-4 !gap-3">
+            <div class="flex items-start gap-2.5">
+              <div class="agent-avatar grad-researcher w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0" style="box-shadow:0 8px 20px -6px rgba(124,58,237,.3);"><i class="fa-solid fa-magnifying-glass-arrow-right text-[13px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-[13.5px]">Researcher</h4>
+                <p class="text-[10.5px] text-text-muted leading-snug mt-0.5">Deep intel on companies, hiring managers, candidates. Owns Browserbase research.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-globe"></i>Browser Researcher</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-building"></i>Company Intel</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-coins"></i>Comp Benchmark</span>
+            </div>
+            <button class="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Hire Researcher</button>
+          </div>
+
+          <!-- Business Development -->
+          <div class="agent-card dashed float-in d-8 !p-4 !gap-3">
+            <div class="flex items-start gap-2.5">
+              <div class="agent-avatar grad-bd w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0" style="box-shadow:0 8px 20px -6px rgba(245,158,11,.3);"><i class="fa-solid fa-handshake-angle text-[13px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-[13.5px]">Business Dev</h4>
+                <p class="text-[10.5px] text-text-muted leading-snug mt-0.5">Finds new clients hiring + drafts BD outreach to TA leaders &amp; founders.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-satellite-dish"></i>Hiring Signal</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-paper-plane"></i>Cold Outreach</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-list-ul"></i>Job Board Scrape</span>
+            </div>
+            <button class="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Hire Business Dev</button>
+          </div>
+
+          <!-- Closer -->
+          <div class="agent-card dashed float-in d-9 !p-4 !gap-3">
+            <div class="flex items-start gap-2.5">
+              <div class="agent-avatar grad-closer w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0" style="box-shadow:0 8px 20px -6px rgba(244,63,94,.3);"><i class="fa-solid fa-trophy text-[13px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-[13.5px]">Closer</h4>
+                <p class="text-[10.5px] text-text-muted leading-snug mt-0.5">Drafts offers, handles negotiations, drives deals to signed.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-file-signature"></i>Offer Drafter</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-comments-dollar"></i>Negotiation</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-rotate-left"></i>Counter-handler</span>
+            </div>
+            <button class="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Hire Closer</button>
+          </div>
+
+          <!-- Account Manager -->
+          <div class="agent-card dashed float-in d-10 !p-4 !gap-3">
+            <div class="flex items-start gap-2.5">
+              <div class="agent-avatar grad-account w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0" style="box-shadow:0 8px 20px -6px rgba(14,165,233,.3);"><i class="fa-solid fa-building-user text-[13px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-[13.5px]">Account Mgr</h4>
+                <p class="text-[10.5px] text-text-muted leading-snug mt-0.5">Ongoing client relationship — status reports, pipeline updates, renewal nudges.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-file-lines"></i>Weekly Reports</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-arrow-trend-up"></i>Pipeline Updater</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-bell"></i>Renewal Nudge</span>
+            </div>
+            <button class="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Hire Account Mgr</button>
+          </div>
+
+          <!-- Reference Checker -->
+          <div class="agent-card dashed float-in d-10 !p-4 !gap-3">
+            <div class="flex items-start gap-2.5">
+              <div class="agent-avatar grad-refcheck w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0" style="box-shadow:0 8px 20px -6px rgba(71,85,105,.3);"><i class="fa-solid fa-shield-check text-[13px]"></i></div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-[13.5px]">Reference Checker</h4>
+                <p class="text-[10.5px] text-text-muted leading-snug mt-0.5">Drafts reference requests, processes responses, summarizes back-channel intel.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-envelope"></i>Reference Outreach</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-comment-dots"></i>Back-channel</span>
+              <span class="skill-chip !text-[9.5px]"><i class="fa-solid fa-list-check"></i>Synthesis</span>
+            </div>
+            <button class="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20"><i class="fa-solid fa-plus text-[9px] mr-1"></i>Hire Reference</button>
+          </div>
+        </div>
+
+        <p class="text-center text-[11px] text-text-muted mt-4 italic">More specialists land in the catalog every release — Comp Benchmarker, Talent Mapper, Content Writer.</p>
+      </section>
+
+      <!-- ============ TODAY'S TEAM ACTIVITY ============ -->
+      <section>
+        <div class="float-in d-7 flex items-end justify-between mb-3">
+          <h2 class="text-[15px] font-bold tracking-tight">Team activity · today</h2>
+          <button class="ghost-btn">View all →</button>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 float-in d-7">
+          <div class="activity-row">
+            <div class="agent-avatar sourcer grad-sourcer w-7 h-7 rounded-md text-[10px]"><i class="fa-solid fa-crosshairs"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">Sourcer · 1:42 PM</span>
+              <p class="mt-0.5">Drafting personalized variants for 142 leads in Q2 Engineers scale-up · 102/142 · 72%</p>
+            </div>
+            <span class="tag tag-sourcer">Running</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar recruiter grad-recruiter w-7 h-7 rounded-md text-[10px] flex items-center justify-center text-white"><i class="fa-solid fa-user-tie"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">Recruiter · 1:14 PM</span>
+              <p class="mt-0.5">Drafted submittal for <strong>Aisha Okafor</strong> (Replit · Eng Mgr) — sent to hiring manager Marcus</p>
+            </div>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar grad-coordinator w-7 h-7 rounded-md text-[10px] flex items-center justify-center text-white"><i class="fa-solid fa-calendar-check"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">Coordinator · 12:48 PM</span>
+              <p class="mt-0.5">Booked phone screen for <strong>Sarah Chen</strong> (Stripe) on Thu 2:30 PT · sent invite + 24h reminder</p>
+            </div>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar rex grad-rex w-7 h-7 rounded-md text-[10px]"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">REX · 12:14 PM</span>
+              <p class="mt-0.5">Held a Recruiter draft for review — <strong>Marcus Rodriguez</strong> comp answer is above your autopilot threshold</p>
+            </div>
+            <span class="tag tag-warn">Awaiting you</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar sourcer grad-sourcer w-7 h-7 rounded-md text-[10px]"><i class="fa-solid fa-crosshairs"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">Sourcer · 11:36 AM</span>
+              <p class="mt-0.5">Enriched 245 candidates via Apollo + Decodo · avg score 84 · 2 caught on blocklist</p>
+            </div>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar recruiter grad-recruiter w-7 h-7 rounded-md text-[10px]"><i class="fa-solid fa-user-tie"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">Recruiter · 11:36 AM</span>
+              <p class="mt-0.5"><strong>Sarah Chen</strong> (Stripe · score 94) replied — auto-sent calendar invite for Thursday 2:30 PT</p>
+            </div>
+            <span class="tag tag-success">Done</span>
+          </div>
+          <div class="activity-row">
+            <div class="agent-avatar rex grad-rex w-7 h-7 rounded-md text-[10px]"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div class="flex-1 text-[13px]">
+              <span class="text-[10.5px] text-text-muted font-bold uppercase tracking-wider">REX · 8:14 AM</span>
+              <p class="mt-0.5">Started <strong>"Scale Q2 Engineers"</strong> goal — delegated sourcing to Sourcer, outreach drafting to Recruiter</p>
+            </div>
+            <span class="tag tag-primary">Started</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1 glass border border-gray-200 rounded-full px-2 py-1 shadow-lg text-xs">
+  <a href="workspace.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Today</a>
+  <a href="team.html" class="px-2.5 py-0.5 rounded-full grad-rex text-white font-semibold">Team ★</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="pipelines.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Pipelines</a>
+  <a href="deals.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Deals</a>
+  <span class="w-px h-4 bg-gray-200 mx-1"></span>
+  <a href="autopilot-v3.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Goal</a>
+  <a href="index.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface"><i class="fa-solid fa-grip text-[10px]"></i></a>
+</div>
+
+</body>
+</html>

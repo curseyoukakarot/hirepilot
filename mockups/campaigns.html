@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Campaigns</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444', accent: '#EC4899',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+  @keyframes float-in { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .55s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.05s}.d-2{animation-delay:.1s}.d-3{animation-delay:.15s}.d-4{animation-delay:.2s}.d-5{animation-delay:.25s}.d-6{animation-delay:.3s}.d-7{animation-delay:.35s}.d-8{animation-delay:.4s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.55;transform:scale(1.4);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+  .shimmer-top{position:relative;overflow:hidden;}
+  .shimmer-top::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(107,70,193,.7) 35%,rgba(12,92,244,.7) 65%,transparent);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;}
+  .card-hover{transition:transform .3s cubic-bezier(0.4,0,0.2,1),box-shadow .3s cubic-bezier(0.4,0,0.2,1),border-color .3s;}
+  .card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 24px -10px rgba(26,26,46,.14);border-color:rgba(107,70,193,.25);}
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:8px;height:8px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-5px;border-radius:9999px;background:#10B981;opacity:.35;animation:pulse-soft 2s ease-in-out infinite;}
+  .nav-active{background:linear-gradient(135deg,rgba(107,70,193,.12),rgba(12,92,244,.10));color:#6B46C1;}
+  .nav-active i{color:#6B46C1;}
+  .glass{background:rgba(255,255,255,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  .rex-bar{box-shadow:0 12px 32px -8px rgba(26,26,46,.18);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .tag-pill{font-size:11px;padding:2px 8px;border-radius:9999px;font-weight:500;}
+  @keyframes draw { from{stroke-dashoffset:300;} to{stroke-dashoffset:0;} }
+  .spark-path{stroke-dasharray:300;animation:draw 1.6s cubic-bezier(0.4,0,0.2,1) both;}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 bottom-0 w-16 bg-white border-r border-gray-100 flex flex-col items-center py-4 z-30">
+  <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white font-bold mb-6 shadow-md shadow-primary/30">HP</div>
+  <nav class="flex-1 flex flex-col gap-1">
+    <a href="v2-rebuilt.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-house"></i></a>
+    <a href="apps.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-grip"></i></a>
+    <a href="campaigns.html" class="w-10 h-10 rounded-lg flex items-center justify-center nav-active"><i class="fa-solid fa-paper-plane"></i></a>
+    <a href="messages.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-envelope"></i></a>
+    <a href="leads.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-users"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-briefcase"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-chart-line"></i></a>
+    <a href="#" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-wand-magic-sparkles"></i></a>
+  </nav>
+  <a href="settings.html" class="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface"><i class="fa-solid fa-gear"></i></a>
+  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 mt-4 ring-2 ring-white shadow"></div>
+</aside>
+
+<!-- Topbar -->
+<header class="fixed top-0 left-16 right-0 h-14 glass border-b border-gray-100 flex items-center px-6 z-20">
+  <div class="flex-1">
+    <h1 class="text-[15px] font-semibold">Campaigns</h1>
+    <p class="text-xs text-text-muted">3 sending · 7 paused · 12 total</p>
+  </div>
+  <div class="flex-1 max-w-md mx-auto">
+    <div class="flex items-center gap-2 bg-surface rounded-xl px-3 py-2 text-sm text-text-muted">
+      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+      <span>Search campaigns…</span>
+      <span class="ml-auto text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono">⌘K</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <button class="w-9 h-9 rounded-lg hover:bg-surface flex items-center justify-center relative">
+      <i class="fa-solid fa-bell text-text-secondary"></i>
+      <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full"></span>
+    </button>
+    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+  </div>
+</header>
+
+<main class="ml-16 mt-14 px-8 py-6 pb-32">
+
+  <!-- Header -->
+  <div class="float-in flex items-end justify-between mb-7">
+    <div>
+      <h2 class="text-3xl font-bold tracking-tight">Campaigns</h2>
+      <p class="text-text-muted mt-1">Multi-step outreach sequences with REX-drafted variants.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="text-sm px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-primary/30 text-text-secondary"><i class="fa-solid fa-folder text-xs mr-1.5"></i>Folders</button>
+      <button class="text-sm px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-primary/30 text-text-secondary"><i class="fa-solid fa-clone text-xs mr-1.5"></i>Templates</button>
+      <button class="text-sm px-4 py-2 rounded-xl grad-icon text-white font-semibold shadow-md shadow-primary/25"><i class="fa-solid fa-plus text-xs mr-1.5"></i>New campaign</button>
+    </div>
+  </div>
+
+  <!-- KPI ribbon -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="float-in d-1 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Sent today</span>
+        <i class="fa-solid fa-paper-plane text-primary text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold tracking-tight">1,284</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 12% vs yesterday</div>
+    </div>
+    <div class="float-in d-2 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Avg open rate</span>
+        <i class="fa-solid fa-envelope-open text-secondary text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold tracking-tight">62.4%</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 4.1% this week</div>
+    </div>
+    <div class="float-in d-3 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Avg reply rate</span>
+        <i class="fa-solid fa-comment-dots text-success text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold tracking-tight">11.8%</div>
+      <div class="text-[11px] text-success font-semibold mt-0.5">▲ 1.6% this week</div>
+    </div>
+    <div class="float-in d-4 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-text-muted uppercase tracking-wider">Hot leads from campaigns</span>
+        <i class="fa-solid fa-fire text-warn text-xs"></i>
+      </div>
+      <div class="text-2xl font-bold tracking-tight">12</div>
+      <div class="text-[11px] text-warn font-semibold mt-0.5">Awaiting your reply</div>
+    </div>
+  </div>
+
+  <!-- Tabs / filter -->
+  <div class="float-in d-2 flex items-center gap-2 mb-4 text-sm">
+    <button class="px-3 py-1.5 rounded-full bg-primary text-white font-medium">All <span class="opacity-80">12</span></button>
+    <button class="px-3 py-1.5 rounded-full text-text-secondary hover:bg-surface font-medium">Sending <span class="text-success font-semibold">3</span></button>
+    <button class="px-3 py-1.5 rounded-full text-text-secondary hover:bg-surface font-medium">Paused <span class="text-text-muted">7</span></button>
+    <button class="px-3 py-1.5 rounded-full text-text-secondary hover:bg-surface font-medium">Draft <span class="text-text-muted">2</span></button>
+    <button class="px-3 py-1.5 rounded-full text-text-secondary hover:bg-surface font-medium ml-auto"><i class="fa-solid fa-arrow-up-wide-short text-xs mr-1"></i>Sort: Reply rate</button>
+  </div>
+
+  <!-- Campaign cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+    <!-- Active campaign 1 -->
+    <div class="float-in d-3 card-hover relative bg-white border border-gray-100 rounded-2xl p-5 shadow-sm shimmer-top cursor-pointer">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-paper-plane text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">Q2 Senior Engineers</h4>
+            <p class="text-[11px] text-text-muted">Linear · created 14 days ago</p>
+          </div>
+        </div>
+        <span class="flex items-center gap-1 text-[10px] font-bold uppercase text-success bg-success/10 px-2 py-0.5 rounded-full"><span class="live-dot"></span>Sending</span>
+      </div>
+      <!-- progress bar -->
+      <div class="mb-2">
+        <div class="flex items-center justify-between text-[11px] text-text-muted mb-1"><span>342 / 500 sent</span><span class="font-semibold">68%</span></div>
+        <div class="h-1.5 bg-surface rounded-full overflow-hidden"><div class="h-full grad-icon rounded-full" style="width:68%"></div></div>
+      </div>
+      <!-- mini sparkline -->
+      <svg viewBox="0 0 200 30" class="w-full h-7 my-2"><path class="spark-path" d="M0,22 L25,18 L50,20 L75,12 L100,16 L125,8 L150,10 L175,4 L200,2" fill="none" stroke="#6B46C1" stroke-width="2" stroke-linecap="round"/></svg>
+      <!-- stats -->
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Open</div><div class="text-sm font-bold">71%</div></div>
+        <div class="bg-success/10 rounded-lg p-1.5"><div class="text-[10px] text-success uppercase font-semibold">Reply</div><div class="text-sm font-bold text-success">14.2%</div></div>
+        <div class="bg-warn/10 rounded-lg p-1.5"><div class="text-[10px] text-warn uppercase font-semibold">Hot</div><div class="text-sm font-bold text-warn">12</div></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-[11px]">
+        <span class="tag-pill bg-purple-100 text-purple-700">Engineering</span>
+        <span class="tag-pill bg-amber-100 text-amber-700">Senior</span>
+        <span class="text-success font-semibold ml-auto">▲ +38% vs avg</span>
+      </div>
+    </div>
+
+    <!-- Active campaign 2 -->
+    <div class="float-in d-4 card-hover relative bg-white border border-gray-100 rounded-2xl p-5 shadow-sm shimmer-top cursor-pointer">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-paper-plane text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">Sales Reps – SF</h4>
+            <p class="text-[11px] text-text-muted">Stripe · created 8 days ago</p>
+          </div>
+        </div>
+        <span class="flex items-center gap-1 text-[10px] font-bold uppercase text-success bg-success/10 px-2 py-0.5 rounded-full"><span class="live-dot"></span>Sending</span>
+      </div>
+      <div class="mb-2">
+        <div class="flex items-center justify-between text-[11px] text-text-muted mb-1"><span>198 / 400 sent</span><span class="font-semibold">49%</span></div>
+        <div class="h-1.5 bg-surface rounded-full overflow-hidden"><div class="h-full grad-icon rounded-full" style="width:49%"></div></div>
+      </div>
+      <svg viewBox="0 0 200 30" class="w-full h-7 my-2"><path class="spark-path" d="M0,24 L25,22 L50,18 L75,20 L100,14 L125,16 L150,10 L175,12 L200,6" fill="none" stroke="#6B46C1" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Open</div><div class="text-sm font-bold">58%</div></div>
+        <div class="bg-success/10 rounded-lg p-1.5"><div class="text-[10px] text-success uppercase font-semibold">Reply</div><div class="text-sm font-bold text-success">9.8%</div></div>
+        <div class="bg-warn/10 rounded-lg p-1.5"><div class="text-[10px] text-warn uppercase font-semibold">Hot</div><div class="text-sm font-bold text-warn">3</div></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-[11px]">
+        <span class="tag-pill bg-blue-100 text-blue-700">Sales</span>
+        <span class="text-text-muted ml-auto">~ on average</span>
+      </div>
+    </div>
+
+    <!-- Active campaign 3 -->
+    <div class="float-in d-5 card-hover relative bg-white border border-gray-100 rounded-2xl p-5 shadow-sm shimmer-top cursor-pointer">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/25"><i class="fa-solid fa-paper-plane text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">Designers – Remote</h4>
+            <p class="text-[11px] text-text-muted">Figma · created 3 days ago</p>
+          </div>
+        </div>
+        <span class="flex items-center gap-1 text-[10px] font-bold uppercase text-success bg-success/10 px-2 py-0.5 rounded-full"><span class="live-dot"></span>Scheduled</span>
+      </div>
+      <div class="mb-2">
+        <div class="flex items-center justify-between text-[11px] text-text-muted mb-1"><span>122 / 350 sent</span><span class="font-semibold">35%</span></div>
+        <div class="h-1.5 bg-surface rounded-full overflow-hidden"><div class="h-full grad-icon rounded-full" style="width:35%"></div></div>
+      </div>
+      <svg viewBox="0 0 200 30" class="w-full h-7 my-2"><path class="spark-path" d="M0,20 L25,18 L50,22 L75,16 L100,18 L125,12 L150,14 L175,8 L200,10" fill="none" stroke="#6B46C1" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Open</div><div class="text-sm font-bold">64%</div></div>
+        <div class="bg-success/10 rounded-lg p-1.5"><div class="text-[10px] text-success uppercase font-semibold">Reply</div><div class="text-sm font-bold text-success">11.0%</div></div>
+        <div class="bg-warn/10 rounded-lg p-1.5"><div class="text-[10px] text-warn uppercase font-semibold">Hot</div><div class="text-sm font-bold text-warn">2</div></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-[11px]">
+        <span class="tag-pill bg-pink-100 text-pink-700">Design</span>
+        <span class="tag-pill bg-emerald-100 text-emerald-700">Remote</span>
+      </div>
+    </div>
+
+    <!-- Paused -->
+    <div class="float-in d-6 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm cursor-pointer opacity-90">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-pause text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">PMs – NYC</h4>
+            <p class="text-[11px] text-text-muted">Notion · paused 2 days ago</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-bold uppercase text-text-muted bg-surface px-2 py-0.5 rounded-full">Paused</span>
+      </div>
+      <div class="mb-2">
+        <div class="flex items-center justify-between text-[11px] text-text-muted mb-1"><span>89 / 200 sent</span><span class="font-semibold">44%</span></div>
+        <div class="h-1.5 bg-surface rounded-full overflow-hidden"><div class="h-full bg-text-muted rounded-full" style="width:44%"></div></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Open</div><div class="text-sm font-bold">42%</div></div>
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Reply</div><div class="text-sm font-bold">5.8%</div></div>
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Hot</div><div class="text-sm font-bold">1</div></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-center text-[11px]">
+        <span class="tag-pill bg-violet-100 text-violet-700">Product</span>
+        <button class="ml-auto text-primary font-semibold hover:underline">Resume</button>
+      </div>
+    </div>
+
+    <!-- Paused 2 -->
+    <div class="float-in d-7 card-hover bg-white border border-gray-100 rounded-2xl p-5 shadow-sm cursor-pointer opacity-90">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-pause text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">ML Engineers – Bay Area</h4>
+            <p class="text-[11px] text-text-muted">Anthropic · paused 1 week ago</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-bold uppercase text-text-muted bg-surface px-2 py-0.5 rounded-full">Paused</span>
+      </div>
+      <div class="mb-2">
+        <div class="flex items-center justify-between text-[11px] text-text-muted mb-1"><span>156 / 250 sent</span><span class="font-semibold">62%</span></div>
+        <div class="h-1.5 bg-surface rounded-full overflow-hidden"><div class="h-full bg-text-muted rounded-full" style="width:62%"></div></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Open</div><div class="text-sm font-bold">59%</div></div>
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Reply</div><div class="text-sm font-bold">8.2%</div></div>
+        <div class="bg-surface rounded-lg p-1.5"><div class="text-[10px] text-text-muted uppercase">Hot</div><div class="text-sm font-bold">4</div></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-center text-[11px]">
+        <span class="tag-pill bg-cyan-100 text-cyan-700">ML</span>
+        <button class="ml-auto text-primary font-semibold hover:underline">Resume</button>
+      </div>
+    </div>
+
+    <!-- Draft -->
+    <div class="float-in d-8 card-hover bg-white border-2 border-dashed border-gray-200 rounded-2xl p-5 cursor-pointer hover:border-primary/30 hover:bg-primary/[0.02]">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl bg-warn/10 text-warn flex items-center justify-center"><i class="fa-solid fa-pencil text-sm"></i></div>
+          <div>
+            <h4 class="font-semibold text-[15px] leading-tight">Sales Engineers – Remote</h4>
+            <p class="text-[11px] text-text-muted">Vercel · draft · last edited 1h ago</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-bold uppercase text-warn bg-warn/10 px-2 py-0.5 rounded-full">Draft</span>
+      </div>
+      <div class="space-y-2 my-3 text-xs text-text-muted">
+        <div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-success"></i><span>Audience: 248 leads</span></div>
+        <div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-success"></i><span>3-step sequence</span></div>
+        <div class="flex items-center gap-2"><i class="fa-regular fa-circle text-text-muted"></i><span class="text-text-muted">REX hasn't drafted variants yet</span></div>
+      </div>
+      <button class="w-full mt-2 py-2 rounded-xl grad-icon text-white text-sm font-semibold shadow-md shadow-primary/25"><i class="fa-solid fa-wand-magic-sparkles text-xs mr-1.5"></i>Have REX finish it</button>
+    </div>
+
+    <!-- New campaign tile -->
+    <div class="float-in d-8 card-hover bg-gradient-to-br from-primary/[0.04] via-secondary/[0.03] to-transparent border-2 border-dashed border-primary/20 rounded-2xl p-5 cursor-pointer hover:border-primary/40 flex items-center justify-center min-h-[280px]">
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl grad-icon flex items-center justify-center text-white mx-auto mb-3 shadow-lg shadow-primary/25"><i class="fa-solid fa-plus text-xl"></i></div>
+        <h4 class="font-semibold mb-1">New campaign</h4>
+        <p class="text-xs text-text-muted max-w-[200px] mx-auto">Or describe your audience and let REX build the whole sequence.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- REX command bar -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-6">
+  <div class="rex-bar glass border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-3 transition-all">
+    <div class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white shadow-md shadow-primary/30"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></div>
+    <input class="flex-1 bg-transparent outline-none text-sm placeholder:text-text-muted" placeholder="Tell REX who to target — e.g. 'Senior frontend engineers at Series B startups in NY'" />
+    <span class="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 font-mono text-text-muted">⌘K</span>
+    <button class="w-8 h-8 rounded-xl grad-icon flex items-center justify-center text-white"><i class="fa-solid fa-arrow-up text-xs"></i></button>
+  </div>
+</div>
+
+<!-- Variant switcher -->
+<div class="fixed top-3 right-6 z-50 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-sm text-xs">
+  <span class="text-text-muted px-2">Mockups</span>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="v1-refined.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v1</a>
+  <a href="v2-rebuilt.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v2</a>
+  <a href="v3-bold.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">v3</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="apps.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Apps</a>
+  <a href="leads.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Leads</a>
+  <a href="messages.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Messages</a>
+  <a href="campaigns.html" class="px-2 py-0.5 rounded-full bg-primary text-white font-medium">Campaigns</a>
+  <a href="settings.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">Settings</a>
+  <span class="w-px h-4 bg-gray-200"></span>
+  <a href="design-system.html" class="px-2 py-0.5 rounded-full text-text-secondary hover:bg-surface">System</a>
+</div>
+
+</body>
+</html>
