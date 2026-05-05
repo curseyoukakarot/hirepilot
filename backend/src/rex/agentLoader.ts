@@ -77,16 +77,38 @@ export async function loadAgentContext(
     .select('skill_id, enabled, schedule_cron, config')
     .eq('agent_id', agent.id);
 
-  // 3. Pull autopilot guardrails from team_settings (via workspace.team_id)
+  // 3. Pull autopilot guardrails from team_settings.
+  // team_id lives on users.team_id (legacy "team" concept) — resolve via the user.
+  // Fallback: use the workspace owner's team_id.
   let autopilotScoreThreshold = 90;
   let autopilotMaxSpendCents = 5000;
   try {
-    const { data: ws } = await supabase
-      .from('workspaces')
+    let teamId: string | null = null;
+    const { data: userRow } = await supabase
+      .from('users')
       .select('team_id')
-      .eq('id', workspaceId)
+      .eq('id', userId)
       .maybeSingle();
-    const teamId = (ws as any)?.team_id;
+    teamId = (userRow as any)?.team_id || null;
+    if (!teamId) {
+      // Fallback to workspace owner.
+      const { data: ownerRow } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+        .eq('role', 'owner')
+        .eq('status', 'active')
+        .maybeSingle();
+      const ownerId = (ownerRow as any)?.user_id;
+      if (ownerId) {
+        const { data: ownerUser } = await supabase
+          .from('users')
+          .select('team_id')
+          .eq('id', ownerId)
+          .maybeSingle();
+        teamId = (ownerUser as any)?.team_id || null;
+      }
+    }
     if (teamId) {
       const { data: ts } = await supabase
         .from('team_settings')
