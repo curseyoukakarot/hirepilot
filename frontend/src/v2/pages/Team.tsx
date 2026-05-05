@@ -4,34 +4,78 @@
  * HTML preserved EXACTLY from mockups/team.html main content block.
  * Conversions: class→className, self-closing tags, JSX comment style.
  *
- * TODO wire to backend:
- *   - Hired agents from `agents` table where workspace_id = current
- *   - Agent's installed Skills from `agent_skills` joined to `skills_catalog`
- *   - Per-agent "right now" status from rex_activity_log + goals
- *   - Trust mini-toggle persists via PATCH /api/v2/agents/:id { trust_level }
- *   - "Hire team member" button → /v2/hire (catalog page)
- *   - Available-to-hire cards = skills_catalog roles where no agent row exists yet
- *   - Activity timeline from rex_activity_log filtered to agent_id IS NOT NULL
+ * Wired to backend:
+ *   - Hired agents from /api/v2/agents (workspace-scoped)
+ *   - Trust mini-toggle persists via PATCH /api/v2/agents/:id
+ *   - Hire CTA → POST /api/v2/agents { role }
+ *   - Available-to-hire = the 5 catalog roles minus the ones already hired
+ *
+ * Still placeholder (no schema/endpoint yet):
+ *   - "Right now" body copy (needs rex_activity_log)
+ *   - Footer counters (needs activity rollups)
+ *   - Activity timeline at the bottom
  */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
+import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import type { Agent, AgentRole, TrustLevel } from '../types';
+
+/** Trust-mini segmented control wired to a real agent. */
+function TrustMini({ agent, onChange }: { agent: Agent | undefined; onChange: (level: TrustLevel) => void }) {
+  const level = agent?.trust_level || 'suggest';
+  const seg = (target: TrustLevel, label: string, suggestClass = false) => (
+    <span
+      className={`trust-mini-seg${level === target ? ' active' : ''}${suggestClass && level === target ? ' suggest' : ''}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (agent) onChange(target);
+      }}
+    >
+      {label}
+    </span>
+  );
+  return (
+    <div className="trust-mini shrink-0" onClick={(e) => e.preventDefault()}>
+      {seg('manual', 'M')}
+      {seg('suggest', 'S', true)}
+      {seg('autopilot', 'A')}
+    </div>
+  );
+}
 
 export default function TeamPage() {
+  const { agents, isLoading, hire, update } = useAgents();
+  const sourcer = findAgentByRole(agents, 'sourcer');
+  const recruiter = findAgentByRole(agents, 'recruiter');
+  const coordinator = findAgentByRole(agents, 'coordinator');
+
+  const hiredCount = [sourcer, recruiter, coordinator].filter(Boolean).length;
+  const allHiredRoles = new Set(agents.map((a) => a.role));
+
+  const setTrust = (id: string, level: TrustLevel) => {
+    update.mutate({ id, trust_level: level });
+  };
+
+  const handleHire = (role: AgentRole) => {
+    if (hire.isPending) return;
+    hire.mutate({ role });
+  };
   return (
     <WorkspaceShell autopilot>
       <WorkspaceTopbar
         pageTitle="Team"
         pageIcon="fa-solid fa-users-gear"
         pageIconColor="text-primary"
-        pageSubtitle="Your AI team · 3 agents · 2 active"
+        pageSubtitle={isLoading ? 'Loading your team…' : `Your AI team · ${hiredCount} specialist${hiredCount === 1 ? '' : 's'} hired`}
         statusPill={
           <RexStatusPill
             text="team is working "
-            highlight="3 in flight · 1 awaiting"
-            highlightClass="text-warn"
+            highlight={`${hiredCount} specialist${hiredCount === 1 ? '' : 's'} on staff`}
+            highlightClass="text-primary"
           />
         }
         trustLevel="autopilot"
@@ -141,6 +185,7 @@ export default function TeamPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
             {/* SOURCER */}
+            {sourcer && (
             <Link to="/v2/agents/sourcer" className="agent-card float-in d-3 shimmer-top">
               <div className="flex items-start gap-3">
                 <div className="agent-avatar sourcer grad-sourcer w-12 h-12 shadow-lg" style={{ boxShadow: '0 8px 20px -6px rgba(6,182,212,.4)' }}>
@@ -148,16 +193,14 @@ export default function TeamPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-[16px] font-bold">Sourcer</h3>
-                    <span className="tag tag-success"><span className="live-dot" />Running</span>
+                    <h3 className="text-[16px] font-bold">{sourcer.display_name || 'Sourcer'}</h3>
+                    {sourcer.paused
+                      ? <span className="tag tag-muted"><i className="fa-solid fa-pause text-[8px]" />Paused</span>
+                      : <span className="tag tag-success"><span className="live-dot" />Running</span>}
                   </div>
                   <p className="text-[11.5px] text-text-muted">Finds and qualifies new leads. Owns the funnel before outreach.</p>
                 </div>
-                <div className="trust-mini shrink-0" onClick={(e) => e.preventDefault()}>
-                  <span className="trust-mini-seg">M</span>
-                  <span className="trust-mini-seg">S</span>
-                  <span className="trust-mini-seg active">A</span>
-                </div>
+                <TrustMini agent={sourcer} onChange={(lvl) => setTrust(sourcer.id, lvl)} />
               </div>
 
               <div>
@@ -190,8 +233,10 @@ export default function TeamPage() {
                 <span className="ghost-btn"><i className="fa-solid fa-arrow-right text-[10px]" /></span>
               </div>
             </Link>
+            )}
 
             {/* RECRUITER */}
+            {recruiter && (
             <Link to="/v2/agents/recruiter" className="agent-card float-in d-4">
               <div className="flex items-start gap-3">
                 <div className="agent-avatar recruiter grad-recruiter w-12 h-12 shadow-lg" style={{ boxShadow: '0 8px 20px -6px rgba(16,185,129,.4)' }}>
@@ -199,16 +244,14 @@ export default function TeamPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-[16px] font-bold">Recruiter</h3>
-                    <span className="tag tag-warn"><i className="fa-solid fa-circle-question text-[8px]" />1 needs you</span>
+                    <h3 className="text-[16px] font-bold">{recruiter.display_name || 'Recruiter'}</h3>
+                    {recruiter.paused
+                      ? <span className="tag tag-muted"><i className="fa-solid fa-pause text-[8px]" />Paused</span>
+                      : <span className="tag tag-success"><span className="live-dot" />Running</span>}
                   </div>
                   <p className="text-[11.5px] text-text-muted">Engages candidates, drafts replies, manages pipelines, schedules interviews.</p>
                 </div>
-                <div className="trust-mini shrink-0" onClick={(e) => e.preventDefault()}>
-                  <span className="trust-mini-seg">M</span>
-                  <span className="trust-mini-seg active suggest">S</span>
-                  <span className="trust-mini-seg">A</span>
-                </div>
+                <TrustMini agent={recruiter} onChange={(lvl) => setTrust(recruiter.id, lvl)} />
               </div>
 
               <div>
@@ -246,8 +289,10 @@ export default function TeamPage() {
                 <span className="ghost-btn"><i className="fa-solid fa-arrow-right text-[10px]" /></span>
               </div>
             </Link>
+            )}
 
             {/* COORDINATOR */}
+            {coordinator && (
             <Link to="/v2/agents/coordinator" className="agent-card float-in d-5 shimmer-top">
               <div className="flex items-start gap-3">
                 <div className="agent-avatar grad-coordinator w-12 h-12 shadow-lg flex items-center justify-center text-white" style={{ boxShadow: '0 8px 20px -6px rgba(139,92,246,.4)', borderRadius: '9999px' }}>
@@ -255,16 +300,14 @@ export default function TeamPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-[16px] font-bold">Coordinator</h3>
-                    <span className="tag tag-success"><span className="live-dot" />Working</span>
+                    <h3 className="text-[16px] font-bold">{coordinator.display_name || 'Coordinator'}</h3>
+                    {coordinator.paused
+                      ? <span className="tag tag-muted"><i className="fa-solid fa-pause text-[8px]" />Paused</span>
+                      : <span className="tag tag-success"><span className="live-dot" />Working</span>}
                   </div>
                   <p className="text-[11.5px] text-text-muted">Schedules interviews, sends invites, handles reschedules + reminders.</p>
                 </div>
-                <div className="trust-mini shrink-0" onClick={(e) => e.preventDefault()}>
-                  <span className="trust-mini-seg">M</span>
-                  <span className="trust-mini-seg">S</span>
-                  <span className="trust-mini-seg active">A</span>
-                </div>
+                <TrustMini agent={coordinator} onChange={(lvl) => setTrust(coordinator.id, lvl)} />
               </div>
 
               <div>
@@ -298,6 +341,17 @@ export default function TeamPage() {
                 <span className="ghost-btn"><i className="fa-solid fa-arrow-right text-[10px]" /></span>
               </div>
             </Link>
+            )}
+
+            {/* Empty state when no specialists hired yet */}
+            {!isLoading && hiredCount === 0 && (
+              <div className="col-span-full p-8 border-2 border-dashed border-primary/20 rounded-2xl text-center bg-white/40">
+                <div className="text-[12px] text-text-muted mb-3">No specialists hired yet — REX is running solo.</div>
+                <Link to="/v2/hire" className="btn-solid inline-flex">
+                  <i className="fa-solid fa-user-plus text-[10px]" />Browse the catalog
+                </Link>
+              </div>
+            )}
           </div>
         </section>
 
@@ -315,7 +369,7 @@ export default function TeamPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 
-            {[
+            {([
               {
                 role: 'researcher', label: 'Researcher', icon: 'fa-magnifying-glass-arrow-right',
                 gradClass: 'grad-researcher', shadow: 'rgba(124,58,237,.3)',
@@ -366,7 +420,11 @@ export default function TeamPage() {
                   { icon: 'fa-list-check', text: 'Synthesis' },
                 ],
               },
-            ].map((agent, i) => (
+            ] as Array<{ role: AgentRole; label: string; icon: string; gradClass: string; shadow: string; desc: string; skills: Array<{ icon: string; text: string }> }>)
+              .filter((a) => !allHiredRoles.has(a.role))
+              .map((agent, i) => {
+                const isPending = hire.isPending && (hire.variables as any)?.role === agent.role;
+                return (
               <div key={agent.role} className={`agent-card dashed float-in d-${7 + i}`} style={{ padding: '16px', gap: '12px' }}>
                 <div className="flex items-start gap-2.5">
                   <div className={`agent-avatar ${agent.gradClass} w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0`} style={{ boxShadow: `0 8px 20px -6px ${agent.shadow}` }}>
@@ -384,11 +442,17 @@ export default function TeamPage() {
                     </span>
                   ))}
                 </div>
-                <button className="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20">
-                  <i className="fa-solid fa-plus text-[9px] mr-1" />Hire {agent.label}
+                <button
+                  className="w-full text-[11.5px] font-semibold text-primary hover:bg-primary/5 py-1.5 rounded-md transition border border-transparent hover:border-primary/20 disabled:opacity-50"
+                  onClick={() => handleHire(agent.role)}
+                  disabled={isPending || hire.isPending}
+                >
+                  <i className={`fa-solid ${isPending ? 'fa-spinner fa-spin' : 'fa-plus'} text-[9px] mr-1`} />
+                  {isPending ? 'Hiring…' : `Hire ${agent.label}`}
                 </button>
               </div>
-            ))}
+                );
+              })}
           </div>
 
           <p className="text-center text-[11px] text-text-muted mt-4 italic">

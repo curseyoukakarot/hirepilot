@@ -3,20 +3,24 @@
  *
  * HTML preserved EXACTLY from mockups/hire-catalog.html main content block.
  *
- * TODO wire to backend:
- *   - GET /api/v2/agents (already-hired list, mark with green ribbon)
- *   - GET /api/v2/skills/catalog?role=:role (default Skills shown per agent)
- *   - POST /api/v2/agents/:role to hire (creates agents row + auto-installs default Skills)
- *   - Plan tier banner from `users.role` / Stripe (Free | Starter | Team)
+ * Wired to backend:
+ *   - GET /api/v2/agents — drives the "Hired" badge per card
+ *   - POST /api/v2/agents { role } — hires + auto-installs default Skills
+ *
+ * Still placeholder:
+ *   - Plan tier banner copy (needs Stripe/users.role join)
+ *   - Per-card metrics in the footnote
  */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar from '../components/WorkspaceTopbar';
+import { useAgents } from '../hooks/useAgents';
+import type { AgentRole } from '../types';
 
 interface CatalogAgent {
-  role: string;
+  role: AgentRole;
   name: string;
   taglineRow: string;
   description: string;
@@ -183,13 +187,22 @@ const AGENTS: CatalogAgent[] = [
 ];
 
 export default function HireCatalogPage() {
+  const { agents, hire, isLoading } = useAgents();
+  const hiredRoles = new Set<AgentRole>(agents.map((a) => a.role));
+  const hiredCount = hiredRoles.size;
+
+  const onHire = (role: AgentRole) => {
+    if (hire.isPending) return;
+    hire.mutate({ role });
+  };
+
   return (
     <WorkspaceShell autopilot>
       <WorkspaceTopbar
         pageTitle="Hire team member"
         pageIcon="fa-solid fa-user-plus"
         pageIconColor="text-primary"
-        pageSubtitle="Catalog · 8 specialists available"
+        pageSubtitle={isLoading ? 'Loading catalog…' : `Catalog · 8 specialists · ${hiredCount} hired`}
       />
 
       <div className="px-8 py-7 space-y-6 max-w-[1400px] mx-auto">
@@ -228,9 +241,19 @@ export default function HireCatalogPage() {
 
         {/* Catalog grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {AGENTS.map((a, i) => (
-            <CatalogCard key={a.role} agent={a} d={`d-${3 + i}`} />
-          ))}
+          {AGENTS.map((a, i) => {
+            const liveHired = hiredRoles.has(a.role);
+            const pending = hire.isPending && (hire.variables as any)?.role === a.role;
+            return (
+              <CatalogCard
+                key={a.role}
+                agent={{ ...a, hired: liveHired }}
+                d={`d-${3 + i}`}
+                pending={pending}
+                onHire={() => onHire(a.role)}
+              />
+            );
+          })}
         </section>
 
         {/* Coming soon */}
@@ -269,7 +292,17 @@ export default function HireCatalogPage() {
   );
 }
 
-function CatalogCard({ agent, d }: { agent: CatalogAgent; d: string }) {
+function CatalogCard({
+  agent,
+  d,
+  pending = false,
+  onHire,
+}: {
+  agent: CatalogAgent;
+  d: string;
+  pending?: boolean;
+  onHire?: () => void;
+}) {
   return (
     <div className={`agent-card float-in ${d} ${agent.hired ? '' : ''}`} style={agent.hired ? { background: 'linear-gradient(135deg,rgba(16,185,129,.03),white 30%)', borderColor: 'rgba(16,185,129,.18)' } : undefined}>
       {agent.hired && (
@@ -330,8 +363,14 @@ function CatalogCard({ agent, d }: { agent: CatalogAgent; d: string }) {
             </button>
           )
         ) : (
-          <button className="btn-solid" style={{ paddingTop: 6, paddingBottom: 6 }}>
-            <i className="fa-solid fa-user-plus text-[9px]" />Hire {agent.name}
+          <button
+            className="btn-solid disabled:opacity-50"
+            style={{ paddingTop: 6, paddingBottom: 6 }}
+            onClick={onHire}
+            disabled={pending}
+          >
+            <i className={`fa-solid ${pending ? 'fa-spinner fa-spin' : 'fa-user-plus'} text-[9px]`} />
+            {pending ? 'Hiring…' : `Hire ${agent.name}`}
           </button>
         )}
       </div>

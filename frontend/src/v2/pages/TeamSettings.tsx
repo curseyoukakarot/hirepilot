@@ -3,20 +3,25 @@
  *
  * HTML preserved EXACTLY from mockups/team-settings.html main content block.
  *
- * TODO wire to backend:
- *   - GET /api/v2/workspaces/:id/settings (team_settings row + extension columns)
- *   - PATCH /api/v2/workspaces/:id/settings (name, team_color, sharing toggles)
- *   - GET /api/v2/workspaces/:id/members (workspace_members)
- *   - POST/PATCH/DELETE invites via existing routes
+ * Wired to backend:
+ *   - GET  /api/v2/workspace-settings  (workspace identity + sharing flags)
+ *   - PATCH /api/v2/workspace-settings (name, team_color, sharing toggles, trust defaults)
+ *
+ * Still placeholder (separate endpoints not yet built):
+ *   - Members section (needs /api/workspaces/:id/members)
+ *   - Plan card (needs Stripe/billing join)
+ *   - Danger zone (needs ownership-transfer + workspace-delete endpoints)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
+import { useWorkspaceSettings } from '../hooks/useWorkspaceSettings';
+import type { TeamColor } from '../types';
 import '../../styles/v2.css';
 
-const SWATCHES: { key: string; gradient: string; title: string; selected?: boolean }[] = [
+const SWATCHES: { key: TeamColor; gradient: string; title: string }[] = [
   { key: 'indigo',  gradient: 'linear-gradient(135deg,#6B46C1,#0C5CF4)', title: 'Indigo' },
-  { key: 'emerald', gradient: 'linear-gradient(135deg,#10B981,#0D9488)', title: 'Emerald (current)', selected: true },
+  { key: 'emerald', gradient: 'linear-gradient(135deg,#10B981,#0D9488)', title: 'Emerald' },
   { key: 'amber',   gradient: 'linear-gradient(135deg,#F59E0B,#EA580C)', title: 'Amber' },
   { key: 'rose',    gradient: 'linear-gradient(135deg,#F43F5E,#E11D48)', title: 'Rose' },
   { key: 'teal',    gradient: 'linear-gradient(135deg,#0EA5E9,#0D9488)', title: 'Teal' },
@@ -38,9 +43,43 @@ export default function TeamSettingsPage() {
     return () => { document.body.classList.remove('v2-app', 'autopilot'); };
   }, []);
 
+  const { settings, isLoading, update } = useWorkspaceSettings();
+  const currentColor: TeamColor = settings?.team_color || 'indigo';
+  const [nameDraft, setNameDraft] = useState<string>('');
+  const [initialDraft, setInitialDraft] = useState<string>('');
+
+  // Hydrate local drafts when settings load.
+  useEffect(() => {
+    if (settings) {
+      setNameDraft(settings.workspace_name || '');
+      setInitialDraft((settings.workspace_name || '').slice(0, 2).toUpperCase());
+    }
+  }, [settings?.workspace_name]);
+
+  const handleSaveIdentity = () => {
+    update.mutate({ workspace_name: nameDraft.trim() || null });
+  };
+
+  const handlePickColor = (color: TeamColor) => {
+    if (color === currentColor) return;
+    update.mutate({ team_color: color });
+  };
+
+  const toggleShare = (key: 'share_leads' | 'share_candidates' | 'share_deals' | 'share_analytics') => {
+    if (!settings) return;
+    update.mutate({ [key]: !settings[key] } as any);
+  };
+
+  const wsInitial = (initialDraft || nameDraft.slice(0, 2) || 'WS').toUpperCase();
+  const currentSwatch = SWATCHES.find((s) => s.key === currentColor) || SWATCHES[0];
+
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">
-      <WorkspaceSidebar workspaceInitial="AR" workspaceName="Apex Recruiting" workspaceSubtitle="4 members · Pro Team" />
+      <WorkspaceSidebar
+        workspaceInitial={wsInitial}
+        workspaceName={settings?.workspace_name || (isLoading ? 'Loading…' : 'My HirePilot')}
+        workspaceSubtitle="Workspace settings"
+      />
 
       <main className="flex-1 min-w-0 flex">
         {/* Sub-nav */}
@@ -87,20 +126,41 @@ export default function TeamSettingsPage() {
                   <h2 className="text-[16px] font-bold tracking-tight">Workspace identity</h2>
                   <p className="text-[11.5px] text-text-muted">Your team's name and color show across the app — sidebar, briefings, emails, Slack.</p>
                 </div>
-                <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 6px 14px -4px rgba(16,185,129,.4)' }}>Save changes</button>
+                <button
+                  onClick={handleSaveIdentity}
+                  disabled={update.isPending || !nameDraft.trim()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white disabled:opacity-50"
+                  style={{ background: currentSwatch.gradient, boxShadow: '0 6px 14px -4px rgba(16,185,129,.4)' }}
+                >
+                  {update.isPending ? 'Saving…' : 'Save changes'}
+                </button>
               </div>
 
               <div className="flex items-start gap-5 mb-5">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-[22px] font-bold shadow-lg" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 12px 28px -8px rgba(16,185,129,.45)' }}>AR</div>
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-[22px] font-bold shadow-lg" style={{ background: currentSwatch.gradient, boxShadow: '0 12px 28px -8px rgba(16,185,129,.45)' }}>{wsInitial}</div>
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Workspace name</label>
-                    <input type="text" defaultValue="Apex Recruiting" className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40" style={{ border: '1px solid #E5E7EB' }} />
+                    <input
+                      type="text"
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      placeholder="My HirePilot"
+                      className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40"
+                      style={{ border: '1px solid #E5E7EB' }}
+                    />
                     <p className="text-[10.5px] text-text-muted mt-1">Visible in sidebar, briefings, emails, Slack messages.</p>
                   </div>
                   <div>
                     <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Initial</label>
-                    <input type="text" defaultValue="AR" maxLength={3} className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40" style={{ border: '1px solid #E5E7EB' }} />
+                    <input
+                      type="text"
+                      value={initialDraft}
+                      onChange={(e) => setInitialDraft(e.target.value.toUpperCase())}
+                      maxLength={3}
+                      className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40"
+                      style={{ border: '1px solid #E5E7EB' }}
+                    />
                     <p className="text-[10.5px] text-text-muted mt-1">Shown in the workspace badge.</p>
                   </div>
                 </div>
@@ -111,25 +171,30 @@ export default function TeamSettingsPage() {
                 <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Workspace color</label>
                 <p className="text-[11.5px] text-text-muted mt-1 mb-3">Picks the sidebar tint, badge gradient, and team accent. REX, success, and danger colors stay system-controlled.</p>
                 <div className="flex items-center gap-3 flex-wrap">
-                  {SWATCHES.map((s) => (
-                    <div
-                      key={s.key}
-                      className="cursor-pointer relative transition"
-                      style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '11px',
-                        background: s.gradient,
-                        border: '2px solid white',
-                        boxShadow: s.selected
-                          ? `0 0 0 3px white, 0 0 0 5px ${s.gradient.match(/#\w+/)?.[0] || '#10B981'}, 0 8px 16px -4px rgba(0,0,0,.15)`
-                          : '0 0 0 1px rgba(0,0,0,.08)',
-                      }}
-                      title={s.title}
-                    >
-                      {s.selected && <div className="absolute inset-0 flex items-center justify-center text-white text-[14px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,.2)' }}><i className="fa-solid fa-check" /></div>}
-                    </div>
-                  ))}
+                  {SWATCHES.map((s) => {
+                    const isSelected = s.key === currentColor;
+                    return (
+                      <div
+                        key={s.key}
+                        className="cursor-pointer relative transition"
+                        onClick={() => handlePickColor(s.key)}
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '11px',
+                          background: s.gradient,
+                          border: '2px solid white',
+                          boxShadow: isSelected
+                            ? `0 0 0 3px white, 0 0 0 5px ${s.gradient.match(/#\w+/)?.[0] || '#10B981'}, 0 8px 16px -4px rgba(0,0,0,.15)`
+                            : '0 0 0 1px rgba(0,0,0,.08)',
+                          opacity: update.isPending ? 0.7 : 1,
+                        }}
+                        title={s.title + (isSelected ? ' (current)' : '')}
+                      >
+                        {isSelected && <div className="absolute inset-0 flex items-center justify-center text-white text-[14px]" style={{ textShadow: '0 1px 2px rgba(0,0,0,.2)' }}><i className="fa-solid fa-check" /></div>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -196,31 +261,45 @@ export default function TeamSettingsPage() {
                 <p className="text-[11.5px] text-text-muted mt-0.5">What's pooled across your team by default. Each member can still toggle to "Mine" view.</p>
               </div>
 
-              {[
-                { icon: 'fa-database', title: 'Leads · shared pool', desc: 'Everyone sees all 8,402 leads · ownership tracked per record', tag: 'Default', tagCls: 'tag-success', on: true },
-                { icon: 'fa-table-columns', title: 'Candidates · shared pool', desc: 'All hiring pipelines visible to team · per-job collaborators control edit access', tag: 'Default', tagCls: 'tag-success', on: true },
-                { icon: 'fa-handshake', title: 'Deals · shared pipeline', desc: 'One unified deal kanban for the team · $847k pipeline visible to all', tag: 'Default', tagCls: 'tag-success', on: true },
-                { icon: 'fa-chart-line', title: 'Analytics · individual by default', desc: 'Each member opts in to share their numbers · admin can override and view anyway', tag: 'Opt-in', tagCls: 'tag-muted', on: false },
-                { icon: 'fa-shield-halved', title: 'Admin override', desc: 'Admins always see all team data — including private analytics — for oversight', tag: 'Admin only', tagCls: 'tag-primary', on: true, iconCls: 'text-warn' },
-              ].map((s, i) => (
+              {([
+                { key: 'share_leads',      icon: 'fa-database',       title: 'Leads · shared pool',           desc: 'Everyone sees the team\'s leads · ownership tracked per record', tag: 'Default', tagCls: 'tag-success' },
+                { key: 'share_candidates', icon: 'fa-table-columns',  title: 'Candidates · shared pool',      desc: 'All hiring pipelines visible to team · per-job collaborators control edit access', tag: 'Default', tagCls: 'tag-success' },
+                { key: 'share_deals',      icon: 'fa-handshake',      title: 'Deals · shared pipeline',       desc: 'One unified deal kanban for the team · pipeline visible to all', tag: 'Default', tagCls: 'tag-success' },
+                { key: 'share_analytics',  icon: 'fa-chart-line',     title: 'Analytics · pooled team view',  desc: 'Pool everyone\'s numbers into a single team analytics view', tag: 'Opt-in', tagCls: 'tag-muted' },
+              ] as const).map((s, i) => {
+                const on = !!settings?.[s.key];
+                return (
                 <div key={s.title} className={`flex items-center gap-3.5 py-3.5 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                  <i className={`fa-solid ${s.icon} text-base w-5 ${s.iconCls || 'text-primary'}`} />
+                  <i className={`fa-solid ${s.icon} text-base w-5 text-primary`} />
                   <div className="flex-1">
                     <div className="font-semibold text-[13.5px]">{s.title}</div>
                     <div className="text-[11.5px] text-text-muted">{s.desc}</div>
                   </div>
                   <span className={`tag ${s.tagCls}`}>{s.tag}</span>
                   <div
+                    onClick={() => toggleShare(s.key)}
                     className="relative w-[38px] h-[22px] rounded-full cursor-pointer transition shrink-0"
-                    style={s.on
-                      ? { background: 'linear-gradient(135deg,#10B981,#0D9488)' }
+                    style={on
+                      ? { background: currentSwatch.gradient }
                       : { background: '#E5E7EB' }
                     }
                   >
-                    <div className="absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-transform" style={{ left: s.on ? '18px' : '2px' }} />
+                    <div className="absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-transform" style={{ left: on ? '18px' : '2px' }} />
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              <div className="flex items-center gap-3.5 py-3.5 border-t border-gray-50">
+                <i className="fa-solid fa-shield-halved text-base w-5 text-warn" />
+                <div className="flex-1">
+                  <div className="font-semibold text-[13.5px]">Admin override</div>
+                  <div className="text-[11.5px] text-text-muted">Admins always see all team data — including private analytics — for oversight</div>
+                </div>
+                <span className="tag tag-primary">Admin only</span>
+                <div className="relative w-[38px] h-[22px] rounded-full transition shrink-0" style={{ background: currentSwatch.gradient }}>
+                  <div className="absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow" style={{ left: '18px' }} />
+                </div>
+              </div>
             </section>
 
             {/* Plan card */}
