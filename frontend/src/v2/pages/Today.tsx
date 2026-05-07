@@ -14,14 +14,17 @@ import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
 import { useActivity, type ActivityEvent } from '../hooks/useActivity';
 import { useGoals } from '../hooks/useGoals';
 import { useDecisions } from '../hooks/useDecisions';
+import { useAgents } from '../hooks/useAgents';
 
 export default function TodayPage() {
   const { activity } = useActivity({ limit: 30 });
   const { goals } = useGoals('running');
   const { decisions: pending } = useDecisions({ status: 'pending' });
+  const { agents, isLoading: agentsLoading } = useAgents();
 
   const runningGoals = goals.length;
   const heldCount = pending.length;
+  const showOnboarding = !agentsLoading && agents.length === 0;
 
   return (
     <WorkspaceShell autopilot>
@@ -42,6 +45,55 @@ export default function TodayPage() {
 
       {/* BODY */}
       <div className="px-8 py-7 space-y-7 max-w-[1400px] mx-auto">
+
+        {/* Onboarding hero — first-run guide when no specialists have been hired */}
+        {showOnboarding && (
+          <section className="float-in" style={{ background: 'linear-gradient(135deg,rgba(107,70,193,.06),rgba(12,92,244,.04) 50%,white)', border: '1px solid rgba(107,70,193,.18)', borderRadius: '18px', padding: '24px 26px' }}>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl grad-rex flex items-center justify-center text-white shrink-0 shadow-md shadow-primary/30">
+                <i className="fa-solid fa-wand-magic-sparkles text-[20px]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] grad-text-rex mb-1">
+                  Welcome to HirePilot v2
+                </div>
+                <h2 className="text-[22px] font-extrabold tracking-tight mb-1.5">
+                  Hire your first specialist to put REX to work.
+                </h2>
+                <p className="text-[14px] text-text-secondary mb-4 max-w-2xl">
+                  REX coordinates your team — but the heavy lifting (sourcing, drafting, scheduling)
+                  happens through specialist agents you hire. Start with a Sourcer or Recruiter; they're
+                  pre-loaded with the Skills you need on day one.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a href="/v2/hire" className="btn-solid">
+                    <i className="fa-solid fa-user-plus text-[10px]" />Browse the catalog
+                  </a>
+                  <a href="/v2/team" className="ghost-btn">
+                    <i className="fa-solid fa-people-group text-[10px]" />Tour your team
+                  </a>
+                  <a href="/v2/goals" className="ghost-btn">
+                    <i className="fa-solid fa-rocket text-[10px]" />Try a goal
+                  </a>
+                </div>
+                <div className="mt-4 pt-4 border-t border-primary/10 grid grid-cols-1 md:grid-cols-3 gap-3 text-[12px]">
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
+                    <span><strong>Hire a specialist</strong> from the catalog — Sourcer, Recruiter, Coordinator, or any of 8 roles.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
+                    <span><strong>Set their trust level</strong> — Manual, Suggest, or Autopilot — per agent or per goal.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
+                    <span><strong>Tell REX a goal</strong> in plain English. REX plans, your team executes, you approve what matters.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* HERO: REX briefing */}
         <section className="float-in d-1">
