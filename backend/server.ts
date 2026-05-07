@@ -1278,6 +1278,29 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   // Run the enrichment worker every 2 minutes
   setInterval(enrichLeads, 2 * 60 * 1000);
 
+  // v2 — Goal execution worker. Drives `running` goals forward one step per
+  // tick (60s) without user clicks. Self-locks via goal_step_logs so two
+  // ticks can't double-execute. Disable via GOAL_WORKER_ENABLED=false.
+  if (String(process.env.GOAL_WORKER_ENABLED || 'true').toLowerCase() !== 'false') {
+    const tick = async () => {
+      try {
+        const { runGoalExecutionTick } = await import('./cron/goalExecutionTick');
+        const counters = await runGoalExecutionTick();
+        if (counters.advanced > 0 || counters.unstuck > 0 || counters.errors > 0) {
+          console.info('[goal-worker]', counters);
+        }
+      } catch (e: any) {
+        console.warn('[goal-worker] tick failed:', e?.message || e);
+      }
+    };
+    // Stagger first run by 10s so the server is fully up.
+    setTimeout(tick, 10_000);
+    setInterval(tick, 60 * 1000);
+    console.log('[Startup] Goal execution worker started (60s tick).');
+  } else {
+    console.log('[Startup] Goal execution worker disabled (GOAL_WORKER_ENABLED=false).');
+  }
+
   // Run the trial email worker every hour
   setInterval(processTrialEmails, 60 * 60 * 1000);
   // Also run immediately on startup
