@@ -10,6 +10,7 @@ import workspaceSettingsRouter from './workspaceSettings';
 import goalsRouter from './goals';
 import decisionsRouter from './decisions';
 import activityRouter from './activity';
+import inboxRouter from './inbox';
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.use('/workspace-settings', workspaceSettingsRouter);
 router.use('/goals', goalsRouter);
 router.use('/decisions', decisionsRouter);
 router.use('/activity', activityRouter);
+router.use('/inbox', inboxRouter);
 
 export default router;
