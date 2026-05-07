@@ -139,6 +139,20 @@ export default function GoalsPage() {
           </div>
         </section>
 
+        {/* Empty state when no goals at all */}
+        {!isLoading && goals.length === 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center float-in d-2">
+            <div className="w-12 h-12 rounded-full grad-rex flex items-center justify-center text-white mx-auto mb-3">
+              <i className="fa-solid fa-rocket text-[18px]" />
+            </div>
+            <div className="text-[15px] font-bold mb-1">No goals running yet.</div>
+            <div className="text-[12.5px] text-text-muted max-w-md mx-auto">
+              Type what you want above — REX will plan it, you approve it, your team executes.
+              Anything REX holds back will land on Decisions for review.
+            </div>
+          </div>
+        )}
+
         {/* Real workspace goals (live from DB) */}
         {goals.length > 0 && (
           <section className="float-in d-2 space-y-2">
@@ -170,6 +184,10 @@ export default function GoalsPage() {
           <span className="ml-auto text-[11.5px] text-text-muted"><i className="fa-solid fa-arrow-up-wide-short text-[9px] mr-1" />Sort: Recent</span>
         </div>
 
+        {/* SAMPLE MOCKUP BLOCKS — kept hidden, retained as visual reference for future
+            optical work. The real workspace goals above (in GoalListRow) render
+            equivalent state from live data (plan steps, progress, controls). */}
+        {false && (<>
         {/* RUNNING — full detail */}
         <section className="float-in d-3 shimmer-top flex flex-col gap-4 p-[18px]" style={{ ...goalCardStyles.running, borderRadius: '18px' }}>
           <div className="flex items-start gap-3">
@@ -387,6 +405,7 @@ export default function GoalsPage() {
             ))}
           </div>
         </section>
+        </>)}
 
       </div>
     </WorkspaceShell>

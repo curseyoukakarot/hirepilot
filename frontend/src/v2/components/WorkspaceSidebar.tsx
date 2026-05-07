@@ -14,8 +14,9 @@
  *   - Deals total from opportunities
  */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useMyWorkspaces } from '../hooks/useWorkspaces';
 
 interface SidebarCounts {
   goals?: number;
@@ -61,22 +62,12 @@ export default function WorkspaceSidebar({
 
   return (
     <aside className="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
-      {/* Workspace header */}
-      <div className="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md">
-          {workspaceInitial}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-semibold truncate">{workspaceName}</div>
-          <div className="text-[10.5px] text-text-muted flex items-center gap-1">
-            <span className="live-dot" />
-            {workspaceSubtitle}
-          </div>
-        </div>
-        <button className="text-text-muted hover:text-text-main">
-          <i className="fa-solid fa-chevron-down text-[10px]" />
-        </button>
-      </div>
+      {/* Workspace header — clickable to switch */}
+      <WorkspaceHeader
+        fallbackInitial={workspaceInitial}
+        fallbackName={workspaceName}
+        fallbackSubtitle={workspaceSubtitle}
+      />
 
       {/* Search + ⌘K */}
       <div className="px-3 py-2.5">
@@ -224,5 +215,100 @@ export default function WorkspaceSidebar({
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Sidebar workspace header with a popover switcher. Pulls from
+ * /api/workspaces/mine and lets the user pick the active workspace; switching
+ * writes to localStorage and reloads so every surface refetches.
+ */
+function WorkspaceHeader({
+  fallbackInitial,
+  fallbackName,
+  fallbackSubtitle,
+}: {
+  fallbackInitial: string;
+  fallbackName: string;
+  fallbackSubtitle: string;
+}) {
+  const { workspaces, activeId, switchTo } = useMyWorkspaces();
+  const [open, setOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Close popover on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const active = workspaces.find((w) => w.workspace_id === activeId);
+  const activeName = active?.workspaces?.name || fallbackName;
+  const activeInitial = (active?.workspaces?.name || fallbackInitial).slice(0, 2).toUpperCase();
+  const memberCount = workspaces.length;
+  const subtitle = active?.workspaces?.plan
+    ? `${active.workspaces.plan} · ${active.role || 'member'}`
+    : fallbackSubtitle;
+
+  return (
+    <div ref={popoverRef} className="relative">
+      <button
+        type="button"
+        onClick={() => workspaces.length > 1 && setOpen((v) => !v)}
+        className="w-full px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5 hover:bg-surface/40 text-left"
+        title={workspaces.length > 1 ? 'Switch workspace' : undefined}
+      >
+        <div className="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md">
+          {activeInitial}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[12.5px] font-semibold truncate">{activeName}</div>
+          <div className="text-[10.5px] text-text-muted flex items-center gap-1">
+            <span className="live-dot" />
+            {subtitle}
+          </div>
+        </div>
+        {workspaces.length > 1 && (
+          <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-[10px] text-text-muted`} />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute z-30 left-2 right-2 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 max-h-[60vh] overflow-y-auto">
+          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            Workspaces · {memberCount}
+          </div>
+          {workspaces.map((w) => {
+            const name = w.workspaces?.name || 'Unnamed workspace';
+            const init = name.slice(0, 2).toUpperCase();
+            const isActive = w.workspace_id === activeId;
+            return (
+              <button
+                key={w.workspace_id}
+                onClick={() => { setOpen(false); switchTo(w.workspace_id); }}
+                className={`w-full px-3 py-2 flex items-center gap-2.5 text-left hover:bg-surface ${isActive ? 'bg-primary/5' : ''}`}
+              >
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-white font-bold text-[10px] ${isActive ? 'grad-icon' : 'bg-gradient-to-br from-slate-400 to-slate-600'}`}>
+                  {init}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-semibold truncate">{name}</div>
+                  <div className="text-[10px] text-text-muted">
+                    {w.workspaces?.plan || 'free'} · {w.role || 'member'}
+                  </div>
+                </div>
+                {isActive && <i className="fa-solid fa-check text-primary text-[10px]" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

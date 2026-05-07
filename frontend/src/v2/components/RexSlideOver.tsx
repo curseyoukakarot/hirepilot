@@ -1,16 +1,15 @@
 /**
  * v2 / REX Slide-Over — opens when user clicks the floating REX FAB.
  *
- * HTML preserved from mockups/rex-open.html (panel section).
- *
- * TODO wire to backend:
- *   - GET /api/v2/rex/conversations?context=current_page (or current goal)
- *   - POST /api/v2/rex/messages with current page context
- *   - SSE stream for live skill execution updates
- *   - Mode tabs (Chat / Voice / Plan) → reuse Job Seeker REX VOICE for voice mode
+ * HTML preserved from mockups/rex-open.html (panel section). Conversation
+ * thread + composer are now wired to /api/rex/chat via useRexChat — REX
+ * actually answers. The "Plan" detail block (delegation chips, live skill
+ * embed) stays as visual reference until streaming + tool-call rendering
+ * are wired in a follow-up.
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useRexChat } from '../hooks/useRexChat';
 
 interface Props {
   open: boolean;
@@ -20,6 +19,23 @@ interface Props {
 }
 
 export default function RexSlideOver({ open, onClose, contextLabel = "you're on the Today page · 1 decision waiting", workspaceName }: Props) {
+  const { messages, sending, send } = useRexChat({
+    greeting: "Hey — I'm REX. Ask me anything, or type / for a command.",
+  });
+  const [draft, setDraft] = useState('');
+  const composerRef = useRef<HTMLInputElement | null>(null);
+
+  // Focus composer when panel opens.
+  useEffect(() => {
+    if (open) setTimeout(() => composerRef.current?.focus(), 80);
+  }, [open]);
+
+  const submit = () => {
+    if (!draft.trim() || sending) return;
+    send(draft);
+    setDraft('');
+  };
+
   if (!open) return null;
 
   return (
@@ -67,6 +83,43 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
 
         {/* Conversation thread */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+
+          {/* Live messages (newest at bottom) — wired to /api/rex/chat */}
+          {messages.map((m, i) => (
+            m.role === 'user' ? (
+              <div key={`live-${i}`} className="flex justify-end float-in">
+                <div className="grad-icon text-white rounded-[12px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[80%] text-[13.5px] leading-relaxed whitespace-pre-wrap" style={{ boxShadow: '0 4px 12px -4px rgba(107,70,193,.3)' }}>
+                  {m.content}
+                </div>
+              </div>
+            ) : (
+              <div key={`live-${i}`} className="flex gap-2.5 float-in">
+                <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0">
+                  <i className="fa-solid fa-wand-magic-sparkles" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] text-text-main leading-relaxed whitespace-pre-wrap">{m.content}</div>
+                  <div className="text-[10px] text-text-muted mt-1.5 ml-1">{relativeTime(m.ts)}</div>
+                </div>
+              </div>
+            )
+          ))}
+          {sending && (
+            <div className="flex gap-2.5 float-in">
+              <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0">
+                <i className="fa-solid fa-wand-magic-sparkles" />
+              </div>
+              <div className="flex-1 text-[12.5px] text-text-muted">
+                <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /> REX is thinking…
+              </div>
+            </div>
+          )}
+
+          {/* Below: visual reference mockup of a richer plan delegation flow.
+              Stays until tool-call / streaming rendering is wired. */}
+          <div className="border-t border-dashed border-gray-200 pt-4 mt-2">
+            <div className="text-[10px] uppercase tracking-wider font-bold text-text-muted mb-3">Sample of REX's planning UI ↓</div>
+          </div>
 
           {/* User msg */}
           <div className="flex justify-end float-in">
@@ -180,14 +233,36 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
         <div className="px-3.5 py-3 border-t border-gray-100 bg-white">
           <div className="flex items-center gap-1 mb-2 px-1">
             <span className="text-[10px] uppercase tracking-wider font-bold text-text-muted">Try</span>
-            {['/source', '/research', '/draft', '/schedule'].map((s) => (
-              <span key={s} className="inline-flex items-center px-1.5 py-px rounded-md text-[10.5px] font-mono cursor-pointer" style={{ color: '#6B46C1', background: 'rgba(107,70,193,.08)' }}>{s}</span>
+            {['/source ', '/research ', '/draft ', '/schedule '].map((s) => (
+              <button
+                key={s}
+                onClick={() => { setDraft(s); setTimeout(() => composerRef.current?.focus(), 0); }}
+                className="inline-flex items-center px-1.5 py-px rounded-md text-[10.5px] font-mono cursor-pointer"
+                style={{ color: '#6B46C1', background: 'rgba(107,70,193,.08)' }}
+              >
+                {s.trim()}
+              </button>
             ))}
-            <span className="ml-auto inline-flex items-center px-1.5 py-px rounded-md text-[10.5px] font-mono cursor-pointer" style={{ color: '#6B46C1', background: 'rgba(107,70,193,.08)' }}>/help</span>
+            <button
+              onClick={() => send('What can you help me with right now?')}
+              className="ml-auto inline-flex items-center px-1.5 py-px rounded-md text-[10.5px] font-mono cursor-pointer"
+              style={{ color: '#6B46C1', background: 'rgba(107,70,193,.08)' }}
+            >
+              /help
+            </button>
           </div>
 
           <div className="rounded-[14px] p-2.5 px-3.5 flex flex-col gap-2 transition" style={{ background: '#F4F4F8', border: '1px solid #E5E7EB' }}>
-            <input type="text" className="bg-transparent outline-none text-[13.5px] placeholder:text-text-muted w-full" placeholder="Ask REX or use /commands…" />
+            <input
+              ref={composerRef}
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+              disabled={sending}
+              className="bg-transparent outline-none text-[13.5px] placeholder:text-text-muted w-full disabled:opacity-60"
+              placeholder={sending ? 'REX is thinking…' : 'Ask REX or use /commands…'}
+            />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 text-text-muted">
                 <button className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-paperclip text-[11px]" /></button>
@@ -195,7 +270,10 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
                 <button className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-image text-[11px]" /></button>
                 <span className="text-[10px] text-text-muted ml-1.5">⏎ send · ⇧⏎ newline</span>
               </div>
-              <button className="btn-solid !py-1 !px-3 !text-[11.5px]"><i className="fa-solid fa-arrow-up text-[10px]" />Send</button>
+              <button onClick={submit} disabled={!draft.trim() || sending} className="btn-solid !py-1 !px-3 !text-[11.5px] disabled:opacity-50">
+                <i className={`fa-solid ${sending ? 'fa-spinner fa-spin' : 'fa-arrow-up'} text-[10px]`} />
+                {sending ? 'Sending…' : 'Send'}
+              </button>
             </div>
           </div>
 
@@ -209,4 +287,13 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
       </aside>
     </>
   );
+}
+
+function relativeTime(ts: number): string {
+  const ms = Date.now() - ts;
+  if (ms < 5000) return 'just now';
+  if (ms < 60_000) return `${Math.floor(ms / 1000)}s ago`;
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
 }
