@@ -87,4 +87,25 @@ export const hiringSignalWatch: SkillHandler = async (input, _ctx): Promise<Skil
   }
 };
 
-export const jobBoardScrape    = stub('job_board_scrape',    'custom');
+/**
+ * Job Board Scraper — proposes target boards + structured search queries
+ * for a recruiter to hunt against. LLM-driven until Browserbase integration
+ * runs the actual scrapes.
+ *
+ * Input: { roles: string[], geos?: string[], company_segments?: string[] }
+ */
+export const jobBoardScrape: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+  const { roles = [], geos = [], company_segments = [] } = input || {};
+  if (!roles.length) return { ok: false, error: 'roles_required' };
+  try {
+    const { llmJSON } = await import('../llm');
+    const data = await llmJSON({
+      system: `You produce a job-board scrape plan for a recruiter looking for new hiring clients. Output JSON: targets (array of {board, query_url_template, why}), niche_boards (array of strings), filters_to_apply (array of strings), bottom_line (string). Cover the obvious (LinkedIn Jobs, Indeed, Wellfound) plus 2-3 niche ones for the segment.`,
+      user: `Roles: ${roles.join(', ')}\nGeos: ${geos.join(', ') || '(any)'}\nSegments: ${company_segments.join(', ') || '(any)'}`,
+      max_tokens: 600,
+    });
+    return { ok: true, data };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'job_board_scrape_failed' };
+  }
+};
