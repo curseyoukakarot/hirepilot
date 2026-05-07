@@ -11,19 +11,7 @@
 import type { SkillHandler, SkillResult } from '../registry';
 import { guardActions } from '../guardrails';
 
-const stub = (name: string): SkillHandler => async (input, ctx): Promise<SkillResult> => {
-  // Until the real wiring drops in, propose the action and let guardrails decide.
-  const guard = await guardActions(ctx, {
-    decisionType: 'custom',
-    payload: { skill: name, input },
-    context: { agentRole: ctx.agentRole, workspaceId: ctx.workspaceId },
-    reason: `${name} not yet wired — surfaced for human review.`,
-  });
-  if (guard.decision === 'hold') {
-    return { ok: true, held: { decisionType: 'custom', reason: guard.reason, payload: { skill: name, input } } };
-  }
-  return { ok: true, data: { stub: true, skill: name, input } };
-};
+// (Stub helper removed — every Sourcer Skill is now wired below.)
 
 /**
  * LinkedIn Sourcer — wraps the existing rexToolFunctions.sourceLeads with
@@ -258,6 +246,72 @@ export const icpResearcher: SkillHandler = async (input, _ctx): Promise<SkillRes
   }
 };
 
-export const browserResearcher  = stub('browser_researcher');
-export const githubSourcer      = stub('github_sourcer');
-export const twitterSourcer     = stub('twitter_sourcer');
+/**
+ * Browser Researcher — deep research on a target via the open web. When
+ * Browserbase integration lands, this swaps to a real session. For now,
+ * uses LLM prior-knowledge with a clear verify-disclaimer.
+ *
+ * Input: { target: { name?, company?, role?, urls?: string[] }, focus?: string }
+ */
+export const browserResearcher: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+  const { target, focus } = input || {};
+  if (!target || (!target.name && !target.company)) {
+    return { ok: false, error: 'target_required' };
+  }
+  try {
+    const { llmJSON } = await import('../llm');
+    const data = await llmJSON({
+      system: `You produce a recruiter-grade research brief on a target. Output JSON: summary (1-2 sentences), recent_activity (array of {when, what, source}), pitch_angles (array of 3 short bullets a recruiter could open with), risks (array, max 3), confidence (0-1). Mark inferred items with "(inferred)".`,
+      user: `Target: ${JSON.stringify(target)}\nFocus: ${focus || 'recruiting outreach'}\nResearch.`,
+      max_tokens: 700,
+    });
+    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Verify on the target\'s public profile before quoting.' } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'browser_researcher_failed' };
+  }
+};
+
+/**
+ * GitHub Sourcer — surfaces dev candidates by code activity signals.
+ * LLM-driven structured suggestions until a real GitHub API integration
+ * lands. Returns suggested usernames + why each fits.
+ *
+ * Input: { criteria: { language?, stack?, location?, seniority? }, count?: number }
+ */
+export const githubSourcer: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+  const { criteria, count = 10 } = input || {};
+  if (!criteria) return { ok: false, error: 'criteria_required' };
+  try {
+    const { llmJSON } = await import('../llm');
+    const data = await llmJSON({
+      system: `You suggest GitHub-based search queries + types of profiles a recruiter should hunt for. Output JSON: search_queries (array of {query, where} — paste-ready GitHub search strings), profile_signals (array of {what_to_look_for, why_it_matters}), bottom_line (string). Conservative: don't fabricate specific usernames.`,
+      user: `Criteria: ${JSON.stringify(criteria)}\nWant: ${count} profile suggestions.`,
+      max_tokens: 600,
+    });
+    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Run the suggested queries against GitHub Search to find specific profiles.' } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'github_sourcer_failed' };
+  }
+};
+
+/**
+ * X / Twitter Sourcer — surfaces candidates by post signal.
+ * LLM-driven structured suggestions. Returns search angles + handles.
+ *
+ * Input: { criteria: { topic?, tone?, location? }, count?: number }
+ */
+export const twitterSourcer: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+  const { criteria, count = 10 } = input || {};
+  if (!criteria) return { ok: false, error: 'criteria_required' };
+  try {
+    const { llmJSON } = await import('../llm');
+    const data = await llmJSON({
+      system: `You suggest X / Twitter search angles for finding candidates by post signal. Output JSON: search_queries (array of {query, why} — paste-ready), profile_archetypes (array of {who_to_look_for, signal}), bottom_line (string). Conservative: avoid specific handles unless you're certain they're public.`,
+      user: `Criteria: ${JSON.stringify(criteria)}\nWant: ${count} suggestions.`,
+      max_tokens: 600,
+    });
+    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Run queries on x.com search to find specific accounts.' } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'twitter_sourcer_failed' };
+  }
+};

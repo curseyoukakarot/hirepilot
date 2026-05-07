@@ -93,7 +93,23 @@ export default function DecisionsPage() {
           </section>
         )}
 
-        {/* DECISION 1 — comp answer */}
+        {/* Empty state when nothing pending */}
+        {!pendingQ.isLoading && pending.length === 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center float-in d-2">
+            <div className="w-12 h-12 rounded-full grad-icon flex items-center justify-center text-white mx-auto mb-3">
+              <i className="fa-solid fa-circle-check text-[18px]" />
+            </div>
+            <div className="text-[15px] font-bold mb-1">All clear.</div>
+            <div className="text-[12.5px] text-text-muted max-w-md mx-auto">
+              REX hasn't held back any actions for review. When a draft, scale recommendation, or guardrail catch lands here, you'll see it.
+            </div>
+          </div>
+        )}
+
+        {/* HISTORICAL MOCKUP CARDS — kept until rich payload-aware rendering
+            ships in DecisionListRow. Hidden once real decisions exist. */}
+        {pending.length === 0 && false && (
+          <>
         <DecisionCard d="d-2" id="D-0312" tagText="Comp answer" agent="recruiter" agentLabel="Recruiter held" timeText="1h 14m ago"
           avatar={<div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-[13px] shrink-0">MR</div>}
           title={<>Marcus Rodriguez (Linear · Staff Eng · score 87) is asking about comp.</>}
@@ -180,6 +196,8 @@ export default function DecisionsPage() {
             <button className="ghost-btn ml-auto text-[11.5px]">View blocklist</button>
           </div>
         </article>
+          </>
+        )}
 
         {/* History strip */}
         <section>
@@ -333,7 +351,7 @@ function decisionTypeLabel(type: Decision['type']): string {
   }
 }
 
-/** Compact row for real workspace decisions from the DB. */
+/** Rich row for real workspace decisions — renders type-specific payload. */
 function DecisionListRow({
   decision,
   onApprove,
@@ -347,32 +365,85 @@ function DecisionListRow({
   onSnooze1d: () => void;
   isPending: boolean;
 }) {
+  // Pull commonly-used fields out of payload for rendering.
+  const p = decision.payload || {};
+  const draft: string | undefined =
+    p.draft || p.draft_text || p?.options?.stretch_response || undefined;
+  const skill: string | undefined = p.skill;
+  const candidate = p.candidate || p.lead || p.prospect;
+  const candidateName = candidate
+    ? `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim() || candidate.name
+    : undefined;
+
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-3.5 hover:shadow-sm transition">
-      <div className="flex items-center gap-3">
+    <div className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition">
+      <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-lg grad-warm flex items-center justify-center text-white shrink-0">
           <i className="fa-solid fa-circle-question text-[11px]" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="tag tag-warn">{decisionTypeLabel(decision.type)}</span>
+            {skill && <span className="text-[10.5px] text-text-muted">via {skill}</span>}
+            <span className="text-[10.5px] text-text-muted">·</span>
             <span className="text-[10.5px] text-text-muted">{formatAge(decision.created_at)}</span>
+            <span className="text-[10.5px] text-text-muted ml-auto">#{decision.id.slice(0, 8)}</span>
           </div>
+          {candidateName && (
+            <div className="text-[13.5px] font-bold mb-0.5">
+              {candidateName}
+              {candidate.company && <span className="text-text-muted font-normal text-[12px]"> · {candidate.company}</span>}
+              {candidate.title && <span className="text-text-muted font-normal text-[12px]"> · {candidate.title}</span>}
+            </div>
+          )}
           {decision.reason && (
-            <div className="text-[12.5px] text-text-secondary truncate">{decision.reason}</div>
+            <div className="text-[12.5px] text-text-secondary mb-2">{decision.reason}</div>
+          )}
+
+          {/* Type-specific payload preview */}
+          {draft && (
+            <div className="rounded-lg p-3 mb-2 text-[12.5px] leading-relaxed text-text-main whitespace-pre-wrap" style={{ background: 'rgba(107,70,193,.04)', border: '1px solid rgba(107,70,193,.12)' }}>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-1">Drafted</div>
+              {draft.length > 600 ? draft.slice(0, 600) + '…' : draft}
+            </div>
+          )}
+          {decision.type === 'scale_recommendation' && p.estimatedCount && (
+            <div className="rounded-lg p-3 mb-2 grid grid-cols-3 gap-3 text-[11.5px]" style={{ background: 'rgba(107,70,193,.04)', border: '1px solid rgba(107,70,193,.12)' }}>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-text-muted">Leads</div>
+                <div className="font-bold tabular-nums">{p.estimatedCount}</div>
+              </div>
+              {p.estimatedSpendCents !== undefined && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Spend</div>
+                  <div className="font-bold tabular-nums">${(p.estimatedSpendCents / 100).toFixed(2)}</div>
+                </div>
+              )}
+              {p.filters?.title && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">Filter</div>
+                  <div className="font-bold truncate">{p.filters.title}</div>
+                </div>
+              )}
+            </div>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={onApprove} disabled={isPending} className="ghost-btn disabled:opacity-50">
-            <i className="fa-solid fa-check text-[10px]" />Approve
-          </button>
-          <button onClick={onSnooze1d} disabled={isPending} className="ghost-btn disabled:opacity-50">
-            <i className="fa-solid fa-clock text-[10px]" />Snooze 1d
-          </button>
-          <button onClick={onReject} disabled={isPending} className="ghost-btn !text-danger disabled:opacity-50">
-            <i className="fa-solid fa-xmark text-[10px]" />Reject
-          </button>
-        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
+        <button onClick={onApprove} disabled={isPending} className="btn-solid !py-1 !px-2.5 !text-[11.5px] disabled:opacity-50">
+          <i className="fa-solid fa-check text-[10px]" />
+          {decision.type === 'reply_draft' ? 'Approve & send' :
+           decision.type === 'submittal_send' ? 'Approve & send submittal' :
+           decision.type === 'offer_send' ? 'Approve offer' :
+           decision.type === 'scale_recommendation' ? 'Approve scale' :
+           decision.type === 'pipeline_move' ? 'Approve move' : 'Approve'}
+        </button>
+        <button onClick={onSnooze1d} disabled={isPending} className="ghost-btn !text-[11.5px] disabled:opacity-50">
+          <i className="fa-solid fa-clock text-[10px]" />Snooze 1d
+        </button>
+        <button onClick={onReject} disabled={isPending} className="ghost-btn !text-[11.5px] !text-danger disabled:opacity-50">
+          <i className="fa-solid fa-xmark text-[10px]" />Reject
+        </button>
       </div>
     </div>
   );
