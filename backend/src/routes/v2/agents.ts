@@ -218,6 +218,19 @@ router.post('/', async (req: Request, res: Response) => {
       .select('agent_id, skill_id, enabled, schedule_cron, config, installed_at, last_run_at, skills_catalog ( id, name, description, category, integration_id, agent_role, icon, schedule_capable )')
       .eq('agent_id', agent.id);
 
+    try {
+      const { logActivity } = await import('../../rex/activityLog');
+      await logActivity({
+        workspaceId,
+        userId,
+        agentId: agent.id,
+        agentRole: role,
+        eventType: 'agent_hired',
+        summary: `Hired ${role}${display_name ? ` (${display_name})` : ''}`,
+        detail: { trust_level: resolvedTrust },
+      });
+    } catch {}
+
     return res.status(201).json({ agent: { ...agent, skills: skills || [] } });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'hire_agent_failed' });
@@ -261,6 +274,21 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     if (error) return res.status(500).json({ error: error.message });
     if (!agent) return res.status(404).json({ error: 'agent_not_found' });
+
+    if (trust_level !== undefined) {
+      try {
+        const { logActivity } = await import('../../rex/activityLog');
+        await logActivity({
+          workspaceId,
+          userId: (req as any)?.user?.id,
+          agentId: agent.id,
+          agentRole: (agent as any).role,
+          eventType: 'agent_trust_changed',
+          summary: `${(agent as any).role} trust level changed to ${trust_level}`,
+          detail: { trust_level },
+        });
+      } catch {}
+    }
 
     return res.json({ agent });
   } catch (e: any) {
@@ -472,6 +500,28 @@ router.post('/:id/skills/:skillId/invoke', async (req: Request, res: Response) =
       .update({ last_run_at: new Date().toISOString() })
       .eq('agent_id', agent.id)
       .eq('skill_id', req.params.skillId);
+
+    // Log to the activity feed so this surfaces on Today + Team.
+    try {
+      const { logActivity, skillLabel } = await import('../../rex/activityLog');
+      const sLabel = skillLabel(req.params.skillId);
+      const role = (agent as any).role;
+      const summary = result?.held
+        ? `${role} held ${sLabel} for review`
+        : result?.ok === false
+          ? `${role} failed ${sLabel}`
+          : `${role} ran ${sLabel}`;
+      await logActivity({
+        workspaceId,
+        userId,
+        agentId: agent.id,
+        agentRole: role,
+        eventType: result?.held ? 'skill_held' : (result?.ok === false ? 'skill_failed' : 'skill_executed'),
+        skillId: req.params.skillId,
+        summary,
+        detail: { invokedFrom: 'ui' },
+      });
+    } catch {}
 
     return res.json(result);
   } catch (e: any) {

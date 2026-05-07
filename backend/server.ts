@@ -1301,6 +1301,28 @@ app.listen(Number(PORT), '0.0.0.0', () => {
     console.log('[Startup] Goal execution worker disabled (GOAL_WORKER_ENABLED=false).');
   }
 
+  // v2 — Skill schedule worker. Fires agent_skills rows whose schedule_cron
+  // is due based on last_run_at. Runs every 2 min (cron resolution rarely
+  // needs to be tighter than that). Disable via SKILL_SCHEDULE_WORKER_ENABLED=false.
+  if (String(process.env.SKILL_SCHEDULE_WORKER_ENABLED || 'true').toLowerCase() !== 'false') {
+    const scheduleTick = async () => {
+      try {
+        const { runSkillScheduleTick } = await import('./cron/skillScheduleTick');
+        const counters = await runSkillScheduleTick();
+        if (counters.invoked > 0 || counters.errors > 0) {
+          console.info('[skill-schedule]', counters);
+        }
+      } catch (e: any) {
+        console.warn('[skill-schedule] tick failed:', e?.message || e);
+      }
+    };
+    setTimeout(scheduleTick, 30_000); // 30s after boot
+    setInterval(scheduleTick, 2 * 60 * 1000);
+    console.log('[Startup] Skill schedule worker started (2min tick).');
+  } else {
+    console.log('[Startup] Skill schedule worker disabled (SKILL_SCHEDULE_WORKER_ENABLED=false).');
+  }
+
   // Run the trial email worker every hour
   setInterval(processTrialEmails, 60 * 60 * 1000);
   // Also run immediately on startup

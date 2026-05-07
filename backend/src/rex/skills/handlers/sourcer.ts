@@ -231,7 +231,33 @@ export const skrappSkill: SkillHandler = async (input, ctx): Promise<SkillResult
   }
 };
 
-export const icpResearcher      = stub('icp_researcher');
+/**
+ * ICP Researcher — builds an ideal-customer-profile fingerprint from a set
+ * of "top responders" (leads who replied positively). Uses OpenAI to extract
+ * the common patterns (titles, seniority bands, tech stacks, company sizes).
+ *
+ * Input: { topResponders: Array<{ first_name, last_name, title, company, ... }>, focus?: string }
+ */
+export const icpResearcher: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+  const { topResponders = [], focus } = input || {};
+  if (!Array.isArray(topResponders) || topResponders.length === 0) {
+    return { ok: false, error: 'top_responders_required', message: 'Pass at least 3 responders to fingerprint.' };
+  }
+  try {
+    const { llmJSON } = await import('../llm');
+    const data = await llmJSON({
+      system: `You are a recruiter's ICP analyst. Look at a set of leads who replied positively and extract the pattern. Output JSON: titles (array), seniority_bands (array), tech_signals (array), company_size_band (string), industries (array), tone_notes (string), search_query_template (string — paste-ready Apollo title query). Confidence (0-1). Keep arrays under 6 items.`,
+      user: `Focus: ${focus || 'general'}\n\nResponders:\n${topResponders.slice(0, 25).map((r: any, i: number) =>
+        `${i + 1}. ${r.first_name || ''} ${r.last_name || ''} — ${r.title || ''} @ ${r.company || ''}`,
+      ).join('\n')}`,
+      max_tokens: 600,
+    });
+    return { ok: true, data: { ...data, sample_size: topResponders.length } };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'icp_researcher_failed' };
+  }
+};
+
 export const browserResearcher  = stub('browser_researcher');
 export const githubSourcer      = stub('github_sourcer');
 export const twitterSourcer     = stub('twitter_sourcer');

@@ -2,35 +2,40 @@
  * v2 / Today — workspace home with REX briefing + workspace overview
  *
  * HTML preserved EXACTLY from mockups/workspace.html main content block.
- * Conversions: class→className, self-closing tags, JSX comment style,
- * NavLink for clickable cards.
- *
- * TODO wire to backend:
- *   - REX briefing text + stats from analytics services + REX agent
- *   - "Decision waiting" strip from decisions table (where status='pending' AND assigned_to=user)
- *   - Each workspace card's metric from its respective surface (leads count, deals total, etc.)
- *   - Today's activity timeline from rex_activity_log + lead_activities
+ * Activity timeline is wired to /api/v2/activity (rex_activity_log).
+ * Hero briefing + workspace cards still use mockup copy until lead/deal/
+ * candidate routes are wired to /api/v2/* equivalents.
  */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
+import { useActivity, type ActivityEvent } from '../hooks/useActivity';
+import { useGoals } from '../hooks/useGoals';
+import { useDecisions } from '../hooks/useDecisions';
 
 export default function TodayPage() {
+  const { activity } = useActivity({ limit: 30 });
+  const { goals } = useGoals('running');
+  const { decisions: pending } = useDecisions({ status: 'pending' });
+
+  const runningGoals = goals.length;
+  const heldCount = pending.length;
+
   return (
     <WorkspaceShell autopilot>
       <WorkspaceTopbar
         pageTitle="Today"
         pageIcon="fa-solid fa-sun"
         pageIconColor="text-warn"
-        pageSubtitle="Saturday, May 3"
+        pageSubtitle={new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
         statusPill={
-          <RexStatusPill
-            text="drafting "
-            highlight="102 / 142 · 72%"
-            highlightClass="text-primary"
-          />
+          heldCount > 0
+            ? <RexStatusPill text="" highlight={`${heldCount} decision${heldCount === 1 ? '' : 's'} waiting`} highlightClass="text-warn font-semibold" />
+            : runningGoals > 0
+              ? <RexStatusPill text="working · " highlight={`${runningGoals} goal${runningGoals === 1 ? '' : 's'} in flight`} highlightClass="text-primary font-semibold" />
+              : <RexStatusPill text="" highlight="ready when you are" highlightClass="text-text-secondary" />
         }
         trustLevel="autopilot"
       />
@@ -329,46 +334,53 @@ export default function TodayPage() {
           </div>
         </section>
 
-        {/* Today's REX activity timeline */}
+        {/* Today's REX activity timeline (live) */}
         <section>
           <div className="float-in d-12 flex items-end justify-between mb-3">
             <h2 className="text-[15px] font-bold tracking-tight">Today's activity</h2>
-            <button className="ghost-btn">View all →</button>
+            <span className="text-[11.5px] text-text-muted">live · refreshes every 30s</span>
           </div>
           <div className="bg-white border border-gray-100 rounded-2xl p-5 float-in d-12">
-            <div className="activity-row">
-              <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-              <span className="text-[12px] text-text-muted shrink-0 w-16">1:14 PM</span>
-              <span className="text-[13px] flex-1"><strong>Auto-sent</strong> intro to Aisha Okafor (Replit · 93)</span>
-              <span className="text-[11px] text-text-muted">Q2 Engineers</span>
-            </div>
-            <div className="activity-row">
-              <span className="w-1.5 h-1.5 rounded-full bg-warn shrink-0" />
-              <span className="text-[12px] text-text-muted shrink-0 w-16">12:42 PM</span>
-              <span className="text-[13px] flex-1"><strong>Held 2 sends</strong> — caught Jane Doe + Alex Kim on blocklist</span>
-              <span className="text-[11px] text-text-muted">Q2 Engineers</span>
-            </div>
-            <div className="activity-row">
-              <span className="w-1.5 h-1.5 rounded-full bg-warn shrink-0" />
-              <span className="text-[12px] text-text-muted shrink-0 w-16">12:14 PM</span>
-              <span className="text-[13px] flex-1"><strong>Drafted comp answer</strong> for Marcus Rodriguez · awaiting your approval</span>
-              <span className="text-[11px] text-text-muted">Inbox</span>
-            </div>
-            <div className="activity-row">
-              <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-              <span className="text-[12px] text-text-muted shrink-0 w-16">11:36 AM</span>
-              <span className="text-[13px] flex-1"><strong>Sarah Chen</strong> (Stripe) replied — auto-sent calendar invite for Thu 2:30 PT</span>
-              <span className="text-[11px] text-text-muted">Q2 Engineers</span>
-            </div>
-            <div className="activity-row">
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
-              <span className="text-[12px] text-text-muted shrink-0 w-16">8:14 AM</span>
-              <span className="text-[13px] flex-1"><strong>Started "Scale Q2 Engineers"</strong> — sourcing 200 more leads matching top responders</span>
-              <span className="text-[11px] text-text-muted">Goals</span>
-            </div>
+            {activity.length === 0 ? (
+              <div className="py-6 text-center text-[12.5px] text-text-muted">
+                <i className="fa-solid fa-wand-magic-sparkles text-primary text-[14px] mb-2 block" />
+                Nothing yet today. When REX or your specialists run a Skill, it'll show up here.
+              </div>
+            ) : (
+              activity.slice(0, 12).map((row) => <ActivityRow key={row.id} row={row} />)
+            )}
           </div>
         </section>
       </div>
     </WorkspaceShell>
+  );
+}
+
+function ActivityRow({ row }: { row: ActivityEvent }) {
+  // Map event type → dot color + surface tag.
+  const dotCls =
+    row.event_type === 'skill_failed' || row.event_type === 'goal_failed' ? 'bg-danger' :
+    row.event_type === 'skill_held'   || row.event_type === 'agent_trust_changed' ? 'bg-warn' :
+    row.event_type === 'goal_started' || row.event_type === 'goal_planned' ? 'bg-secondary' :
+    'bg-success';
+
+  const surfaceTag =
+    row.goal_id      ? 'Goals' :
+    row.decision_id  ? 'Decisions' :
+    row.event_type === 'agent_hired'    ? 'Team' :
+    row.event_type === 'agent_fired'    ? 'Team' :
+    row.event_type === 'agent_trust_changed' ? 'Team' :
+    row.skill_id     ? 'Skills' :
+    'REX';
+
+  const time = new Date(row.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  return (
+    <div className="activity-row">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotCls}`} />
+      <span className="text-[12px] text-text-muted shrink-0 w-16">{time}</span>
+      <span className="text-[13px] flex-1">{row.summary}</span>
+      <span className="text-[11px] text-text-muted">{surfaceTag}</span>
+    </div>
   );
 }

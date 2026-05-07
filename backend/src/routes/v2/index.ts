@@ -9,6 +9,7 @@ import skillsRouter from './skills';
 import workspaceSettingsRouter from './workspaceSettings';
 import goalsRouter from './goals';
 import decisionsRouter from './decisions';
+import activityRouter from './activity';
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/skills', skillsRouter);
 router.use('/workspace-settings', workspaceSettingsRouter);
 router.use('/goals', goalsRouter);
 router.use('/decisions', decisionsRouter);
+router.use('/activity', activityRouter);
 
 export default router;

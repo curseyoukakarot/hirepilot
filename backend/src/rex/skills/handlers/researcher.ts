@@ -5,24 +5,10 @@
  */
 
 import type { SkillHandler, SkillResult } from '../registry';
+import { llmJSON as llmJSONShared } from '../llm';
 
 async function llmJSON(system: string, user: string, max_tokens = 600): Promise<any> {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const openaiMod = require('openai');
-  const OpenAI = openaiMod.default || openaiMod.OpenAI || openaiMod;
-  const openai = new (OpenAI as any)({ apiKey: process.env.OPENAI_API_KEY });
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: system + '\n\nReturn ONLY a JSON object — no commentary, no code fences.' },
-      { role: 'user', content: user },
-    ],
-    max_tokens,
-    temperature: 0.4,
-    response_format: { type: 'json_object' },
-  });
-  const txt = completion.choices?.[0]?.message?.content?.trim() || '{}';
-  try { return JSON.parse(txt); } catch { return { raw: txt }; }
+  return llmJSONShared({ system, user, max_tokens });
 }
 
 /**
