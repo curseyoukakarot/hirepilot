@@ -18,6 +18,7 @@
 import { supabase } from '../lib/supabase';
 import { loadAgentContext } from './agentLoader';
 import { getSkillHandler } from './skills/registry';
+import { logActivity, skillLabel } from './activityLog';
 import type { AgentRole } from './skills/types';
 
 export interface PlanStep {
@@ -281,6 +282,30 @@ export async function executeNextStep(opts: {
     .eq('agent_id', ctx.agentId)
     .eq('skill_id', step.skill_id);
 
+  // Activity log entry per step outcome.
+  const sLabel = skillLabel(step.skill_id);
+  const eventType =
+    stepStatus === 'held'   ? 'skill_held' :
+    stepStatus === 'failed' ? 'skill_failed' :
+                              'skill_executed';
+  const summary =
+    stepStatus === 'held'
+      ? `${ctx.agentRole} held ${sLabel} for review (${step.title})`
+      : stepStatus === 'failed'
+        ? `${ctx.agentRole} failed ${sLabel}: ${(errorMsg || '').slice(0, 80)}`
+        : `${ctx.agentRole} ran ${sLabel} (${step.title})`;
+  await logActivity({
+    workspaceId: opts.workspaceId,
+    userId: opts.userId,
+    agentId: ctx.agentId,
+    agentRole: ctx.agentRole,
+    eventType,
+    goalId: opts.goalId,
+    skillId: step.skill_id,
+    summary,
+    detail: { stepIndex: nextIdx, output: result?.data ?? null, error: errorMsg },
+  });
+
   // 6) If a step failed, mark the goal failed too. Held steps don't block —
   //    the user resolves them on the Decisions page and re-runs from there.
   const remaining = steps.filter((s) => s.status === 'pending').length;
@@ -289,6 +314,11 @@ export async function executeNextStep(opts: {
       .from('goals')
       .update({ status: 'failed', completed_at: completedAt.toISOString() })
       .eq('id', opts.goalId);
+    await logActivity({
+      workspaceId: opts.workspaceId, userId: opts.userId, goalId: opts.goalId,
+      eventType: 'goal_failed',
+      summary: `Goal failed at step ${nextIdx + 1}: ${step.title}`,
+    });
     return { done: true, step: steps[nextIdx], result, goalStatus: 'failed', remaining };
   }
   if (remaining === 0 && steps.every((s) => s.status === 'done' || s.status === 'held')) {
@@ -298,6 +328,13 @@ export async function executeNextStep(opts: {
       .from('goals')
       .update({ status: finalStatus, completed_at: completedAt.toISOString() })
       .eq('id', opts.goalId);
+    await logActivity({
+      workspaceId: opts.workspaceId, userId: opts.userId, goalId: opts.goalId,
+      eventType: finalStatus === 'completed' ? 'goal_completed' : 'goal_planned',
+      summary: finalStatus === 'completed'
+        ? `Goal completed (${steps.length} step${steps.length === 1 ? '' : 's'})`
+        : `Goal awaiting approvals (${steps.filter((s) => s.status === 'held').length} held)`,
+    });
     return { done: true, step: steps[nextIdx], result, goalStatus: finalStatus, remaining: 0 };
   }
   return { done: false, step: steps[nextIdx], result, goalStatus: 'running', remaining };
