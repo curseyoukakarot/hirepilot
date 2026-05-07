@@ -11,10 +11,11 @@
  *   - REX context strip → which candidates are ready to advance (from goals/decisions)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import { useJobs, useJobPipeline, type Job, type PipelineCandidate } from '../hooks/usePipelines';
 import '../../styles/v2.css';
 
 interface JobReq {
@@ -72,6 +73,15 @@ export default function PipelinesPage() {
     return () => { document.body.classList.remove('v2-app', 'autopilot'); };
   }, []);
 
+  const { jobs } = useJobs();
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const activeJob: Job | undefined = useMemo(
+    () => jobs.find((j) => j.id === selectedJobId) || jobs[0],
+    [jobs, selectedJobId],
+  );
+  const { stages, candidates: stageCandidates } = useJobPipeline(activeJob?.id, activeJob?.pipeline_id || undefined);
+  const [activeCandidate, setActiveCandidate] = useState<PipelineCandidate | null>(null);
+
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">
       <WorkspaceSidebar />
@@ -79,12 +89,33 @@ export default function PipelinesPage() {
       {/* Jobs list sidebar */}
       <aside className="w-[240px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
         <div className="flex items-center justify-between mb-3 px-1">
-          <span className="nav-section-h !p-0">Open requisitions · 5</span>
+          <span className="nav-section-h !p-0">Open requisitions · {jobs.length || 0}</span>
           <button className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
         </div>
 
         <ul className="space-y-1">
-          {JOBS.map((j) => (
+          {jobs.length > 0 ? jobs.map((j) => {
+            const isActive = (selectedJobId || jobs[0]?.id) === j.id;
+            return (
+            <li
+              key={j.id}
+              onClick={() => setSelectedJobId(j.id)}
+              className={`rounded-md p-2.5 cursor-pointer ${isActive ? 'border-l-2' : 'border-l-2 border-transparent text-text-secondary hover:bg-surface'}`}
+              style={isActive ? { background: 'rgba(245,158,11,.08)', color: '#B45309', fontWeight: 600, borderLeftColor: '#F59E0B' } : undefined}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[12.5px] font-semibold truncate">{j.title}</span>
+                {j.status && <span className="tag tag-muted">{j.status}</span>}
+              </div>
+              <div className="text-[10.5px] text-text-muted mb-2">{[j.department, new Date(j.created_at).toLocaleDateString()].filter(Boolean).join(' · ')}</div>
+              {typeof j.candidate_count === 'number' && (
+                <div className="flex items-center gap-3 text-[10.5px]">
+                  <span className="inline-flex items-baseline gap-1"><span className="font-bold tabular-nums" style={{ color: '#1A1A2E' }}>{j.candidate_count}</span><span className="text-text-muted text-[10.5px]">in flight</span></span>
+                </div>
+              )}
+            </li>
+            );
+          }) : JOBS.map((j) => (
             <li key={j.title} className={`rounded-md p-2.5 cursor-pointer ${j.active ? 'border-l-2' : 'border-l-2 border-transparent text-text-secondary hover:bg-surface'}`} style={j.active ? { background: 'rgba(245,158,11,.08)', color: '#B45309', fontWeight: 600, borderLeftColor: '#F59E0B' } : undefined}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[12.5px] font-semibold truncate">{j.title}</span>
@@ -137,17 +168,19 @@ export default function PipelinesPage() {
           <div className="w-12 h-12 rounded-xl grad-warm flex items-center justify-center text-white shadow-md shrink-0" style={{ boxShadow: '0 6px 14px -4px rgba(245,158,11,.25)' }}><i className="fa-solid fa-briefcase text-base" /></div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-[20px] font-bold tracking-tight">Senior Backend Engineer</h2>
-              <span className="tag tag-warn">Due Friday</span>
+              <h2 className="text-[20px] font-bold tracking-tight">{activeJob?.title || 'Senior Backend Engineer'}</h2>
+              {activeJob?.status && <span className="tag tag-muted">{activeJob.status}</span>}
               <span className="text-[12px] text-text-muted">·</span>
-              <span className="text-[12px] text-text-muted">Linear · $190–230k · Remote OK</span>
+              <span className="text-[12px] text-text-muted">{activeJob?.department || 'Linear · $190–230k · Remote OK'}</span>
             </div>
             <div className="flex items-center gap-4 mt-1 text-[12px] text-text-muted">
-              <span><i className="fa-regular fa-clock text-[10px] mr-1" />Opened 14 days ago</span>
-              <span>·</span>
-              <span>Hiring manager: Marcus Rodriguez (VP Eng)</span>
-              <span>·</span>
-              <span><i className="fa-solid fa-users text-[10px] mr-1" />2 collaborators</span>
+              <span><i className="fa-regular fa-clock text-[10px] mr-1" />Opened {activeJob ? new Date(activeJob.created_at).toLocaleDateString() : '14 days ago'}</span>
+              {!activeJob && <>
+                <span>·</span>
+                <span>Hiring manager: Marcus Rodriguez (VP Eng)</span>
+                <span>·</span>
+                <span><i className="fa-solid fa-users text-[10px] mr-1" />2 collaborators</span>
+              </>}
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -175,18 +208,30 @@ export default function PipelinesPage() {
           </div>
         </div>
 
-        {/* Skills bar — shown when a candidate is "active" in the kanban.
-            For now scoped to the mockup's hot candidate (Sarah Chen). */}
+        {/* Skills bar — scoped to the candidate the user has clicked.
+            Picks up the first candidate in the first stage if none is selected yet. */}
         <div className="px-7 pt-3 float-in d-2">
           <PipelinesSkillsBar
-            candidate={{
-              id: 'mock-candidate-id',
-              firstName: 'Sarah',
-              lastName: 'Chen',
-              title: 'Senior Backend Engineer',
-              company: 'Stripe',
-            }}
-            jobTitle="Senior Backend Engineer · Stripe req"
+            candidate={(() => {
+              if (activeCandidate) {
+                const [first, ...rest] = activeCandidate.name.split(' ');
+                return {
+                  id: activeCandidate.candidate_id,
+                  firstName: first || undefined,
+                  lastName: rest.join(' ') || undefined,
+                  title: activeJob?.title,
+                  company: activeJob?.department || undefined,
+                };
+              }
+              return {
+                id: 'mock-candidate-id',
+                firstName: 'Sarah',
+                lastName: 'Chen',
+                title: 'Senior Backend Engineer',
+                company: 'Stripe',
+              };
+            })()}
+            jobTitle={activeJob?.title || 'Senior Backend Engineer · Stripe req'}
           />
         </div>
 
@@ -206,6 +251,52 @@ export default function PipelinesPage() {
 
         {/* Kanban board */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-7 pb-6">
+          {stages.length > 0 ? (
+            <div className="flex gap-3 h-full">
+              {stages.map((stage, ci) => {
+                const stageCands = stageCandidates[stage.id] || [];
+                return (
+                  <div key={stage.id} className={`flex flex-col rounded-[14px] border min-w-[248px] max-w-[248px] h-full float-in d-${3 + Math.min(ci, 6)}`} style={{ background: 'rgba(244,244,248,.55)', borderColor: '#ECECEC' }}>
+                    <div className="px-3 py-2.5 border-b" style={{ borderColor: '#ECECEC' }}>
+                      <div className="h-[3px] mb-2 rounded-full bg-primary/40" style={stage.color ? { background: stage.color } : undefined} />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-bold">{stage.title}</span>
+                        <span className="text-[10.5px] text-text-muted">{stageCands.length}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-2">
+                      {stageCands.map((c) => {
+                        const isActive = activeCandidate?.id === c.id;
+                        const initials = (c.name || c.email || '?').split(' ').slice(0, 2).map((p) => p[0] || '').join('').toUpperCase() || '?';
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => setActiveCandidate(c)}
+                            className={`bg-white rounded-lg p-2 cursor-pointer transition ${isActive ? 'ring-2 ring-primary/40' : 'hover:shadow-sm'}`}
+                            style={{ border: '1px solid #ECECEC' }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {c.avatar_url
+                                ? <img src={c.avatar_url} className="w-7 h-7 rounded-full object-cover" alt="" />
+                                : <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white text-[10px] font-semibold">{initials}</div>
+                              }
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-[12.5px] truncate">{c.name || c.email}</div>
+                                <div className="text-[10.5px] text-text-muted truncate">{c.email}</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {stageCands.length === 0 && (
+                        <div className="text-center text-[10.5px] text-text-muted py-3 italic">empty</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <div className="flex gap-3 h-full">
             {[
               { stripe: 'bg-text-muted/40', name: 'Sourced', count: 142, cards: [
@@ -283,6 +374,7 @@ export default function PipelinesPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </main>
 
