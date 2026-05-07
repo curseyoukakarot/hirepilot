@@ -245,4 +245,91 @@ router.post('/:id/resume', (req, res) => transitionStatus(req, res, ['paused'], 
 router.post('/:id/cancel', (req, res) => transitionStatus(req, res, [], 'cancelled'));
 router.post('/:id/complete', (req, res) => transitionStatus(req, res, ['running'], 'completed'));
 
+// ====================================================================
+// POST /api/v2/goals/:id/plan — generate a structured plan via OpenAI.
+// Idempotent: replaces goals.plan with a fresh planner output.
+// ====================================================================
+router.post('/:id/plan', async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req as any).workspaceId;
+    const userId = (req as any)?.user?.id;
+    if (!workspaceId) return res.status(400).json({ error: 'no_active_workspace' });
+    if (!userId) return res.status(401).json({ error: 'unauthenticated' });
+
+    const { goal } = await loadGoal(req.params.id, workspaceId);
+    if (!goal) return res.status(404).json({ error: 'goal_not_found' });
+    if (!canMutate(req, (goal as any).owner_id)) return res.status(403).json({ error: 'forbidden' });
+
+    const { generatePlan } = await import('../../rex/goalExecutor');
+    const plan = await generatePlan({
+      workspaceId,
+      userId,
+      prompt: (goal as any).prompt || (goal as any).title,
+      goalTitle: (goal as any).title,
+    });
+
+    const { data: updated, error } = await supabase
+      .from('goals')
+      .update({ plan, status: 'awaiting_approval' })
+      .eq('id', req.params.id)
+      .eq('workspace_id', workspaceId)
+      .select('id, workspace_id, owner_id, title, prompt, plan, status, trust_level, recurring, schedule_cron, parent_goal_id, metadata, created_at, started_at, completed_at, updated_at')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ goal: updated });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'plan_failed' });
+  }
+});
+
+// ====================================================================
+// POST /api/v2/goals/:id/execute-step — run the next pending step.
+// Synchronous; returns the updated step + remaining count. Frontend can
+// loop on this to drive the goal forward, or the user can step manually.
+// ====================================================================
+router.post('/:id/execute-step', async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req as any).workspaceId;
+    const userId = (req as any)?.user?.id;
+    if (!workspaceId) return res.status(400).json({ error: 'no_active_workspace' });
+    if (!userId) return res.status(401).json({ error: 'unauthenticated' });
+
+    const { goal } = await loadGoal(req.params.id, workspaceId);
+    if (!goal) return res.status(404).json({ error: 'goal_not_found' });
+    if (!canMutate(req, (goal as any).owner_id)) return res.status(403).json({ error: 'forbidden' });
+    if ((goal as any).status !== 'running') {
+      return res.status(409).json({ error: 'goal_not_running', status: (goal as any).status });
+    }
+
+    const { executeNextStep } = await import('../../rex/goalExecutor');
+    const result = await executeNextStep({ workspaceId, userId, goalId: req.params.id });
+    return res.json(result);
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'execute_step_failed' });
+  }
+});
+
+// ====================================================================
+// GET /api/v2/goals/:id/logs — execution trace for the live console.
+// ====================================================================
+router.get('/:id/logs', async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req as any).workspaceId;
+    if (!workspaceId) return res.status(400).json({ error: 'no_active_workspace' });
+
+    const { goal } = await loadGoal(req.params.id, workspaceId);
+    if (!goal) return res.status(404).json({ error: 'goal_not_found' });
+
+    const { data, error } = await supabase
+      .from('goal_step_logs')
+      .select('id, step_index, agent_id, skill_id, status, input, output, error, decision_id, started_at, completed_at, duration_ms')
+      .eq('goal_id', req.params.id)
+      .order('started_at', { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ logs: data || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'list_logs_failed' });
+  }
+});
+
 export default router;
