@@ -34,7 +34,7 @@ const goalCardStyles: Record<string, React.CSSProperties> = {
 };
 
 export default function GoalsPage() {
-  const { goals, isLoading, create, approve, pause, resume, cancel } = useGoals();
+  const { goals, isLoading, create, approve, pause, resume, cancel, planGoal, executeStep } = useGoals();
   const [draft, setDraft] = useState('');
 
   const counts: Record<GoalStatus | 'total', number> = {
@@ -45,9 +45,15 @@ export default function GoalsPage() {
 
   const handlePlan = () => {
     const title = draft.trim();
-    if (!title || create.isPending) return;
+    if (!title || create.isPending || planGoal.isPending) return;
+    // Create the goal, then immediately ask REX to plan it. Two-step flow so
+    // the user sees the goal appear first, then the plan fills in.
     create.mutate({ title, prompt: title }, {
-      onSuccess: () => setDraft(''),
+      onSuccess: (resp: any) => {
+        setDraft('');
+        const newId = resp?.goal?.id;
+        if (newId) planGoal.mutate(newId);
+      },
     });
   };
 
@@ -147,7 +153,9 @@ export default function GoalsPage() {
                 onPause={() => pause.mutate(g.id)}
                 onResume={() => resume.mutate(g.id)}
                 onCancel={() => cancel.mutate(g.id)}
-                isPending={approve.isPending || pause.isPending || resume.isPending || cancel.isPending}
+                onPlan={() => planGoal.mutate(g.id)}
+                onExecuteStep={() => executeStep.mutate(g.id)}
+                isPending={approve.isPending || pause.isPending || resume.isPending || cancel.isPending || planGoal.isPending || executeStep.isPending}
               />
             ))}
           </section>
@@ -386,8 +394,14 @@ export default function GoalsPage() {
 }
 
 /**
- * Compact row for workspace goals from the DB.
- * Lives below the visual mockup blocks until the rich plan/log surfaces are wired.
+ * Workspace goal row with full plan + execution affordances.
+ *
+ * Status flow:
+ *   planning → (Plan it) → awaiting_approval → (Approve & run) → running → completed
+ *
+ * "Run next step" advances one step at a time so users can watch what
+ * happens. A future cron worker will drive this automatically; the manual
+ * button stays available either way.
  */
 function GoalListRow({
   goal,
@@ -395,6 +409,8 @@ function GoalListRow({
   onPause,
   onResume,
   onCancel,
+  onPlan,
+  onExecuteStep,
   isPending,
 }: {
   goal: Goal;
@@ -402,6 +418,8 @@ function GoalListRow({
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
+  onPlan: () => void;
+  onExecuteStep: () => void;
   isPending: boolean;
 }) {
   const statusTag = (status: GoalStatus) => {
@@ -416,40 +434,120 @@ function GoalListRow({
     }
   };
 
+  const plan = (goal.plan as any) || null;
+  const steps = (plan?.steps || []) as Array<{ index: number; title: string; role: string; skill_id: string; status?: string; rationale?: string }>;
+  const doneCount = steps.filter((s) => s.status === 'done').length;
+  const heldCount = steps.filter((s) => s.status === 'held').length;
+  const failedCount = steps.filter((s) => s.status === 'failed').length;
+  const runningStep = steps.find((s) => s.status === 'running');
+  const nextStep = steps.find((s) => !s.status || s.status === 'pending');
+  const progress = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-3.5 flex items-center gap-3 hover:shadow-sm transition">
-      <div className="w-8 h-8 rounded-lg grad-rex flex items-center justify-center text-white shrink-0">
-        <i className="fa-solid fa-rocket text-[12px]" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          {statusTag(goal.status)}
-          <span className="text-[10.5px] text-text-muted">created {new Date(goal.created_at).toLocaleDateString()}</span>
+    <div className="bg-white border border-gray-100 rounded-xl p-3.5 hover:shadow-sm transition">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg grad-rex flex items-center justify-center text-white shrink-0">
+          <i className="fa-solid fa-rocket text-[12px]" />
         </div>
-        <div className="font-semibold text-[13.5px] truncate">{goal.title}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+            {statusTag(goal.status)}
+            {steps.length > 0 && (
+              <span className="text-[10.5px] text-text-muted">
+                {doneCount}/{steps.length} step{steps.length === 1 ? '' : 's'}
+                {heldCount > 0 && <span className="text-warn"> · {heldCount} held</span>}
+                {failedCount > 0 && <span className="text-danger"> · {failedCount} failed</span>}
+              </span>
+            )}
+            <span className="text-[10.5px] text-text-muted">created {new Date(goal.created_at).toLocaleDateString()}</span>
+          </div>
+          <div className="font-semibold text-[13.5px] truncate">{goal.title}</div>
+          {plan?.summary && (
+            <div className="text-[11.5px] text-text-secondary mt-0.5 line-clamp-2">{plan.summary}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+          {goal.status === 'planning' && (
+            <button onClick={onPlan} disabled={isPending} className="ghost-btn disabled:opacity-50">
+              <i className="fa-solid fa-sparkles text-[10px]" />Plan it
+            </button>
+          )}
+          {(goal.status === 'planning' || goal.status === 'awaiting_approval') && steps.length > 0 && (
+            <button onClick={onApprove} disabled={isPending} className="ghost-btn disabled:opacity-50">
+              <i className="fa-solid fa-play text-[10px]" />Approve &amp; run
+            </button>
+          )}
+          {goal.status === 'running' && nextStep && (
+            <button onClick={onExecuteStep} disabled={isPending} className="btn-primary disabled:opacity-50 !py-1 !text-[11.5px]">
+              <i className={`fa-solid ${isPending ? 'fa-spinner fa-spin' : 'fa-forward-step'} text-[10px]`} />
+              Run next step
+            </button>
+          )}
+          {goal.status === 'running' && (
+            <button onClick={onPause} disabled={isPending} className="ghost-btn disabled:opacity-50">
+              <i className="fa-solid fa-pause text-[10px]" />Pause
+            </button>
+          )}
+          {goal.status === 'paused' && (
+            <button onClick={onResume} disabled={isPending} className="ghost-btn disabled:opacity-50">
+              <i className="fa-solid fa-play text-[10px]" />Resume
+            </button>
+          )}
+          {(goal.status === 'planning' || goal.status === 'awaiting_approval' || goal.status === 'running' || goal.status === 'paused') && (
+            <button onClick={onCancel} disabled={isPending} className="ghost-btn !text-danger disabled:opacity-50">
+              <i className="fa-solid fa-xmark text-[10px]" />Cancel
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {(goal.status === 'planning' || goal.status === 'awaiting_approval') && (
-          <button onClick={onApprove} disabled={isPending} className="ghost-btn disabled:opacity-50">
-            <i className="fa-solid fa-play text-[10px]" />Approve &amp; run
-          </button>
-        )}
-        {goal.status === 'running' && (
-          <button onClick={onPause} disabled={isPending} className="ghost-btn disabled:opacity-50">
-            <i className="fa-solid fa-pause text-[10px]" />Pause
-          </button>
-        )}
-        {goal.status === 'paused' && (
-          <button onClick={onResume} disabled={isPending} className="ghost-btn disabled:opacity-50">
-            <i className="fa-solid fa-play text-[10px]" />Resume
-          </button>
-        )}
-        {(goal.status === 'planning' || goal.status === 'awaiting_approval' || goal.status === 'running' || goal.status === 'paused') && (
-          <button onClick={onCancel} disabled={isPending} className="ghost-btn !text-danger disabled:opacity-50">
-            <i className="fa-solid fa-xmark text-[10px]" />Cancel
-          </button>
-        )}
-      </div>
+
+      {/* Plan steps preview */}
+      {steps.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+              Plan · {steps.length} step{steps.length === 1 ? '' : 's'}
+            </div>
+            {goal.status === 'running' && (
+              <div className="text-[10.5px] text-primary font-semibold">{progress}%</div>
+            )}
+          </div>
+          {goal.status === 'running' && (
+            <div className="h-1 rounded-full bg-surface mb-2 overflow-hidden">
+              <div className="h-full grad-icon rounded-full transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+          <ol className="space-y-1.5">
+            {steps.map((s) => (
+              <li key={s.index} className="flex items-start gap-2 text-[12px]">
+                <span
+                  className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0 mt-0.5 ${
+                    s.status === 'done' ? 'bg-success text-white' :
+                    s.status === 'held' ? 'bg-warn text-white' :
+                    s.status === 'failed' ? 'bg-danger text-white' :
+                    s.status === 'running' ? 'grad-icon text-white' :
+                    'bg-surface text-text-muted border border-gray-200'
+                  }`}
+                >
+                  {s.status === 'done' ? '✓' :
+                   s.status === 'held' ? '?' :
+                   s.status === 'failed' ? '!' :
+                   s.status === 'running' ? '…' :
+                   s.index + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className={`font-medium truncate ${s.status === 'running' ? 'text-primary' : s.status === 'failed' ? 'text-danger' : ''}`}>
+                    {s.title}
+                  </div>
+                  <div className="text-[10.5px] text-text-muted">
+                    {s.role} · {s.skill_id}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

@@ -75,6 +75,20 @@ export function useGoals(status?: GoalStatus) {
     onSuccess: invalidate,
   });
 
+  const planGoal = useMutation({
+    mutationFn: (id: string) => apiPost(`/api/v2/goals/${id}/plan`),
+    onSuccess: invalidate,
+  });
+
+  const executeStep = useMutation({
+    mutationFn: (id: string) => apiPost(`/api/v2/goals/${id}/execute-step`),
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['v2', 'decisions'] });
+      queryClient.invalidateQueries({ queryKey: ['v2', 'agents'] });
+    },
+  });
+
   return {
     goals: query.data?.goals ?? [],
     isLoading: query.isLoading,
@@ -89,5 +103,18 @@ export function useGoals(status?: GoalStatus) {
     resume,
     cancel,
     complete,
+    planGoal,
+    executeStep,
   };
+}
+
+/** Per-goal execution trace, polls every 3s while the goal is in flight. */
+export function useGoalLogs(goalId: string | undefined, isRunning: boolean) {
+  return useQuery({
+    queryKey: ['v2', 'goals', goalId, 'logs'],
+    queryFn: () => apiGet(`/api/v2/goals/${goalId}/logs`) as Promise<{ logs: any[] }>,
+    enabled: !!goalId,
+    refetchInterval: isRunning ? 3000 : false,
+    staleTime: isRunning ? 0 : 30 * 1000,
+  });
 }
