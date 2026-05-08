@@ -10,6 +10,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRexChat } from '../hooks/useRexChat';
+import { toastSoon } from './V2Toast';
 
 interface Props {
   open: boolean;
@@ -67,10 +68,10 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
           </div>
           <div className="inline-flex items-center bg-surface rounded-full p-0.5 gap-px text-[10px]" style={{ border: '1px solid #E5E7EB' }}>
             <span className="px-2 py-0.5 rounded-full bg-white text-text-main font-semibold" style={{ boxShadow: '0 1px 2px rgba(0,0,0,.06)' }}>Chat</span>
-            <span className="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer">Voice</span>
-            <span className="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer">Plan</span>
+            <span onClick={() => toastSoon('Voice mode')} className="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer hover:text-text-main">Voice</span>
+            <span onClick={() => toastSoon('Plan-only mode')} className="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer hover:text-text-main">Plan</span>
           </div>
-          <button className="w-7 h-7 rounded-md hover:bg-surface flex items-center justify-center text-text-muted ml-1"><i className="fa-solid fa-expand text-[11px]" /></button>
+          <button onClick={() => toastSoon('Expand REX to full-screen')} className="w-7 h-7 rounded-md hover:bg-surface flex items-center justify-center text-text-muted ml-1"><i className="fa-solid fa-expand text-[11px]" /></button>
           <button onClick={onClose} className="w-7 h-7 rounded-md hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-xmark text-[12px]" /></button>
         </div>
 
@@ -177,9 +178,9 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 text-text-muted">
-                <button className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-paperclip text-[11px]" /></button>
-                <button className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-microphone text-[11px]" /></button>
-                <button className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-image text-[11px]" /></button>
+                <button onClick={() => toastSoon('Attach a file to REX')} className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-paperclip text-[11px]" /></button>
+                <button onClick={() => toastSoon('Voice input')} className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-microphone text-[11px]" /></button>
+                <button onClick={() => toastSoon('Attach an image')} className="w-6 h-6 rounded hover:bg-white flex items-center justify-center"><i className="fa-solid fa-image text-[11px]" /></button>
                 <span className="text-[10px] text-text-muted ml-1.5">⏎ send · ⇧⏎ newline</span>
               </div>
               <button onClick={submit} disabled={!draft.trim() || sending} className="btn-solid !py-1 !px-3 !text-[11.5px] disabled:opacity-50">

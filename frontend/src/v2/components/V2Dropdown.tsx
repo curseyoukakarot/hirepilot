@@ -11,7 +11,8 @@ import React, { useEffect, useRef, useState, ReactNode } from 'react';
 
 export interface V2DropdownItem {
   key: string;
-  label: ReactNode;
+  /** Item label. Optional only when `divider` is true. */
+  label?: ReactNode;
   icon?: string;
   shortcut?: string;
   destructive?: boolean;

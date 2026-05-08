@@ -108,7 +108,7 @@ function TrustBadgeMenu({ fallback }: { fallback: TrustLevel }) {
           selected: active === 'manual',
           onClick: () => setLevel('manual'),
         },
-        { key: 'd1', divider: true },
+        { key: 'd1', divider: true, label: '' },
         {
           key: 'agents',
           icon: 'people-group',

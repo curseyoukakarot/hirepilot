@@ -18,7 +18,7 @@ import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useInbox, type InboxThread } from '../hooks/useInbox';
 import { useV2Theme } from '../hooks/useV2Theme';
 import V2Dropdown from '../components/V2Dropdown';
-import { toastSuccess } from '../components/V2Toast';
+import { toastSuccess, toastSoon, toastInfo } from '../components/V2Toast';
 import type { TrustLevel } from '../types';
 import '../../styles/v2.css';
 
@@ -220,9 +220,20 @@ export default function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-calendar text-sm" /></button>
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-share-nodes text-sm" /></button>
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-ellipsis text-sm" /></button>
+                <button onClick={() => toastSoon('Schedule meeting from thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Schedule meeting"><i className="fa-solid fa-calendar text-sm" /></button>
+                <button onClick={() => toastSoon('Forward / share thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Share thread"><i className="fa-solid fa-share-nodes text-sm" /></button>
+                <V2Dropdown
+                  align="right"
+                  minWidth={200}
+                  trigger={<span className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary cursor-pointer"><i className="fa-solid fa-ellipsis text-sm" /></span>}
+                  items={[
+                    { key: 'archive', icon: 'box-archive',  label: 'Archive thread',     onClick: () => toastSoon('Archive thread') },
+                    { key: 'mark',    icon: 'envelope',     label: 'Mark as unread',     onClick: () => toastSoon('Mark thread unread') },
+                    { key: 'mute',    icon: 'volume-xmark', label: 'Mute notifications', onClick: () => toastSoon('Mute thread notifications') },
+                    { key: 'd1',      divider: true,        label: '' },
+                    { key: 'block',   icon: 'circle-xmark', label: 'Block sender',       destructive: true, onClick: () => toastSoon('Block sender') },
+                  ]}
+                />
               </div>
             </div>
 
@@ -274,7 +285,7 @@ export default function InboxPage() {
                 <div className="text-[11.5px] text-success rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)' }}>
                   <i className="fa-solid fa-circle-check text-[11px]" />
                   <span><strong>Coordinator</strong> auto-sent calendar invite for <strong>Thu 2:30 PT</strong> · score 94 ≥ threshold</span>
-                  <button className="text-primary font-semibold hover:underline ml-2">View invite</button>
+                  <button onClick={() => toastSoon('View calendar invite details')} className="text-primary font-semibold hover:underline ml-2">View invite</button>
                 </div>
               </div>
 
@@ -291,9 +302,9 @@ export default function InboxPage() {
                     Anything specific you want me to prep on the call?<br /><br />— Brandon
                   </p>
                   <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-primary/10 flex-wrap">
-                    <button className="btn-solid"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
-                    <button className="btn-outline">Edit</button>
-                    <button className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
+                    <button onClick={() => toastSoon('Send drafted reply (sample mock-up)')} className="btn-solid"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
+                    <button onClick={() => toastSoon('Open inline editor for the draft')} className="btn-outline">Edit</button>
+                    <button onClick={() => toastSoon('Regenerate via Recruiter reply_handler')} className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
                     <span className="ml-auto text-[10.5px] text-text-muted flex items-center gap-1"><i className="fa-solid fa-shield-check text-[10px]" />Tone: warm professional</span>
                   </div>
                 </div>
@@ -301,9 +312,9 @@ export default function InboxPage() {
 
               <div className="ml-11 flex items-center gap-2 flex-wrap">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Or ask Recruiter to:</span>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Send the role brief</button>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in Marcus (VP Eng)</button>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Draft submittal for Marcus</button>
+                <button onClick={() => toastSoon('Send role brief to candidate')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Send the role brief</button>
+                <button onClick={() => toastSoon('Loop in hiring manager')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in Marcus (VP Eng)</button>
+                <button onClick={() => toastSoon('Draft submittal via Recruiter')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Draft submittal for Marcus</button>
               </div>
 
               {/* Skills strip — invoke a Skill on this thread's lead */}
@@ -332,10 +343,10 @@ export default function InboxPage() {
                 <textarea className="w-full px-4 py-3 text-[14px] outline-none resize-none rounded-2xl placeholder:text-text-muted" rows={2} placeholder="Type a reply, or hit ⌘K to ask Recruiter…" />
                 <div className="flex items-center justify-between px-3 pb-2.5">
                   <div className="flex items-center gap-1 text-text-muted">
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-paperclip text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-image text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-link text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-calendar text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Attach a file')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Attach a file"><i className="fa-solid fa-paperclip text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Attach an image')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Attach an image"><i className="fa-solid fa-image text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Insert a link')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Insert link"><i className="fa-solid fa-link text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Insert calendar invite')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Insert calendar invite"><i className="fa-solid fa-calendar text-[11px]" /></button>
                     <button className="text-[11px] px-2 py-1 rounded hover:bg-surface text-primary font-semibold"><i className="fa-solid fa-wand-magic-sparkles text-[10px] mr-1" />Improve with REX</button>
                   </div>
                   <div className="flex items-center gap-2">
@@ -354,8 +365,22 @@ export default function InboxPage() {
               <h3 className="font-bold text-[16px]">Sarah Chen</h3>
               <p className="text-[11.5px] text-text-muted">Senior Backend Engineer · Stripe</p>
               <div className="flex items-center justify-center gap-1.5 mt-3">
-                <button className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary"><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
-                <button className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary"><i className="fa-solid fa-envelope mr-1" />Email</button>
+                <button
+                  onClick={() => {
+                    const url = (selectedThread?.lead as any)?.linkedin_url;
+                    if (url) window.open(url, '_blank');
+                    else toastInfo('No LinkedIn URL on this lead.');
+                  }}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary hover:bg-gray-200"
+                ><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
+                <button
+                  onClick={() => {
+                    const email = (selectedThread?.lead as any)?.email;
+                    if (email) window.location.href = `mailto:${email}`;
+                    else toastInfo('No email on this lead.');
+                  }}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary hover:bg-gray-200"
+                ><i className="fa-solid fa-envelope mr-1" />Email</button>
               </div>
             </div>
 
@@ -535,7 +560,7 @@ function RecruiterAutopilotStrip() {
           { key: 'auto', icon: 'rocket', label: 'Autopilot — auto-send above threshold', selected: level === 'autopilot', onClick: () => setLevel('autopilot') },
           { key: 'sug', icon: 'wand-magic-sparkles', label: 'Suggest — review every draft', selected: level === 'suggest', onClick: () => setLevel('suggest') },
           { key: 'man', icon: 'hand', label: 'Manual — REX waits for you', selected: level === 'manual', onClick: () => setLevel('manual') },
-          { key: 'd1', divider: true },
+          { key: 'd1', divider: true, label: '' },
           { key: 'team', icon: 'people-group', label: 'Manage all agents', onClick: () => { window.location.href = '/v2/team'; } },
           { key: 'guard', icon: 'shield-halved', label: 'Edit guardrails', onClick: () => { window.location.href = '/v2/settings/team'; } },
         ]}
