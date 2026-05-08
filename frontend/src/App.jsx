@@ -807,10 +807,14 @@ function InnerApp() {
   }
 
   const isRexMobile = isMobile && location.pathname === '/rex-chat';
+  // v2 routes bring their own WorkspaceShell (sidebar + topbar), so the
+  // legacy chrome must hide on them — otherwise users see two sidebars.
+  const isV2Route = location.pathname.startsWith('/v2');
   const isNavbarVisible =
     !isRexMobile &&
     !isAuthPage &&
     !isPartnerArea &&
+    !isV2Route &&
     !(location.pathname.startsWith('/accept-guest') ||
       location.pathname === '/signout' ||
       (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings')));
@@ -852,10 +856,12 @@ function InnerApp() {
       />
       <div
         className={`flex flex-1 ${
-          isNavbarVisible ? (bannerHeightPx ? 'pt-[120px]' : 'pt-[72px]') : bannerHeightPx ? 'pt-[48px]' : ''
+          isV2Route
+            ? '' // v2 owns its own layout — no legacy navbar offset
+            : isNavbarVisible ? (bannerHeightPx ? 'pt-[120px]' : 'pt-[72px]') : bannerHeightPx ? 'pt-[48px]' : ''
         }`}
       >
-        {!isRexMobile && !isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
+        {!isRexMobile && !isAuthPage && !isPartnerArea && !isV2Route && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) && (
           <div
             id="app-sidebar"
             className={`fixed left-0 bottom-0 ${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-200`}
@@ -867,7 +873,10 @@ function InnerApp() {
         <main id="app-main" className={
           isRexMobile
             ? 'fixed inset-0 m-0 p-0 min-h-0 overflow-hidden'
-            : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-hidden` : `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-y-auto overflow-x-auto`) : ''}`
+            : isV2Route
+              // v2 pages bring their own full-screen WorkspaceShell — no legacy sidebar gap.
+              ? 'flex-1 min-h-0 overflow-y-auto overflow-x-auto'
+              : `flex-1 transition-all duration-200 ${!isAuthPage && !isPartnerArea && !(location.pathname.startsWith('/accept-guest') || location.pathname === '/signout' || (isGuestUser && (location.pathname.startsWith('/job/') || location.pathname === '/settings'))) ? (location.pathname === '/rex-chat' ? `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-hidden` : `${sidebarCollapsed ? 'ml-16' : 'ml-64'} min-h-0 overflow-y-auto overflow-x-auto`) : ''}`
         } style={location.pathname.startsWith('/agent') ? { WebkitOverflowScrolling: 'touch' } : undefined}>
           {!isAuthPage && <OnboardingModals />}
           <Suspense fallback={
@@ -1105,8 +1114,8 @@ function InnerApp() {
       </div>
       {/* v2 upgrade banner — auto-hides on /v2/* routes, when dismissed, or when user is already on v2 */}
       {!isAuthPage && <V2UpgradeBanner />}
-      {/* REX widget mounted (Option A) */}
-      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && !isRexMobile && (
+      {/* REX widget mounted (Option A) — v2 has its own REX FAB inside WorkspaceShell */}
+      {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && !isRexMobile && !isV2Route && (
         <RexWidget
           mode={isAuthPage ? 'sales' : 'support'}
           config={{
