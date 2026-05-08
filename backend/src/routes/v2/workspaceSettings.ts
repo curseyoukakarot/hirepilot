@@ -36,10 +36,18 @@ const SELECT_COLS = [
 ].join(', ');
 
 /**
- * team_id lives on users.team_id (legacy team concept). Resolve via the
- * caller's user → user.team_id → fall back to the workspace owner's team_id.
+ * Resolve team_id for a workspace. After migration 20260507000002,
+ * workspaces.team_id is denormalized from users.team_id. Fall back to the
+ * caller's users.team_id for any unbackfilled rows.
  */
 async function resolveTeamIdForWorkspace(workspaceId: string, userId?: string): Promise<string | null> {
+  const { data: ws } = await supabase
+    .from('workspaces')
+    .select('team_id')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  if ((ws as any)?.team_id) return String((ws as any).team_id);
+
   if (userId) {
     const { data } = await supabase
       .from('users')
@@ -48,21 +56,7 @@ async function resolveTeamIdForWorkspace(workspaceId: string, userId?: string): 
       .maybeSingle();
     if ((data as any)?.team_id) return String((data as any).team_id);
   }
-  const { data: ownerRow } = await supabase
-    .from('workspace_members')
-    .select('user_id')
-    .eq('workspace_id', workspaceId)
-    .eq('role', 'owner')
-    .eq('status', 'active')
-    .maybeSingle();
-  const ownerId = (ownerRow as any)?.user_id;
-  if (!ownerId) return null;
-  const { data: ownerUser } = await supabase
-    .from('users')
-    .select('team_id')
-    .eq('id', ownerId)
-    .maybeSingle();
-  return (ownerUser as any)?.team_id ? String((ownerUser as any).team_id) : null;
+  return null;
 }
 
 router.get('/', async (req: Request, res: Response) => {

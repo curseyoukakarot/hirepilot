@@ -155,18 +155,27 @@ router.post('/', async (req: Request, res: Response) => {
 
     const userId = (req as any)?.user?.id || null;
 
-    // Pull the workspace's default trust level if the request didn't specify one.
-    // team_settings is keyed off team_id; resolve via users.team_id.
+    // Pull the workspace's default trust level via team_settings.
+    // workspaces.team_id is denormalized after migration 20260507000002;
+    // fall back to users.team_id for unbackfilled rows.
     let resolvedTrust = trust_level || 'suggest';
     if (!trust_level) {
       try {
         let teamId: string | null = null;
-        const { data: userRow } = await supabase
-          .from('users')
+        const { data: ws } = await supabase
+          .from('workspaces')
           .select('team_id')
-          .eq('id', userId)
+          .eq('id', workspaceId)
           .maybeSingle();
-        teamId = (userRow as any)?.team_id || null;
+        teamId = (ws as any)?.team_id || null;
+        if (!teamId) {
+          const { data: userRow } = await supabase
+            .from('users')
+            .select('team_id')
+            .eq('id', userId)
+            .maybeSingle();
+          teamId = (userRow as any)?.team_id || null;
+        }
         if (teamId) {
           const { data: ts } = await supabase
             .from('team_settings')

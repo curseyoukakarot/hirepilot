@@ -247,9 +247,11 @@ export const icpResearcher: SkillHandler = async (input, _ctx): Promise<SkillRes
 };
 
 /**
- * Browser Researcher — deep research on a target via the open web. When
- * Browserbase integration lands, this swaps to a real session. For now,
- * uses LLM prior-knowledge with a clear verify-disclaimer.
+ * Browser Researcher — when Browserbase is enabled, spins up a live
+ * session, navigates to the target's domain, scrapes the homepage +
+ * about page text, then asks OpenAI to synthesize a recruiter brief
+ * from the actual fetched content. Falls back to LLM prior-knowledge
+ * if Browserbase isn't configured.
  *
  * Input: { target: { name?, company?, role?, urls?: string[] }, focus?: string }
  */
@@ -258,59 +260,278 @@ export const browserResearcher: SkillHandler = async (input, _ctx): Promise<Skil
   if (!target || (!target.name && !target.company)) {
     return { ok: false, error: 'target_required' };
   }
+
+  // Resolve a URL to research.
+  let urls: string[] = Array.isArray(target.urls) ? target.urls.filter(Boolean) : [];
+  if (!urls.length && target.company) {
+    const slug = String(target.company).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    urls = [`https://${slug}.com`, `https://${slug}.com/about`];
+  }
+
+  // Try the live Browserbase path.
+  let scrapedText: string | null = null;
+  let scrapedFrom: string[] = [];
+  let liveViewUrl: string | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const bb = require('../../../services/sniperV1/agent/browserbaseClient');
+    if (bb.browserbaseEnabled()) {
+      const sessionId = await bb.createSession({});
+      try {
+        liveViewUrl = await bb.getLiveViewUrl(sessionId);
+        const { browser, context, page } = await bb.connectPlaywright(sessionId);
+        try {
+          const collected: string[] = [];
+          for (const url of urls.slice(0, 3)) {
+            try {
+              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 12_000 });
+              const text = await page.evaluate(() => document.body?.innerText || '');
+              if (text) {
+                collected.push(`--- ${url} ---\n${String(text).slice(0, 3000)}`);
+                scrapedFrom.push(url);
+              }
+            } catch (navErr: any) {
+              console.warn('[browser_researcher] navigate failed:', url, navErr?.message);
+            }
+          }
+          scrapedText = collected.join('\n\n');
+        } finally {
+          try { await context.close(); } catch {}
+          try { await browser.close(); } catch {}
+        }
+      } finally {
+        try { await bb.terminateSession(sessionId); } catch {}
+      }
+    }
+  } catch (e: any) {
+    console.warn('[browser_researcher] live path failed:', e?.message);
+  }
+
   try {
     const { llmJSON } = await import('../llm');
     const data = await llmJSON({
-      system: `You produce a recruiter-grade research brief on a target. Output JSON: summary (1-2 sentences), recent_activity (array of {when, what, source}), pitch_angles (array of 3 short bullets a recruiter could open with), risks (array, max 3), confidence (0-1). Mark inferred items with "(inferred)".`,
-      user: `Target: ${JSON.stringify(target)}\nFocus: ${focus || 'recruiting outreach'}\nResearch.`,
-      max_tokens: 700,
+      system: `You produce a recruiter-grade research brief. Output JSON: summary (1-2 sentences), recent_activity (array of {when, what, source}), pitch_angles (array of 3 short bullets), risks (array, max 3), confidence (0-1). When source content is provided in the user message, ground every claim in it. Mark anything you inferred with "(inferred)".`,
+      user: scrapedText
+        ? `Target: ${JSON.stringify(target)}\nFocus: ${focus || 'recruiting outreach'}\n\nScraped from ${scrapedFrom.join(', ')}:\n${scrapedText}`
+        : `Target: ${JSON.stringify(target)}\nFocus: ${focus || 'recruiting outreach'}\n\nNo live scrape available — use prior knowledge.`,
+      max_tokens: 800,
     });
-    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Verify on the target\'s public profile before quoting.' } };
+    return {
+      ok: true,
+      data: {
+        ...data,
+        source: scrapedText ? 'browserbase_live' : 'llm_prior_knowledge',
+        scraped_from: scrapedFrom,
+        live_view_url: liveViewUrl,
+        _disclaimer: scrapedText
+          ? 'Brief grounded in scraped content as of session time.'
+          : 'Browserbase not configured — verify on the target\'s public profile before quoting.',
+      },
+    };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'browser_researcher_failed' };
   }
 };
 
 /**
- * GitHub Sourcer — surfaces dev candidates by code activity signals.
- * LLM-driven structured suggestions until a real GitHub API integration
- * lands. Returns suggested usernames + why each fits.
+ * GitHub Sourcer — when GITHUB_TOKEN is configured (env or user_settings),
+ * runs real /search/users queries against the GitHub API and returns
+ * actual matching profiles. Falls back to LLM-suggested search queries
+ * otherwise.
  *
- * Input: { criteria: { language?, stack?, location?, seniority? }, count?: number }
+ * Input: { criteria: { language?, stack?, location?, seniority?, query? }, count?: number }
  */
-export const githubSourcer: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+export const githubSourcer: SkillHandler = async (input, ctx): Promise<SkillResult> => {
   const { criteria, count = 10 } = input || {};
   if (!criteria) return { ok: false, error: 'criteria_required' };
+
+  // Try a real GitHub API search if a token is available.
+  let token: string | undefined = process.env.GITHUB_TOKEN;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { supabase } = require('../../../lib/supabase');
+    const { data } = await supabase
+      .from('user_settings')
+      .select('github_token')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if ((data as any)?.github_token) token = (data as any).github_token;
+  } catch {}
+
+  if (token) {
+    try {
+      // Build a GitHub user-search query from criteria.
+      const parts: string[] = [];
+      if (criteria.query) parts.push(String(criteria.query));
+      else {
+        if (criteria.language) parts.push(`language:${criteria.language}`);
+        if (criteria.location) parts.push(`location:"${String(criteria.location).replace(/"/g, '')}"`);
+        if (criteria.stack) parts.push(String(criteria.stack));
+      }
+      const q = parts.join(' ').trim() || 'language:typescript';
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fetch = (await import('node-fetch')).default as any;
+      const url = `https://api.github.com/search/users?q=${encodeURIComponent(q)}&per_page=${Math.min(count, 30)}`;
+      const resp = await fetch(url, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      if (!resp.ok) throw new Error(`github_search_${resp.status}`);
+      const json: any = await resp.json();
+      const items = json.items || [];
+
+      // Hydrate top profiles for richer bio data.
+      const hydrated = await Promise.all(items.slice(0, Math.min(count, 10)).map(async (u: any) => {
+        try {
+          const ru = await fetch(u.url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } });
+          if (!ru.ok) return u;
+          const detail: any = await ru.json();
+          return { ...u, bio: detail.bio, name: detail.name, location: detail.location, company: detail.company, blog: detail.blog, public_repos: detail.public_repos, followers: detail.followers, hireable: detail.hireable };
+        } catch { return u; }
+      }));
+
+      return {
+        ok: true,
+        data: {
+          source: 'github_api',
+          query: q,
+          total_count: json.total_count,
+          profiles: hydrated.map((p: any) => ({
+            login: p.login,
+            html_url: p.html_url,
+            avatar_url: p.avatar_url,
+            name: p.name || null,
+            bio: p.bio || null,
+            location: p.location || null,
+            company: p.company || null,
+            blog: p.blog || null,
+            public_repos: p.public_repos || null,
+            followers: p.followers || null,
+            hireable: p.hireable || null,
+          })),
+        },
+      };
+    } catch (e: any) {
+      console.warn('[github_sourcer] api path failed, falling back:', e?.message);
+    }
+  }
+
+  // Fallback: LLM-suggested queries.
   try {
     const { llmJSON } = await import('../llm');
     const data = await llmJSON({
-      system: `You suggest GitHub-based search queries + types of profiles a recruiter should hunt for. Output JSON: search_queries (array of {query, where} — paste-ready GitHub search strings), profile_signals (array of {what_to_look_for, why_it_matters}), bottom_line (string). Conservative: don't fabricate specific usernames.`,
+      system: `You suggest GitHub-based search queries. Output JSON: search_queries (array of {query, where}), profile_signals (array of {what_to_look_for, why_it_matters}), bottom_line (string). Conservative: don't fabricate specific usernames.`,
       user: `Criteria: ${JSON.stringify(criteria)}\nWant: ${count} profile suggestions.`,
       max_tokens: 600,
     });
-    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Run the suggested queries against GitHub Search to find specific profiles.' } };
+    return {
+      ok: true,
+      data: {
+        ...data,
+        source: 'llm_prior_knowledge',
+        _disclaimer: 'GitHub token not configured — connect GITHUB_TOKEN under Settings → Integrations for live profile lookup.',
+      },
+    };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'github_sourcer_failed' };
   }
 };
 
 /**
- * X / Twitter Sourcer — surfaces candidates by post signal.
- * LLM-driven structured suggestions. Returns search angles + handles.
+ * X / Twitter Sourcer — when X_BEARER_TOKEN is configured (env or
+ * user_settings.x_bearer_token), runs a real recent-tweets search and
+ * returns the authors as candidate suggestions. Falls back to LLM
+ * search-angle suggestions otherwise.
  *
- * Input: { criteria: { topic?, tone?, location? }, count?: number }
+ * Input: { criteria: { topic?, tone?, location?, query? }, count?: number }
  */
-export const twitterSourcer: SkillHandler = async (input, _ctx): Promise<SkillResult> => {
+export const twitterSourcer: SkillHandler = async (input, ctx): Promise<SkillResult> => {
   const { criteria, count = 10 } = input || {};
   if (!criteria) return { ok: false, error: 'criteria_required' };
+
+  let bearer: string | undefined = process.env.X_BEARER_TOKEN;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { supabase } = require('../../../lib/supabase');
+    const { data } = await supabase
+      .from('user_settings')
+      .select('x_bearer_token')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if ((data as any)?.x_bearer_token) bearer = (data as any).x_bearer_token;
+  } catch {}
+
+  if (bearer) {
+    try {
+      const queryParts = [
+        criteria.query || criteria.topic || '',
+        criteria.tone ? criteria.tone : '',
+        '-is:retweet lang:en',
+      ].filter(Boolean);
+      const q = queryParts.join(' ').trim() || 'hiring engineer -is:retweet lang:en';
+      const max_results = Math.min(Math.max(Number(count) * 2, 10), 100);
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fetch = (await import('node-fetch')).default as any;
+      const url = `https://api.twitter.com/2/tweets/search/recent?query=${encodeURIComponent(q)}&max_results=${max_results}&tweet.fields=author_id,created_at,public_metrics&expansions=author_id&user.fields=name,username,description,location,public_metrics,verified`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${bearer}` } });
+      if (!resp.ok) throw new Error(`x_search_${resp.status}`);
+      const json: any = await resp.json();
+      const usersById: Record<string, any> = {};
+      for (const u of json.includes?.users || []) usersById[u.id] = u;
+
+      // Dedupe authors, keep their best tweet.
+      const byAuthor: Record<string, any> = {};
+      for (const t of json.data || []) {
+        if (!byAuthor[t.author_id]) byAuthor[t.author_id] = t;
+      }
+      const profiles = Object.values(byAuthor).slice(0, count).map((t: any) => {
+        const u = usersById[t.author_id] || {};
+        return {
+          username: u.username,
+          name: u.name,
+          description: u.description,
+          location: u.location,
+          followers: u.public_metrics?.followers_count,
+          verified: !!u.verified,
+          tweet: t.text,
+          tweet_url: u.username && t.id ? `https://x.com/${u.username}/status/${t.id}` : null,
+          tweet_metrics: t.public_metrics,
+        };
+      });
+
+      return {
+        ok: true,
+        data: {
+          source: 'x_api',
+          query: q,
+          profiles,
+          total_returned: profiles.length,
+        },
+      };
+    } catch (e: any) {
+      console.warn('[twitter_sourcer] api path failed, falling back:', e?.message);
+    }
+  }
+
   try {
     const { llmJSON } = await import('../llm');
     const data = await llmJSON({
-      system: `You suggest X / Twitter search angles for finding candidates by post signal. Output JSON: search_queries (array of {query, why} — paste-ready), profile_archetypes (array of {who_to_look_for, signal}), bottom_line (string). Conservative: avoid specific handles unless you're certain they're public.`,
+      system: `You suggest X / Twitter search angles for finding candidates by post signal. Output JSON: search_queries (array of {query, why}), profile_archetypes (array of {who_to_look_for, signal}), bottom_line (string). Conservative: avoid specific handles unless you're certain they're public.`,
       user: `Criteria: ${JSON.stringify(criteria)}\nWant: ${count} suggestions.`,
       max_tokens: 600,
     });
-    return { ok: true, data: { ...data, source: 'llm_prior_knowledge', _disclaimer: 'Run queries on x.com search to find specific accounts.' } };
+    return {
+      ok: true,
+      data: {
+        ...data,
+        source: 'llm_prior_knowledge',
+        _disclaimer: 'X bearer token not configured — set X_BEARER_TOKEN env or user_settings.x_bearer_token for live search.',
+      },
+    };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'twitter_sourcer_failed' };
   }

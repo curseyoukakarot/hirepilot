@@ -21,7 +21,25 @@ import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import { useActivity, type ActivityEvent } from '../hooks/useActivity';
+import { ScheduledSkillsPanel } from '../components/ScheduledSkillsPanel';
 import type { Agent, AgentRole, TrustLevel } from '../types';
+
+/** Most-recent activity row for an agent — drives the "Right now" line. */
+function rightNowFor(activity: ActivityEvent[], agentId: string | undefined): ActivityEvent | undefined {
+  if (!agentId) return undefined;
+  return activity.find((row) => row.agent_id === agentId);
+}
+function rightNowAge(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return 'just now';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 /** Trust-mini segmented control wired to a real agent. */
 function TrustMini({ agent, onChange }: { agent: Agent | undefined; onChange: (level: TrustLevel) => void }) {
@@ -49,9 +67,13 @@ function TrustMini({ agent, onChange }: { agent: Agent | undefined; onChange: (l
 
 export default function TeamPage() {
   const { agents, isLoading, hire, update } = useAgents();
+  const { activity } = useActivity({ limit: 100 });
   const sourcer = findAgentByRole(agents, 'sourcer');
   const recruiter = findAgentByRole(agents, 'recruiter');
   const coordinator = findAgentByRole(agents, 'coordinator');
+  const sourcerNow = rightNowFor(activity, sourcer?.id);
+  const recruiterNow = rightNowFor(activity, recruiter?.id);
+  const coordinatorNow = rightNowFor(activity, coordinator?.id);
 
   const hiredCount = [sourcer, recruiter, coordinator].filter(Boolean).length;
   const allHiredRoles = new Set(agents.map((a) => a.role));
@@ -205,13 +227,13 @@ export default function TeamPage() {
 
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
-                <p className="text-[13px] text-text-secondary mb-2">
-                  <strong>Sourcing 200 senior backend engineers</strong> matching the top 12 responders from Q2.
-                </p>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex-1 progress-sourcer"><div style={{ width: '72%' }} /></div>
-                  <span className="text-[11px] font-semibold text-sourcer tabular-nums" style={{ color: '#06B6D4' }}>102 / 142 · ~28m</span>
-                </div>
+                {sourcerNow ? (
+                  <p className="text-[13px] text-text-secondary mb-1">
+                    {sourcerNow.summary} <span className="text-text-muted text-[11px]">· {rightNowAge(sourcerNow.created_at)}</span>
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-text-muted italic mb-1">Idle — give Sourcer a goal to work on.</p>
+                )}
               </div>
 
               <div>
@@ -256,18 +278,13 @@ export default function TeamPage() {
 
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
-                <p className="text-[13px] text-text-secondary mb-2">
-                  <strong>Drafting replies for 8 hot leads</strong> · 1 above your trust threshold (comp answer to Marcus).
-                </p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <div className="flex -space-x-1.5">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 ring-2 ring-white" />
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 ring-2 ring-white" />
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 ring-2 ring-white" />
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 ring-2 ring-white" />
-                  </div>
-                  <span className="text-[10.5px] text-text-muted">+ 4 more</span>
-                </div>
+                {recruiterNow ? (
+                  <p className="text-[13px] text-text-secondary mb-1">
+                    {recruiterNow.summary} <span className="text-text-muted text-[11px]">· {rightNowAge(recruiterNow.created_at)}</span>
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-text-muted italic mb-1">Idle — Recruiter is waiting on replies to handle.</p>
+                )}
               </div>
 
               <div>
@@ -312,14 +329,13 @@ export default function TeamPage() {
 
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1">Right now</div>
-                <p className="text-[13px] text-text-secondary mb-2">
-                  <strong>Booking 3 interviews</strong> for Senior Backend role · 2 invites sent · 1 awaiting candidate confirm.
-                </p>
-                <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                  <span className="flex items-center gap-1"><i className="fa-brands fa-google text-[10px]" />Google Cal · synced</span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1"><i className="fa-brands fa-microsoft text-[10px]" />Outlook · synced</span>
-                </div>
+                {coordinatorNow ? (
+                  <p className="text-[13px] text-text-secondary mb-1">
+                    {coordinatorNow.summary} <span className="text-text-muted text-[11px]">· {rightNowAge(coordinatorNow.created_at)}</span>
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-text-muted italic mb-1">Idle — connect Google Calendar to start booking.</p>
+                )}
               </div>
 
               <div>
@@ -354,6 +370,9 @@ export default function TeamPage() {
             )}
           </div>
         </section>
+
+        {/* SCHEDULED SKILLS — recurring runs (e.g. nightly news watch) */}
+        <ScheduledSkillsPanel agents={agents} />
 
         {/* AVAILABLE TO HIRE */}
         <section>

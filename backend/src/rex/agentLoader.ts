@@ -77,37 +77,26 @@ export async function loadAgentContext(
     .select('skill_id, enabled, schedule_cron, config')
     .eq('agent_id', agent.id);
 
-  // 3. Pull autopilot guardrails from team_settings.
-  // team_id lives on users.team_id (legacy "team" concept) — resolve via the user.
-  // Fallback: use the workspace owner's team_id.
+  // 3. Pull autopilot guardrails from team_settings via workspaces.team_id.
+  // After migration 20260507000002, every workspace has a denormalized team_id;
+  // we still fall back to users.team_id for any rows that haven't been backfilled.
   let autopilotScoreThreshold = 90;
   let autopilotMaxSpendCents = 5000;
   try {
     let teamId: string | null = null;
-    const { data: userRow } = await supabase
-      .from('users')
+    const { data: ws } = await supabase
+      .from('workspaces')
       .select('team_id')
-      .eq('id', userId)
+      .eq('id', workspaceId)
       .maybeSingle();
-    teamId = (userRow as any)?.team_id || null;
+    teamId = (ws as any)?.team_id || null;
     if (!teamId) {
-      // Fallback to workspace owner.
-      const { data: ownerRow } = await supabase
-        .from('workspace_members')
-        .select('user_id')
-        .eq('workspace_id', workspaceId)
-        .eq('role', 'owner')
-        .eq('status', 'active')
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('team_id')
+        .eq('id', userId)
         .maybeSingle();
-      const ownerId = (ownerRow as any)?.user_id;
-      if (ownerId) {
-        const { data: ownerUser } = await supabase
-          .from('users')
-          .select('team_id')
-          .eq('id', ownerId)
-          .maybeSingle();
-        teamId = (ownerUser as any)?.team_id || null;
-      }
+      teamId = (userRow as any)?.team_id || null;
     }
     if (teamId) {
       const { data: ts } = await supabase

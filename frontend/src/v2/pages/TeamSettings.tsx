@@ -16,6 +16,7 @@
 import React, { useEffect, useState } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useWorkspaceSettings } from '../hooks/useWorkspaceSettings';
+import { useBillingSummary, openBillingPortal } from '../hooks/useBilling';
 import type { TeamColor } from '../types';
 import '../../styles/v2.css';
 
@@ -302,29 +303,10 @@ export default function TeamSettingsPage() {
               </div>
             </section>
 
-            {/* Plan card */}
-            <section className="float-in d-4 p-[18px] px-[22px] rounded-[14px]" style={{ background: 'linear-gradient(135deg,rgba(16,185,129,.04),rgba(13,148,136,.02) 70%,white)', border: '1px solid rgba(16,185,129,.18)' }}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 6px 14px -4px rgba(16,185,129,.3)' }}><i className="fa-solid fa-people-roof" /></div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h3 className="text-[15px] font-bold">Apex Recruiting · Team plan</h3>
-                    <span className="tag tag-team" style={{ background: 'rgba(16,185,129,.1)', color: '#047857' }}><i className="fa-solid fa-circle-check text-[8px]" />Active</span>
-                  </div>
-                  <p className="text-[12.5px] text-text-secondary">$79/seat/month · billing monthly · next charge May 17, 2026</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-[12px]">
-                    <div><div className="text-[10px] text-text-muted uppercase tracking-wider">Seats used</div><div className="font-bold text-text-main mt-0.5">4 of 5 included</div></div>
-                    <div><div className="text-[10px] text-text-muted uppercase tracking-wider">Monthly</div><div className="font-bold text-text-main mt-0.5">$316.00</div></div>
-                    <div><div className="text-[10px] text-text-muted uppercase tracking-wider">Credits</div><div className="font-bold text-text-main mt-0.5">2,000 / 2,500</div></div>
-                    <div><div className="text-[10px] text-text-muted uppercase tracking-wider">Add-on seat</div><div className="font-bold text-text-main mt-0.5">$79 · prorated</div></div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 shrink-0">
-                  <button className="btn-outline"><i className="fa-solid fa-credit-card text-[10px]" />Manage billing</button>
-                  <button className="ghost-btn"><i className="fa-solid fa-receipt text-[10px]" />Invoices</button>
-                </div>
-              </div>
-            </section>
+            {/* Plan card — live billing data */}
+            <PlanCardLive />
+
+            {/* (Mockup plan card replaced with live data above.) */}
 
             {/* Danger zone */}
             <section className="bg-white rounded-[14px] p-5 px-[22px] float-in d-5" style={{ border: '1px solid rgba(239,68,68,.12)' }}>
@@ -355,5 +337,72 @@ export default function TeamSettingsPage() {
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
     </div>
+  );
+}
+
+/** Live plan card backed by /api/v2/billing/summary + Stripe Customer Portal. */
+function PlanCardLive() {
+  const { summary, isLoading } = useBillingSummary();
+
+  const planLabel = summary?.workspace?.plan ? summary.workspace.plan.charAt(0).toUpperCase() + summary.workspace.plan.slice(1) : 'Free';
+  const seatCap = summary?.workspace?.seat_count || 1;
+  const seatsUsed = summary?.members_active || 0;
+  const stripeMeta = summary?.stripe;
+
+  const monthlyTotal = stripeMeta?.unit_amount && stripeMeta?.quantity
+    ? `$${((stripeMeta.unit_amount * stripeMeta.quantity) / 100).toFixed(2)}`
+    : '—';
+  const perSeatLine = stripeMeta?.unit_amount
+    ? `$${(stripeMeta.unit_amount / 100).toFixed(0)}/seat/${stripeMeta.interval || 'month'}`
+    : 'Free plan';
+  const nextCharge = stripeMeta?.current_period_end
+    ? new Date(stripeMeta.current_period_end).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+
+  const isActive = stripeMeta?.status === 'active';
+  const willCancel = stripeMeta?.cancel_at_period_end;
+
+  return (
+    <section className="float-in d-4 p-[18px] px-[22px] rounded-[14px]" style={{ background: 'linear-gradient(135deg,rgba(16,185,129,.04),rgba(13,148,136,.02) 70%,white)', border: '1px solid rgba(16,185,129,.18)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 6px 14px -4px rgba(16,185,129,.3)' }}><i className="fa-solid fa-people-roof" /></div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className="text-[15px] font-bold">{summary?.workspace?.name || 'Workspace'} · {planLabel} plan</h3>
+            {isActive && <span className="tag tag-team" style={{ background: 'rgba(16,185,129,.1)', color: '#047857' }}><i className="fa-solid fa-circle-check text-[8px]" />Active</span>}
+            {!isActive && stripeMeta && <span className="tag tag-warn"><i className="fa-solid fa-circle-question text-[8px]" />{stripeMeta.status}</span>}
+            {willCancel && <span className="tag tag-warn"><i className="fa-solid fa-circle-exclamation text-[8px]" />Cancels at period end</span>}
+          </div>
+          <p className="text-[12.5px] text-text-secondary">
+            {perSeatLine}
+            {stripeMeta && nextCharge && ` · billing ${stripeMeta.interval || 'monthly'} · next charge ${nextCharge}`}
+            {!stripeMeta && !isLoading && ' · upgrade for team features'}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 text-[12px]">
+            <div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Seats used</div>
+              <div className="font-bold text-text-main mt-0.5">{seatsUsed} of {seatCap}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Monthly</div>
+              <div className="font-bold text-text-main mt-0.5">{monthlyTotal}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider">Subscription</div>
+              <div className="font-bold text-text-main mt-0.5 truncate">{stripeMeta ? stripeMeta.subscription_id.slice(0, 14) + '…' : '—'}</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 shrink-0">
+          <button onClick={() => openBillingPortal()} className="btn-outline" disabled={!stripeMeta}>
+            <i className="fa-solid fa-credit-card text-[10px]" />
+            {stripeMeta ? 'Manage billing' : 'No subscription'}
+          </button>
+          <button onClick={() => openBillingPortal()} className="ghost-btn" disabled={!stripeMeta}>
+            <i className="fa-solid fa-receipt text-[10px]" />Invoices
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }

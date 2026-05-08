@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
-import { useGoals } from '../hooks/useGoals';
+import { useGoals, useGoalLogs } from '../hooks/useGoals';
 import type { Goal, GoalStatus } from '../types';
 
 // Local helper styles for goal-specific cards
@@ -297,6 +297,9 @@ function GoalListRow({
         </div>
       </div>
 
+      {/* Live execution console while running */}
+      <GoalExecutionConsole goalId={goal.id} isRunning={goal.status === 'running'} />
+
       {/* Plan steps preview */}
       {steps.length > 0 && (
         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -344,6 +347,58 @@ function GoalListRow({
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Terminal-style live execution console for a running goal. Polls
+ * /api/v2/goals/:id/logs every 3s while running. Auto-collapses when
+ * idle / not running.
+ */
+function GoalExecutionConsole({ goalId, isRunning }: { goalId: string; isRunning: boolean }) {
+  const { data, isLoading } = useGoalLogs(goalId, isRunning) as any;
+  const logs: any[] = data?.logs || [];
+  if (!isRunning && logs.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+          Live execution {isRunning && <span className="text-primary">· streaming</span>}
+        </div>
+        {isLoading && logs.length === 0 && <span className="text-[10.5px] text-text-muted">connecting…</span>}
+      </div>
+      <div className="font-mono text-[10.5px] rounded-lg p-3 leading-[1.7] max-h-[180px] overflow-y-auto" style={{ background: '#0F0F1A', color: '#C4B5FD' }}>
+        {logs.length === 0 && (
+          <div style={{ color: '#6B7280' }}>(no log entries yet)</div>
+        )}
+        {logs.map((row: any) => {
+          const time = row.started_at ? new Date(row.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+          const dur = row.duration_ms ? ` (${(row.duration_ms / 1000).toFixed(1)}s)` : '';
+          const icon =
+            row.status === 'done' ? <span style={{ color: '#34D399' }}>✓</span> :
+            row.status === 'held' ? <span style={{ color: '#FBBF24' }}>?</span> :
+            row.status === 'failed' ? <span style={{ color: '#F87171' }}>✗</span> :
+            row.status === 'skipped' ? <span style={{ color: '#6B7280' }}>↷</span> :
+            <span style={{ color: '#A78BFA' }}>…</span>;
+          return (
+            <div key={row.id}>
+              <span style={{ color: '#6B7280' }}>{time}</span>{' '}
+              {icon}{' '}
+              <span style={{ color: '#60A5FA' }}>step {row.step_index + 1}</span>{' '}
+              <span style={{ color: '#A78BFA' }}>{row.skill_id}</span>
+              {row.error ? <span style={{ color: '#F87171' }}> — {String(row.error).slice(0, 80)}</span> : null}
+              <span style={{ color: '#6B7280' }}>{dur}</span>
+            </div>
+          );
+        })}
+        {isRunning && (
+          <div style={{ color: '#A78BFA' }} className="mt-1">
+            <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /> waiting for next tick…
+          </div>
+        )}
+      </div>
     </div>
   );
 }

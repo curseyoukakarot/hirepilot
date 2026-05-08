@@ -12,6 +12,7 @@ import decisionsRouter from './decisions';
 import activityRouter from './activity';
 import inboxRouter from './inbox';
 import calendarRouter from './calendar';
+import billingRouter from './billing';
 
 const router = express.Router();
 
@@ -23,5 +24,6 @@ router.use('/decisions', decisionsRouter);
 router.use('/activity', activityRouter);
 router.use('/inbox', inboxRouter);
 router.use('/calendar', calendarRouter);
+router.use('/billing', billingRouter);
 
 export default router;
