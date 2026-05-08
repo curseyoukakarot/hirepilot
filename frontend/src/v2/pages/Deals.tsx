@@ -10,11 +10,12 @@
  *   - Stripe Connect close-loop → existing services/stripe.ts
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useDeals, type Deal } from '../hooks/useDeals';
 import { useV2Theme } from '../hooks/useV2Theme';
 import { toastInfo, toastSoon } from '../components/V2Toast';
+import NewDealModal from '../components/NewDealModal';
 import '../../styles/v2.css';
 
 const DEAL_STAGE_ORDER = ['new', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
@@ -132,7 +133,8 @@ const flagBg = (f?: string) => {
 };
 
 export default function DealsPage() {
-  const { deals, isLoading } = useDeals();
+  const { deals, isLoading, refetch } = useDeals();
+  const [newDealOpen, setNewDealOpen] = useState(false);
   const hasReal = deals.length > 0;
   const liveStages = useMemo(() => {
     if (!hasReal) return null;
@@ -203,7 +205,7 @@ export default function DealsPage() {
             <button className="ghost-btn"><i className="fa-solid fa-filter text-[10px]" />Filter</button>
             <button className="ghost-btn"><i className="fa-solid fa-sliders text-[10px]" />Group: Stage</button>
             <button className="btn-outline"><i className="fa-solid fa-list text-[10px]" />List view</button>
-            <button className="btn-solid"><i className="fa-solid fa-plus text-[10px]" />New deal</button>
+            <button onClick={() => setNewDealOpen(true)} className="btn-solid"><i className="fa-solid fa-plus text-[10px]" />New deal</button>
           </div>
         </div>
 
@@ -326,6 +328,12 @@ export default function DealsPage() {
       <button className="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX">
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
+
+      <NewDealModal
+        open={newDealOpen}
+        onClose={() => setNewDealOpen(false)}
+        onCreated={() => refetch()}
+      />
     </div>
   );
 }

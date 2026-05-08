@@ -22,6 +22,7 @@ import { useV2Theme } from '../hooks/useV2Theme';
 import { toastSoon, toastInfo, toastSuccess } from '../components/V2Toast';
 import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
 import V2Dropdown from '../components/V2Dropdown';
+import NewLeadModal from '../components/NewLeadModal';
 import '../../styles/v2.css';
 
 /** Random gradient palette for lead avatars (deterministic by id). */
@@ -91,11 +92,12 @@ const LEADS: LeadRow[] = [
 export default function LeadsPage() {
   useV2Theme();
 
-  const { leads, isLoading } = useLeads({ limit: 100 });
+  const { leads, isLoading, refetch } = useLeads({ limit: 100 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [drawerTab, setDrawerTab] = useState<'activity' | 'messages' | 'notes' | 'files'>('activity');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [newLeadOpen, setNewLeadOpen] = useState(false);
   const PAGE_SIZE = 25;
   const selected: Lead | undefined = useMemo(
     () => leads.find((l) => l.id === selectedId) || leads[0],
@@ -271,7 +273,7 @@ export default function LeadsPage() {
             />
             <button onClick={() => window.location.href = '/leads/import'} className="btn-outline" title="Import leads (opens in classic UI)"><i className="fa-solid fa-file-import text-[10px]" />Import</button>
             <button onClick={() => toastSoon('Export filtered leads to CSV')} className="btn-outline"><i className="fa-solid fa-file-export text-[10px]" />Export</button>
-            <button onClick={() => window.location.href = '/leads'} className="btn-solid" title="Add a new lead (opens in classic UI)"><i className="fa-solid fa-plus text-[10px]" />New lead</button>
+            <button onClick={() => setNewLeadOpen(true)} className="btn-solid" title="Add a new lead"><i className="fa-solid fa-plus text-[10px]" />New lead</button>
           </div>
         </div>
 
@@ -688,6 +690,12 @@ export default function LeadsPage() {
           <i className="fa-solid fa-chevron-right text-[11px]" />
         </button>
       )}
+
+      <NewLeadModal
+        open={newLeadOpen}
+        onClose={() => setNewLeadOpen(false)}
+        onCreated={() => refetch()}
+      />
     </div>
   );
 }

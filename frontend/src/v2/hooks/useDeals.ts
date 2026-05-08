@@ -50,5 +50,6 @@ export function useDeals(opts: { stage?: string; search?: string } = {}) {
     deals: query.data?.deals ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
   };
 }

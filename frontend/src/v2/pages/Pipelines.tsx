@@ -18,6 +18,8 @@ import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useJobs, useJobPipeline, type Job, type PipelineCandidate } from '../hooks/usePipelines';
 import { useV2Theme } from '../hooks/useV2Theme';
 import { toastSoon, toastInfo } from '../components/V2Toast';
+import NewRequisitionWizard from '../components/NewRequisitionWizard';
+import { useNavigate } from 'react-router-dom';
 import '../../styles/v2.css';
 
 interface JobReq {
@@ -81,6 +83,8 @@ export default function PipelinesPage() {
   const { stages, candidates: stageCandidates } = useJobPipeline(activeJob?.id, activeJob?.pipeline_id || undefined);
   const [activeCandidate, setActiveCandidate] = useState<PipelineCandidate | null>(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [newReqOpen, setNewReqOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">
@@ -100,7 +104,7 @@ export default function PipelinesPage() {
         </div>
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="nav-section-h !p-0">Open requisitions · {jobs.length || 0}</span>
-          <button onClick={() => window.location.href = '/jobs/create'} title="New requisition (opens in classic UI)" className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
+          <button onClick={() => setNewReqOpen(true)} title="New requisition" className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
         </div>
 
         <ul className="space-y-1">
@@ -140,7 +144,7 @@ export default function PipelinesPage() {
           ))}
         </ul>
 
-        <button onClick={() => window.location.href = '/jobs/create'} className="w-full mt-3 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] text-text-muted hover:border-primary/30 hover:text-primary" style={{ border: '1px dashed #E5E7EB' }}>
+        <button onClick={() => setNewReqOpen(true)} className="w-full mt-3 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] text-text-muted hover:border-primary/30 hover:text-primary" style={{ border: '1px dashed #E5E7EB' }}>
           <i className="fa-solid fa-plus text-[10px]" />New requisition
         </button>
 
@@ -424,6 +428,15 @@ export default function PipelinesPage() {
           <i className="fa-solid fa-chevron-right text-[11px]" />
         </button>
       )}
+
+      <NewRequisitionWizard
+        open={newReqOpen}
+        onClose={() => setNewReqOpen(false)}
+        onCreated={({ id }) => {
+          // Refetch + select the new job after creation.
+          if (id) setSelectedJobId(id);
+        }}
+      />
     </div>
   );
 }
