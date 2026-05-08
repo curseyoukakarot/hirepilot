@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Sequences</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: { primary:'#6B46C1', secondary:'#0C5CF4', surface:'#F4F4F8', 'bg-main':'#FAFAFA',
+      'text-main':'#1A1A2E', 'text-secondary':'#4A4A68', 'text-muted':'#8E8EA0',
+      success:'#10B981', warn:'#F59E0B', danger:'#EF4444' },
+    fontFamily: { sans:['Inter','system-ui','sans-serif'], mono:['JetBrains Mono','monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family:'Inter', system-ui, sans-serif; background:#FAFAFA; color:#1A1A2E; height:100vh; overflow:hidden; }
+  body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0; background:radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.05), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%); }
+  body.autopilot::after { content:''; position:fixed; top:0; left:0; right:0; height:2px; z-index:100; background:linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size:200% 100%; animation:shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .45s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;}
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);border:none;}
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-secondary{background:rgba(12,92,244,.1);color:#0C5CF4;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+  .rex-context{background:linear-gradient(90deg, rgba(107,70,193,.05), rgba(12,92,244,.03) 70%, transparent);border:1px solid rgba(107,70,193,.12);border-radius:12px;}
+
+  /* Sequence canvas */
+  .canvas-bg{background-image:radial-gradient(rgba(107,70,193,.08) 1px, transparent 1.4px);background-size:18px 18px;background-color:#FAFAFC;}
+  .seq-step{background:white;border:1px solid #ECECEC;border-radius:12px;padding:14px;width:300px;box-shadow:0 6px 16px -10px rgba(15,15,26,.12);transition:all .15s;cursor:pointer;}
+  .seq-step:hover{border-color:rgba(107,70,193,.3);transform:translateY(-1px);}
+  .seq-step.selected{border-color:#6B46C1;box-shadow:0 0 0 3px rgba(107,70,193,.12),0 12px 28px -10px rgba(15,15,26,.18);}
+  .seq-step.success{border-left:3px solid #10B981;}
+  .seq-step.warn{border-left:3px solid #F59E0B;}
+  .step-arrow{width:2px;background:#E5E7EB;margin:0 auto;position:relative;}
+  .step-arrow::after{content:'';position:absolute;left:50%;bottom:-3px;width:8px;height:8px;background:#E5E7EB;border-radius:9999px;transform:translateX(-50%);}
+  .delay-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:white;border:1px dashed #E5E7EB;border-radius:9999px;font-size:11.5px;color:#4A4A68;}
+  .branch-line{height:2px;background:#E5E7EB;flex:1;position:relative;}
+  .seq-stat{background:white;border:1px solid #ECECEC;border-radius:10px;padding:10px 12px;}
+
+  .filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:9999px;font-size:11.5px;font-weight:500;color:#4A4A68;background:#F4F4F8;border:1px solid #E5E7EB;cursor:pointer;}
+  .filter-chip.active{background:rgba(107,70,193,.1);color:#6B46C1;border-color:rgba(107,70,193,.3);font-weight:600;}
+
+  /* Collapsible inner sidebar */
+  .filter-sidebar { transition: width .25s cubic-bezier(0.4,0,0.2,1), padding .25s cubic-bezier(0.4,0,0.2,1); }
+  .fs-toggle { width:22px; height:22px; border-radius:6px; background:white; border:1px solid #ECECEC; display:flex; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; transition:all .15s; box-shadow:0 1px 3px -1px rgba(15,15,26,.08); }
+  .fs-toggle:hover { color:#6B46C1; border-color:rgba(107,70,193,.3); }
+  body.fs-collapsed .filter-sidebar { width:0 !important; padding:0 !important; border-right-width:0 !important; overflow:hidden !important; }
+  .fs-reopen { display:none; position:fixed; top:70px; left:228px; width:26px; height:56px; border-radius:0 12px 12px 0; background:white; border:1px solid #ECECEC; border-left:0; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; z-index:35; box-shadow:4px 6px 16px -6px rgba(15,15,26,.18); transition:all .15s; }
+  .fs-reopen:hover { color:#6B46C1; padding-left:3px; }
+  body.fs-collapsed .fs-reopen { display:flex; animation:slide-in-right .3s cubic-bezier(0.4,0,0.2,1); }
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex h-screen relative z-10">
+
+  <!-- WORKSPACE SIDEBAR -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>REX is working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted">
+        <i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="goals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="decisions.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">5</span></a></li>
+          <li><a href="inbox.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-primary">12</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$284k</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="tables.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span><span class="text-[10px] text-text-muted">8</span></a></li>
+          <li><a href="forms.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span><span class="text-[10px] text-text-muted">4</span></a></li>
+          <li><a href="tasks.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span><span class="text-[10px] font-bold bg-warn/15 text-warn rounded-full px-1.5 leading-snug">7</span></a></li>
+          <li><a href="sequences.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-diagram-project w-4 text-[11px]"></i><span class="flex-1">Sequences</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="templates.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-layer-group w-4 text-[11px] text-text-muted"></i><span class="flex-1">Templates</span><span class="text-[10px] text-text-muted">36</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- LEFT: sequences list -->
+  <aside class="filter-sidebar w-[240px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+    <div class="flex items-center justify-end mb-2 -mt-1">
+      <button class="fs-toggle" onclick="toggleFilters()" title="Collapse sidebar" aria-label="Collapse sidebar"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+    </div>
+    <div class="mb-3">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="nav-section-h !p-0">Sequences</span>
+        <button class="btn-outline !text-[10.5px] !py-0.5 !px-1.5"><i class="fa-solid fa-plus text-[9px]"></i>New</button>
+      </div>
+      <div class="flex gap-1 mb-2">
+        <span class="filter-chip active !text-[10.5px] !py-0.5">Active <span class="text-[9px] opacity-70">5</span></span>
+        <span class="filter-chip !text-[10.5px] !py-0.5">Paused <span class="text-[9px] opacity-70">2</span></span>
+        <span class="filter-chip !text-[10.5px] !py-0.5">Archived</span>
+      </div>
+    </div>
+
+    <ul class="space-y-1.5 text-[12.5px]">
+      <li class="bg-primary/8 border border-primary/20 rounded-lg p-2.5 cursor-pointer">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="w-2 h-2 rounded-full bg-success"></span>
+          <span class="font-semibold text-primary truncate flex-1">Cold Eng — 4 touch</span>
+          <span class="tag tag-primary">Open</span>
+        </div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-2">
+          <span>4 steps</span><span>·</span><span>1,242 sent</span>
+        </div>
+        <div class="mt-1.5 grid grid-cols-3 gap-1 text-[9.5px]">
+          <div class="text-text-muted">Reply <b class="text-success">18%</b></div>
+          <div class="text-text-muted">Open <b class="text-text-secondary">62%</b></div>
+          <div class="text-text-muted">Bounce <b class="text-danger">2%</b></div>
+        </div>
+      </li>
+
+      <li class="hover:bg-surface rounded-lg p-2.5 cursor-pointer">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="w-2 h-2 rounded-full bg-success"></span>
+          <span class="font-semibold truncate flex-1">First-touch + 2 follow-ups</span>
+        </div>
+        <div class="text-[10.5px] text-text-muted">3 steps · 98 sent</div>
+        <div class="mt-1 text-[9.5px] text-text-muted">Reply <b class="text-success">14%</b></div>
+      </li>
+
+      <li class="hover:bg-surface rounded-lg p-2.5 cursor-pointer">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="w-2 h-2 rounded-full bg-success"></span>
+          <span class="font-semibold truncate flex-1">Designer Reactivation</span>
+        </div>
+        <div class="text-[10.5px] text-text-muted">5 steps · 412 sent</div>
+        <div class="mt-1 text-[9.5px] text-text-muted">Reply <b class="text-text-secondary">8%</b></div>
+      </li>
+
+      <li class="hover:bg-surface rounded-lg p-2.5 cursor-pointer">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="w-2 h-2 rounded-full bg-warn"></span>
+          <span class="font-semibold truncate flex-1">Post-rejection nurture</span>
+          <span class="tag tag-warn">Test</span>
+        </div>
+        <div class="text-[10.5px] text-text-muted">2 steps · 31 sent</div>
+      </li>
+
+      <li class="hover:bg-surface rounded-lg p-2.5 cursor-pointer">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="w-2 h-2 rounded-full bg-text-muted"></span>
+          <span class="font-semibold truncate flex-1 text-text-secondary">Holiday touchpoint</span>
+        </div>
+        <div class="text-[10.5px] text-text-muted">2 steps · paused</div>
+      </li>
+    </ul>
+
+    <div class="mt-5">
+      <div class="mb-2 px-1"><span class="nav-section-h !p-0">Templates</span></div>
+      <ul class="space-y-1 text-[11.5px] px-1">
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>4-touch outbound</a></li>
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Reactivation 5-step</a></li>
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Inbound nurture</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- MAIN: canvas + inspector -->
+  <main class="flex-1 min-w-0 flex flex-col">
+
+    <header class="border-b border-gray-100 px-6 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <button class="text-text-muted hover:text-text-main"><i class="fa-solid fa-chevron-left text-[11px]"></i></button>
+      <div class="w-7 h-7 rounded-md grad-icon flex items-center justify-center text-white"><i class="fa-solid fa-diagram-project text-[11px]"></i></div>
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2">Cold Eng — 4 touch <span class="tag tag-success">● Active</span></div>
+        <div class="text-[10.5px] text-text-muted">4 steps · stop on reply · send window 8 AM–6 PM CT · throttle 30/h</div>
+      </div>
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-paper-plane text-secondary text-[10px]"></i>
+        <span><b>247</b> active enrollments</span>
+      </div>
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="btn-outline"><i class="fa-solid fa-flask text-[10px]"></i>A/B test</button>
+        <button class="btn-outline"><i class="fa-solid fa-pause text-[10px]"></i>Pause</button>
+        <button class="btn-solid"><i class="fa-solid fa-floppy-disk text-[10px]"></i>Save</button>
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- Stats bar -->
+    <div class="px-6 pt-4 pb-2 grid grid-cols-5 gap-2.5 float-in d-1">
+      <div class="seq-stat">
+        <div class="text-[10.5px] text-text-muted uppercase tracking-wider font-bold mb-0.5">Enrolled</div>
+        <div class="text-[18px] font-bold leading-none">1,242</div>
+        <div class="text-[10.5px] text-text-muted mt-1"><i class="fa-solid fa-arrow-up text-success text-[9px]"></i> 87 this week</div>
+      </div>
+      <div class="seq-stat">
+        <div class="text-[10.5px] text-text-muted uppercase tracking-wider font-bold mb-0.5">Sent</div>
+        <div class="text-[18px] font-bold leading-none">3,184</div>
+        <div class="text-[10.5px] text-text-muted mt-1">2.6 avg / lead</div>
+      </div>
+      <div class="seq-stat">
+        <div class="text-[10.5px] text-text-muted uppercase tracking-wider font-bold mb-0.5">Open rate</div>
+        <div class="text-[18px] font-bold grad-text leading-none">62.1%</div>
+        <div class="text-[10.5px] text-text-muted mt-1"><i class="fa-solid fa-arrow-up text-success text-[9px]"></i> 4.2 pts</div>
+      </div>
+      <div class="seq-stat">
+        <div class="text-[10.5px] text-text-muted uppercase tracking-wider font-bold mb-0.5">Reply rate</div>
+        <div class="text-[18px] font-bold text-success leading-none">18.3%</div>
+        <div class="text-[10.5px] text-success font-semibold mt-1">Top 8% of cohort</div>
+      </div>
+      <div class="seq-stat">
+        <div class="text-[10.5px] text-text-muted uppercase tracking-wider font-bold mb-0.5">Bounced</div>
+        <div class="text-[18px] font-bold text-danger leading-none">2.1%</div>
+        <div class="text-[10.5px] text-text-muted mt-1">healthy</div>
+      </div>
+    </div>
+
+    <!-- REX context -->
+    <div class="px-6 pt-2 pb-3 float-in d-2">
+      <div class="rex-context p-3 flex items-center gap-3">
+        <div class="w-7 h-7 rounded-md grad-icon flex items-center justify-center text-white shrink-0 shadow-sm"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i></div>
+        <div class="flex-1 text-[13px]">
+          <span class="font-semibold">REX:</span>
+          <span class="text-text-secondary"> Step 3 reply rate dropped to <b class="text-warn">4.1%</b> · I drafted 2 subject-line variants based on your top performers.</span>
+          <span class="text-primary font-semibold ml-1.5">Run A/B test?</span>
+        </div>
+        <button class="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i class="fa-solid fa-flask text-[9px]"></i>Start A/B</button>
+        <button class="ghost-btn !text-[11.5px]">View variants</button>
+      </div>
+    </div>
+
+    <!-- Canvas + inspector -->
+    <div class="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
+
+      <!-- Canvas -->
+      <div class="col-span-9 canvas-bg overflow-y-auto p-8">
+        <div class="max-w-[640px] mx-auto">
+
+          <!-- Trigger -->
+          <div class="flex justify-center mb-1">
+            <div class="seq-step success" style="width:340px;background:linear-gradient(180deg,rgba(16,185,129,.08),white 60%);">
+              <div class="flex items-center gap-2 mb-1.5">
+                <div class="w-7 h-7 rounded-md bg-success/15 text-success flex items-center justify-center"><i class="fa-solid fa-bolt text-[11px]"></i></div>
+                <div>
+                  <div class="text-[12.5px] font-bold">Trigger: Lead enters sequence</div>
+                  <div class="text-[10.5px] text-text-muted">When score ≥ 70 AND status = New</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 mt-2">
+                <span class="tag tag-secondary"><i class="fa-solid fa-list text-[8px]"></i>From: Q2 Engineers ICP</span>
+                <span class="tag tag-muted">+ filter</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-arrow h-10"></div>
+
+          <!-- Step 1 -->
+          <div class="flex justify-center">
+            <div class="seq-step">
+              <div class="flex items-center gap-2 mb-1.5">
+                <div class="w-7 h-7 rounded-md grad-icon text-white flex items-center justify-center"><span class="text-[11px] font-bold">1</span></div>
+                <div class="flex-1">
+                  <div class="text-[12.5px] font-bold">First touch</div>
+                  <div class="text-[10.5px] text-text-muted">Email · day 0</div>
+                </div>
+                <div class="text-[10.5px] text-success font-bold">22% reply</div>
+              </div>
+              <div class="bg-surface/60 rounded-md p-2 text-[11.5px]">
+                <div class="text-text-muted text-[10.5px] mb-0.5">Subject</div>
+                <div class="font-medium truncate">{{first_name}}, building distributed at {{company}}?</div>
+              </div>
+              <div class="flex items-center gap-1.5 mt-2 text-[10.5px] text-text-muted">
+                <span><i class="fa-solid fa-eye text-[9px]"></i> 64% open</span>
+                <span>·</span>
+                <span><i class="fa-solid fa-reply text-[9px]"></i> 22% reply</span>
+                <span class="ml-auto text-primary font-semibold">Edit →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delay -->
+          <div class="step-arrow h-7"></div>
+          <div class="flex justify-center mb-2"><div class="delay-pill"><i class="fa-solid fa-clock text-[10px] text-warn"></i>Wait <b>2 days</b><span class="text-text-muted">· business days only</span></div></div>
+          <div class="step-arrow h-7"></div>
+
+          <!-- Step 2 -->
+          <div class="flex justify-center">
+            <div class="seq-step selected">
+              <div class="flex items-center gap-2 mb-1.5">
+                <div class="w-7 h-7 rounded-md grad-icon text-white flex items-center justify-center"><span class="text-[11px] font-bold">2</span></div>
+                <div class="flex-1">
+                  <div class="text-[12.5px] font-bold flex items-center gap-1.5">Bump<span class="tag tag-primary">Selected</span></div>
+                  <div class="text-[10.5px] text-text-muted">Email · day 2 (skip if replied)</div>
+                </div>
+                <div class="text-[10.5px] text-success font-bold">14% reply</div>
+              </div>
+              <div class="bg-surface/60 rounded-md p-2 text-[11.5px]">
+                <div class="text-text-muted text-[10.5px] mb-0.5">Subject</div>
+                <div class="font-medium truncate">re: {{first_name}}, building distributed at {{company}}?</div>
+              </div>
+              <div class="flex items-center gap-1.5 mt-2 text-[10.5px] text-text-muted">
+                <span><i class="fa-solid fa-eye text-[9px]"></i> 58% open</span>
+                <span>·</span>
+                <span><i class="fa-solid fa-reply text-[9px]"></i> 14% reply</span>
+                <span class="ml-auto text-primary font-semibold">Edit →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delay -->
+          <div class="step-arrow h-7"></div>
+          <div class="flex justify-center mb-2"><div class="delay-pill"><i class="fa-solid fa-clock text-[10px] text-warn"></i>Wait <b>3 days</b></div></div>
+          <div class="step-arrow h-7"></div>
+
+          <!-- Step 3 - underperforming -->
+          <div class="flex justify-center">
+            <div class="seq-step warn">
+              <div class="flex items-center gap-2 mb-1.5">
+                <div class="w-7 h-7 rounded-md grad-icon text-white flex items-center justify-center"><span class="text-[11px] font-bold">3</span></div>
+                <div class="flex-1">
+                  <div class="text-[12.5px] font-bold flex items-center gap-1.5">Value-add <span class="tag tag-warn">Low reply</span></div>
+                  <div class="text-[10.5px] text-text-muted">Email · day 5 · case-study link</div>
+                </div>
+                <div class="text-[10.5px] text-warn font-bold">4.1% reply</div>
+              </div>
+              <div class="bg-surface/60 rounded-md p-2 text-[11.5px]">
+                <div class="text-text-muted text-[10.5px] mb-0.5">Subject</div>
+                <div class="font-medium truncate">Worth a 15-min chat? Saved Linear $4M last quarter</div>
+              </div>
+              <div class="rex-context p-2 mt-2 text-[10.5px]">
+                <i class="fa-solid fa-wand-magic-sparkles text-primary text-[9px] mr-1"></i><span class="text-text-secondary">REX suggests: shorter subject + question hook</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Branch -->
+          <div class="step-arrow h-7"></div>
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <div class="branch-line"></div>
+            <span class="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11px] font-semibold flex items-center gap-1.5"><i class="fa-solid fa-code-branch text-primary text-[10px]"></i>If no reply after 4 days</span>
+            <div class="branch-line"></div>
+          </div>
+          <div class="step-arrow h-5"></div>
+
+          <!-- Step 4 -->
+          <div class="flex justify-center">
+            <div class="seq-step">
+              <div class="flex items-center gap-2 mb-1.5">
+                <div class="w-7 h-7 rounded-md grad-icon text-white flex items-center justify-center"><span class="text-[11px] font-bold">4</span></div>
+                <div class="flex-1">
+                  <div class="text-[12.5px] font-bold">Breakup</div>
+                  <div class="text-[10.5px] text-text-muted">Email · day 9 · final touch</div>
+                </div>
+                <div class="text-[10.5px] text-success font-bold">9% reply</div>
+              </div>
+              <div class="bg-surface/60 rounded-md p-2 text-[11.5px]">
+                <div class="text-text-muted text-[10.5px] mb-0.5">Subject</div>
+                <div class="font-medium truncate">Closing the loop, {{first_name}}</div>
+              </div>
+              <div class="flex items-center gap-1.5 mt-2 text-[10.5px] text-text-muted">
+                <span><i class="fa-solid fa-eye text-[9px]"></i> 71% open</span>
+                <span>·</span>
+                <span><i class="fa-solid fa-reply text-[9px]"></i> 9% reply</span>
+                <span class="ml-auto text-primary font-semibold">Edit →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- + add step -->
+          <div class="step-arrow h-7"></div>
+          <div class="flex justify-center mb-3">
+            <button class="btn-outline" style="border-style:dashed;"><i class="fa-solid fa-plus text-[10px]"></i>Add step</button>
+          </div>
+
+          <!-- End -->
+          <div class="flex justify-center">
+            <div class="px-4 py-2 rounded-full bg-text-muted/15 text-text-muted text-[11.5px] font-semibold flex items-center gap-1.5"><i class="fa-solid fa-flag-checkered text-[10px]"></i>End of sequence — move to "Cold not interested"</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- INSPECTOR -->
+      <aside class="col-span-3 border-l border-gray-100 bg-white overflow-y-auto">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <span class="w-7 h-7 rounded-md grad-icon text-white flex items-center justify-center"><span class="text-[11px] font-bold">2</span></span>
+          <div>
+            <div class="text-[13px] font-semibold">Step 2: Bump</div>
+            <div class="text-[10.5px] text-text-muted">Email · day 2</div>
+          </div>
+          <button class="ml-auto text-text-muted hover:text-text-main"><i class="fa-solid fa-ellipsis text-[11px]"></i></button>
+        </div>
+
+        <div class="p-4 space-y-4">
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Channel</label>
+            <div class="flex gap-1.5">
+              <button class="btn-outline !text-[11px] !px-2 bg-primary/8 border-primary/20 text-primary font-semibold"><i class="fa-solid fa-envelope text-[10px]"></i>Email</button>
+              <button class="btn-outline !text-[11px] !px-2"><i class="fa-brands fa-linkedin text-[10px]"></i>LinkedIn</button>
+              <button class="btn-outline !text-[11px] !px-2"><i class="fa-solid fa-message text-[10px]"></i>SMS</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">When to send</label>
+            <div class="bg-surface/60 rounded-lg p-2.5 space-y-2 text-[11.5px]">
+              <div class="flex items-center gap-2"><span class="w-20 text-text-muted">Wait</span><input class="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-[11.5px]" value="2"/><span class="text-text-muted">days</span></div>
+              <div class="flex items-center gap-2"><span class="w-20 text-text-muted">Business days</span><div class="ml-auto w-7 h-4 rounded-full bg-primary relative"><div class="absolute right-0.5 top-0.5 w-3 h-3 rounded-full bg-white"></div></div></div>
+              <div class="flex items-center gap-2"><span class="w-20 text-text-muted">Skip if replied</span><div class="ml-auto w-7 h-4 rounded-full bg-primary relative"><div class="absolute right-0.5 top-0.5 w-3 h-3 rounded-full bg-white"></div></div></div>
+              <div class="text-[10.5px] text-text-muted pt-1">Next sends Wed 9 AM CT (Sarah Chen)</div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Subject</label>
+            <input class="w-full bg-surface/60 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[12px]" value="re: {{first_name}}, building distributed at {{company}}?"/>
+            <div class="text-[10px] text-text-muted mt-1">Variables: <span class="font-mono bg-primary/10 text-primary px-1 rounded">{{first_name}}</span> <span class="font-mono bg-primary/10 text-primary px-1 rounded">{{company}}</span></div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Body</label>
+            <div class="bg-surface/60 rounded-lg p-2.5 text-[11.5px] leading-relaxed text-text-secondary border border-gray-200" style="max-height:140px;overflow-y:auto;">
+              Hey {{first_name}} — checking back on this. Thought you might want a peek at how {{company}}-tier teams are scaling distributed eng without burning out senior IC time…
+              <button class="block text-[10.5px] text-primary font-semibold mt-1.5">Open full editor →</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Send window</label>
+            <div class="bg-surface/60 rounded-lg p-2.5 text-[11.5px] flex items-center gap-2">
+              <i class="fa-regular fa-clock text-text-muted text-[10px]"></i>
+              <span><b>8 AM – 6 PM</b> · Monday – Friday · CT</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Test</label>
+            <button class="btn-outline w-full justify-center !text-[11.5px]"><i class="fa-solid fa-paper-plane text-[10px]"></i>Send test to me</button>
+          </div>
+
+          <div class="rex-context p-2.5 text-[11px]">
+            <p class="font-semibold mb-1 flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>REX assist</p>
+            <p class="text-text-secondary mb-2">This step is performing well — top 25% of cohort. Want me to clone this format for the new ML Engineers sequence?</p>
+            <button class="btn-solid !text-[10.5px] !py-1 !px-2 w-full justify-center"><i class="fa-solid fa-copy text-[9px]"></i>Clone to new sequence</button>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<button class="fs-reopen" onclick="toggleFilters()" title="Show sidebar" aria-label="Show sidebar"><i class="fa-solid fa-chevron-right text-[11px]"></i></button>
+<script>function toggleFilters(){document.body.classList.toggle('fs-collapsed');}</script>
+
+</body>
+</html>

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Tables (custom databases)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      primary: '#6B46C1', secondary: '#0C5CF4',
+      surface: '#F4F4F8', 'bg-main': '#FAFAFA',
+      'text-main': '#1A1A2E', 'text-secondary': '#4A4A68', 'text-muted': '#8E8EA0',
+      success: '#10B981', warn: '#F59E0B', danger: '#EF4444',
+    },
+    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFAFA; color: #1A1A2E; height: 100vh; overflow: hidden; }
+  body::before { content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.05), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%); }
+  body.autopilot::after { content:''; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size: 200% 100%; animation: shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .45s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}.d-5{animation-delay:.2s}.d-6{animation-delay:.24s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  .pulse-soft{animation:pulse-soft 2.4s ease-in-out infinite;}
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+  @keyframes slide-in-right { from{opacity:0;transform:translateX(20px);} to{opacity:1;transform:translateX(0);} }
+  .slide-in-right{animation:slide-in-right .4s cubic-bezier(0.4,0,0.2,1) both;}
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-success{background:linear-gradient(135deg,#10B981,#0C5CF4);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .2s;}
+  .trust-badge:hover{transform:translateY(-1px);}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;display:flex;align-items:center;justify-content:center;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;border:none;}
+  .btn-solid:hover{transform:translateY(-1px);}
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;transition:all .15s;}
+  .btn-outline:hover{border-color:rgba(107,70,193,.3);color:#1A1A2E;}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-secondary{background:rgba(12,92,244,.1);color:#0C5CF4;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;transition:transform .25s cubic-bezier(0.4,0,0.2,1);}
+  .rex-fab:hover{transform:translateY(-2px) scale(1.05);}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+  .rex-context{background:linear-gradient(90deg, rgba(107,70,193,.05), rgba(12,92,244,.03) 70%, transparent);border:1px solid rgba(107,70,193,.12);border-radius:12px;}
+
+  /* Table card */
+  .table-card{background:white;border:1px solid #ECECEC;border-radius:14px;overflow:hidden;transition:all .2s cubic-bezier(0.4,0,0.2,1);cursor:pointer;}
+  .table-card:hover{border-color:rgba(107,70,193,.3);transform:translateY(-2px);box-shadow:0 14px 32px -16px rgba(15,15,26,.18);}
+  .mini-grid{font-size:9.5px;color:#4A4A68;}
+  .mini-grid .hd{background:#FAFAFA;color:#8E8EA0;font-weight:600;font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;}
+  .mini-grid td{padding:5px 7px;border-top:1px solid #F1F1F4;}
+
+  /* Sheet */
+  .sheet td, .sheet th{border-right:1px solid #F1F1F4;padding:0;}
+  .sheet th{background:#FAFAFA;font-weight:600;font-size:10.5px;color:#4A4A68;letter-spacing:.02em;padding:7px 10px;text-align:left;}
+  .sheet .cell{padding:7px 10px;font-size:12.5px;}
+  .sheet tbody tr:hover{background:rgba(107,70,193,.03);}
+  .sheet .row-num{background:#FAFAFA;color:#8E8EA0;text-align:center;font-size:10.5px;width:36px;font-variant-numeric:tabular-nums;}
+  .cell-active{background:white !important;outline:2px solid #6B46C1;outline-offset:-2px;border-radius:2px;}
+  .col-formula{position:relative;}
+  .col-formula::before{content:'fx';position:absolute;top:6px;left:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;color:#6B46C1;background:rgba(107,70,193,.1);padding:1px 4px;border-radius:3px;}
+
+  .col-type-pill{font-size:9px;font-weight:600;color:#8E8EA0;background:#F4F4F8;border:1px solid #E5E7EB;padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;}
+  .filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:9999px;font-size:11.5px;font-weight:500;color:#4A4A68;background:#F4F4F8;border:1px solid #E5E7EB;cursor:pointer;}
+  .filter-chip.active{background:rgba(107,70,193,.1);color:#6B46C1;border-color:rgba(107,70,193,.3);font-weight:600;}
+
+  /* Collapsible inner sidebar */
+  .filter-sidebar { transition: width .25s cubic-bezier(0.4,0,0.2,1), padding .25s cubic-bezier(0.4,0,0.2,1); }
+  .fs-toggle { width:22px; height:22px; border-radius:6px; background:white; border:1px solid #ECECEC; display:flex; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; transition:all .15s; box-shadow:0 1px 3px -1px rgba(15,15,26,.08); }
+  .fs-toggle:hover { color:#6B46C1; border-color:rgba(107,70,193,.3); }
+  body.fs-collapsed .filter-sidebar { width:0 !important; padding:0 !important; border-right-width:0 !important; overflow:hidden !important; }
+  .fs-reopen { display:none; position:fixed; top:70px; left:228px; width:26px; height:56px; border-radius:0 12px 12px 0; background:white; border:1px solid #ECECEC; border-left:0; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; z-index:35; box-shadow:4px 6px 16px -6px rgba(15,15,26,.18); transition:all .15s; }
+  .fs-reopen:hover { color:#6B46C1; padding-left:3px; }
+  body.fs-collapsed .fs-reopen { display:flex; animation:slide-in-right .3s cubic-bezier(0.4,0,0.2,1); }
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex h-screen relative z-10">
+
+  <!-- ============ WORKSPACE SIDEBAR ============ -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>REX is working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted">
+        <i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="goals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="decisions.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5 flex items-center justify-between px-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">5</span></a></li>
+          <li><a href="inbox.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-primary">12</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$284k</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="tables.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-table w-4 text-[11px]"></i><span class="flex-1">Tables</span><span class="text-[10px] font-bold text-primary">8</span></a></li>
+          <li><a href="forms.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span><span class="text-[10px] text-text-muted">4</span></a></li>
+          <li><a href="tasks.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span><span class="text-[10px] font-bold bg-warn/15 text-warn rounded-full px-1.5 leading-snug">7</span></a></li>
+          <li><a href="sequences.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-diagram-project w-4 text-[11px] text-text-muted"></i><span class="flex-1">Sequences</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="templates.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-layer-group w-4 text-[11px] text-text-muted"></i><span class="flex-1">Templates</span><span class="text-[10px] text-text-muted">36</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- ============ FILTER SIDEBAR ============ -->
+  <aside class="filter-sidebar w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+    <div class="flex items-center justify-end mb-2 -mt-1">
+      <button class="fs-toggle" onclick="toggleFilters()" title="Collapse filters" aria-label="Collapse filters"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+    </div>
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2 px-2">
+        <span class="nav-section-h !p-0">My tables</span>
+        <button class="text-text-muted hover:text-text-main"><i class="fa-solid fa-plus text-[10px]"></i></button>
+      </div>
+      <ul class="space-y-px text-[13px]">
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-primary/10 text-primary font-semibold"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-gradient-to-br from-emerald-400 to-emerald-600"></span>Q2 Senior Engineers</span><span class="text-[10px]">247</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-gradient-to-br from-rose-400 to-pink-600"></span>Reference checks</span><span class="text-[10px] text-text-muted">42</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-gradient-to-br from-amber-400 to-orange-500"></span>Comp benchmarks</span><span class="text-[10px] text-text-muted">31</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-gradient-to-br from-cyan-400 to-blue-500"></span>Interview panels</span><span class="text-[10px] text-text-muted">18</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-gradient-to-br from-purple-400 to-blue-400"></span>Submittals — Q2</span><span class="text-[10px] text-text-muted">9</span></a></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2 px-2"><span class="nav-section-h !p-0">Shared with me</span><span class="text-[10px] text-text-muted">3</span></div>
+      <ul class="space-y-px text-[13px]">
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><i class="fa-solid fa-people-group w-3 text-[10px] text-text-muted"></i>Sasha · Closer scoring</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><i class="fa-solid fa-people-group w-3 text-[10px] text-text-muted"></i>Mike · Active deals</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><i class="fa-solid fa-people-group w-3 text-[10px] text-text-muted"></i>Em · Onboarding tracker</span></a></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Templates</span></div>
+      <ul class="space-y-1 text-[12px] px-1">
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Recruiter pipeline</a></li>
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Sourcing tracker</a></li>
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Reference check log</a></li>
+        <li><a href="#" class="flex items-center gap-2 text-text-secondary hover:text-primary"><i class="fa-solid fa-bolt text-warn text-[10px]"></i>Interview scorecard</a></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Filters</span></div>
+      <ul class="space-y-1 text-[12.5px] px-1">
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" checked class="rounded text-primary w-3 h-3"/><span>Owned by me</span></label><span class="text-[10px] text-text-muted">5</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span>Linked to leads</span></label><span class="text-[10px] text-text-muted">6</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span>Has formulas</span></label><span class="text-[10px] text-text-muted">3</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span>REX-managed</span></label><span class="text-[10px] text-text-muted">2</span></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 min-w-0 flex flex-col">
+
+    <!-- Topbar -->
+    <header class="border-b border-gray-100 px-6 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-table text-primary text-xs"></i>Tables</div>
+        <div class="text-[10.5px] text-text-muted">8 tables · 1,247 rows · 3 shared</div>
+      </div>
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+        <span>REX populating <b>Reference checks</b></span><span class="text-text-muted">·</span><span class="text-primary font-bold">live</span>
+      </div>
+      <div class="ml-auto flex items-center gap-2.5">
+        <button class="btn-outline"><i class="fa-solid fa-file-import text-[10px]"></i>Import CSV</button>
+        <button class="btn-solid"><i class="fa-solid fa-plus text-[10px]"></i>New table</button>
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- REX context strip -->
+    <div class="px-6 pt-4 pb-2 float-in d-1">
+      <div class="rex-context p-3 flex items-center gap-3">
+        <div class="w-7 h-7 rounded-md grad-icon flex items-center justify-center text-white shrink-0 shadow-sm"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i></div>
+        <div class="flex-1 text-[13px]">
+          <span class="font-semibold">REX:</span>
+          <span class="text-text-secondary"> Your <b>Q2 Senior Engineers</b> table is missing comp ranges for 84 rows · I can pull from Levels.fyi + Researcher's <span class="font-mono text-[11.5px] bg-surface px-1 rounded">comp_benchmark</span> skill.</span>
+          <span class="text-primary font-semibold ml-1.5">Auto-populate?</span>
+        </div>
+        <button class="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i class="fa-solid fa-bolt text-[9px]"></i>Yes, fill them</button>
+        <button class="ghost-btn !text-[11.5px]">Dismiss</button>
+      </div>
+    </div>
+
+    <!-- Open table view -->
+    <div class="px-6 pt-3 pb-2 float-in d-2">
+      <div class="bg-white rounded-xl overflow-hidden" style="border:1px solid #ECECEC;">
+
+        <!-- Table header -->
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+          <button class="text-text-muted hover:text-text-main w-6 h-6 rounded hover:bg-surface flex items-center justify-center"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>
+          <div class="w-7 h-7 rounded-md bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white"><i class="fa-solid fa-table text-[11px]"></i></div>
+          <div>
+            <div class="text-[14.5px] font-bold tracking-tight flex items-center gap-2">Q2 Senior Engineers <span class="tag tag-primary">Linked to Leads</span></div>
+            <div class="text-[11px] text-text-muted">247 rows · 8 columns · 3 collaborators · edited 4m ago by REX</div>
+          </div>
+          <div class="flex items-center -space-x-1.5 ml-3">
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 ring-2 ring-white"></div>
+            <div class="w-6 h-6 rounded-full grad-rex ring-2 ring-white flex items-center justify-center text-white text-[8px]"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          </div>
+          <div class="ml-auto flex items-center gap-1.5">
+            <div class="inline-flex items-center bg-surface rounded-full p-0.5 gap-px text-[10px]" style="border:1px solid #E5E7EB;">
+              <span class="px-2 py-0.5 rounded-full bg-white text-text-main font-semibold" style="box-shadow:0 1px 2px rgba(0,0,0,.06);">Grid</span>
+              <span class="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer">Kanban</span>
+              <span class="px-2 py-0.5 rounded-full text-text-muted font-semibold cursor-pointer">Gallery</span>
+            </div>
+            <button class="btn-outline"><i class="fa-solid fa-filter text-[10px]"></i>Filter <span class="tag tag-primary">2</span></button>
+            <button class="btn-outline"><i class="fa-solid fa-arrow-up-wide-short text-[10px]"></i>Sort: Score</button>
+            <button class="btn-outline"><i class="fa-solid fa-share-nodes text-[10px]"></i>Share</button>
+            <button class="ghost-btn"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Sheet -->
+        <div class="overflow-x-auto">
+          <table class="sheet w-full text-[12.5px]">
+            <thead>
+              <tr>
+                <th class="row-num"></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-font text-text-muted text-[9px]"></i><span>Name</span><span class="col-type-pill">text</span></div></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-tag text-text-muted text-[9px]"></i><span>Status</span><span class="col-type-pill">status</span></div></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-hashtag text-text-muted text-[9px]"></i><span>REX score</span><span class="col-type-pill">number</span></div></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-dollar-sign text-text-muted text-[9px]"></i><span>Comp target</span><span class="col-type-pill">money</span></div></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-calendar text-text-muted text-[9px]"></i><span>Last touch</span><span class="col-type-pill">date</span></div></th>
+                <th class="col-formula" style="padding-left:24px;"><div class="flex items-center gap-1.5"><span>Days idle</span><span class="col-type-pill" style="background:rgba(107,70,193,.1);color:#6B46C1;border-color:rgba(107,70,193,.2);">formula</span></div></th>
+                <th><div class="flex items-center gap-1.5"><i class="fa-solid fa-link text-text-muted text-[9px]"></i><span>Lead</span><span class="col-type-pill" style="background:rgba(12,92,244,.08);color:#0C5CF4;border-color:rgba(12,92,244,.2);">link</span></div></th>
+                <th class="text-text-muted text-center" style="width:50px;"><i class="fa-solid fa-plus text-[10px]"></i></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-num">1</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[8px] font-bold">SC</div><span class="font-medium">Sarah Chen</span></div></td>
+                <td class="cell"><span class="tag tag-success">● Hot</span></td>
+                <td class="cell font-bold">94</td>
+                <td class="cell font-mono">$215,000</td>
+                <td class="cell text-text-secondary">2026-05-05</td>
+                <td class="cell font-mono text-text-secondary">2</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>sarah.chen@stripe.com</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="row-num">2</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[8px] font-bold">MR</div><span class="font-medium">Marcus Rodriguez</span></div></td>
+                <td class="cell"><span class="tag tag-warn">● Warm</span></td>
+                <td class="cell font-bold">87</td>
+                <td class="cell"><span class="cell-active inline-block px-1.5 py-0.5">$190,000<span class="ml-1 text-text-muted">|</span></span></td>
+                <td class="cell text-text-secondary">2026-05-04</td>
+                <td class="cell font-mono text-text-secondary">3</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>m.rodriguez@linear.app</a></td>
+                <td></td>
+              </tr>
+              <tr style="background:rgba(107,70,193,.04);">
+                <td class="row-num">3</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[8px] font-bold">PP</div><span class="font-medium">Priya Patel</span></div></td>
+                <td class="cell"><span class="tag tag-success">● Hot</span></td>
+                <td class="cell font-bold">91</td>
+                <td class="cell text-text-muted italic flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-primary text-[9px]"></i>REX filling…</td>
+                <td class="cell text-text-secondary">2026-05-04</td>
+                <td class="cell font-mono text-text-secondary">3</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>ppatel@figma.com</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="row-num">4</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-white text-[8px] font-bold">JW</div><span class="font-medium">Jamal Williams</span></div></td>
+                <td class="cell"><span class="tag tag-secondary">● Phone screen</span></td>
+                <td class="cell font-bold">82</td>
+                <td class="cell font-mono">$175,000</td>
+                <td class="cell text-text-secondary">2026-05-03</td>
+                <td class="cell font-mono text-text-secondary">4</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>jamal@vercel.com</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="row-num">5</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white text-[8px] font-bold">EK</div><span class="font-medium">Emily Kovacs</span></div></td>
+                <td class="cell"><span class="tag tag-success">● Hot</span></td>
+                <td class="cell font-bold">96</td>
+                <td class="cell font-mono">$245,000</td>
+                <td class="cell text-text-secondary">2026-05-05</td>
+                <td class="cell font-mono text-text-secondary">2</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>ekovacs@notion.so</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="row-num">6</td>
+                <td class="cell"><div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-[8px] font-bold">DT</div><span class="font-medium">Devin Tran</span></div></td>
+                <td class="cell"><span class="tag tag-warn">● Warm</span></td>
+                <td class="cell font-bold">88</td>
+                <td class="cell text-text-muted italic flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-primary text-[9px]"></i>REX filling…</td>
+                <td class="cell text-text-secondary">2026-05-03</td>
+                <td class="cell font-mono text-text-secondary">4</td>
+                <td class="cell"><a href="#" class="text-primary hover:underline flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>devin@anthropic.com</a></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-4 py-2 border-t border-gray-100 bg-surface/40 flex items-center gap-3 text-[11.5px] text-text-secondary">
+          <button class="ghost-btn !text-[11.5px]"><i class="fa-solid fa-plus text-[9px]"></i>Add row</button>
+          <span class="text-text-muted">·</span>
+          <span><b>247</b> rows · <b>3</b> hot · avg score <b class="grad-text">88.4</b> · sum comp <b>$45.2M</b></span>
+          <span class="ml-auto flex items-center gap-1.5 text-text-muted"><i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>2 cells being filled by REX</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- All tables grid -->
+    <div class="px-6 pt-4 pb-6 float-in d-3">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[15px] font-bold tracking-tight">All tables</h3>
+        <div class="flex items-center gap-1.5">
+          <span class="filter-chip active">All <span class="text-[10px] opacity-70">8</span></span>
+          <span class="filter-chip">Owned by me <span class="text-[10px] opacity-70">5</span></span>
+          <span class="filter-chip">Shared <span class="text-[10px] opacity-70">3</span></span>
+          <span class="filter-chip">REX-managed <span class="text-[10px] opacity-70">2</span></span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+
+        <!-- Card 1 -->
+        <div class="table-card">
+          <div class="px-4 pt-3.5 pb-2 flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-circle-check text-[12px]"></i></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Reference checks</div>
+              <div class="text-[10.5px] text-text-muted">42 rows · 6 cols · edited 1h ago</div>
+            </div>
+            <span class="tag tag-primary">REX</span>
+          </div>
+          <table class="mini-grid w-full">
+            <thead><tr class="hd"><td class="px-2 py-1">Candidate</td><td class="px-2 py-1">Reference</td><td class="px-2 py-1">Verdict</td></tr></thead>
+            <tbody>
+              <tr><td>Sarah Chen</td><td>J. Doe (Stripe)</td><td><span class="tag tag-success">Strong</span></td></tr>
+              <tr><td>Marcus R.</td><td>K. Lee (Linear)</td><td><span class="tag tag-warn">Mixed</span></td></tr>
+              <tr><td>Priya P.</td><td>—</td><td class="text-text-muted italic">REX scheduling…</td></tr>
+            </tbody>
+          </table>
+          <div class="px-4 py-2 flex items-center gap-1.5 text-[10px] text-text-muted border-t border-gray-100">
+            <div class="flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-1 ring-white"></div><div class="w-4 h-4 rounded-full grad-rex ring-1 ring-white"></div></div>
+            <span>2 collaborators</span>
+            <span class="ml-auto text-primary font-semibold cursor-pointer">Open →</span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="table-card">
+          <div class="px-4 pt-3.5 pb-2 flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-coins text-[12px]"></i></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Comp benchmarks</div>
+              <div class="text-[10.5px] text-text-muted">31 rows · 7 cols · edited yesterday</div>
+            </div>
+            <span class="tag tag-muted"><i class="fa-solid fa-link text-[8px] mr-0.5"></i>Levels</span>
+          </div>
+          <table class="mini-grid w-full">
+            <thead><tr class="hd"><td class="px-2 py-1">Role</td><td class="px-2 py-1">Level</td><td class="px-2 py-1">Median</td></tr></thead>
+            <tbody>
+              <tr><td>Sr. Backend Eng</td><td>L5</td><td class="font-mono">$215k</td></tr>
+              <tr><td>Staff Eng</td><td>L6</td><td class="font-mono">$295k</td></tr>
+              <tr><td>EM</td><td>M5</td><td class="font-mono">$330k</td></tr>
+            </tbody>
+          </table>
+          <div class="px-4 py-2 flex items-center gap-1.5 text-[10px] text-text-muted border-t border-gray-100">
+            <div class="flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-1 ring-white"></div></div>
+            <span>Just you</span>
+            <span class="ml-auto text-primary font-semibold cursor-pointer">Open →</span>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="table-card">
+          <div class="px-4 pt-3.5 pb-2 flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-users text-[12px]"></i></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Interview panels</div>
+              <div class="text-[10.5px] text-text-muted">18 rows · 5 cols · edited 3d ago</div>
+            </div>
+            <span class="tag tag-secondary">Linked</span>
+          </div>
+          <table class="mini-grid w-full">
+            <thead><tr class="hd"><td class="px-2 py-1">Candidate</td><td class="px-2 py-1">Panel</td><td class="px-2 py-1">Slot</td></tr></thead>
+            <tbody>
+              <tr><td>Sarah Chen</td><td>3 ICs + EM</td><td>Thu 2:30</td></tr>
+              <tr><td>Marcus R.</td><td>2 ICs</td><td>Fri 11:00</td></tr>
+              <tr><td>Jamal W.</td><td>Loop A</td><td>—</td></tr>
+            </tbody>
+          </table>
+          <div class="px-4 py-2 flex items-center gap-1.5 text-[10px] text-text-muted border-t border-gray-100">
+            <div class="flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-1 ring-white"></div><div class="w-4 h-4 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 ring-1 ring-white"></div></div>
+            <span>2 collaborators</span>
+            <span class="ml-auto text-primary font-semibold cursor-pointer">Open →</span>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="table-card">
+          <div class="px-4 pt-3.5 pb-2 flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-paper-plane text-[12px]"></i></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Submittals — Q2</div>
+              <div class="text-[10.5px] text-text-muted">9 rows · 8 cols · edited 5d ago</div>
+            </div>
+            <span class="tag tag-success">Live</span>
+          </div>
+          <table class="mini-grid w-full">
+            <thead><tr class="hd"><td class="px-2 py-1">Client</td><td class="px-2 py-1">Submitted</td><td class="px-2 py-1">Status</td></tr></thead>
+            <tbody>
+              <tr><td>Stripe</td><td>3</td><td><span class="tag tag-warn">2 onsite</span></td></tr>
+              <tr><td>Linear</td><td>2</td><td><span class="tag tag-success">1 offer</span></td></tr>
+              <tr><td>Vercel</td><td>1</td><td class="text-text-muted">Pending</td></tr>
+            </tbody>
+          </table>
+          <div class="px-4 py-2 flex items-center gap-1.5 text-[10px] text-text-muted border-t border-gray-100">
+            <div class="flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-1 ring-white"></div></div>
+            <span>Just you</span>
+            <span class="ml-auto text-primary font-semibold cursor-pointer">Open →</span>
+          </div>
+        </div>
+
+        <!-- Card 5: shared -->
+        <div class="table-card">
+          <div class="px-4 pt-3.5 pb-2 flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shrink-0"><i class="fa-solid fa-handshake text-[12px]"></i></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Active deals (Sasha)</div>
+              <div class="text-[10.5px] text-text-muted">14 rows · 9 cols · shared 2d ago</div>
+            </div>
+            <span class="tag tag-muted"><i class="fa-solid fa-eye text-[8px] mr-0.5"></i>View</span>
+          </div>
+          <table class="mini-grid w-full">
+            <thead><tr class="hd"><td class="px-2 py-1">Account</td><td class="px-2 py-1">ARR</td><td class="px-2 py-1">Stage</td></tr></thead>
+            <tbody>
+              <tr><td>Acme</td><td class="font-mono">$84k</td><td><span class="tag tag-warn">Negotiation</span></td></tr>
+              <tr><td>Globex</td><td class="font-mono">$120k</td><td><span class="tag tag-success">Verbal</span></td></tr>
+              <tr><td>Initech</td><td class="font-mono">$36k</td><td class="text-text-muted">Discovery</td></tr>
+            </tbody>
+          </table>
+          <div class="px-4 py-2 flex items-center gap-1.5 text-[10px] text-text-muted border-t border-gray-100">
+            <div class="flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 ring-1 ring-white"></div></div>
+            <span>Sasha shared</span>
+            <span class="ml-auto text-primary font-semibold cursor-pointer">Open →</span>
+          </div>
+        </div>
+
+        <!-- Card 6: + new -->
+        <div class="table-card flex items-center justify-center text-center" style="border:2px dashed #E5E7EB;background:rgba(107,70,193,.02);min-height:200px;">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-primary mx-auto mb-2.5 shadow-sm"><i class="fa-solid fa-plus text-[15px]"></i></div>
+            <div class="text-[13px] font-semibold mb-0.5">New table</div>
+            <div class="text-[10.5px] text-text-muted mb-2">Blank · template · or import CSV</div>
+            <button class="btn-solid !text-[11px] !py-1 !px-2.5"><i class="fa-solid fa-bolt text-[9px]"></i>Ask REX to build it</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<button class="fs-reopen" onclick="toggleFilters()" title="Show filters" aria-label="Show filters"><i class="fa-solid fa-chevron-right text-[11px]"></i></button>
+<script>function toggleFilters(){document.body.classList.toggle('fs-collapsed');}</script>
+
+</body>
+</html>

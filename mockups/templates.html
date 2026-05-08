@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HirePilot — Templates</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: { primary:'#6B46C1', secondary:'#0C5CF4', surface:'#F4F4F8', 'bg-main':'#FAFAFA',
+      'text-main':'#1A1A2E', 'text-secondary':'#4A4A68', 'text-muted':'#8E8EA0',
+      success:'#10B981', warn:'#F59E0B', danger:'#EF4444' },
+    fontFamily: { sans:['Inter','system-ui','sans-serif'], mono:['JetBrains Mono','monospace'] },
+  }}};
+</script>
+<style>
+  body { font-family:'Inter', system-ui, sans-serif; background:#FAFAFA; color:#1A1A2E; height:100vh; overflow:hidden; }
+  body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0; background:radial-gradient(28% 24% at 18% 12%, rgba(107,70,193,.05), transparent 70%), radial-gradient(24% 20% at 88% 22%, rgba(12,92,244,.04), transparent 70%); }
+  body.autopilot::after { content:''; position:fixed; top:0; left:0; right:0; height:2px; z-index:100; background:linear-gradient(90deg, transparent, rgba(16,185,129,.55), rgba(107,70,193,.6), rgba(12,92,244,.55), rgba(16,185,129,.55), transparent); background-size:200% 100%; animation:shim 4s ease-in-out infinite; }
+  @keyframes shim { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  @keyframes float-in { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  .float-in{animation:float-in .45s cubic-bezier(0.4,0,0.2,1) both;}
+  .d-1{animation-delay:.04s}.d-2{animation-delay:.08s}.d-3{animation-delay:.12s}.d-4{animation-delay:.16s}
+  @keyframes pulse-soft { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.5);} }
+  @keyframes ping-soft { 0%{transform:scale(1);opacity:.55;} 100%{transform:scale(2.4);opacity:0;} }
+  @keyframes orbit { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+
+  .grad-icon{background:linear-gradient(135deg,#6B46C1 0%,#0C5CF4 100%);}
+  .grad-rex{background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;}
+  .grad-text{background:linear-gradient(135deg,#6B46C1,#0C5CF4);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .live-dot{position:relative;width:7px;height:7px;border-radius:9999px;background:#10B981;}
+  .live-dot::after{content:'';position:absolute;inset:-4px;border-radius:9999px;background:#10B981;opacity:.4;animation:pulse-soft 2s ease-in-out infinite;}
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  ::-webkit-scrollbar{width:8px;height:8px;} ::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+  .channel-active{background:rgba(107,70,193,.10);color:#6B46C1;font-weight:600;}
+  .nav-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8E8EA0;padding:0 10px;}
+  .trust-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:9999px;font-size:11.5px;font-weight:700;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 4px 12px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;border-radius:9999px;background:white;border:1px solid #E5E7EB;font-size:11px;color:#4A4A68;font-weight:500;}
+  .status-pill .ping-wrap{position:relative;width:8px;height:8px;}
+  .status-pill .ping-wrap::before, .status-pill .ping-wrap::after{content:'';position:absolute;inset:0;border-radius:9999px;background:#6B46C1;}
+  .status-pill .ping-wrap::after{animation:ping-soft 2s cubic-bezier(0,0,.2,1) infinite;}
+  .ghost-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:transparent;border:1px solid transparent;cursor:pointer;}
+  .ghost-btn:hover{background:white;border-color:#E5E7EB;color:#1A1A2E;}
+  .btn-solid{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:white;cursor:pointer;background:linear-gradient(135deg,#10B981,#0C5CF4);box-shadow:0 6px 14px -4px rgba(16,185,129,.4), inset 0 1px 0 rgba(255,255,255,.2);border:none;}
+  .btn-outline{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:#4A4A68;background:white;border:1px solid #E5E7EB;cursor:pointer;}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:9999px;}
+  .tag-success{background:rgba(16,185,129,.1);color:#059669;}
+  .tag-warn{background:rgba(245,158,11,.1);color:#B45309;}
+  .tag-primary{background:rgba(107,70,193,.1);color:#6B46C1;}
+  .tag-secondary{background:rgba(12,92,244,.1);color:#0C5CF4;}
+  .tag-muted{background:#F4F4F8;color:#8E8EA0;}
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10px;background:white;border:1px solid #E5E7EB;border-radius:4px;padding:1px 5px;color:#8E8EA0;}
+  .rex-fab{position:fixed;bottom:28px;right:28px;z-index:50;width:56px;height:56px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B46C1,#0C5CF4,#EC4899,#6B46C1);background-size:300% 300%;animation:orbit 6s ease-in-out infinite;box-shadow:0 16px 40px -10px rgba(107,70,193,.55), inset 0 1px 0 rgba(255,255,255,.25);color:white;font-size:16px;}
+  .rex-fab::before{content:'';position:absolute;inset:-12px;border-radius:9999px;background:radial-gradient(circle,rgba(107,70,193,.4),rgba(12,92,244,.2) 60%,transparent 80%);filter:blur(16px);z-index:-1;animation:pulse-soft 3.5s ease-in-out infinite;}
+  .rex-context{background:linear-gradient(90deg, rgba(107,70,193,.05), rgba(12,92,244,.03) 70%, transparent);border:1px solid rgba(107,70,193,.12);border-radius:12px;}
+
+  /* Template card */
+  .tpl-card{background:white;border:1px solid #ECECEC;border-radius:14px;overflow:hidden;transition:all .2s cubic-bezier(0.4,0,0.2,1);cursor:pointer;display:flex;flex-direction:column;}
+  .tpl-card:hover{border-color:rgba(107,70,193,.3);transform:translateY(-2px);box-shadow:0 14px 32px -16px rgba(15,15,26,.18);}
+  .tpl-preview{font-size:11.5px;line-height:1.55;color:#4A4A68;height:88px;overflow:hidden;position:relative;}
+  .tpl-preview::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,white);pointer-events:none;}
+  .merge-var{background:rgba(107,70,193,.1);color:#6B46C1;font-weight:600;padding:0 4px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+  .perf-ring{position:relative;width:38px;height:38px;}
+  .perf-ring svg{transform:rotate(-90deg);}
+  .perf-ring text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;}
+  .featured-card{background:linear-gradient(135deg,rgba(107,70,193,.08),rgba(12,92,244,.04) 60%,transparent);border:1px solid rgba(107,70,193,.18);border-radius:16px;}
+  .filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:9999px;font-size:11.5px;font-weight:500;color:#4A4A68;background:#F4F4F8;border:1px solid #E5E7EB;cursor:pointer;}
+  .filter-chip.active{background:rgba(107,70,193,.1);color:#6B46C1;border-color:rgba(107,70,193,.3);font-weight:600;}
+
+  /* Collapsible inner sidebar */
+  .filter-sidebar { transition: width .25s cubic-bezier(0.4,0,0.2,1), padding .25s cubic-bezier(0.4,0,0.2,1); }
+  .fs-toggle { width:22px; height:22px; border-radius:6px; background:white; border:1px solid #ECECEC; display:flex; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; transition:all .15s; box-shadow:0 1px 3px -1px rgba(15,15,26,.08); }
+  .fs-toggle:hover { color:#6B46C1; border-color:rgba(107,70,193,.3); }
+  body.fs-collapsed .filter-sidebar { width:0 !important; padding:0 !important; border-right-width:0 !important; overflow:hidden !important; }
+  .fs-reopen { display:none; position:fixed; top:70px; left:228px; width:26px; height:56px; border-radius:0 12px 12px 0; background:white; border:1px solid #ECECEC; border-left:0; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; z-index:35; box-shadow:4px 6px 16px -6px rgba(15,15,26,.18); transition:all .15s; }
+  .fs-reopen:hover { color:#6B46C1; padding-left:3px; }
+  body.fs-collapsed .fs-reopen { display:flex; animation:slide-in-right .3s cubic-bezier(0.4,0,0.2,1); }
+</style>
+</head>
+<body class="autopilot">
+
+<div class="flex h-screen relative z-10">
+
+  <!-- WORKSPACE SIDEBAR -->
+  <aside class="w-[228px] shrink-0 glass border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <div class="px-3.5 py-3 border-b border-gray-100 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg grad-icon flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-primary/30">HP</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] font-semibold truncate">Brandon's HirePilot</div>
+        <div class="text-[10.5px] text-text-muted flex items-center gap-1"><span class="live-dot"></span>REX is working</div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5">
+      <div class="flex items-center gap-1.5 bg-surface rounded-lg px-2.5 py-1.5 text-xs text-text-muted">
+        <i class="fa-solid fa-magnifying-glass text-[10px]"></i><span class="flex-1">Jump to anything</span><span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-1.5 py-2 space-y-4">
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Pinned</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="workspace.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-sun w-4 text-[11px] text-text-muted"></i><span class="flex-1">Today</span></a></li>
+          <li><a href="goals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-rocket w-4 text-[11px] text-text-muted"></i><span class="flex-1">Goals</span><span class="text-[10px] font-bold text-primary">2</span></a></li>
+          <li><a href="decisions.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-inbox w-4 text-[11px] text-warn"></i><span class="flex-1">Decisions</span><span class="text-[10px] font-bold bg-warn text-white rounded-full px-1.5 leading-snug">1</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Workspace</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="leads.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-database w-4 text-[11px] text-text-muted"></i><span class="flex-1">Leads</span><span class="text-[10px] text-text-muted">3,247</span></a></li>
+          <li><a href="pipelines.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table-columns w-4 text-[11px] text-text-muted"></i><span class="flex-1">Pipelines</span><span class="text-[10px] text-text-muted">5</span></a></li>
+          <li><a href="inbox.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-envelope w-4 text-[11px] text-text-muted"></i><span class="flex-1">Inbox</span><span class="text-[10px] font-bold text-primary">12</span></a></li>
+          <li><a href="deals.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-handshake w-4 text-[11px] text-text-muted"></i><span class="flex-1">Deals</span><span class="text-[10px] text-success font-semibold">$284k</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mb-1.5"><span class="nav-section-h">Tools</span></div>
+        <ul class="space-y-px text-[13px]">
+          <li><a href="tables.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-table w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tables</span><span class="text-[10px] text-text-muted">8</span></a></li>
+          <li><a href="forms.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted"></i><span class="flex-1">Forms</span><span class="text-[10px] text-text-muted">4</span></a></li>
+          <li><a href="tasks.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-list-check w-4 text-[11px] text-text-muted"></i><span class="flex-1">Tasks</span><span class="text-[10px] font-bold bg-warn/15 text-warn rounded-full px-1.5 leading-snug">7</span></a></li>
+          <li><a href="sequences.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><i class="fa-solid fa-diagram-project w-4 text-[11px] text-text-muted"></i><span class="flex-1">Sequences</span><span class="w-1.5 h-1.5 rounded-full bg-success"></span></a></li>
+          <li><a href="templates.html" class="channel-active flex items-center gap-2 px-2.5 py-1.5 rounded-md"><i class="fa-solid fa-layer-group w-4 text-[11px]"></i><span class="flex-1">Templates</span><span class="text-[10px] font-bold text-primary">36</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+      <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white shadow"></div>
+      <div class="flex-1 min-w-0"><div class="text-[12px] font-semibold truncate">Brandon</div></div>
+      <button class="w-6 h-6 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i class="fa-solid fa-gear text-[10px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- FILTER SIDEBAR -->
+  <aside class="filter-sidebar w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+    <div class="flex items-center justify-end mb-2 -mt-1">
+      <button class="fs-toggle" onclick="toggleFilters()" title="Collapse filters" aria-label="Collapse filters"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+    </div>
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2 px-2">
+        <span class="nav-section-h !p-0">Categories</span>
+        <button class="text-text-muted hover:text-text-main"><i class="fa-solid fa-plus text-[10px]"></i></button>
+      </div>
+      <ul class="space-y-px text-[13px]">
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-primary/10 text-primary font-semibold"><span class="flex items-center gap-2"><i class="fa-solid fa-layer-group w-3 text-[10px]"></i>All templates</span><span class="text-[10px]">36</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary"></span>Outreach — cold</span><span class="text-[10px] text-text-muted">12</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-success"></span>Replies & follow-ups</span><span class="text-[10px] text-text-muted">8</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-warn"></span>Submittals</span><span class="text-[10px] text-text-muted">5</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-primary"></span>Offers & closing</span><span class="text-[10px] text-text-muted">4</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-400"></span>Drips & nurture</span><span class="text-[10px] text-text-muted">5</span></a></li>
+        <li><a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary"><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-text-muted"></span>Internal & ops</span><span class="text-[10px] text-text-muted">2</span></a></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Channel</span></div>
+      <ul class="space-y-1 text-[12.5px] px-1">
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" checked class="rounded text-primary w-3 h-3"/><i class="fa-solid fa-envelope text-[10px] text-text-muted"></i><span>Email</span></label><span class="text-[10px] text-text-muted">28</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" checked class="rounded text-primary w-3 h-3"/><i class="fa-brands fa-linkedin text-[10px] text-text-muted"></i><span>LinkedIn</span></label><span class="text-[10px] text-text-muted">6</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><i class="fa-solid fa-message text-[10px] text-text-muted"></i><span>SMS</span></label><span class="text-[10px] text-text-muted">2</span></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Tone</span></div>
+      <div class="flex flex-wrap gap-1 px-1">
+        <span class="tag tag-primary cursor-pointer">Professional</span>
+        <span class="tag tag-muted cursor-pointer">Casual</span>
+        <span class="tag tag-success cursor-pointer">Enthusiastic</span>
+        <span class="tag tag-warn cursor-pointer">Direct</span>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Performance</span></div>
+      <ul class="space-y-1 text-[12.5px] px-1">
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span class="flex items-center gap-1"><i class="fa-solid fa-fire text-success text-[10px]"></i>Top 10%</span></label><span class="text-[10px] text-text-muted">5</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span class="flex items-center gap-1"><i class="fa-solid fa-arrow-trend-down text-warn text-[10px]"></i>Underperforming</span></label><span class="text-[10px] text-text-muted">3</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" class="rounded w-3 h-3"/><span>Unused 30+ days</span></label><span class="text-[10px] text-text-muted">7</span></li>
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <div class="mb-2 px-2"><span class="nav-section-h !p-0">Owner</span></div>
+      <ul class="space-y-1 text-[12.5px] px-1">
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" checked class="rounded w-3 h-3"/><span>Me</span></label><span class="text-[10px] text-text-muted">22</span></li>
+        <li class="flex items-center justify-between"><label class="flex items-center gap-2 text-text-secondary"><input type="checkbox" checked class="rounded w-3 h-3"/><span>Workspace</span></label><span class="text-[10px] text-text-muted">14</span></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 min-w-0 flex flex-col overflow-y-auto">
+
+    <header class="border-b border-gray-100 px-6 h-14 glass flex items-center gap-4 sticky top-0 z-30">
+      <div>
+        <div class="font-semibold text-[14.5px] flex items-center gap-2"><i class="fa-solid fa-layer-group text-primary text-xs"></i>Templates</div>
+        <div class="text-[10.5px] text-text-muted">36 templates · 4,212 sends this month · 22.3% avg reply</div>
+      </div>
+      <div class="status-pill ml-3">
+        <span class="ping-wrap"></span>
+        <i class="fa-solid fa-wand-magic-sparkles text-primary text-[10px]"></i>
+        <span>REX A/B testing 2 variants</span>
+      </div>
+      <div class="ml-auto flex items-center gap-2.5">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[10px]"></i>
+          <input class="bg-surface border border-gray-200 rounded-lg pl-7 pr-2.5 py-1.5 text-[12px] w-[200px]" placeholder="Search templates…"/>
+        </div>
+        <button class="btn-outline"><i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>Generate with REX</button>
+        <button class="btn-solid"><i class="fa-solid fa-plus text-[10px]"></i>New template</button>
+        <button class="trust-badge"><i class="fa-solid fa-rocket text-[10px]"></i>Autopilot<i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i></button>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white"></div>
+      </div>
+    </header>
+
+    <!-- REX context strip -->
+    <div class="px-6 pt-4 pb-2 float-in d-1">
+      <div class="rex-context p-3 flex items-center gap-3">
+        <div class="w-7 h-7 rounded-md grad-icon flex items-center justify-center text-white shrink-0 shadow-sm"><i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i></div>
+        <div class="flex-1 text-[13px]">
+          <span class="font-semibold">REX:</span>
+          <span class="text-text-secondary"> Your <b>Cold Eng v3</b> template hit <b class="text-success">28% reply</b> last week — top 3% of your library. I made 2 variants for the ML Engineers ICP.</span>
+          <span class="text-primary font-semibold ml-1.5">Review variants?</span>
+        </div>
+        <button class="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i class="fa-solid fa-eye text-[9px]"></i>See variants</button>
+        <button class="ghost-btn !text-[11.5px]">Dismiss</button>
+      </div>
+    </div>
+
+    <!-- Featured carousel -->
+    <div class="px-6 pt-3 pb-2 float-in d-2">
+      <div class="flex items-center justify-between mb-2.5">
+        <h3 class="text-[14px] font-bold tracking-tight flex items-center gap-2"><i class="fa-solid fa-fire text-success text-[12px]"></i>Top performers this week</h3>
+        <a href="#" class="text-[11.5px] text-primary font-semibold hover:underline">View all →</a>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3.5">
+
+        <div class="featured-card p-4 cursor-pointer hover:translate-y-[-2px] transition">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-success/15 text-success flex items-center justify-center"><i class="fa-solid fa-trophy text-[10px]"></i></span>
+            <span class="text-[10.5px] font-bold uppercase tracking-wider text-success">Best in cohort</span>
+            <span class="ml-auto text-[10.5px] text-text-muted">Cold · Email</span>
+          </div>
+          <div class="text-[14px] font-bold mb-1">Cold Eng v3 — distributed hook</div>
+          <div class="text-[11.5px] text-text-secondary mb-3 leading-snug">Hey <span class="merge-var">{{first_name}}</span> — saw <span class="merge-var">{{company}}</span> just shipped your fan-out service. Curious how the team's thinking about replication...</div>
+          <div class="flex items-center gap-3 text-[11px]">
+            <div><span class="text-text-muted">Reply</span> <b class="text-success">28.3%</b></div>
+            <div><span class="text-text-muted">Open</span> <b>71%</b></div>
+            <div><span class="text-text-muted">Used</span> <b>247×</b></div>
+            <div class="ml-auto flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-1 ring-white"></div><div class="w-4 h-4 rounded-full grad-rex ring-1 ring-white"></div></div>
+          </div>
+        </div>
+
+        <div class="featured-card p-4 cursor-pointer hover:translate-y-[-2px] transition" style="background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(239,68,68,.04) 60%,transparent);border-color:rgba(245,158,11,.2);">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-warn/15 text-warn flex items-center justify-center"><i class="fa-solid fa-arrow-trend-up text-[10px]"></i></span>
+            <span class="text-[10.5px] font-bold uppercase tracking-wider text-warn">Rising</span>
+            <span class="ml-auto text-[10.5px] text-text-muted">Reply · Email</span>
+          </div>
+          <div class="text-[14px] font-bold mb-1">Bump — short & curious</div>
+          <div class="text-[11.5px] text-text-secondary mb-3 leading-snug">re: <span class="merge-var">{{first_name}}</span>, just bumping this — worth 15 min next week? Happy to come prepared with anything specific you're solving for...</div>
+          <div class="flex items-center gap-3 text-[11px]">
+            <div><span class="text-text-muted">Reply</span> <b class="text-success">19.8%</b></div>
+            <div><span class="text-text-muted">Open</span> <b>64%</b></div>
+            <div><span class="text-text-muted">Used</span> <b>184×</b></div>
+            <div class="ml-auto flex -space-x-1.5"><div class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 ring-1 ring-white"></div></div>
+          </div>
+        </div>
+
+        <div class="featured-card p-4 cursor-pointer hover:translate-y-[-2px] transition" style="background:linear-gradient(135deg,rgba(107,70,193,.1),rgba(12,92,244,.05) 60%,transparent);">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md grad-rex text-white flex items-center justify-center"><i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i></span>
+            <span class="text-[10.5px] font-bold uppercase tracking-wider grad-text">REX-generated</span>
+            <span class="ml-auto text-[10.5px] text-text-muted">Cold · Email</span>
+          </div>
+          <div class="text-[14px] font-bold mb-1">ML Eng v1 — paper hook</div>
+          <div class="text-[11.5px] text-text-secondary mb-3 leading-snug"><span class="merge-var">{{first_name}}</span>, your work on <span class="merge-var">{{recent_paper}}</span> caught my eye. Wondering if you're open to chatting about a Staff role at a shop building production-grade...</div>
+          <div class="flex items-center gap-3 text-[11px]">
+            <div><span class="text-text-muted">Reply</span> <b class="text-text-muted">— pending</b></div>
+            <div><span class="text-text-muted">Used</span> <b>0×</b></div>
+            <div class="ml-auto"><button class="btn-solid !text-[10.5px] !py-0.5 !px-2"><i class="fa-solid fa-flask text-[9px]"></i>Run A/B</button></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- All templates grid -->
+    <div class="px-6 pt-4 pb-6 float-in d-3">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[15px] font-bold tracking-tight">All templates <span class="text-[12px] text-text-muted font-normal">36</span></h3>
+        <div class="flex items-center gap-1.5">
+          <span class="filter-chip active">All <span class="text-[10px] opacity-70">36</span></span>
+          <span class="filter-chip">My templates <span class="text-[10px] opacity-70">22</span></span>
+          <span class="filter-chip">Workspace <span class="text-[10px] opacity-70">14</span></span>
+          <span class="filter-chip">Recently used</span>
+          <button class="btn-outline ml-1"><i class="fa-solid fa-arrow-up-wide-short text-[10px]"></i>Sort: Reply rate</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+
+        <!-- Card 1 -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-secondary mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Cold Eng v3 — distributed hook</div>
+              <div class="text-[10.5px] text-text-muted">Cold · Email · last used 4m ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="url(#g1)" stroke-width="3" fill="none" stroke-dasharray="94 100" stroke-dashoffset="0" stroke-linecap="round" pathLength="100"/><defs><linearGradient id="g1" x1="0" y1="0" x2="38" y2="38"><stop offset="0%" stop-color="#10B981"/><stop offset="100%" stop-color="#0C5CF4"/></linearGradient></defs></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">94</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate"><span class="merge-var">{{first_name}}</span>, building distributed at <span class="merge-var">{{company}}</span>?</div>
+            <div class="tpl-preview">Hey <span class="merge-var">{{first_name}}</span> — saw <span class="merge-var">{{company}}</span> just shipped your fan-out service. Curious how the team's thinking about replication and what's next on the roadmap. Worth a 15-min chat?</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-success">28% reply</span>
+            <span class="tag tag-muted">247×</span>
+            <span class="tag tag-primary">Top 3%</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-success mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Bump — short & curious</div>
+              <div class="text-[10.5px] text-text-muted">Reply · Email · last used 22m ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="#10B981" stroke-width="3" fill="none" stroke-dasharray="79 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">79</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">re: <span class="merge-var">{{first_name}}</span>, building distributed at <span class="merge-var">{{company}}</span>?</div>
+            <div class="tpl-preview">re: <span class="merge-var">{{first_name}}</span> — just bumping this in case you missed it. Worth 15 min next week? I can come prepared with anything specific you're solving for at <span class="merge-var">{{company}}</span> right now.</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-success">19.8% reply</span>
+            <span class="tag tag-muted">184×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-warn mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Submittal — first-look intro</div>
+              <div class="text-[10.5px] text-text-muted">Submittal · Email · used yesterday</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="#F59E0B" stroke-width="3" fill="none" stroke-dasharray="68 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">68</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">Submitting <span class="merge-var">{{candidate_name}}</span> — Sr Backend</div>
+            <div class="tpl-preview">Hi <span class="merge-var">{{client_name}}</span>, sending over <span class="merge-var">{{candidate_name}}</span> for your Sr Backend role. <span class="merge-var">{{years}}</span> years, currently at <span class="merge-var">{{current_company}}</span>, asking <span class="merge-var">{{comp_target}}</span>...</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-warn">12% reply</span>
+            <span class="tag tag-muted">42×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-primary mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Offer letter — Eng L5</div>
+              <div class="text-[10.5px] text-text-muted">Offer · Email · used 3d ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="url(#g1)" stroke-width="3" fill="none" stroke-dasharray="88 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">88</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate"><span class="merge-var">{{first_name}}</span> — your offer from <span class="merge-var">{{client_name}}</span></div>
+            <div class="tpl-preview">Hi <span class="merge-var">{{first_name}}</span>, exciting news — <span class="merge-var">{{client_name}}</span> is ready to move forward. Base <span class="merge-var">{{base}}</span>, equity <span class="merge-var">{{equity}}</span>, sign-on <span class="merge-var">{{sign_on}}</span>...</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-success">82% accept</span>
+            <span class="tag tag-muted">17×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-rose-400 mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Post-rejection — keep warm</div>
+              <div class="text-[10.5px] text-text-muted">Drip · Email · used 2w ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="#0C5CF4" stroke-width="3" fill="none" stroke-dasharray="71 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">71</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">Worth staying in touch, <span class="merge-var">{{first_name}}</span>?</div>
+            <div class="tpl-preview">Hey <span class="merge-var">{{first_name}}</span>, the timing wasn't right for the <span class="merge-var">{{role}}</span> role at <span class="merge-var">{{client_name}}</span> — but you were in the top tier. Mind if I keep an eye out for the next great fit?</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-secondary">14.2% reply</span>
+            <span class="tag tag-muted">93×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 6 LinkedIn -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-secondary mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate flex items-center gap-1.5"><i class="fa-brands fa-linkedin text-secondary text-[12px]"></i>LinkedIn intro — short</div>
+              <div class="text-[10.5px] text-text-muted">Cold · LinkedIn · used 1h ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="#0C5CF4" stroke-width="3" fill="none" stroke-dasharray="62 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">62</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">Connection request</div>
+            <div class="tpl-preview">Hey <span class="merge-var">{{first_name}}</span>, recruiting for a <span class="merge-var">{{role_title}}</span> at <span class="merge-var">{{client_name}}</span> and your background looks like a strong match. Open to a quick chat?</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-secondary">11% reply</span>
+            <span class="tag tag-muted">218×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 7 underperforming -->
+        <div class="tpl-card" style="background:linear-gradient(180deg,rgba(245,158,11,.04),white 30%);">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-warn mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate flex items-center gap-1.5">Sales kickoff intro <i class="fa-solid fa-arrow-trend-down text-warn text-[10px]"></i></div>
+              <div class="text-[10.5px] text-text-muted">Cold · Email · last used 6d ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="#EF4444" stroke-width="3" fill="none" stroke-dasharray="34 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">34</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">Quick question, <span class="merge-var">{{first_name}}</span></div>
+            <div class="tpl-preview">Hi <span class="merge-var">{{first_name}}</span>, hope you're doing well! I came across your profile and I think we'd be a great fit. Would love to set up a quick call to discuss exciting opportunities at <span class="merge-var">{{company}}</span>...</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-warn">3.4% reply</span>
+            <span class="tag tag-muted">12×</span>
+            <span class="tag tag-primary"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i>Rewrite?</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- Card 8 referral ask -->
+        <div class="tpl-card">
+          <div class="px-4 pt-4 pb-2 flex items-start gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-success mt-1.5"></span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[13.5px] truncate">Referral ask — Q2</div>
+              <div class="text-[10.5px] text-text-muted">Reply · Email · used 4d ago</div>
+            </div>
+            <div class="perf-ring relative">
+              <svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" stroke="#F1F1F4" stroke-width="3" fill="none"/><circle cx="19" cy="19" r="15" stroke="url(#g1)" stroke-width="3" fill="none" stroke-dasharray="83 100" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold">83</div>
+            </div>
+          </div>
+          <div class="px-4 pb-2 text-[11.5px] text-text-secondary leading-snug">
+            <div class="font-semibold text-text-main mb-1 truncate">One quick favor, <span class="merge-var">{{first_name}}</span> 🙏</div>
+            <div class="tpl-preview">Hey <span class="merge-var">{{first_name}}</span> — if any of your old <span class="merge-var">{{prev_company}}</span> teammates come to mind for a senior backend role, I'd love an intro. Even a quick "you should chat" works.</div>
+          </div>
+          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 text-[11px]">
+            <span class="tag tag-success">31% reply</span>
+            <span class="tag tag-muted">46×</span>
+            <button class="ghost-btn !text-[11px] ml-auto"><i class="fa-solid fa-ellipsis text-[10px]"></i></button>
+          </div>
+        </div>
+
+        <!-- New / generate -->
+        <div class="tpl-card flex items-center justify-center text-center" style="border:2px dashed #E5E7EB;background:rgba(107,70,193,.02);min-height:230px;">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-primary mx-auto mb-2.5 shadow-sm"><i class="fa-solid fa-wand-magic-sparkles text-[15px]"></i></div>
+            <div class="text-[13px] font-semibold mb-0.5">Generate with REX</div>
+            <div class="text-[10.5px] text-text-muted mb-2">Describe your audience + goal</div>
+            <button class="btn-solid !text-[11px] !py-1 !px-2.5"><i class="fa-solid fa-bolt text-[9px]"></i>Start prompt</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<button class="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<button class="fs-reopen" onclick="toggleFilters()" title="Show filters" aria-label="Show filters"><i class="fa-solid fa-chevron-right text-[11px]"></i></button>
+<script>function toggleFilters(){document.body.classList.toggle('fs-collapsed');}</script>
+
+</body>
+</html>

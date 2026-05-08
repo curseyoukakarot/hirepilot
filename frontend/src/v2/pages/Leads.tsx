@@ -95,6 +95,7 @@ export default function LeadsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [drawerTab, setDrawerTab] = useState<'activity' | 'messages' | 'notes' | 'files'>('activity');
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const PAGE_SIZE = 25;
   const selected: Lead | undefined = useMemo(
     () => leads.find((l) => l.id === selectedId) || leads[0],
@@ -124,7 +125,17 @@ export default function LeadsPage() {
       <WorkspaceSidebar />
 
       {/* Filter sidebar */}
-      <aside className="w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+      <aside className={`filter-sidebar w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3${filtersCollapsed ? ' fs-collapsed' : ''}`}>
+        <div className="flex items-center justify-end mb-2 -mt-1">
+          <button
+            onClick={() => setFiltersCollapsed(true)}
+            className="fs-toggle"
+            title="Collapse filters"
+            aria-label="Collapse filters"
+          >
+            <i className="fa-solid fa-chevron-left text-[10px]" />
+          </button>
+        </div>
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2 px-2">
             <span className="nav-section-h !p-0">Saved views</span>
@@ -666,6 +677,17 @@ export default function LeadsPage() {
       <button className="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX">
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
+
+      {filtersCollapsed && (
+        <button
+          onClick={() => setFiltersCollapsed(false)}
+          className="fs-reopen-btn"
+          title="Show filters"
+          aria-label="Show filters"
+        >
+          <i className="fa-solid fa-chevron-right text-[11px]" />
+        </button>
+      )}
     </div>
   );
 }
