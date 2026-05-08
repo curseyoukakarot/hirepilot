@@ -14,13 +14,59 @@ import { guardActions } from '../guardrails';
 import { llmJSON, llmText } from '../llm';
 
 /**
- * Calendar Sync (Google) — proposes which calendar events relate to a
- * candidate flow + flags conflicts. Held action.
+ * Calendar Sync (Google) — when the user has connected Google Calendar,
+ * pulls live freebusy / upcoming events. When not connected, holds the
+ * action with a "connect under Settings → Integrations" next-step.
  *
  * Input: { intent: 'check_availability' | 'list_upcoming', window?: { from, to }, candidate_email? }
  */
 export const calendarSyncGoogle: SkillHandler = async (input, ctx): Promise<SkillResult> => {
   const { intent = 'list_upcoming', window, candidate_email } = input || {};
+
+  // Try the live path first (calendar OAuth is connected with the right scope).
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getCalendarClient } = require('../../../routes/v2/calendar');
+    const client = await getCalendarClient(ctx.userId);
+    if (client) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { google } = require('googleapis');
+      const cal = google.calendar({ version: 'v3', auth: client });
+      const start = window?.from || new Date().toISOString();
+      const end = window?.to || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      if (intent === 'check_availability') {
+        const fb = await cal.freebusy.query({
+          requestBody: { timeMin: start, timeMax: end, items: [{ id: 'primary' }] },
+        });
+        return { ok: true, data: { busy: fb.data?.calendars?.primary?.busy || [], window: { start, end } } };
+      }
+      // list_upcoming
+      const events = await cal.events.list({
+        calendarId: 'primary',
+        timeMin: start,
+        timeMax: end,
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 25,
+      });
+      return {
+        ok: true,
+        data: {
+          events: (events.data?.items || []).map((e: any) => ({
+            id: e.id,
+            summary: e.summary,
+            start: e.start?.dateTime || e.start?.date,
+            end: e.end?.dateTime || e.end?.date,
+            attendees: (e.attendees || []).map((a: any) => a.email),
+          })),
+        },
+      };
+    }
+  } catch (e: any) {
+    console.warn('[calendar_sync_google] live read failed:', e?.message || e);
+  }
+
+  // Fallback: not connected → hold with the connect prompt.
   const guard = await guardActions(ctx, {
     decisionType: 'custom',
     payload: {
