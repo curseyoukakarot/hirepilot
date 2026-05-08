@@ -19,7 +19,8 @@ import WorkspaceTopbar from '../components/WorkspaceTopbar';
 import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
 import V2Dropdown from '../components/V2Dropdown';
 import { useAgents } from '../hooks/useAgents';
-import { toastSuccess } from '../components/V2Toast';
+import { toastSuccess, toastInfo } from '../components/V2Toast';
+import { apiPost } from '../../lib/api';
 import { openBillingPortal } from '../hooks/useBilling';
 import type { AgentRole } from '../types';
 
@@ -240,12 +241,27 @@ export default function HireCatalogPage() {
     return sorted;
   })();
 
-  const submitSuggestion = () => {
-    if (!suggestText.trim()) return;
-    // No backend yet — close + thank the user.
-    setSuggestOpen(false);
-    setSuggestText('');
-    toastSuccess('Suggestion received — we read every one.');
+  const [suggestSubmitting, setSuggestSubmitting] = useState(false);
+  const submitSuggestion = async () => {
+    if (!suggestText.trim() || suggestSubmitting) return;
+    setSuggestSubmitting(true);
+    try {
+      await apiPost('/api/v2/specialist-suggestions', {
+        suggestion: suggestText.trim(),
+        context: { source: 'hire_catalog_modal' },
+      });
+      setSuggestOpen(false);
+      setSuggestText('');
+      toastSuccess('Suggestion received — we read every one.');
+    } catch (e: any) {
+      // Fail-soft: still close + thank, but log so we don't lose suggestions.
+      console.warn('[hire/suggest] failed:', e?.message || e);
+      setSuggestOpen(false);
+      setSuggestText('');
+      toastInfo('Suggestion noted (couldn\'t reach the server, please try again later).');
+    } finally {
+      setSuggestSubmitting(false);
+    }
   };
 
   return (
@@ -376,7 +392,13 @@ export default function HireCatalogPage() {
         footer={
           <>
             <ModalCancel onClick={() => setSuggestOpen(false)} />
-            <ModalPrimary onClick={submitSuggestion} label="Submit" icon="paper-plane" disabled={!suggestText.trim()} />
+            <ModalPrimary
+              onClick={submitSuggestion}
+              label={suggestSubmitting ? 'Sending…' : 'Submit'}
+              icon="paper-plane"
+              loading={suggestSubmitting}
+              disabled={!suggestText.trim() || suggestSubmitting}
+            />
           </>
         }
       >

@@ -14,6 +14,7 @@ import inboxRouter from './inbox';
 import calendarRouter from './calendar';
 import billingRouter from './billing';
 import uiPreferenceRouter from './uiPreference';
+import specialistSuggestionsRouter from './specialistSuggestions';
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/inbox', inboxRouter);
 router.use('/calendar', calendarRouter);
 router.use('/billing', billingRouter);
 router.use('/ui-preference', uiPreferenceRouter);
+router.use('/specialist-suggestions', specialistSuggestionsRouter);
 
 export default router;
