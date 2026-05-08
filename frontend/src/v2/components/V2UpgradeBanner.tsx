@@ -21,6 +21,9 @@ export default function V2UpgradeBanner() {
   if (uiVersion === 'v2') return null;
   if (isDismissed) return null;
   try { if (typeof window !== 'undefined' && window.location.pathname.startsWith('/v2')) return null; } catch {}
+  // Fallback dismissal flag (set when the migration hasn't been applied
+  // yet and the user clicks "Maybe later") — respect it so they aren't nagged.
+  try { if (typeof window !== 'undefined' && window.localStorage.getItem('hp_v2_banner_dismissed') === '1') return null; } catch {}
 
   return (
     <div

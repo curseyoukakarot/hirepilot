@@ -4,6 +4,13 @@
  *
  * GET   /api/v2/ui-preference                      → current state
  * PATCH /api/v2/ui-preference  { ui_version, dismiss_banner? }
+ *
+ * Resilient when migration 20260507000003_v2_ui_preference.sql hasn't been
+ * applied yet:
+ *   - GET returns sensible defaults (legacy, not dismissed) instead of 500.
+ *   - PATCH returns a 503 with `error: 'apply_migration'` + a clear
+ *     fallback_url so the frontend can show the user a useful message
+ *     and still let them navigate to v2 manually.
  */
 
 import express, { Request, Response } from 'express';
@@ -15,6 +22,14 @@ router.use(requireAuth as any);
 
 const VALID_VERSIONS = new Set(['legacy', 'v2']);
 
+/** True when Supabase complains it can't find the column in the schema cache. */
+function isSchemaCacheError(err: any): boolean {
+  const msg = String(err?.message || err || '').toLowerCase();
+  if (msg.includes('schema cache')) return true;
+  if (msg.includes('column') && msg.includes('does not exist')) return true;
+  return false;
+}
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any)?.user?.id;
@@ -24,7 +39,18 @@ router.get('/', async (req: Request, res: Response) => {
       .select('ui_version, v2_banner_dismissed_at')
       .eq('id', userId)
       .maybeSingle();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        // Migration hasn't run yet — return defaults so the UI keeps working.
+        console.warn('[ui-preference] columns missing — apply migration 20260507000003_v2_ui_preference.sql');
+        return res.json({
+          ui_version: 'legacy',
+          v2_banner_dismissed_at: null,
+          _migration_pending: true,
+        });
+      }
+      return res.status(500).json({ error: error.message });
+    }
     return res.json({
       ui_version: (data as any)?.ui_version || 'legacy',
       v2_banner_dismissed_at: (data as any)?.v2_banner_dismissed_at || null,
@@ -56,7 +82,17 @@ router.patch('/', async (req: Request, res: Response) => {
       .eq('id', userId)
       .select('ui_version, v2_banner_dismissed_at')
       .maybeSingle();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      if (isSchemaCacheError(error)) {
+        return res.status(503).json({
+          error: 'apply_migration',
+          migration: '20260507000003_v2_ui_preference.sql',
+          message: "The v2 UI preference column hasn't been added to Supabase yet. Apply migration 20260507000003 (or have an admin do it). In the meantime you can navigate to /v2/today directly — your data is already there.",
+          fallback_url: '/v2/today',
+        });
+      }
+      return res.status(500).json({ error: error.message });
+    }
     return res.json({
       ui_version: (data as any)?.ui_version || 'legacy',
       v2_banner_dismissed_at: (data as any)?.v2_banner_dismissed_at || null,
