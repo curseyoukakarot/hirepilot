@@ -13,6 +13,7 @@ import activityRouter from './activity';
 import inboxRouter from './inbox';
 import calendarRouter from './calendar';
 import billingRouter from './billing';
+import uiPreferenceRouter from './uiPreference';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use('/activity', activityRouter);
 router.use('/inbox', inboxRouter);
 router.use('/calendar', calendarRouter);
 router.use('/billing', billingRouter);
+router.use('/ui-preference', uiPreferenceRouter);
 
 export default router;

@@ -17,6 +17,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useMyWorkspaces } from '../hooks/useWorkspaces';
+import { useUIVersion } from '../hooks/useUIVersion';
 
 interface SidebarCounts {
   goals?: number;
@@ -145,11 +146,12 @@ export default function WorkspaceSidebar({
               </NavLink>
             </li>
             <li>
-              <NavLink to="/v2/campaigns" className={navClass}>
+              {/* Campaigns aren't in v2 yet — link to the legacy surface. */}
+              <a href="/campaigns" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
                 <i className="fa-solid fa-paper-plane w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Campaigns</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              </NavLink>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" title="opens in classic UI" />
+              </a>
             </li>
             <li>
               <NavLink to="/v2/inbox" className={navClass}>
@@ -168,41 +170,69 @@ export default function WorkspaceSidebar({
               </NavLink>
             </li>
             <li>
-              <NavLink to="/v2/reports" className={navClass}>
+              <a href="/messaging-reports" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
                 <i className="fa-solid fa-chart-line w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Reports</span>
-              </NavLink>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" title="opens in classic UI" />
+              </a>
             </li>
           </ul>
         </div>
 
-        {/* Tools */}
+        {/* Tools — link to legacy surfaces until v2 versions ship */}
         <div>
           <div className="mb-1.5">
             <span className="nav-section-h">Tools</span>
           </div>
           <ul className="space-y-px text-[13px]">
             <li>
-              <NavLink to="/v2/tables" className={navClass}>
+              <a href="/custom-tables" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
                 <i className="fa-solid fa-table w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Tables</span>
-              </NavLink>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
             </li>
             <li>
-              <NavLink to="/v2/forms" className={navClass}>
+              <a href="/custom-forms" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
                 <i className="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Forms</span>
-              </NavLink>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
             </li>
             <li>
-              <NavLink to="/v2/tasks" className={navClass}>
+              <a href="/tasks" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
                 <i className="fa-solid fa-list-check w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Tasks</span>
-              </NavLink>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
+            </li>
+            <li>
+              <a href="/sequences" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+                <i className="fa-solid fa-list-ol w-4 text-[11px] text-text-muted" />
+                <span className="flex-1">Sequences</span>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
+            </li>
+            <li>
+              <a href="/templates" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+                <i className="fa-solid fa-file-lines w-4 text-[11px] text-text-muted" />
+                <span className="flex-1">Templates</span>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
+            </li>
+            <li>
+              <a href="/settings" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+                <i className="fa-solid fa-gear w-4 text-[11px] text-text-muted" />
+                <span className="flex-1">All Settings</span>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
+              </a>
             </li>
           </ul>
         </div>
       </div>
+
+      {/* Switch-to-classic escape hatch */}
+      <SwitchToClassicLink />
 
       {/* Footer profile */}
       <div className="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
@@ -215,6 +245,28 @@ export default function WorkspaceSidebar({
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Lets users flip back to the classic UI mid-session if v2 doesn't have
+ * the surface they need. Updates users.ui_version and full-reloads to
+ * /dashboard so the legacy app boots fresh.
+ */
+function SwitchToClassicLink() {
+  const { switchTo, isLoading } = useUIVersion();
+  return (
+    <div className="border-t border-gray-100 px-3 py-2">
+      <button
+        onClick={() => switchTo('legacy')}
+        disabled={isLoading}
+        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] text-text-muted hover:bg-surface hover:text-text-secondary disabled:opacity-50"
+        title="Switch back to the classic HirePilot UI"
+      >
+        <i className="fa-solid fa-arrow-left text-[10px]" />
+        <span className="flex-1 text-left">Switch to classic UI</span>
+      </button>
+    </div>
   );
 }
 
