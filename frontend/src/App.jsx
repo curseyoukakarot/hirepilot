@@ -104,6 +104,9 @@ const V2Pipelines = lazy(() => import('./v2/pages/Pipelines'));
 const V2Deals = lazy(() => import('./v2/pages/Deals'));
 const V2Inbox = lazy(() => import('./v2/pages/Inbox'));
 const V2TeamSettings = lazy(() => import('./v2/pages/TeamSettings'));
+const V2AgentDetail = lazy(() => import('./v2/pages/AgentDetail'));
+const V2Campaigns = lazy(() => import('./v2/pages/Campaigns'));
+const V2Reports = lazy(() => import('./v2/pages/Reports'));
 
 // Tiny loading placeholder that uses our v2 visual style
 function V2Loading() {
@@ -937,6 +940,9 @@ function InnerApp() {
                   <Route path="/v2/decisions"    element={<Suspense fallback={<V2Loading />}><V2Decisions /></Suspense>} />
                   <Route path="/v2/hire"         element={<Suspense fallback={<V2Loading />}><V2HireCatalog /></Suspense>} />
                   <Route path="/v2/agents/sourcer" element={<Suspense fallback={<V2Loading />}><V2AgentSourcer /></Suspense>} />
+                  <Route path="/v2/agents/:role" element={<Suspense fallback={<V2Loading />}><V2AgentDetail /></Suspense>} />
+                  <Route path="/v2/campaigns"    element={<Suspense fallback={<V2Loading />}><V2Campaigns /></Suspense>} />
+                  <Route path="/v2/reports"      element={<Suspense fallback={<V2Loading />}><V2Reports /></Suspense>} />
                   <Route path="/v2/leads"        element={<Suspense fallback={<V2Loading />}><V2Leads /></Suspense>} />
                   <Route path="/v2/pipelines"    element={<Suspense fallback={<V2Loading />}><V2Pipelines /></Suspense>} />
                   <Route path="/v2/deals"        element={<Suspense fallback={<V2Loading />}><V2Deals /></Suspense>} />

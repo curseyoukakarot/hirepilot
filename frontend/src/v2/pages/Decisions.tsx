@@ -151,7 +151,7 @@ export default function DecisionsPage() {
                   <p className="text-[13px] font-semibold leading-snug">{row.text}</p>
                   {row.meta && <p className="text-[11px] text-text-muted mt-0.5">{row.meta}</p>}
                 </div>
-                <button className="ghost-btn p-1.5"><i className="fa-solid fa-arrow-right text-[11px]" /></button>
+                <button onClick={() => navigate('/v2/today')} title="Open in audit log" className="ghost-btn p-1.5"><i className="fa-solid fa-arrow-right text-[11px]" /></button>
               </div>
             ))}
           </div>
