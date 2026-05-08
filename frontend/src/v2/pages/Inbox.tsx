@@ -16,6 +16,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useInbox, type InboxThread } from '../hooks/useInbox';
+import { useV2Theme } from '../hooks/useV2Theme';
 import '../../styles/v2.css';
 
 const INBOX_AVATARS = [
@@ -81,10 +82,7 @@ export default function InboxPage() {
     () => threads.find((t) => t.id === selectedId) || threads[0],
     [threads, selectedId],
   );
-  useEffect(() => {
-    document.body.classList.add('v2-app', 'autopilot');
-    return () => { document.body.classList.remove('v2-app', 'autopilot'); };
-  }, []);
+  useV2Theme();
 
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">

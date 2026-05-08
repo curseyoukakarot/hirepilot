@@ -13,6 +13,7 @@
 import React, { useEffect, useMemo } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useDeals, type Deal } from '../hooks/useDeals';
+import { useV2Theme } from '../hooks/useV2Theme';
 import '../../styles/v2.css';
 
 const DEAL_STAGE_ORDER = ['new', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
@@ -149,10 +150,7 @@ export default function DealsPage() {
       total: grouped[k].reduce((sum: number, d: Deal) => sum + (Number(d.value) || 0), 0),
     }));
   }, [deals, hasReal]);
-  useEffect(() => {
-    document.body.classList.add('v2-app', 'autopilot');
-    return () => { document.body.classList.remove('v2-app', 'autopilot'); };
-  }, []);
+  useV2Theme();
 
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">

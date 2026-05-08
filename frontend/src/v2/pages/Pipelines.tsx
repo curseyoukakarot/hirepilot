@@ -16,6 +16,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useJobs, useJobPipeline, type Job, type PipelineCandidate } from '../hooks/usePipelines';
+import { useV2Theme } from '../hooks/useV2Theme';
 import '../../styles/v2.css';
 
 interface JobReq {
@@ -68,10 +69,7 @@ const cardStyle = (flag?: string): React.CSSProperties => {
 };
 
 export default function PipelinesPage() {
-  useEffect(() => {
-    document.body.classList.add('v2-app', 'autopilot');
-    return () => { document.body.classList.remove('v2-app', 'autopilot'); };
-  }, []);
+  useV2Theme();
 
   const { jobs } = useJobs();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
