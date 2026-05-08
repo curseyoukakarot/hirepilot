@@ -107,6 +107,11 @@ const V2TeamSettings = lazy(() => import('./v2/pages/TeamSettings'));
 const V2AgentDetail = lazy(() => import('./v2/pages/AgentDetail'));
 const V2Campaigns = lazy(() => import('./v2/pages/Campaigns'));
 const V2Reports = lazy(() => import('./v2/pages/Reports'));
+const V2Tables = lazy(() => import('./v2/pages/Tables'));
+const V2Forms = lazy(() => import('./v2/pages/Forms'));
+const V2Tasks = lazy(() => import('./v2/pages/Tasks'));
+const V2Sequences = lazy(() => import('./v2/pages/Sequences'));
+const V2Templates = lazy(() => import('./v2/pages/Templates'));
 
 // Tiny loading placeholder that uses our v2 visual style
 function V2Loading() {
@@ -943,6 +948,11 @@ function InnerApp() {
                   <Route path="/v2/agents/:role" element={<Suspense fallback={<V2Loading />}><V2AgentDetail /></Suspense>} />
                   <Route path="/v2/campaigns"    element={<Suspense fallback={<V2Loading />}><V2Campaigns /></Suspense>} />
                   <Route path="/v2/reports"      element={<Suspense fallback={<V2Loading />}><V2Reports /></Suspense>} />
+                  <Route path="/v2/tables"       element={<Suspense fallback={<V2Loading />}><V2Tables /></Suspense>} />
+                  <Route path="/v2/forms"        element={<Suspense fallback={<V2Loading />}><V2Forms /></Suspense>} />
+                  <Route path="/v2/tasks"        element={<Suspense fallback={<V2Loading />}><V2Tasks /></Suspense>} />
+                  <Route path="/v2/sequences"    element={<Suspense fallback={<V2Loading />}><V2Sequences /></Suspense>} />
+                  <Route path="/v2/templates"    element={<Suspense fallback={<V2Loading />}><V2Templates /></Suspense>} />
                   <Route path="/v2/leads"        element={<Suspense fallback={<V2Loading />}><V2Leads /></Suspense>} />
                   <Route path="/v2/pipelines"    element={<Suspense fallback={<V2Loading />}><V2Pipelines /></Suspense>} />
                   <Route path="/v2/deals"        element={<Suspense fallback={<V2Loading />}><V2Deals /></Suspense>} />

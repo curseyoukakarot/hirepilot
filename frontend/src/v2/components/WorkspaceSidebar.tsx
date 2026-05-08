@@ -179,46 +179,41 @@ export default function WorkspaceSidebar({
           </ul>
         </div>
 
-        {/* Tools — link to legacy surfaces until v2 versions ship */}
+        {/* Tools — wired to v2 routes (sidebar stays in /v2/*) */}
         <div>
           <div className="mb-1.5">
             <span className="nav-section-h">Tools</span>
           </div>
           <ul className="space-y-px text-[13px]">
             <li>
-              <a href="/custom-tables" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/tables" className={navClass}>
                 <i className="fa-solid fa-table w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Tables</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
             <li>
-              <a href="/custom-forms" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/forms" className={navClass}>
                 <i className="fa-solid fa-clipboard-list w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Forms</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
             <li>
-              <a href="/tasks" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/tasks" className={navClass}>
                 <i className="fa-solid fa-list-check w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Tasks</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
             <li>
-              <a href="/sequences" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/sequences" className={navClass}>
                 <i className="fa-solid fa-list-ol w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Sequences</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
             <li>
-              <a href="/templates" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/templates" className={navClass}>
                 <i className="fa-solid fa-file-lines w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">Templates</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
             <li>
               <a href="/settings" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
