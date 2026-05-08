@@ -91,6 +91,7 @@ import PublicJobPage from './screens/PublicJobPage.jsx';
 // === v2 redesign — lazy-loaded so legacy bundle stays unchanged ===
 import V2UpgradeBanner from './v2/components/V2UpgradeBanner';
 import V2KillSwitchGuard from './v2/components/V2KillSwitchGuard';
+import { useV2BannerFlag } from './v2/hooks/useV2BannerFlag';
 import { V2ToastProvider } from './v2/components/V2Toast';
 const V2Today = lazy(() => import('./v2/pages/Today'));
 const V2Team = lazy(() => import('./v2/pages/Team'));
@@ -388,9 +389,18 @@ function HomepageRedirect() {
  * user has opted into v2. Renders Dashboard immediately for legacy users
  * (no flicker). Uses a fetch instead of the React Query hook so we don't
  * pull a hook dependency into the legacy bundle.
+ *
+ * Respects the global v2 banner kill-switch: when Super Admin disables
+ * v2 access, this redirect is suppressed so v2-opted users land on the
+ * legacy dashboard cleanly (no ping-pong with V2KillSwitchGuard).
  */
 function DashboardWithV2Redirect() {
+  const { enabled: v2Enabled, loaded: v2FlagLoaded } = useV2BannerFlag();
   useEffect(() => {
+    // Wait for the kill-switch flag to load before deciding.
+    if (!v2FlagLoaded) return;
+    // Kill-switch OFF → stay on legacy regardless of user preference.
+    if (!v2Enabled) return;
     let cancelled = false;
     (async () => {
       try {
@@ -402,7 +412,7 @@ function DashboardWithV2Redirect() {
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [v2FlagLoaded, v2Enabled]);
   return <Dashboard />;
 }
 
