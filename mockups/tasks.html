@@ -67,6 +67,15 @@
   .pri-low{background:#F4F4F8;color:#8E8EA0;}
   .filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:9999px;font-size:11.5px;font-weight:500;color:#4A4A68;background:#F4F4F8;border:1px solid #E5E7EB;cursor:pointer;}
   .filter-chip.active{background:rgba(107,70,193,.1);color:#6B46C1;border-color:rgba(107,70,193,.3);font-weight:600;}
+
+  /* Collapsible inner sidebar */
+  .filter-sidebar { transition: width .25s cubic-bezier(0.4,0,0.2,1), padding .25s cubic-bezier(0.4,0,0.2,1); }
+  .fs-toggle { width:22px; height:22px; border-radius:6px; background:white; border:1px solid #ECECEC; display:flex; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; transition:all .15s; box-shadow:0 1px 3px -1px rgba(15,15,26,.08); }
+  .fs-toggle:hover { color:#6B46C1; border-color:rgba(107,70,193,.3); }
+  body.fs-collapsed .filter-sidebar { width:0 !important; padding:0 !important; border-right-width:0 !important; overflow:hidden !important; }
+  .fs-reopen { display:none; position:fixed; top:70px; left:228px; width:26px; height:56px; border-radius:0 12px 12px 0; background:white; border:1px solid #ECECEC; border-left:0; align-items:center; justify-content:center; color:#8E8EA0; cursor:pointer; z-index:35; box-shadow:4px 6px 16px -6px rgba(15,15,26,.18); transition:all .15s; }
+  .fs-reopen:hover { color:#6B46C1; padding-left:3px; }
+  body.fs-collapsed .fs-reopen { display:flex; animation:slide-in-right .3s cubic-bezier(0.4,0,0.2,1); }
 </style>
 </head>
 <body class="autopilot">
@@ -124,7 +133,10 @@
   </aside>
 
   <!-- FILTER SIDEBAR -->
-  <aside class="w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+  <aside class="filter-sidebar w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+    <div class="flex items-center justify-end mb-2 -mt-1">
+      <button class="fs-toggle" onclick="toggleFilters()" title="Collapse filters" aria-label="Collapse filters"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+    </div>
     <div class="mb-4">
       <div class="flex items-center justify-between mb-2 px-2">
         <span class="nav-section-h !p-0">Saved views</span>
@@ -582,6 +594,9 @@
 </div>
 
 <button class="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
+<button class="fs-reopen" onclick="toggleFilters()" title="Show filters" aria-label="Show filters"><i class="fa-solid fa-chevron-right text-[11px]"></i></button>
+<script>function toggleFilters(){document.body.classList.toggle('fs-collapsed');}</script>
 
 </body>
 </html>
