@@ -17,6 +17,7 @@ import React, { useEffect, useState } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useWorkspaceSettings } from '../hooks/useWorkspaceSettings';
 import { useBillingSummary, openBillingPortal } from '../hooks/useBilling';
+import { useV2Theme } from '../hooks/useV2Theme';
 import type { TeamColor } from '../types';
 import '../../styles/v2.css';
 
@@ -39,10 +40,7 @@ const MEMBERS = [
 ];
 
 export default function TeamSettingsPage() {
-  useEffect(() => {
-    document.body.classList.add('v2-app', 'autopilot');
-    return () => { document.body.classList.remove('v2-app', 'autopilot'); };
-  }, []);
+  useV2Theme();
 
   const { settings, isLoading, update } = useWorkspaceSettings();
   const currentColor: TeamColor = settings?.team_color || 'indigo';

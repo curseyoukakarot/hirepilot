@@ -18,6 +18,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useLeads, leadDomain, type Lead } from '../hooks/useLeads';
+import { useV2Theme } from '../hooks/useV2Theme';
 import '../../styles/v2.css';
 
 /** Random gradient palette for lead avatars (deterministic by id). */
@@ -85,10 +86,7 @@ const LEADS: LeadRow[] = [
 ];
 
 export default function LeadsPage() {
-  useEffect(() => {
-    document.body.classList.add('v2-app', 'autopilot');
-    return () => { document.body.classList.remove('v2-app', 'autopilot'); };
-  }, []);
+  useV2Theme();
 
   const { leads, isLoading } = useLeads({ limit: 100 });
   const [selectedId, setSelectedId] = useState<string | null>(null);

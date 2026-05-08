@@ -14,6 +14,7 @@
 import React, { ReactNode, useEffect, useState } from 'react';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import RexSlideOver from './RexSlideOver';
+import { useV2Theme } from '../hooks/useV2Theme';
 import '../../styles/v2.css';
 
 interface Props {
@@ -35,14 +36,8 @@ export default function WorkspaceShell({
   sidebarCounts,
   showRexFab = true,
 }: Props) {
-  // Add `v2-app` class to <body> so background + atmosphere apply.
-  useEffect(() => {
-    const cls = autopilot ? 'v2-app autopilot' : 'v2-app';
-    document.body.classList.add(...cls.split(' '));
-    return () => {
-      document.body.classList.remove('v2-app', 'autopilot');
-    };
-  }, [autopilot]);
+  // Force light theme + apply v2 body classes; restore legacy theme on leave.
+  useV2Theme({ autopilot });
 
   return (
     <div className={`v2-app ${autopilot ? 'autopilot' : ''} flex min-h-screen relative z-10`}>
