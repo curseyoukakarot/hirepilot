@@ -76,6 +76,7 @@ export default function TeamSettingsPage() {
   const [transferTo, setTransferTo] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   const sendInvite = async () => {
     if (!inviteEmail.trim() || !activeId) return;
@@ -146,7 +147,17 @@ export default function TeamSettingsPage() {
 
       <main className="flex-1 min-w-0 flex">
         {/* Sub-nav — Team is the only v2 page; rest link to legacy surfaces */}
-        <aside className="w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 p-4 overflow-y-auto">
+        <aside className={`filter-sidebar w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 p-4 overflow-y-auto${filtersCollapsed ? ' fs-collapsed' : ''}`}>
+          <div className="flex items-center justify-end mb-2 -mt-1">
+            <button
+              onClick={() => setFiltersCollapsed(true)}
+              className="fs-toggle"
+              title="Collapse settings nav"
+              aria-label="Collapse settings nav"
+            >
+              <i className="fa-solid fa-chevron-left text-[10px]" />
+            </button>
+          </div>
           <div className="font-bold text-[15px] mb-4 px-1">Settings</div>
           <div className="flex flex-col gap-px">
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">Workspace</span>
@@ -400,6 +411,17 @@ export default function TeamSettingsPage() {
       <button className="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX">
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
+
+      {filtersCollapsed && (
+        <button
+          onClick={() => setFiltersCollapsed(false)}
+          className="fs-reopen-btn"
+          title="Show settings nav"
+          aria-label="Show settings nav"
+        >
+          <i className="fa-solid fa-chevron-right text-[11px]" />
+        </button>
+      )}
 
       {/* Invite teammate modal */}
       <V2Modal

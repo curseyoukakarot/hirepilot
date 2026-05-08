@@ -80,13 +80,24 @@ export default function PipelinesPage() {
   );
   const { stages, candidates: stageCandidates } = useJobPipeline(activeJob?.id, activeJob?.pipeline_id || undefined);
   const [activeCandidate, setActiveCandidate] = useState<PipelineCandidate | null>(null);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">
       <WorkspaceSidebar />
 
       {/* Jobs list sidebar */}
-      <aside className="w-[240px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
+      <aside className={`filter-sidebar w-[240px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3${filtersCollapsed ? ' fs-collapsed' : ''}`}>
+        <div className="flex items-center justify-end mb-2 -mt-1">
+          <button
+            onClick={() => setFiltersCollapsed(true)}
+            className="fs-toggle"
+            title="Collapse jobs list"
+            aria-label="Collapse jobs list"
+          >
+            <i className="fa-solid fa-chevron-left text-[10px]" />
+          </button>
+        </div>
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="nav-section-h !p-0">Open requisitions · {jobs.length || 0}</span>
           <button onClick={() => window.location.href = '/jobs/create'} title="New requisition (opens in classic UI)" className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
@@ -402,6 +413,17 @@ export default function PipelinesPage() {
       <button className="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX">
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
+
+      {filtersCollapsed && (
+        <button
+          onClick={() => setFiltersCollapsed(false)}
+          className="fs-reopen-btn"
+          title="Show jobs list"
+          aria-label="Show jobs list"
+        >
+          <i className="fa-solid fa-chevron-right text-[11px]" />
+        </button>
+      )}
     </div>
   );
 }

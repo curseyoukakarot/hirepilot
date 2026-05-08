@@ -703,3 +703,52 @@
   background: linear-gradient(90deg, #10B981, #14B8A6);
   border-radius: 9999px;
 }
+
+/* ---- Collapsible inner filter sidebar ---- */
+.v2-app .filter-sidebar {
+  transition: width .25s cubic-bezier(0.4, 0, 0.2, 1),
+              padding .25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.v2-app .filter-sidebar.fs-collapsed {
+  width: 0 !important;
+  padding: 0 !important;
+  border-right-width: 0 !important;
+  overflow: hidden !important;
+}
+.v2-app .fs-toggle,
+.v2-app .fs-reopen-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid #ECECEC;
+  color: #8E8EA0;
+  cursor: pointer;
+  transition: all .15s;
+}
+.v2-app .fs-toggle:hover,
+.v2-app .fs-reopen-btn:hover {
+  color: #6B46C1;
+  border-color: rgba(107, 70, 193, .3);
+}
+.v2-app .fs-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px -1px rgba(15, 15, 26, .08);
+}
+.v2-app .fs-reopen-btn {
+  position: fixed;
+  top: 70px;
+  left: 228px;
+  width: 26px;
+  height: 56px;
+  border-radius: 0 12px 12px 0;
+  border-left: 0;
+  z-index: 35;
+  box-shadow: 4px 6px 16px -6px rgba(15, 15, 26, .18);
+  animation: slide-in-right .3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.v2-app .fs-reopen-btn:hover {
+  padding-left: 3px;
+}
