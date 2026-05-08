@@ -84,7 +84,7 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
         {/* Conversation thread */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
 
-          {/* Live messages (newest at bottom) — wired to /api/rex/chat */}
+          {/* Live messages (newest at bottom) — wired to /api/rex/chat/stream */}
           {messages.map((m, i) => (
             m.role === 'user' ? (
               <div key={`live-${i}`} className="flex justify-end float-in">
@@ -98,13 +98,36 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
                   <i className="fa-solid fa-wand-magic-sparkles" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] text-text-main leading-relaxed whitespace-pre-wrap">{m.content}</div>
-                  <div className="text-[10px] text-text-muted mt-1.5 ml-1">{relativeTime(m.ts)}</div>
+                  {/* Tool calls REX made for this message */}
+                  {m.toolCalls && m.toolCalls.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      {m.toolCalls.map((tc, ti) => (
+                        <div key={ti} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] mr-1.5"
+                          style={{
+                            background: tc.status === 'failed' ? 'rgba(239,68,68,.08)' :
+                              tc.status === 'done' ? 'rgba(16,185,129,.08)' : 'rgba(107,70,193,.08)',
+                            color: tc.status === 'failed' ? '#B91C1C' : tc.status === 'done' ? '#047857' : '#6B46C1',
+                          }}
+                        >
+                          <i className={`fa-solid ${tc.status === 'failed' ? 'fa-circle-exclamation' :
+                            tc.status === 'done' ? 'fa-circle-check' : 'fa-spinner fa-spin'} text-[9px]`} />
+                          <span className="font-mono text-[10px]">{tc.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-[13.5px] text-text-main leading-relaxed whitespace-pre-wrap">
+                    {m.content}
+                    {m.streaming && <span className="inline-block w-2 h-4 align-middle bg-primary/60 ml-0.5 animate-pulse" />}
+                  </div>
+                  {!m.streaming && (
+                    <div className="text-[10px] text-text-muted mt-1.5 ml-1">{relativeTime(m.ts)}</div>
+                  )}
                 </div>
               </div>
             )
           ))}
-          {sending && (
+          {sending && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-2.5 float-in">
               <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0">
                 <i className="fa-solid fa-wand-magic-sparkles" />
@@ -115,117 +138,6 @@ export default function RexSlideOver({ open, onClose, contextLabel = "you're on 
             </div>
           )}
 
-          {/* Below: visual reference mockup of a richer plan delegation flow.
-              Stays until tool-call / streaming rendering is wired. */}
-          <div className="border-t border-dashed border-gray-200 pt-4 mt-2">
-            <div className="text-[10px] uppercase tracking-wider font-bold text-text-muted mb-3">Sample of REX's planning UI ↓</div>
-          </div>
-
-          {/* User msg */}
-          <div className="flex justify-end float-in">
-            <div className="grad-icon text-white rounded-[12px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[75%] text-[13.5px] leading-relaxed" style={{ boxShadow: '0 4px 12px -4px rgba(107,70,193,.3)' }}>
-              Hey REX — find me 3 more candidates like Sarah Chen and add them to Q2 Engineers.
-            </div>
-          </div>
-
-          {/* REX response */}
-          <div className="flex gap-2.5 float-in d-1">
-            <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0"><i className="fa-solid fa-wand-magic-sparkles" /></div>
-            <div className="flex-1 min-w-0">
-              <div className="bg-surface border border-gray-100 rounded-[12px] px-3.5 py-2.5 text-[13.5px] leading-relaxed">
-                <p>On it. Here's my plan:</p>
-
-                <div className="rounded-[10px] p-2.5 px-3 mt-2.5" style={{ background: 'linear-gradient(135deg,rgba(107,70,193,.04),rgba(12,92,244,.02))', border: '1px solid rgba(107,70,193,.18)' }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="tag tag-primary"><i className="fa-solid fa-rocket text-[8px]" />Plan · 4 steps</span>
-                    <span className="text-[10.5px] text-text-muted ml-auto">~12 min · ~6 credits</span>
-                  </div>
-                  <ol className="text-[12.5px] space-y-1 text-text-secondary">
-                    <li className="flex gap-1.5"><span className="font-bold text-primary w-3">1.</span><span>Build similarity vector from Sarah Chen (Stripe · Sr Backend · Go · 7yr · 4h response)</span></li>
-                    <li className="flex gap-1.5"><span className="font-bold text-primary w-3">2.</span><span>Send <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full text-[10px] font-semibold text-white grad-sourcer"><i className="fa-solid fa-crosshairs text-[8px]" />Sourcer</span> on LinkedIn search · top 20 closest matches</span></li>
-                    <li className="flex gap-1.5"><span className="font-bold text-primary w-3">3.</span><span>Score them, pick top 3 by ICP match + replyability</span></li>
-                    <li className="flex gap-1.5"><span className="font-bold text-primary w-3">4.</span><span>Send <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded-full text-[10px] font-semibold text-white grad-recruiter"><i className="fa-solid fa-user-tie text-[8px]" />Recruiter</span> to draft initial messages</span></li>
-                  </ol>
-                  <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-primary/10">
-                    <button className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-rocket text-[9px]" />Approve &amp; run</button>
-                    <button className="ghost-btn !py-1 !px-2.5 !text-[11.5px]">Edit plan</button>
-                    <button className="ghost-btn !py-1 !px-2.5 !text-[11.5px]">Run dry</button>
-                  </div>
-                </div>
-
-                <p className="mt-2.5 text-[12.5px] text-text-muted">I'll add the 3 best matches to Q2 Senior Engineers and let Recruiter draft outreach. Approve before I run?</p>
-              </div>
-              <div className="text-[10px] text-text-muted mt-1.5 ml-1">just now</div>
-            </div>
-          </div>
-
-          {/* User follow-up */}
-          <div className="flex justify-end float-in d-2">
-            <div className="grad-icon text-white rounded-[12px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[75%] text-[13.5px] leading-relaxed">
-              actually first — quick research on Linear's eng team before you send Recruiter
-            </div>
-          </div>
-
-          {/* REX kicks off Browser Researcher */}
-          <div className="flex gap-2.5 float-in d-3">
-            <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0"><i className="fa-solid fa-wand-magic-sparkles" /></div>
-            <div className="flex-1 min-w-0">
-              <div className="bg-surface border border-gray-100 rounded-[12px] px-3.5 py-2.5 text-[13.5px] leading-relaxed">
-                <p>Smart. Sourcer's <strong>Browser Researcher</strong> Skill is already running on stripe.com — let me also kick it off for linear.app.</p>
-
-                <div className="rounded-[10px] p-2.5 px-3 mt-2.5" style={{ background: 'linear-gradient(135deg,rgba(6,182,212,.04),white 30%)', border: '1px solid rgba(6,182,212,.18)' }}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-5 h-5 rounded grad-sourcer flex items-center justify-center text-white text-[9px]"><i className="fa-solid fa-globe" /></div>
-                    <span className="text-[11px] font-semibold">Browser Researcher</span>
-                    <span className="tag tag-sourcer"><span className="live-dot cyan" />Running</span>
-                    <span className="ml-auto text-[10px] text-text-muted">14s</span>
-                  </div>
-                  <div className="text-[11.5px] text-text-secondary leading-relaxed">
-                    <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
-                    <span className="ml-1">Loading <span className="font-mono text-primary">linear.app/about</span> — extracting team org chart, funding, recent announcements…</span>
-                  </div>
-                  <button className="text-[10.5px] text-primary font-semibold hover:underline mt-1.5"><i className="fa-solid fa-eye text-[9px] mr-1" />Watch session</button>
-                </div>
-              </div>
-              <div className="text-[10px] text-text-muted mt-1.5 ml-1 flex items-center gap-1">
-                <span>just now</span><span>·</span>
-                <span className="flex items-center gap-1"><i className="fa-solid fa-microphone text-[9px]" />read aloud</span>
-                <span>·</span>
-                <span className="flex items-center gap-1"><i className="fa-solid fa-share text-[9px]" />share</span>
-              </div>
-            </div>
-          </div>
-
-          {/* REX intel reply */}
-          <div className="flex gap-2.5 float-in d-4">
-            <div className="w-6 h-6 rounded-full grad-rex flex items-center justify-center text-white text-[10px] mt-1 shrink-0"><i className="fa-solid fa-wand-magic-sparkles" /></div>
-            <div className="flex-1 min-w-0">
-              <div className="bg-surface border border-gray-100 rounded-[12px] px-3.5 py-2.5 text-[13.5px] leading-relaxed">
-                <p>Quick read on <strong>Linear</strong>:</p>
-                <ul className="text-[12.5px] space-y-1 mt-1.5 text-text-secondary">
-                  <li className="flex gap-1.5"><i className="fa-solid fa-circle-check text-success text-[9px] mt-1.5" /><span><strong>Series C · ~140 employees</strong> · ~45 engineers</span></li>
-                  <li className="flex gap-1.5"><i className="fa-solid fa-circle-check text-success text-[9px] mt-1.5" /><span>Tech: <strong>TypeScript · Postgres · Rust (sync engine)</strong></span></li>
-                  <li className="flex gap-1.5"><i className="fa-solid fa-circle-check text-success text-[9px] mt-1.5" /><span>Hiring 4 senior backend engineers — sync engine focus</span></li>
-                  <li className="flex gap-1.5"><i className="fa-solid fa-circle-check text-success text-[9px] mt-1.5" /><span>Marcus Rodriguez (your VP Eng contact) leads this hiring</span></li>
-                </ul>
-                <p className="mt-2 text-[12.5px]">Want me to update the ICP for this goal — narrow to <strong>sync/realtime infra</strong> background?</p>
-              </div>
-              <div className="text-[10px] text-text-muted mt-1.5 ml-1">8s ago</div>
-            </div>
-          </div>
-
-          {/* Suggestion chips */}
-          <div className="flex flex-wrap gap-1.5 ml-9 float-in d-5">
-            {[
-              { icon: 'fa-bullseye', label: 'Update ICP & rerun' },
-              { icon: 'fa-arrow-right', label: 'Run plan as-is' },
-              { icon: 'fa-pen', label: 'Tweak plan' },
-            ].map((c) => (
-              <button key={c.label} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium text-text-secondary bg-white cursor-pointer transition" style={{ border: '1px solid #E5E7EB' }}>
-                <i className={`fa-solid ${c.icon} text-[10px] text-primary`} />{c.label}
-              </button>
-            ))}
-          </div>
 
         </div>
 

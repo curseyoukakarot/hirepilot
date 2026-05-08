@@ -12,12 +12,49 @@
  *   - REX context strip → REX agent active goal context
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import { useLeads, leadDomain, type Lead } from '../hooks/useLeads';
 import '../../styles/v2.css';
+
+/** Random gradient palette for lead avatars (deterministic by id). */
+const AV_GRADIENTS = [
+  'from-emerald-400 to-emerald-600',
+  'from-rose-400 to-pink-600',
+  'from-amber-400 to-orange-500',
+  'from-cyan-400 to-blue-500',
+  'from-purple-400 to-blue-400',
+  'from-violet-400 to-purple-600',
+];
+function avatarBgFor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AV_GRADIENTS[h % AV_GRADIENTS.length];
+}
+function initialsFor(lead: Lead): string {
+  const f = (lead.first_name || '').trim()[0] || '';
+  const l = (lead.last_name || '').trim()[0] || '';
+  if (f || l) return (f + l).toUpperCase();
+  const name = (lead.name || lead.email || '?').trim();
+  return name.split(' ').slice(0, 2).map((p) => p[0] || '').join('').toUpperCase() || '?';
+}
+function fullName(lead: Lead): string {
+  return [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() ||
+    lead.name || lead.email || 'Unknown';
+}
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return 'just now';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 interface LeadRow {
   selected?: boolean;
@@ -52,6 +89,13 @@ export default function LeadsPage() {
     document.body.classList.add('v2-app', 'autopilot');
     return () => { document.body.classList.remove('v2-app', 'autopilot'); };
   }, []);
+
+  const { leads, isLoading } = useLeads({ limit: 100 });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected: Lead | undefined = useMemo(
+    () => leads.find((l) => l.id === selectedId) || leads[0],
+    [leads, selectedId],
+  );
 
   return (
     <div className="v2-app autopilot flex min-h-screen relative z-10">
@@ -209,7 +253,46 @@ export default function LeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {LEADS.map((l, i) => (
+                {/* Live leads from /api/leads — table-shaped onto the existing mockup row UI */}
+                {leads.length > 0 ? leads.slice(0, 50).map((lead) => {
+                  const active = (selectedId || leads[0]?.id) === lead.id;
+                  const score = (lead as any).score ?? null;
+                  return (
+                  <tr
+                    key={lead.id}
+                    onClick={() => setSelectedId(lead.id)}
+                    className={`cursor-pointer transition-colors ${active ? '' : 'hover:bg-primary/4'}`}
+                    style={active ? { background: 'linear-gradient(90deg,rgba(107,70,193,.06),rgba(12,92,244,.04))' } : undefined}
+                  >
+                    <td className="px-4 py-2.5"><input type="checkbox" className="rounded text-primary w-3 h-3" onClick={(e) => e.stopPropagation()} /></td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarBgFor(lead.id)} flex items-center justify-center text-white text-[10px] font-semibold ${active ? 'ring-2 ring-primary/30' : ''}`}>{initialsFor(lead)}</div>
+                        <div>
+                          <div className="font-semibold flex items-center gap-1.5">{fullName(lead)} {lead.linkedin_url && <i className="fa-brands fa-linkedin text-secondary text-[10px]" />}</div>
+                          <div className="text-[11px] text-text-muted">{[lead.company, lead.email].filter(Boolean).join(' · ') || '—'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-text-secondary">{lead.title || '—'}</td>
+                    <td className="px-3 py-2.5"><span className="tag tag-muted">{lead.status || 'New'}</span></td>
+                    <td className="px-3 py-2.5">
+                      {score != null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold w-6">{score}</span>
+                          <div className="w-14 h-1 rounded-full bg-gray-200 overflow-hidden"><div className="grad-icon h-full" style={{ width: `${Math.min(100, Math.max(0, score))}%` }} /></div>
+                        </div>
+                      ) : <span className="text-text-muted">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-[11.5px] text-text-secondary">
+                      {lead.enrichment_source || lead.source || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-[11.5px] text-text-secondary">{lead.campaign_id ? lead.campaign_id.slice(0, 8) : '—'}</td>
+                    <td className="px-3 py-2.5 text-[11.5px] text-text-muted">{relativeTime(lead.created_at)}</td>
+                    <td className="px-3 py-2.5" />
+                  </tr>
+                  );
+                }) : (!isLoading && LEADS.map((l, i) => (
                   <tr key={i} className={`cursor-pointer transition-colors ${l.active ? '' : 'hover:bg-primary/4'}`} style={l.active ? { background: 'linear-gradient(90deg,rgba(107,70,193,.06),rgba(12,92,244,.04))' } : undefined}>
                     <td className="px-4 py-2.5"><input type="checkbox" defaultChecked={l.selected} className="rounded text-primary w-3 h-3" /></td>
                     <td className="px-3 py-2.5">
@@ -240,12 +323,17 @@ export default function LeadsPage() {
                       {l.rexBadge === 'autosent' && <i className="fa-solid fa-circle-check text-success text-[12px]" title="REX auto-sent reply" />}
                     </td>
                   </tr>
-                ))}
+                )))}
+                {isLoading && (
+                  <tr><td colSpan={9} className="text-center text-text-muted py-8 text-[12.5px]">
+                    <i className="fa-solid fa-spinner fa-spin mr-2 text-primary" />Loading leads…
+                  </td></tr>
+                )}
               </tbody>
             </table>
 
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 text-[11px] text-text-muted">
-              <span>Showing 1–7 of 12 hot leads</span>
+              <span>{leads.length > 0 ? `Showing 1–${Math.min(50, leads.length)} of ${leads.length} leads` : isLoading ? 'Loading…' : 'No leads yet — sample data shown'}</span>
               <div className="flex items-center gap-1">
                 <button className="px-2 py-1 rounded hover:bg-surface"><i className="fa-solid fa-chevron-left text-[10px]" /></button>
                 <button className="px-2 py-1 rounded bg-primary/10 text-primary font-semibold">1</button>
@@ -274,11 +362,28 @@ export default function LeadsPage() {
         {/* Identity */}
         <div className="px-5 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[16px] font-semibold ring-4 ring-primary/15">SC</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap"><h2 className="text-[18px] font-bold tracking-tight">Sarah Chen</h2><span className="tag tag-success">● Hot</span></div>
-              <p className="text-[12.5px] text-text-muted">Senior Backend Engineer · Stripe · SF</p>
-            </div>
+            {selected ? (
+              <>
+                <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${avatarBgFor(selected.id)} flex items-center justify-center text-white text-[16px] font-semibold ring-4 ring-primary/15`}>{initialsFor(selected)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-[18px] font-bold tracking-tight">{fullName(selected)}</h2>
+                    {selected.status && <span className="tag tag-muted">{selected.status}</span>}
+                  </div>
+                  <p className="text-[12.5px] text-text-muted">
+                    {[selected.title, selected.company, selected.location || [selected.city, selected.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[16px] font-semibold ring-4 ring-primary/15">SC</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap"><h2 className="text-[18px] font-bold tracking-tight">Sarah Chen</h2><span className="tag tag-success">● Hot</span></div>
+                  <p className="text-[12.5px] text-text-muted">Senior Backend Engineer · Stripe · SF</p>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-1 mb-3">
             <span className="tag" style={{ background: 'rgba(107,70,193,.1)', color: '#6B46C1' }}>Engineering</span>
@@ -310,9 +415,15 @@ export default function LeadsPage() {
 
         {/* REX Skills — invoke installed Skills on the active lead */}
         <RexSkillsPanel
-          lead={{
-            // Mockup data for now — when Leads.tsx wires to real /api/v2/leads,
-            // these values come from the selected row.
+          lead={selected ? {
+            id: selected.id,
+            firstName: selected.first_name || undefined,
+            lastName: selected.last_name || undefined,
+            company: selected.company || undefined,
+            domain: leadDomain(selected),
+            linkedinUrl: selected.linkedin_url || undefined,
+          } : {
+            // Mockup fallback when no leads exist yet — same shape so panels render.
             id: 'mock-lead-id',
             firstName: 'Sarah',
             lastName: 'Chen',

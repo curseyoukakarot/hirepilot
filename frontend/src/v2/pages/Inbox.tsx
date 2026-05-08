@@ -11,11 +11,43 @@
  *   - Right-pane lead context → reuse existing lead profile API
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../components/RexSkillButtons';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import { useInbox, type InboxThread } from '../hooks/useInbox';
 import '../../styles/v2.css';
+
+const INBOX_AVATARS = [
+  'from-emerald-400 to-emerald-600',
+  'from-rose-400 to-pink-600',
+  'from-amber-400 to-orange-500',
+  'from-cyan-400 to-blue-500',
+  'from-violet-400 to-purple-600',
+];
+function inboxAvatar(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return INBOX_AVATARS[h % INBOX_AVATARS.length];
+}
+function inboxName(t: InboxThread): string {
+  if (t.lead) return [t.lead.first_name, t.lead.last_name].filter(Boolean).join(' ').trim() || t.lead.name || t.lead.email || t.sender_email || 'Unknown';
+  return t.sender_email || 'Unknown sender';
+}
+function inboxInitials(t: InboxThread): string {
+  const name = inboxName(t);
+  return name.split(' ').slice(0, 2).map((p) => p[0] || '').join('').toUpperCase() || '?';
+}
+function inboxRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return 'now';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
 
 interface Conv {
   active?: boolean;
@@ -43,6 +75,12 @@ const CONVERSATIONS: Conv[] = [
 ];
 
 export default function InboxPage() {
+  const { threads } = useInbox(30);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedThread = useMemo(
+    () => threads.find((t) => t.id === selectedId) || threads[0],
+    [threads, selectedId],
+  );
   useEffect(() => {
     document.body.classList.add('v2-app', 'autopilot');
     return () => { document.body.classList.remove('v2-app', 'autopilot'); };
@@ -82,7 +120,39 @@ export default function InboxPage() {
             </div>
 
             <ul className="flex-1 overflow-y-auto">
-              {CONVERSATIONS.map((c, i) => (
+              {/* Real threads from /api/v2/inbox */}
+              {threads.length > 0 ? threads.map((t) => {
+                const isActive = (selectedId || threads[0]?.id) === t.id;
+                const preview = (t.text_body || t.subject || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+                const tagCls = t.classification === 'positive' ? 'tag-success' :
+                               t.classification === 'negative' ? 'tag-danger' :
+                               t.classification === 'meeting_request' ? 'tag-primary' :
+                               t.classification === 'oos' ? 'tag-muted' : 'tag-muted';
+                return (
+                  <li
+                    key={t.id}
+                    onClick={() => setSelectedId(t.id)}
+                    className={`px-3.5 py-2.5 cursor-pointer transition-colors ${isActive ? '' : 'hover:bg-black/[0.02]'}`}
+                    style={isActive ? { background: 'linear-gradient(90deg,rgba(107,70,193,.08),rgba(12,92,244,.04))', borderLeft: '3px solid #6B46C1' } : { borderLeft: '3px solid transparent' }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${inboxAvatar(t.id)} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>{inboxInitials(t)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between">
+                          <span className="font-bold text-[13px] truncate">{inboxName(t)}</span>
+                          <span className="text-[10.5px] shrink-0 text-text-muted">{inboxRelativeTime(t.created_at)}</span>
+                        </div>
+                        <p className="text-[11.5px] truncate text-text-secondary">{preview || '(no preview)'}</p>
+                        {t.classification && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className={`tag ${tagCls}`}>{t.classification}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              }) : CONVERSATIONS.map((c, i) => (
                 <li key={i} className={`px-3.5 py-2.5 cursor-pointer transition-colors ${c.active ? '' : 'hover:bg-black/[0.02]'}`} style={c.active ? { background: 'linear-gradient(90deg,rgba(107,70,193,.08),rgba(12,92,244,.04))', borderLeft: '3px solid #6B46C1' } : { borderLeft: '3px solid transparent' }}>
                   <div className="flex items-start gap-2.5">
                     <div className="relative shrink-0">
@@ -227,13 +297,19 @@ export default function InboxPage() {
               {/* Skills strip — invoke a Skill on this thread's lead */}
               <div className="ml-11 mt-1">
                 <InboxSkillsBar
-                  lead={{
+                  lead={selectedThread?.lead ? {
+                    firstName: selectedThread.lead.first_name || undefined,
+                    lastName: selectedThread.lead.last_name || undefined,
+                    title: selectedThread.lead.title || undefined,
+                    company: selectedThread.lead.company || undefined,
+                  } : {
                     firstName: 'Sarah',
                     lastName: 'Chen',
                     title: 'Senior Backend Engineer',
                     company: 'Stripe',
                   }}
-                  lastInboundText="Yes, I'd love to chat — Thursday after 2pm works. Do you have a calendar link, or would you rather propose a few times?"
+                  lastInboundText={selectedThread?.text_body || selectedThread?.subject ||
+                    "Yes, I'd love to chat — Thursday after 2pm works. Do you have a calendar link, or would you rather propose a few times?"}
                 />
               </div>
             </div>
