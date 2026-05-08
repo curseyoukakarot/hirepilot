@@ -10,9 +10,34 @@
  *   - Stripe Connect close-loop → existing services/stripe.ts
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
+import { useDeals, type Deal } from '../hooks/useDeals';
 import '../../styles/v2.css';
+
+const DEAL_STAGE_ORDER = ['new', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
+const DEAL_STAGE_LABELS: Record<string, string> = {
+  new: 'New',
+  qualified: 'Qualified',
+  proposal: 'Proposal',
+  negotiation: 'Negotiation',
+  closed_won: 'Closed Won',
+  closed_lost: 'Closed Lost',
+};
+
+function dealStageKey(stage: string | null | undefined): string {
+  return String(stage || '').toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+}
+function formatMoney(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
+  return `$${Math.round(n)}`;
+}
+function dealAge(iso: string): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+  return d === 0 ? 'today' : d === 1 ? '1d' : `${d}d`;
+}
 
 interface DealCard {
   title: string;
@@ -105,6 +130,25 @@ const flagBg = (f?: string) => {
 };
 
 export default function DealsPage() {
+  const { deals, isLoading } = useDeals();
+  const hasReal = deals.length > 0;
+  const liveStages = useMemo(() => {
+    if (!hasReal) return null;
+    const grouped: Record<string, Deal[]> = {};
+    for (const d of deals) {
+      const key = dealStageKey(d.stage);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(d);
+    }
+    const orderKnown = DEAL_STAGE_ORDER.filter((k) => grouped[k]);
+    const orderUnknown = Object.keys(grouped).filter((k) => !DEAL_STAGE_ORDER.includes(k));
+    return [...orderKnown, ...orderUnknown].map((k) => ({
+      key: k,
+      label: DEAL_STAGE_LABELS[k] || k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      deals: grouped[k],
+      total: grouped[k].reduce((sum: number, d: Deal) => sum + (Number(d.value) || 0), 0),
+    }));
+  }, [deals, hasReal]);
   useEffect(() => {
     document.body.classList.add('v2-app', 'autopilot');
     return () => { document.body.classList.remove('v2-app', 'autopilot'); };
@@ -190,10 +234,49 @@ export default function DealsPage() {
           <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">+ Filter</span>
         </div>
 
-        {/* Kanban */}
+        {/* Kanban — real deals when present, mockup otherwise */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-7 pb-6">
+          {liveStages ? (
+            <div className="flex gap-3 h-full">
+              {liveStages.map((stage, si) => (
+                <div key={stage.key} className={`flex flex-col rounded-[14px] border min-w-[280px] max-w-[280px] h-full float-in d-${3 + si}`} style={{ background: 'rgba(244,244,248,.55)', borderColor: '#ECECEC' }}>
+                  <div className="px-3.5 py-3 border-b flex items-center gap-2" style={{ borderColor: '#ECECEC' }}>
+                    <div className="h-[3px] rounded-full flex-1 bg-primary/40" />
+                    <span className="text-[12.5px] font-bold">{stage.label}</span>
+                    <span className="text-[10.5px] text-text-muted">{stage.deals.length}</span>
+                  </div>
+                  <div className="px-3.5 py-2 border-b text-[11.5px] text-text-muted" style={{ borderColor: '#ECECEC' }}>
+                    Total: <span className="font-semibold text-text-main tabular-nums">{formatMoney(stage.total)}</span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-2">
+                    {stage.deals.map((d) => {
+                      const ownerName = d.owner ? `${d.owner.first_name || ''} ${d.owner.last_name || ''}`.trim() : '';
+                      const initials = ownerName ? ownerName.split(' ').slice(0, 2).map((p) => p[0] || '').join('').toUpperCase() : '··';
+                      return (
+                        <div key={d.id} className="bg-white rounded-lg p-2.5 cursor-pointer hover:shadow-sm transition" style={{ border: '1px solid #ECECEC' }}>
+                          <div className="text-[12.5px] font-semibold truncate mb-0.5">{d.title}</div>
+                          <div className="text-[10.5px] text-text-muted truncate mb-2">{d.client?.name || d.client?.domain || '—'}</div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center text-white text-[8px] font-semibold">{initials}</div>
+                              <span className="text-text-muted text-[10.5px]">{ownerName || 'unassigned'}</span>
+                            </div>
+                            <span className="font-semibold text-text-main">{formatMoney(d.value)}</span>
+                          </div>
+                          <div className="text-[10px] text-text-muted mt-1">{dealAge(d.created_at)} in pipeline</div>
+                        </div>
+                      );
+                    })}
+                    {stage.deals.length === 0 && (
+                      <div className="text-center text-[10.5px] text-text-muted py-3 italic">empty</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="flex gap-3 h-full">
-            {STAGES.map((stage, si) => (
+            {!isLoading && STAGES.map((stage, si) => (
               <div key={stage.name} className={`flex flex-col rounded-[14px] border min-w-[280px] max-w-[280px] h-full float-in d-${3 + si}`} style={{ background: 'rgba(244,244,248,.55)', borderColor: '#ECECEC' }}>
                 <div className="px-3.5 py-3 border-b flex items-center gap-2" style={{ borderColor: '#ECECEC' }}>
                   <div className={`h-[3px] rounded-full flex-1 ${stage.stripeCls}`} />
@@ -235,6 +318,7 @@ export default function DealsPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </main>
 

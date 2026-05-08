@@ -89,6 +89,7 @@ import { useAppMode } from './lib/appMode';
 import PublicJobPage from './screens/PublicJobPage.jsx';
 
 // === v2 redesign — lazy-loaded so legacy bundle stays unchanged ===
+import V2UpgradeBanner from './v2/components/V2UpgradeBanner';
 const V2Today = lazy(() => import('./v2/pages/Today'));
 const V2Team = lazy(() => import('./v2/pages/Team'));
 const V2Goals = lazy(() => import('./v2/pages/Goals'));
@@ -378,6 +379,29 @@ function CampaignWizard() {
 function HomepageRedirect() {
   useEffect(() => { window.location.replace('/homepage/index.html'); }, []);
   return null;
+}
+
+/**
+ * Wraps the legacy Dashboard with an auto-redirect to /v2/today when the
+ * user has opted into v2. Renders Dashboard immediately for legacy users
+ * (no flicker). Uses a fetch instead of the React Query hook so we don't
+ * pull a hook dependency into the legacy bundle.
+ */
+function DashboardWithV2Redirect() {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { apiGet } = await import('./lib/api');
+        const resp = await apiGet('/api/v2/ui-preference');
+        if (!cancelled && resp?.ui_version === 'v2') {
+          window.location.replace('/v2/today');
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return <Dashboard />;
 }
 
 export default function App() {
@@ -878,7 +902,7 @@ function InnerApp() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={<DashboardWithV2Redirect />} />
 
               {/* === v2 redesign routes — gated by VITE_V2_ENABLED === */}
               {flags.v2 && (
@@ -1079,6 +1103,8 @@ function InnerApp() {
           </Suspense>
         </main>
       </div>
+      {/* v2 upgrade banner — auto-hides on /v2/* routes, when dismissed, or when user is already on v2 */}
+      {!isAuthPage && <V2UpgradeBanner />}
       {/* REX widget mounted (Option A) */}
       {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && !isRexMobile && (
         <RexWidget
