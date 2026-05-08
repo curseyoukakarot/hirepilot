@@ -17,6 +17,9 @@ import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../comp
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useInbox, type InboxThread } from '../hooks/useInbox';
 import { useV2Theme } from '../hooks/useV2Theme';
+import V2Dropdown from '../components/V2Dropdown';
+import { toastSuccess } from '../components/V2Toast';
+import type { TrustLevel } from '../types';
 import '../../styles/v2.css';
 
 const INBOX_AVATARS = [
@@ -199,21 +202,8 @@ export default function InboxPage() {
               </div>
             </div>
 
-            {/* Per-thread autopilot strip */}
-            <div className="px-6 py-2.5 flex items-center gap-3 text-[12px]" style={{ background: 'linear-gradient(90deg,rgba(16,185,129,.06),rgba(107,70,193,.04) 70%,transparent)', borderBottom: '1px solid rgba(16,185,129,.15)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md grad-recruiter flex items-center justify-center text-white"><i className="fa-solid fa-user-tie text-[10px]" /></div>
-                <span className="font-semibold">Recruiter is autopilot for this thread</span>
-              </div>
-              <span className="text-text-muted">·</span>
-              <span className="text-text-secondary">Sarah's score is <strong className="text-success">94</strong> — above your auto-send threshold of 90</span>
-              <div className="trust-mini ml-auto">
-                <span className="trust-mini-seg">M</span>
-                <span className="trust-mini-seg">S</span>
-                <span className="trust-mini-seg active">Auto</span>
-              </div>
-              <button className="ghost-btn !text-[11.5px]"><i className="fa-solid fa-sliders text-[10px]" />Adjust</button>
-            </div>
+            {/* Per-thread autopilot strip — wired to Recruiter trust */}
+            <RecruiterAutopilotStrip />
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
@@ -448,5 +438,84 @@ function InboxSkillsBar({
       subtitle="run on this thread"
       compact
     />
+  );
+}
+
+/**
+ * Per-thread autopilot strip. Reads + writes the Recruiter agent's trust
+ * level — there's no per-thread trust column in the schema yet, so this
+ * effectively governs every thread the Recruiter touches. Future schema
+ * change: add thread.trust_level for true per-thread control.
+ */
+function RecruiterAutopilotStrip() {
+  const { agents, update } = useAgents();
+  const recruiter = findAgentByRole(agents, 'recruiter');
+  const level: TrustLevel = (recruiter?.trust_level as TrustLevel) || 'suggest';
+
+  const setLevel = (next: TrustLevel) => {
+    if (!recruiter || next === level) return;
+    update.mutate({ id: recruiter.id, trust_level: next }, {
+      onSuccess: () => toastSuccess(`Recruiter set to ${next === 'autopilot' ? 'Autopilot' : next === 'suggest' ? 'Suggest' : 'Manual'}`),
+    });
+  };
+
+  const labels: Record<TrustLevel, string> = { autopilot: 'autopilot', suggest: 'suggest', manual: 'manual' };
+  const stripBg = level === 'autopilot'
+    ? 'linear-gradient(90deg,rgba(16,185,129,.06),rgba(107,70,193,.04) 70%,transparent)'
+    : level === 'suggest'
+      ? 'linear-gradient(90deg,rgba(245,158,11,.06),rgba(107,70,193,.04) 70%,transparent)'
+      : 'linear-gradient(90deg,rgba(71,85,105,.06),rgba(107,70,193,.04) 70%,transparent)';
+
+  return (
+    <div className="px-6 py-2.5 flex items-center gap-3 text-[12px]" style={{ background: stripBg, borderBottom: '1px solid rgba(16,185,129,.15)' }}>
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-md grad-recruiter flex items-center justify-center text-white"><i className="fa-solid fa-user-tie text-[10px]" /></div>
+        <span className="font-semibold">
+          {recruiter ? `Recruiter is ${labels[level]} for this thread` : 'Hire a Recruiter to enable thread automation'}
+        </span>
+      </div>
+      {recruiter && (
+        <>
+          <span className="text-text-muted">·</span>
+          <span className="text-text-secondary">
+            {level === 'autopilot' && <>REX auto-sends drafts above threshold</>}
+            {level === 'suggest' && <>REX drafts replies — you review before send</>}
+            {level === 'manual' && <>REX won't draft until you ask</>}
+          </span>
+        </>
+      )}
+      <div
+        className="trust-mini ml-auto cursor-pointer"
+        onClick={(e) => { e.preventDefault(); }}
+        title="Click a segment to change Recruiter trust"
+      >
+        <span
+          className={`trust-mini-seg${level === 'manual' ? ' active' : ''}`}
+          onClick={() => setLevel('manual')}
+        >M</span>
+        <span
+          className={`trust-mini-seg${level === 'suggest' ? ' active suggest' : ''}`}
+          onClick={() => setLevel('suggest')}
+        >S</span>
+        <span
+          className={`trust-mini-seg${level === 'autopilot' ? ' active' : ''}`}
+          onClick={() => setLevel('autopilot')}
+        >Auto</span>
+      </div>
+      <V2Dropdown
+        align="right"
+        minWidth={260}
+        trigger={<span className="ghost-btn !text-[11.5px] cursor-pointer"><i className="fa-solid fa-sliders text-[10px]" />Adjust</span>}
+        items={[
+          { key: 'hdr', header: true, label: 'Recruiter trust' },
+          { key: 'auto', icon: 'rocket', label: 'Autopilot — auto-send above threshold', selected: level === 'autopilot', onClick: () => setLevel('autopilot') },
+          { key: 'sug', icon: 'wand-magic-sparkles', label: 'Suggest — review every draft', selected: level === 'suggest', onClick: () => setLevel('suggest') },
+          { key: 'man', icon: 'hand', label: 'Manual — REX waits for you', selected: level === 'manual', onClick: () => setLevel('manual') },
+          { key: 'd1', divider: true },
+          { key: 'team', icon: 'people-group', label: 'Manage all agents', onClick: () => { window.location.href = '/v2/team'; } },
+          { key: 'guard', icon: 'shield-halved', label: 'Edit guardrails', onClick: () => { window.location.href = '/v2/settings/team'; } },
+        ]}
+      />
+    </div>
   );
 }
