@@ -78,13 +78,31 @@ const CONVERSATIONS: Conv[] = [
   { initials: 'JW', av: 'from-purple-400 to-purple-700', name: 'Jamal Williams', time: '52m', preview: '"Not the right time but keep me on the list."', tag: { label: 'Cold', cls: 'tag-muted' } },
 ];
 
+type InboxFilter = 'all' | 'hot' | 'rex_drafts';
+
 export default function InboxPage() {
   const { threads } = useInbox(30);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<InboxFilter>('all');
   const selectedThread = useMemo(
     () => threads.find((t) => t.id === selectedId) || threads[0],
     [threads, selectedId],
   );
+
+  // Filter counts + visible list. "Hot" = positive classification or
+  // meeting_request. "REX drafts" requires a thread.has_pending_draft signal
+  // we don't yet expose — for now treat them as "any pending decision attached".
+  const hotCount = threads.filter((t) =>
+    t.classification === 'positive' || t.classification === 'meeting_request'
+  ).length;
+  const rexDraftCount = 0; // TODO: when decisions.thread_id lands, count pending drafts here.
+  const visibleThreads = (() => {
+    if (filter === 'hot') return threads.filter((t) =>
+      t.classification === 'positive' || t.classification === 'meeting_request'
+    );
+    if (filter === 'rex_drafts') return [];
+    return threads;
+  })();
   useV2Theme();
 
   return (
@@ -114,15 +132,21 @@ export default function InboxPage() {
           {/* LEFT: conversation list */}
           <section className="w-80 shrink-0 border-r border-gray-100 bg-white/40 flex flex-col">
             <div className="px-3 py-2.5 border-b border-gray-100 flex items-center gap-1.5 text-[11px]">
-              <button className="px-2.5 py-1 rounded-full bg-primary text-white font-semibold">All <span className="opacity-80">12</span></button>
-              <button className="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">Hot <span className="text-text-muted">8</span></button>
-              <button className="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">REX drafts <span className="text-text-muted">8</span></button>
+              <button onClick={() => setFilter('all')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'all' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                All <span className={filter === 'all' ? 'opacity-80' : 'text-text-muted'}>{threads.length}</span>
+              </button>
+              <button onClick={() => setFilter('hot')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'hot' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                Hot <span className={filter === 'hot' ? 'opacity-80' : 'text-text-muted'}>{hotCount}</span>
+              </button>
+              <button onClick={() => setFilter('rex_drafts')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'rex_drafts' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                REX drafts <span className={filter === 'rex_drafts' ? 'opacity-80' : 'text-text-muted'}>{rexDraftCount}</span>
+              </button>
               <button className="ml-auto px-2 py-1 rounded-full text-text-secondary hover:bg-surface"><i className="fa-solid fa-filter text-[10px]" /></button>
             </div>
 
             <ul className="flex-1 overflow-y-auto">
               {/* Real threads from /api/v2/inbox */}
-              {threads.length > 0 ? threads.map((t) => {
+              {threads.length > 0 ? visibleThreads.map((t) => {
                 const isActive = (selectedId || threads[0]?.id) === t.id;
                 const preview = (t.text_body || t.subject || '').replace(/\s+/g, ' ').trim().slice(0, 90);
                 const tagCls = t.classification === 'positive' ? 'tag-success' :

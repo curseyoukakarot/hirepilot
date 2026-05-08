@@ -17,6 +17,7 @@ import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../comp
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useJobs, useJobPipeline, type Job, type PipelineCandidate } from '../hooks/usePipelines';
 import { useV2Theme } from '../hooks/useV2Theme';
+import { toastSoon, toastInfo } from '../components/V2Toast';
 import '../../styles/v2.css';
 
 interface JobReq {
@@ -235,11 +236,13 @@ export default function PipelinesPage() {
 
         {/* Filter pills */}
         <div className="px-7 py-3 flex items-center gap-1.5 flex-wrap">
-          <span className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">All · 12</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Hot · 3</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Stuck &gt; 5d · 2</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Mine · 8</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">+ Filter</span>
+          <button onClick={() => toastInfo('Showing all candidates in this pipeline')} className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">
+            All · {Object.values(stageCandidates).reduce((n, arr) => n + arr.length, 0)}
+          </button>
+          <button onClick={() => toastSoon('Hot candidates filter (score ≥ 90)')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">Hot</button>
+          <button onClick={() => toastSoon('Stuck-in-stage filter (>5 days)')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">Stuck &gt; 5d</button>
+          <button onClick={() => toastSoon('My candidates filter')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">Mine</button>
+          <button onClick={() => toastSoon('Custom filter builder')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">+ Filter</button>
           <div className="ml-auto flex items-center gap-1.5 text-[11.5px] text-text-muted">
             <span>Time-to-hire avg: <span className="font-semibold text-text-main">23 days</span></span>
             <span>·</span>

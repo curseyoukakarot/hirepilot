@@ -14,6 +14,7 @@ import React, { useEffect, useMemo } from 'react';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useDeals, type Deal } from '../hooks/useDeals';
 import { useV2Theme } from '../hooks/useV2Theme';
+import { toastInfo, toastSoon } from '../components/V2Toast';
 import '../../styles/v2.css';
 
 const DEAL_STAGE_ORDER = ['new', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
@@ -225,11 +226,13 @@ export default function DealsPage() {
 
         {/* Filter pills */}
         <div className="px-7 py-3 flex items-center gap-1.5 flex-wrap">
-          <span className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">All deals · 7</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">My deals</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Closing this month</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Stale &gt; 7d</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">+ Filter</span>
+          <button onClick={() => toastInfo('Showing all deals')} className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">
+            All deals · {hasReal ? deals.length : 7}
+          </button>
+          <button onClick={() => toastSoon('My deals filter')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">My deals</button>
+          <button onClick={() => toastSoon('Closing-this-month filter (forecast_date)')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">Closing this month</button>
+          <button onClick={() => toastSoon('Stale filter (no movement &gt; 7 days)')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">Stale &gt; 7d</button>
+          <button onClick={() => toastSoon('Custom filter builder')} className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary hover:border-primary/30">+ Filter</button>
         </div>
 
         {/* Kanban — real deals when present, mockup otherwise */}
