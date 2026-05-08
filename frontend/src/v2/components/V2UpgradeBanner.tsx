@@ -12,14 +12,18 @@
 
 import React from 'react';
 import { useUIVersion } from '../hooks/useUIVersion';
+import { useV2BannerFlag } from '../hooks/useV2BannerFlag';
 
 export default function V2UpgradeBanner() {
   const { uiVersion, isDismissed, isLoading, switchTo, dismissBanner } = useUIVersion();
+  const { enabled: bannerEnabled, loaded: bannerFlagLoaded } = useV2BannerFlag();
 
   // Don't render until we know the preference + don't show on v2 pages.
   if (isLoading) return null;
   if (uiVersion === 'v2') return null;
   if (isDismissed) return null;
+  // Master kill-switch (Super Admin) — once we know the flag, hide if OFF.
+  if (bannerFlagLoaded && !bannerEnabled) return null;
   try { if (typeof window !== 'undefined' && window.location.pathname.startsWith('/v2')) return null; } catch {}
   // Fallback dismissal flag (set when the migration hasn't been applied
   // yet and the user clicks "Maybe later") — respect it so they aren't nagged.

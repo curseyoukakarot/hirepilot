@@ -90,6 +90,7 @@ import PublicJobPage from './screens/PublicJobPage.jsx';
 
 // === v2 redesign — lazy-loaded so legacy bundle stays unchanged ===
 import V2UpgradeBanner from './v2/components/V2UpgradeBanner';
+import V2KillSwitchGuard from './v2/components/V2KillSwitchGuard';
 import { V2ToastProvider } from './v2/components/V2Toast';
 const V2Today = lazy(() => import('./v2/pages/Today'));
 const V2Team = lazy(() => import('./v2/pages/Team'));
@@ -1117,6 +1118,8 @@ function InnerApp() {
       </div>
       {/* v2 upgrade banner — auto-hides on /v2/* routes, when dismissed, or when user is already on v2 */}
       {!isAuthPage && <V2UpgradeBanner />}
+      {/* v2 kill-switch — bounces /v2/* visitors back to /dashboard when Super Admin disables v2 access */}
+      {!isAuthPage && <V2KillSwitchGuard />}
       {/* REX widget mounted (Option A) — v2 has its own REX FAB inside WorkspaceShell */}
       {!(rexFlags.producthunt && rexFlags.popup && isAuthPage) && !isRexMobile && !isV2Route && (
         <RexWidget
