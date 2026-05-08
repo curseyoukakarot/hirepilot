@@ -22,6 +22,7 @@ import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useActivity, type ActivityEvent } from '../hooks/useActivity';
+import { ScheduledSkillsPanel } from '../components/ScheduledSkillsPanel';
 import type { Agent, AgentRole, TrustLevel } from '../types';
 
 /** Most-recent activity row for an agent — drives the "Right now" line. */
@@ -369,6 +370,9 @@ export default function TeamPage() {
             )}
           </div>
         </section>
+
+        {/* SCHEDULED SKILLS — recurring runs (e.g. nightly news watch) */}
+        <ScheduledSkillsPanel agents={agents} />
 
         {/* AVAILABLE TO HIRE */}
         <section>
