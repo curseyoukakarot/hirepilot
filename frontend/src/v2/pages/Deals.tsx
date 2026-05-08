@@ -219,8 +219,8 @@ export default function DealsPage() {
               <span className="font-semibold"> Figma project (9d, missing scope).</span>
               <span className="text-primary font-semibold ml-1">Want me to draft follow-ups for all 3?</span>
             </div>
-            <button className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-bolt text-[9px]" />Draft 3 follow-ups</button>
-            <button className="ghost-btn !text-[11.5px]">Dismiss</button>
+            <button onClick={() => toastSoon('Bulk draft follow-ups via Account Manager')} className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-bolt text-[9px]" />Draft 3 follow-ups</button>
+            <button onClick={() => toastInfo('Strip dismissed for this session.')} className="ghost-btn !text-[11.5px]">Dismiss</button>
           </div>
         </div>
 

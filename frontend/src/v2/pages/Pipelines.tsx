@@ -89,7 +89,7 @@ export default function PipelinesPage() {
       <aside className="w-[240px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 overflow-y-auto p-3">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="nav-section-h !p-0">Open requisitions · {jobs.length || 0}</span>
-          <button className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
+          <button onClick={() => window.location.href = '/jobs/create'} title="New requisition (opens in classic UI)" className="w-5 h-5 rounded hover:bg-surface flex items-center justify-center text-text-muted"><i className="fa-solid fa-plus text-[10px]" /></button>
         </div>
 
         <ul className="space-y-1">
@@ -129,7 +129,7 @@ export default function PipelinesPage() {
           ))}
         </ul>
 
-        <button className="w-full mt-3 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] text-text-muted hover:border-primary/30 hover:text-primary" style={{ border: '1px dashed #E5E7EB' }}>
+        <button onClick={() => window.location.href = '/jobs/create'} className="w-full mt-3 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] text-text-muted hover:border-primary/30 hover:text-primary" style={{ border: '1px dashed #E5E7EB' }}>
           <i className="fa-solid fa-plus text-[10px]" />New requisition
         </button>
 
@@ -183,10 +183,30 @@ export default function PipelinesPage() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button className="ghost-btn"><i className="fa-regular fa-file-lines text-[11px]" />JD</button>
-            <button className="ghost-btn"><i className="fa-solid fa-share-nodes text-[11px]" />Public link</button>
-            <button className="ghost-btn"><i className="fa-solid fa-sliders text-[11px]" />Settings</button>
-            <button className="btn-solid"><i className="fa-solid fa-plus text-[10px]" />Add candidate</button>
+            <button
+              onClick={() => activeJob && window.open(`/jobs/${activeJob.id}`, '_blank')}
+              disabled={!activeJob}
+              className="ghost-btn disabled:opacity-50"
+              title="View the full job description (opens in classic UI)"
+            ><i className="fa-regular fa-file-lines text-[11px]" />JD</button>
+            <button
+              onClick={() => activeJob && window.open(`/jobs/${activeJob.id}/share`, '_blank')}
+              disabled={!activeJob}
+              className="ghost-btn disabled:opacity-50"
+              title="Generate a shareable public job link"
+            ><i className="fa-solid fa-share-nodes text-[11px]" />Public link</button>
+            <button
+              onClick={() => activeJob && window.open(`/jobs/${activeJob.id}/edit`, '_blank')}
+              disabled={!activeJob}
+              className="ghost-btn disabled:opacity-50"
+              title="Job settings (opens in classic UI)"
+            ><i className="fa-solid fa-sliders text-[11px]" />Settings</button>
+            <button
+              onClick={() => activeJob && window.open(`/jobs/${activeJob.id}#add-candidate`, '_blank')}
+              disabled={!activeJob}
+              className="btn-solid disabled:opacity-50"
+              title="Add a candidate to this pipeline"
+            ><i className="fa-solid fa-plus text-[10px]" />Add candidate</button>
           </div>
         </div>
 
@@ -202,8 +222,8 @@ export default function PipelinesPage() {
               <span className="font-semibold"> Aisha Okafor (Interview → Offer, hiring manager said yes).</span>
               <span className="text-primary font-semibold ml-1">Advance all 3?</span>
             </div>
-            <button className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-arrow-right text-[9px]" />Advance 3</button>
-            <button className="ghost-btn !text-[11.5px]">Review individually</button>
+            <button onClick={() => toastSoon('Bulk advance 3 candidates')} className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-arrow-right text-[9px]" />Advance 3</button>
+            <button onClick={() => toastInfo('Click any candidate card to review and advance individually.')} className="ghost-btn !text-[11.5px]">Review individually</button>
           </div>
         </div>
 

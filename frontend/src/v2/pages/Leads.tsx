@@ -19,6 +19,9 @@ import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../comp
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useLeads, leadDomain, type Lead } from '../hooks/useLeads';
 import { useV2Theme } from '../hooks/useV2Theme';
+import { toastSoon, toastInfo, toastSuccess } from '../components/V2Toast';
+import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
+import V2Dropdown from '../components/V2Dropdown';
 import '../../styles/v2.css';
 
 /** Random gradient palette for lead avatars (deterministic by id). */
@@ -105,21 +108,24 @@ export default function LeadsPage() {
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2 px-2">
             <span className="nav-section-h !p-0">Saved views</span>
-            <button className="text-text-muted hover:text-text-main"><i className="fa-solid fa-plus text-[10px]" /></button>
+            <button onClick={() => toastSoon('Custom saved views')} className="text-text-muted hover:text-text-main" title="Save current filters as a view"><i className="fa-solid fa-plus text-[10px]" /></button>
           </div>
           <ul className="space-y-px text-[13px]">
             {[
-              { active: true, icon: 'fa-fire', label: 'Hot leads', count: 12 },
-              { icon: 'fa-regular fa-clock', label: 'Replied today', count: 8 },
-              { icon: 'fa-regular fa-bookmark', label: 'Bookmarked', count: 23 },
-              { icon: 'fa-regular fa-paper-plane', label: 'In active campaign', count: 412 },
-              { icon: 'fa-solid fa-database', label: 'All leads', count: '3,247' },
+              { key: 'hot',     active: true, icon: 'fa-fire',                  label: 'Hot leads',          count: leads.filter((l: any) => (l.score ?? 0) >= 90).length || 0 },
+              { key: 'replied', icon: 'fa-regular fa-clock',                    label: 'Replied today',      count: '—' },
+              { key: 'bookmarked', icon: 'fa-regular fa-bookmark',              label: 'Bookmarked',         count: '—' },
+              { key: 'campaign',   icon: 'fa-regular fa-paper-plane',           label: 'In active campaign', count: leads.filter((l: any) => l.campaign_id).length || 0 },
+              { key: 'all',     icon: 'fa-solid fa-database',                   label: 'All leads',          count: leads.length || 0 },
             ].map((v) => (
-              <li key={v.label}>
-                <a href="#" className={`flex items-center justify-between px-2.5 py-1.5 rounded-md ${v.active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-surface text-text-secondary'}`}>
+              <li key={v.key}>
+                <button
+                  onClick={() => toastSoon(`Saved view: ${v.label}`)}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md ${v.active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-surface text-text-secondary'}`}
+                >
                   <span className="flex items-center gap-2"><i className={`fa-solid ${v.icon} w-3 text-[10px] ${v.active ? '' : 'text-text-muted'}`} />{v.label}</span>
                   <span className={`text-[10px] ${v.active ? '' : 'text-text-muted'}`}>{v.count}</span>
-                </a>
+                </button>
               </li>
             ))}
           </ul>
@@ -201,10 +207,24 @@ export default function LeadsPage() {
             <span className="px-2.5 py-1 rounded-full text-[11.5px] font-medium border bg-surface" style={{ borderColor: '#E5E7EB' }}>+ Filter</span>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
-            <button className="btn-outline"><i className="fa-solid fa-arrow-up-wide-short text-[10px]" />Sort: Last activity</button>
-            <button className="btn-outline"><i className="fa-solid fa-file-import text-[10px]" />Import</button>
-            <button className="btn-outline"><i className="fa-solid fa-file-export text-[10px]" />Export</button>
-            <button className="btn-solid"><i className="fa-solid fa-plus text-[10px]" />New lead</button>
+            <V2Dropdown
+              align="right"
+              minWidth={180}
+              trigger={
+                <span className="btn-outline cursor-pointer">
+                  <i className="fa-solid fa-arrow-up-wide-short text-[10px]" />Sort: Last activity
+                </span>
+              }
+              items={[
+                { key: 'last',  icon: 'clock-rotate-left',     label: 'Last activity', selected: true,  onClick: () => {} },
+                { key: 'name',  icon: 'arrow-down-a-z',        label: 'Name (A→Z)',    onClick: () => toastSoon('Sort by name') },
+                { key: 'score', icon: 'arrow-down-9-1',        label: 'Score (high→low)', onClick: () => toastSoon('Sort by score') },
+                { key: 'created', icon: 'calendar-plus',       label: 'Recently added', onClick: () => toastSoon('Sort by created date') },
+              ]}
+            />
+            <button onClick={() => window.location.href = '/leads/import'} className="btn-outline" title="Import leads (opens in classic UI)"><i className="fa-solid fa-file-import text-[10px]" />Import</button>
+            <button onClick={() => toastSoon('Export filtered leads to CSV')} className="btn-outline"><i className="fa-solid fa-file-export text-[10px]" />Export</button>
+            <button onClick={() => window.location.href = '/leads'} className="btn-solid" title="Add a new lead (opens in classic UI)"><i className="fa-solid fa-plus text-[10px]" />New lead</button>
           </div>
         </div>
 
@@ -217,8 +237,8 @@ export default function LeadsPage() {
               <span className="text-text-secondary"> I scored 247 new leads from your Q2 Engineers sourcing run · the 12 below all match your "Stripe-tier engineer" pattern.</span>
               <span className="text-primary font-semibold ml-1.5">Want me to draft outreach for all 12?</span>
             </div>
-            <button className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-bolt text-[9px]" />Draft for all 12</button>
-            <button className="ghost-btn !text-[11.5px]">Dismiss</button>
+            <button onClick={() => toastSoon('Bulk draft outreach via Recruiter')} className="btn-solid !py-1 !px-2.5 !text-[11.5px]"><i className="fa-solid fa-bolt text-[9px]" />Draft for all 12</button>
+            <button onClick={() => toastInfo('Strip dismissed for this session.')} className="ghost-btn !text-[11.5px]">Dismiss</button>
           </div>
         </div>
 
@@ -226,11 +246,11 @@ export default function LeadsPage() {
         <div className="mx-6 mb-2 px-3 py-2 rounded-xl flex items-center gap-3 text-[12px] float-in d-2" style={{ background: 'rgba(107,70,193,.08)', border: '1px solid rgba(107,70,193,.15)' }}>
           <span className="text-primary font-semibold">3 selected</span>
           <span className="w-px h-4 bg-primary/20" />
-          <button className="text-primary hover:underline"><i className="fa-solid fa-paper-plane text-[10px] mr-1" />Add to campaign</button>
-          <button className="text-primary hover:underline"><i className="fa-solid fa-tag text-[10px] mr-1" />Tag</button>
-          <button className="text-primary hover:underline"><i className="fa-solid fa-table-columns text-[10px] mr-1" />Move to pipeline</button>
-          <button className="text-primary hover:underline font-bold"><i className="fa-solid fa-wand-magic-sparkles text-[10px] mr-1" />Ask REX</button>
-          <button className="text-text-muted hover:text-danger ml-auto"><i className="fa-solid fa-trash text-[10px]" /></button>
+          <button onClick={() => toastSoon('Add selected leads to a campaign')} className="text-primary hover:underline"><i className="fa-solid fa-paper-plane text-[10px] mr-1" />Add to campaign</button>
+          <button onClick={() => toastSoon('Tag selected leads')} className="text-primary hover:underline"><i className="fa-solid fa-tag text-[10px] mr-1" />Tag</button>
+          <button onClick={() => toastSoon('Move to a pipeline (job)')} className="text-primary hover:underline"><i className="fa-solid fa-table-columns text-[10px] mr-1" />Move to pipeline</button>
+          <button onClick={() => toastInfo('Open REX (⌘K) to act on the selected leads.')} className="text-primary hover:underline font-bold"><i className="fa-solid fa-wand-magic-sparkles text-[10px] mr-1" />Ask REX</button>
+          <button onClick={() => toastSoon('Bulk delete selected leads')} className="text-text-muted hover:text-danger ml-auto"><i className="fa-solid fa-trash text-[10px]" /></button>
         </div>
 
         {/* Table */}
