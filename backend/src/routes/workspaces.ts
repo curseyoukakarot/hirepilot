@@ -319,6 +319,169 @@ router.post('/:id/invite', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/workspaces/:id/invites?status=pending
+ * List invites for the workspace. Owner/admin sees all; everyone else 403s.
+ */
+router.get('/:id/invites', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = String(req.params.id || '').trim();
+    if (!workspaceId) return res.status(400).json({ error: 'workspace_id_required' });
+
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('role,status')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const memberRole = String((membership as any)?.role || '').toLowerCase();
+    const memberStatus = String((membership as any)?.status || '').toLowerCase();
+    if (memberStatus !== 'active' || !['owner','admin'].includes(memberRole)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const statusFilter = String((req.query as any)?.status || 'pending').toLowerCase();
+    let q = supabase
+      .from('workspace_invites')
+      .select('id,email,role,status,created_at,expires_at,accepted_at')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false });
+    if (statusFilter && statusFilter !== 'all') q = q.eq('status', statusFilter);
+    const { data: invites, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ invites: invites || [] });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'list_failed' });
+  }
+});
+
+/**
+ * POST /api/workspaces/:id/invites/:inviteId/resend
+ * Re-sends the invite email. Regenerates the token + extends expiry by 72h.
+ * Owner/admin only. Pending invites only.
+ */
+router.post('/:id/invites/:inviteId/resend', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = String(req.params.id || '').trim();
+    const inviteId = String(req.params.inviteId || '').trim();
+    if (!workspaceId || !inviteId) return res.status(400).json({ error: 'ids_required' });
+
+    // Owner/admin check.
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('role,status')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const memberRole = String((membership as any)?.role || '').toLowerCase();
+    const memberStatus = String((membership as any)?.status || '').toLowerCase();
+    if (memberStatus !== 'active' || !['owner','admin'].includes(memberRole)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    // Lookup invite + verify scope.
+    const { data: invite } = await supabase
+      .from('workspace_invites')
+      .select('id,workspace_id,email,role,status')
+      .eq('id', inviteId)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (!invite) return res.status(404).json({ error: 'invite_not_found' });
+    if ((invite as any).status !== 'pending') {
+      return res.status(409).json({ error: 'invite_not_pending', status: (invite as any).status });
+    }
+
+    // Rotate the token + extend expiry.
+    const newToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString();
+    const { error: upErr } = await supabase
+      .from('workspace_invites')
+      .update({ token: newToken, expires_at: expiresAt, updated_at: new Date().toISOString() })
+      .eq('id', inviteId);
+    if (upErr) return res.status(500).json({ error: upErr.message });
+
+    // Workspace name for the email.
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('id,name')
+      .eq('id', workspaceId)
+      .maybeSingle();
+
+    const userEmail = String((req as any)?.user?.email || '').toLowerCase();
+    const inviteLink = `${process.env.APP_BASE_URL || 'https://app.thehirepilot.com'}/workspace-invite?token=${newToken}`;
+    await sendWorkspaceInviteEmail({
+      to: (invite as any).email,
+      inviteLink,
+      invitedBy: {
+        firstName: (req as any)?.user?.first_name || '',
+        lastName: (req as any)?.user?.last_name || '',
+        email: userEmail,
+      },
+      workspaceName: (workspace as any)?.name || 'Workspace',
+      role: (invite as any).role,
+    });
+
+    return res.json({ success: true, invite_id: inviteId });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'resend_failed' });
+  }
+});
+
+/**
+ * DELETE /api/workspaces/:id/invites/:inviteId
+ * Revokes a pending invite by flipping status to 'revoked'. The token
+ * stops working immediately because /workspace-invite/:token checks
+ * status === 'pending' (see backend/src/routes/workspaceInvites.ts).
+ * Owner/admin only.
+ */
+router.delete('/:id/invites/:inviteId', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any)?.user?.id as string | undefined;
+    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    const workspaceId = String(req.params.id || '').trim();
+    const inviteId = String(req.params.inviteId || '').trim();
+    if (!workspaceId || !inviteId) return res.status(400).json({ error: 'ids_required' });
+
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('role,status')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const memberRole = String((membership as any)?.role || '').toLowerCase();
+    const memberStatus = String((membership as any)?.status || '').toLowerCase();
+    if (memberStatus !== 'active' || !['owner','admin'].includes(memberRole)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { data: invite } = await supabase
+      .from('workspace_invites')
+      .select('id,status')
+      .eq('id', inviteId)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (!invite) return res.status(404).json({ error: 'invite_not_found' });
+    if ((invite as any).status !== 'pending') {
+      // Idempotent: already revoked / accepted is fine.
+      return res.json({ success: true, already: (invite as any).status });
+    }
+
+    const { error: upErr } = await supabase
+      .from('workspace_invites')
+      .update({ status: 'revoked', updated_at: new Date().toISOString() })
+      .eq('id', inviteId);
+    if (upErr) return res.status(500).json({ error: upErr.message });
+
+    return res.json({ success: true, invite_id: inviteId });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'revoke_failed' });
+  }
+});
+
 // POST /api/workspaces/checkout { name, plan, interval, success_url, cancel_url }
 router.post('/checkout', activeWorkspace as any, async (req: Request, res: Response) => {
   try {

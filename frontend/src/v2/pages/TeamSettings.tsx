@@ -22,7 +22,7 @@ import { useV2Theme } from '../hooks/useV2Theme';
 import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
 import V2ConfirmDialog from '../components/V2ConfirmDialog';
 import { toastSuccess, toastSoon } from '../components/V2Toast';
-import { apiPost } from '../../lib/api';
+import { apiPost, apiGet, apiDelete } from '../../lib/api';
 import { useMyWorkspaces } from '../hooks/useWorkspaces';
 import type { TeamColor } from '../types';
 import '../../styles/v2.css';
@@ -85,6 +85,45 @@ export default function TeamSettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
+  // Pending invites list — refreshes after invite/resend/revoke.
+  interface PendingInvite { id: string; email: string; role: string; status: string; created_at: string; expires_at: string | null }
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
+  const refreshInvites = async () => {
+    if (!activeId) return;
+    setInvitesLoading(true);
+    try {
+      const resp: any = await apiGet(`/api/workspaces/${activeId}/invites?status=pending`);
+      setInvites((resp?.invites || []) as PendingInvite[]);
+    } catch { /* fail-soft */ } finally { setInvitesLoading(false); }
+  };
+  useEffect(() => { refreshInvites(); /* eslint-disable-next-line */ }, [activeId]);
+
+  const resendInvite = async (inv: PendingInvite) => {
+    if (!activeId || inviteBusyId) return;
+    setInviteBusyId(inv.id);
+    try {
+      await apiPost(`/api/workspaces/${activeId}/invites/${inv.id}/resend`, {});
+      toastSuccess(`Invite re-sent to ${inv.email}`);
+      refreshInvites();
+    } catch (e: any) {
+      toastSoon(`Couldn't resend: ${e?.message || 'unknown error'}`);
+    } finally { setInviteBusyId(null); }
+  };
+  const revokeInvite = async (inv: PendingInvite) => {
+    if (!activeId || inviteBusyId) return;
+    if (!window.confirm(`Revoke invite to ${inv.email}? They won't be able to use the link.`)) return;
+    setInviteBusyId(inv.id);
+    try {
+      await apiDelete(`/api/workspaces/${activeId}/invites/${inv.id}`);
+      toastSuccess(`Invite to ${inv.email} revoked`);
+      refreshInvites();
+    } catch (e: any) {
+      toastSoon(`Couldn't revoke: ${e?.message || 'unknown error'}`);
+    } finally { setInviteBusyId(null); }
+  };
+
   const sendInvite = async () => {
     if (!inviteEmail.trim() || !activeId) return;
     setInviteSending(true);
@@ -94,6 +133,7 @@ export default function TeamSettingsPage() {
       setInviteOpen(false);
       setInviteEmail('');
       setInviteRole('member');
+      refreshInvites();
     } catch (e: any) {
       toastSoon(`Couldn't send invite: ${e?.message || 'unknown error'}`);
     } finally {
@@ -322,16 +362,53 @@ export default function TeamSettingsPage() {
                     <button className="ghost-btn p-1.5"><i className="fa-solid fa-ellipsis text-[11px]" /></button>
                   </div>
                 ))}
-                <div className="flex items-center gap-3.5 py-2.5 border-t border-gray-50 opacity-70">
-                  <div className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-text-muted text-[11px] font-semibold ring-2 ring-white"><i className="fa-solid fa-envelope text-[10px]" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[13.5px]">danielle@apex-recruiting.com</div>
-                    <div className="text-[11px] text-text-muted">Invitation pending · sent 2 days ago</div>
+                {invitesLoading && invites.length === 0 ? (
+                  <div className="py-3.5 border-t border-gray-50 text-center text-[12px] text-text-muted">
+                    <i className="fa-solid fa-spinner fa-spin mr-2" />Loading pending invites…
                   </div>
-                  <span className="tag tag-warn">Pending</span>
-                  <button onClick={() => toastSoon('Resend invite')} className="ghost-btn p-1.5 text-[11px]">Resend</button>
-                  <button onClick={() => toastSoon('Revoke invite')} className="ghost-btn p-1.5 text-[11px] text-danger">Revoke</button>
-                </div>
+                ) : invites.length === 0 ? null : invites.map((inv) => {
+                  const sentAgo = (() => {
+                    const ms = Date.now() - new Date(inv.created_at).getTime();
+                    if (ms < 60_000) return 'just now';
+                    const mins = Math.floor(ms / 60_000);
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.floor(hrs / 24)}d ago`;
+                  })();
+                  const expired = inv.expires_at && new Date(inv.expires_at) < new Date();
+                  const busy = inviteBusyId === inv.id;
+                  return (
+                    <div key={inv.id} className="flex items-center gap-3.5 py-2.5 border-t border-gray-50 opacity-95">
+                      <div className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-text-muted text-[11px] font-semibold ring-2 ring-white">
+                        <i className="fa-solid fa-envelope text-[10px]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-[13.5px] truncate">{inv.email}</div>
+                        <div className="text-[11px] text-text-muted">
+                          {expired ? 'Invitation expired · ' : 'Invitation pending · '}
+                          sent {sentAgo}
+                          {inv.role === 'admin' ? ' · admin' : ''}
+                        </div>
+                      </div>
+                      <span className={`tag ${expired ? 'tag-muted' : 'tag-warn'}`}>{expired ? 'Expired' : 'Pending'}</span>
+                      <button
+                        onClick={() => resendInvite(inv)}
+                        disabled={busy}
+                        className="ghost-btn p-1.5 text-[11px] disabled:opacity-50"
+                      >
+                        <i className={`fa-solid ${busy ? 'fa-spinner fa-spin' : 'fa-paper-plane'} text-[9px] mr-1`} />Resend
+                      </button>
+                      <button
+                        onClick={() => revokeInvite(inv)}
+                        disabled={busy}
+                        className="ghost-btn p-1.5 text-[11px] text-danger disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-xmark text-[10px] mr-1" />Revoke
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               <p className="text-[11px] text-text-muted mt-4">Need read-only / commenter access for a specific job, table, or task? Use <a href="/v2/pipelines" className="text-primary font-semibold hover:underline">per-resource collaborators</a> from the resource itself — no extra seat charge.</p>
