@@ -90,6 +90,7 @@ import PublicJobPage from './screens/PublicJobPage.jsx';
 
 // === v2 redesign — lazy-loaded so legacy bundle stays unchanged ===
 import V2UpgradeBanner from './v2/components/V2UpgradeBanner';
+import { V2ToastProvider } from './v2/components/V2Toast';
 const V2Today = lazy(() => import('./v2/pages/Today'));
 const V2Team = lazy(() => import('./v2/pages/Team'));
 const V2Goals = lazy(() => import('./v2/pages/Goals'));
@@ -417,8 +418,10 @@ export default function App() {
           <BrowserRouter>
             <ThemeProvider>
             <PlanProvider>
+              <V2ToastProvider>
               <AuthQuerySync />
               <InnerApp />
+              </V2ToastProvider>
             </PlanProvider>
             </ThemeProvider>
           </BrowserRouter>

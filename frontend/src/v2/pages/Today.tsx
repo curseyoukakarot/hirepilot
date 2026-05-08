@@ -15,8 +15,11 @@ import { useActivity, type ActivityEvent } from '../hooks/useActivity';
 import { useGoals } from '../hooks/useGoals';
 import { useDecisions } from '../hooks/useDecisions';
 import { useAgents } from '../hooks/useAgents';
+import { toastSoon, toastInfo } from '../components/V2Toast';
+import { useNavigate } from 'react-router-dom';
 
 export default function TodayPage() {
+  const navigate = useNavigate();
   const { activity } = useActivity({ limit: 30 });
   const { goals } = useGoals('running');
   const { decisions: pending } = useDecisions({ status: 'pending' });
@@ -135,11 +138,11 @@ export default function TodayPage() {
                   </li>
                 </ul>
                 <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-200/60">
-                  <button className="btn-solid">
-                    <i className="fa-solid fa-bolt text-[10px]" />Open 12 hot replies
+                  <button onClick={() => navigate('/v2/inbox')} className="btn-solid">
+                    <i className="fa-solid fa-bolt text-[10px]" />Open hot replies
                   </button>
-                  <button className="ghost-btn">Show today's plan</button>
-                  <button className="ghost-btn">Open overnight summary</button>
+                  <button onClick={() => navigate('/v2/goals')} className="ghost-btn">Show today's plan</button>
+                  <button onClick={() => toastSoon("Overnight summary report")} className="ghost-btn">Open overnight summary</button>
                 </div>
               </div>
             </div>
@@ -165,7 +168,7 @@ export default function TodayPage() {
               <h2 className="text-[20px] font-bold tracking-tight">Your workspace</h2>
               <p className="text-text-muted text-[13px] mt-0.5">Sourcing · ATS · CRM · outreach · reporting — all in one place.</p>
             </div>
-            <button className="ghost-btn">
+            <button onClick={() => toastSoon('Customize workspace cards')} className="ghost-btn">
               <i className="fa-solid fa-sliders text-[11px]" />Customize
             </button>
           </div>

@@ -17,6 +17,9 @@ import { RexSkillButtons, RexSkillsHireCTA, type SkillButtonSpec } from '../comp
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useInbox, type InboxThread } from '../hooks/useInbox';
 import { useV2Theme } from '../hooks/useV2Theme';
+import V2Dropdown from '../components/V2Dropdown';
+import { toastSuccess, toastSoon, toastInfo } from '../components/V2Toast';
+import type { TrustLevel } from '../types';
 import '../../styles/v2.css';
 
 const INBOX_AVATARS = [
@@ -75,13 +78,31 @@ const CONVERSATIONS: Conv[] = [
   { initials: 'JW', av: 'from-purple-400 to-purple-700', name: 'Jamal Williams', time: '52m', preview: '"Not the right time but keep me on the list."', tag: { label: 'Cold', cls: 'tag-muted' } },
 ];
 
+type InboxFilter = 'all' | 'hot' | 'rex_drafts';
+
 export default function InboxPage() {
   const { threads } = useInbox(30);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<InboxFilter>('all');
   const selectedThread = useMemo(
     () => threads.find((t) => t.id === selectedId) || threads[0],
     [threads, selectedId],
   );
+
+  // Filter counts + visible list. "Hot" = positive classification or
+  // meeting_request. "REX drafts" requires a thread.has_pending_draft signal
+  // we don't yet expose — for now treat them as "any pending decision attached".
+  const hotCount = threads.filter((t) =>
+    t.classification === 'positive' || t.classification === 'meeting_request'
+  ).length;
+  const rexDraftCount = 0; // TODO: when decisions.thread_id lands, count pending drafts here.
+  const visibleThreads = (() => {
+    if (filter === 'hot') return threads.filter((t) =>
+      t.classification === 'positive' || t.classification === 'meeting_request'
+    );
+    if (filter === 'rex_drafts') return [];
+    return threads;
+  })();
   useV2Theme();
 
   return (
@@ -111,15 +132,21 @@ export default function InboxPage() {
           {/* LEFT: conversation list */}
           <section className="w-80 shrink-0 border-r border-gray-100 bg-white/40 flex flex-col">
             <div className="px-3 py-2.5 border-b border-gray-100 flex items-center gap-1.5 text-[11px]">
-              <button className="px-2.5 py-1 rounded-full bg-primary text-white font-semibold">All <span className="opacity-80">12</span></button>
-              <button className="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">Hot <span className="text-text-muted">8</span></button>
-              <button className="px-2.5 py-1 rounded-full text-text-secondary hover:bg-surface font-medium">REX drafts <span className="text-text-muted">8</span></button>
+              <button onClick={() => setFilter('all')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'all' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                All <span className={filter === 'all' ? 'opacity-80' : 'text-text-muted'}>{threads.length}</span>
+              </button>
+              <button onClick={() => setFilter('hot')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'hot' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                Hot <span className={filter === 'hot' ? 'opacity-80' : 'text-text-muted'}>{hotCount}</span>
+              </button>
+              <button onClick={() => setFilter('rex_drafts')} className={`px-2.5 py-1 rounded-full font-semibold ${filter === 'rex_drafts' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface font-medium'}`}>
+                REX drafts <span className={filter === 'rex_drafts' ? 'opacity-80' : 'text-text-muted'}>{rexDraftCount}</span>
+              </button>
               <button className="ml-auto px-2 py-1 rounded-full text-text-secondary hover:bg-surface"><i className="fa-solid fa-filter text-[10px]" /></button>
             </div>
 
             <ul className="flex-1 overflow-y-auto">
               {/* Real threads from /api/v2/inbox */}
-              {threads.length > 0 ? threads.map((t) => {
+              {threads.length > 0 ? visibleThreads.map((t) => {
                 const isActive = (selectedId || threads[0]?.id) === t.id;
                 const preview = (t.text_body || t.subject || '').replace(/\s+/g, ' ').trim().slice(0, 90);
                 const tagCls = t.classification === 'positive' ? 'tag-success' :
@@ -193,27 +220,25 @@ export default function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-calendar text-sm" /></button>
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-share-nodes text-sm" /></button>
-                <button className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary"><i className="fa-solid fa-ellipsis text-sm" /></button>
+                <button onClick={() => toastSoon('Schedule meeting from thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Schedule meeting"><i className="fa-solid fa-calendar text-sm" /></button>
+                <button onClick={() => toastSoon('Forward / share thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Share thread"><i className="fa-solid fa-share-nodes text-sm" /></button>
+                <V2Dropdown
+                  align="right"
+                  minWidth={200}
+                  trigger={<span className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary cursor-pointer"><i className="fa-solid fa-ellipsis text-sm" /></span>}
+                  items={[
+                    { key: 'archive', icon: 'box-archive',  label: 'Archive thread',     onClick: () => toastSoon('Archive thread') },
+                    { key: 'mark',    icon: 'envelope',     label: 'Mark as unread',     onClick: () => toastSoon('Mark thread unread') },
+                    { key: 'mute',    icon: 'volume-xmark', label: 'Mute notifications', onClick: () => toastSoon('Mute thread notifications') },
+                    { key: 'd1',      divider: true,        label: '' },
+                    { key: 'block',   icon: 'circle-xmark', label: 'Block sender',       destructive: true, onClick: () => toastSoon('Block sender') },
+                  ]}
+                />
               </div>
             </div>
 
-            {/* Per-thread autopilot strip */}
-            <div className="px-6 py-2.5 flex items-center gap-3 text-[12px]" style={{ background: 'linear-gradient(90deg,rgba(16,185,129,.06),rgba(107,70,193,.04) 70%,transparent)', borderBottom: '1px solid rgba(16,185,129,.15)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md grad-recruiter flex items-center justify-center text-white"><i className="fa-solid fa-user-tie text-[10px]" /></div>
-                <span className="font-semibold">Recruiter is autopilot for this thread</span>
-              </div>
-              <span className="text-text-muted">·</span>
-              <span className="text-text-secondary">Sarah's score is <strong className="text-success">94</strong> — above your auto-send threshold of 90</span>
-              <div className="trust-mini ml-auto">
-                <span className="trust-mini-seg">M</span>
-                <span className="trust-mini-seg">S</span>
-                <span className="trust-mini-seg active">Auto</span>
-              </div>
-              <button className="ghost-btn !text-[11.5px]"><i className="fa-solid fa-sliders text-[10px]" />Adjust</button>
-            </div>
+            {/* Per-thread autopilot strip — wired to Recruiter trust */}
+            <RecruiterAutopilotStrip />
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
@@ -260,7 +285,7 @@ export default function InboxPage() {
                 <div className="text-[11.5px] text-success rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)' }}>
                   <i className="fa-solid fa-circle-check text-[11px]" />
                   <span><strong>Coordinator</strong> auto-sent calendar invite for <strong>Thu 2:30 PT</strong> · score 94 ≥ threshold</span>
-                  <button className="text-primary font-semibold hover:underline ml-2">View invite</button>
+                  <button onClick={() => toastSoon('View calendar invite details')} className="text-primary font-semibold hover:underline ml-2">View invite</button>
                 </div>
               </div>
 
@@ -277,9 +302,9 @@ export default function InboxPage() {
                     Anything specific you want me to prep on the call?<br /><br />— Brandon
                   </p>
                   <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-primary/10 flex-wrap">
-                    <button className="btn-solid"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
-                    <button className="btn-outline">Edit</button>
-                    <button className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
+                    <button onClick={() => toastSoon('Send drafted reply (sample mock-up)')} className="btn-solid"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
+                    <button onClick={() => toastSoon('Open inline editor for the draft')} className="btn-outline">Edit</button>
+                    <button onClick={() => toastSoon('Regenerate via Recruiter reply_handler')} className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
                     <span className="ml-auto text-[10.5px] text-text-muted flex items-center gap-1"><i className="fa-solid fa-shield-check text-[10px]" />Tone: warm professional</span>
                   </div>
                 </div>
@@ -287,9 +312,9 @@ export default function InboxPage() {
 
               <div className="ml-11 flex items-center gap-2 flex-wrap">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Or ask Recruiter to:</span>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Send the role brief</button>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in Marcus (VP Eng)</button>
-                <button className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Draft submittal for Marcus</button>
+                <button onClick={() => toastSoon('Send role brief to candidate')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Send the role brief</button>
+                <button onClick={() => toastSoon('Loop in hiring manager')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Loop in Marcus (VP Eng)</button>
+                <button onClick={() => toastSoon('Draft submittal via Recruiter')} className="text-[11.5px] px-3 py-1.5 rounded-full bg-surface text-text-main hover:bg-gray-200">Draft submittal for Marcus</button>
               </div>
 
               {/* Skills strip — invoke a Skill on this thread's lead */}
@@ -318,10 +343,10 @@ export default function InboxPage() {
                 <textarea className="w-full px-4 py-3 text-[14px] outline-none resize-none rounded-2xl placeholder:text-text-muted" rows={2} placeholder="Type a reply, or hit ⌘K to ask Recruiter…" />
                 <div className="flex items-center justify-between px-3 pb-2.5">
                   <div className="flex items-center gap-1 text-text-muted">
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-paperclip text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-image text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-link text-[11px]" /></button>
-                    <button className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center"><i className="fa-solid fa-calendar text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Attach a file')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Attach a file"><i className="fa-solid fa-paperclip text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Attach an image')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Attach an image"><i className="fa-solid fa-image text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Insert a link')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Insert link"><i className="fa-solid fa-link text-[11px]" /></button>
+                    <button onClick={() => toastSoon('Insert calendar invite')} className="w-7 h-7 rounded hover:bg-surface flex items-center justify-center" title="Insert calendar invite"><i className="fa-solid fa-calendar text-[11px]" /></button>
                     <button className="text-[11px] px-2 py-1 rounded hover:bg-surface text-primary font-semibold"><i className="fa-solid fa-wand-magic-sparkles text-[10px] mr-1" />Improve with REX</button>
                   </div>
                   <div className="flex items-center gap-2">
@@ -340,8 +365,22 @@ export default function InboxPage() {
               <h3 className="font-bold text-[16px]">Sarah Chen</h3>
               <p className="text-[11.5px] text-text-muted">Senior Backend Engineer · Stripe</p>
               <div className="flex items-center justify-center gap-1.5 mt-3">
-                <button className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary"><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
-                <button className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary"><i className="fa-solid fa-envelope mr-1" />Email</button>
+                <button
+                  onClick={() => {
+                    const url = (selectedThread?.lead as any)?.linkedin_url;
+                    if (url) window.open(url, '_blank');
+                    else toastInfo('No LinkedIn URL on this lead.');
+                  }}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary hover:bg-gray-200"
+                ><i className="fa-brands fa-linkedin mr-1" />LinkedIn</button>
+                <button
+                  onClick={() => {
+                    const email = (selectedThread?.lead as any)?.email;
+                    if (email) window.location.href = `mailto:${email}`;
+                    else toastInfo('No email on this lead.');
+                  }}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface text-text-secondary hover:bg-gray-200"
+                ><i className="fa-solid fa-envelope mr-1" />Email</button>
               </div>
             </div>
 
@@ -448,5 +487,84 @@ function InboxSkillsBar({
       subtitle="run on this thread"
       compact
     />
+  );
+}
+
+/**
+ * Per-thread autopilot strip. Reads + writes the Recruiter agent's trust
+ * level — there's no per-thread trust column in the schema yet, so this
+ * effectively governs every thread the Recruiter touches. Future schema
+ * change: add thread.trust_level for true per-thread control.
+ */
+function RecruiterAutopilotStrip() {
+  const { agents, update } = useAgents();
+  const recruiter = findAgentByRole(agents, 'recruiter');
+  const level: TrustLevel = (recruiter?.trust_level as TrustLevel) || 'suggest';
+
+  const setLevel = (next: TrustLevel) => {
+    if (!recruiter || next === level) return;
+    update.mutate({ id: recruiter.id, trust_level: next }, {
+      onSuccess: () => toastSuccess(`Recruiter set to ${next === 'autopilot' ? 'Autopilot' : next === 'suggest' ? 'Suggest' : 'Manual'}`),
+    });
+  };
+
+  const labels: Record<TrustLevel, string> = { autopilot: 'autopilot', suggest: 'suggest', manual: 'manual' };
+  const stripBg = level === 'autopilot'
+    ? 'linear-gradient(90deg,rgba(16,185,129,.06),rgba(107,70,193,.04) 70%,transparent)'
+    : level === 'suggest'
+      ? 'linear-gradient(90deg,rgba(245,158,11,.06),rgba(107,70,193,.04) 70%,transparent)'
+      : 'linear-gradient(90deg,rgba(71,85,105,.06),rgba(107,70,193,.04) 70%,transparent)';
+
+  return (
+    <div className="px-6 py-2.5 flex items-center gap-3 text-[12px]" style={{ background: stripBg, borderBottom: '1px solid rgba(16,185,129,.15)' }}>
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-md grad-recruiter flex items-center justify-center text-white"><i className="fa-solid fa-user-tie text-[10px]" /></div>
+        <span className="font-semibold">
+          {recruiter ? `Recruiter is ${labels[level]} for this thread` : 'Hire a Recruiter to enable thread automation'}
+        </span>
+      </div>
+      {recruiter && (
+        <>
+          <span className="text-text-muted">·</span>
+          <span className="text-text-secondary">
+            {level === 'autopilot' && <>REX auto-sends drafts above threshold</>}
+            {level === 'suggest' && <>REX drafts replies — you review before send</>}
+            {level === 'manual' && <>REX won't draft until you ask</>}
+          </span>
+        </>
+      )}
+      <div
+        className="trust-mini ml-auto cursor-pointer"
+        onClick={(e) => { e.preventDefault(); }}
+        title="Click a segment to change Recruiter trust"
+      >
+        <span
+          className={`trust-mini-seg${level === 'manual' ? ' active' : ''}`}
+          onClick={() => setLevel('manual')}
+        >M</span>
+        <span
+          className={`trust-mini-seg${level === 'suggest' ? ' active suggest' : ''}`}
+          onClick={() => setLevel('suggest')}
+        >S</span>
+        <span
+          className={`trust-mini-seg${level === 'autopilot' ? ' active' : ''}`}
+          onClick={() => setLevel('autopilot')}
+        >Auto</span>
+      </div>
+      <V2Dropdown
+        align="right"
+        minWidth={260}
+        trigger={<span className="ghost-btn !text-[11.5px] cursor-pointer"><i className="fa-solid fa-sliders text-[10px]" />Adjust</span>}
+        items={[
+          { key: 'hdr', header: true, label: 'Recruiter trust' },
+          { key: 'auto', icon: 'rocket', label: 'Autopilot — auto-send above threshold', selected: level === 'autopilot', onClick: () => setLevel('autopilot') },
+          { key: 'sug', icon: 'wand-magic-sparkles', label: 'Suggest — review every draft', selected: level === 'suggest', onClick: () => setLevel('suggest') },
+          { key: 'man', icon: 'hand', label: 'Manual — REX waits for you', selected: level === 'manual', onClick: () => setLevel('manual') },
+          { key: 'd1', divider: true, label: '' },
+          { key: 'team', icon: 'people-group', label: 'Manage all agents', onClick: () => { window.location.href = '/v2/team'; } },
+          { key: 'guard', icon: 'shield-halved', label: 'Edit guardrails', onClick: () => { window.location.href = '/v2/settings/team'; } },
+        ]}
+      />
+    </div>
   );
 }

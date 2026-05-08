@@ -12,12 +12,28 @@
  *   - Per-card metrics in the footnote
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar from '../components/WorkspaceTopbar';
+import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
+import V2Dropdown from '../components/V2Dropdown';
 import { useAgents } from '../hooks/useAgents';
+import { toastSuccess } from '../components/V2Toast';
+import { openBillingPortal } from '../hooks/useBilling';
 import type { AgentRole } from '../types';
+
+type CatalogCategory = 'top_of_funnel' | 'engagement' | 'closing';
+const ROLE_CATEGORY: Record<string, CatalogCategory> = {
+  sourcer: 'top_of_funnel',
+  business_dev: 'top_of_funnel',
+  researcher: 'top_of_funnel',
+  recruiter: 'engagement',
+  coordinator: 'engagement',
+  closer: 'closing',
+  account_manager: 'closing',
+  reference_checker: 'closing',
+};
 
 interface CatalogAgent {
   role: AgentRole;
@@ -186,7 +202,16 @@ const AGENTS: CatalogAgent[] = [
   },
 ];
 
+type CatalogFilter = 'all' | CatalogCategory | 'hired';
+type CatalogSort = 'popular' | 'name' | 'category';
+const SORT_LABEL: Record<CatalogSort, string> = { popular: 'Most popular', name: 'Name (A→Z)', category: 'Category' };
+const POPULAR_ORDER: AgentRole[] = ['sourcer', 'recruiter', 'coordinator', 'researcher', 'business_dev', 'closer', 'account_manager', 'reference_checker'];
+
 export default function HireCatalogPage() {
+  const [filter, setFilter] = useState<CatalogFilter>('all');
+  const [sort, setSort] = useState<CatalogSort>('popular');
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestText, setSuggestText] = useState('');
   const { agents, hire, isLoading } = useAgents();
   const hiredRoles = new Set<AgentRole>(agents.map((a) => a.role));
   const hiredCount = hiredRoles.size;
@@ -194,6 +219,33 @@ export default function HireCatalogPage() {
   const onHire = (role: AgentRole) => {
     if (hire.isPending) return;
     hire.mutate({ role });
+  };
+
+  // Catalog filter + sort
+  const catCounts = AGENTS.reduce((acc: Record<string, number>, a) => {
+    const cat = ROLE_CATEGORY[a.role];
+    if (cat) acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+  const visibleAgents = (() => {
+    let list = AGENTS;
+    if (filter === 'hired') list = list.filter((a) => hiredRoles.has(a.role));
+    else if (filter !== 'all') list = list.filter((a) => ROLE_CATEGORY[a.role] === filter);
+    const sorted = [...list].sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'category') return (ROLE_CATEGORY[a.role] || 'z').localeCompare(ROLE_CATEGORY[b.role] || 'z');
+      // popular
+      return POPULAR_ORDER.indexOf(a.role) - POPULAR_ORDER.indexOf(b.role);
+    });
+    return sorted;
+  })();
+
+  const submitSuggestion = () => {
+    if (!suggestText.trim()) return;
+    // No backend yet — close + thank the user.
+    setSuggestOpen(false);
+    setSuggestText('');
+    toastSuccess('Suggestion received — we read every one.');
   };
 
   return (
@@ -226,22 +278,46 @@ export default function HireCatalogPage() {
             <div className="text-[13px] font-semibold">You're on Starter — all 8 specialists are available</div>
             <div className="text-[11.5px] text-text-muted mt-0.5">$59/mo · 500 credits · unlimited goals · all Skills · single workspace</div>
           </div>
-          <button className="btn-outline"><i className="fa-solid fa-people-roof text-[10px]" />Need teammates? Upgrade to Team — $79/user/mo</button>
+          <button onClick={() => openBillingPortal()} className="btn-outline"><i className="fa-solid fa-people-roof text-[10px]" />Need teammates? Upgrade to Team — $79/user/mo</button>
         </section>
 
-        {/* Filter pills */}
+        {/* Filter pills + sort */}
         <div className="float-in d-2 flex items-center gap-1.5 flex-wrap">
-          <span className="px-3 py-1.5 rounded-full bg-primary text-white text-[12px] font-semibold">All · 8</span>
-          <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[12px] text-text-secondary">Top of funnel · 3</span>
-          <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[12px] text-text-secondary">Engagement · 2</span>
-          <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[12px] text-text-secondary">Closing · 3</span>
-          <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[12px] text-text-secondary"><i className="fa-solid fa-circle-check text-success text-[9px]" />Already hired · 3</span>
-          <span className="ml-auto text-[12px] text-text-muted"><i className="fa-solid fa-arrow-up-wide-short text-[9px] mr-1" />Sort: Most popular</span>
+          {([
+            { key: 'all',           label: `All · ${AGENTS.length}` },
+            { key: 'top_of_funnel', label: `Top of funnel · ${catCounts.top_of_funnel || 0}` },
+            { key: 'engagement',    label: `Engagement · ${catCounts.engagement || 0}` },
+            { key: 'closing',       label: `Closing · ${catCounts.closing || 0}` },
+            { key: 'hired',         label: <><i className="fa-solid fa-circle-check text-success text-[9px] mr-1" />Already hired · {hiredCount}</> },
+          ] as Array<{ key: CatalogFilter; label: React.ReactNode }>).map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setFilter(p.key)}
+              className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition ${
+                filter === p.key ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-text-secondary hover:border-primary/30'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <V2Dropdown
+            align="right"
+            minWidth={180}
+            trigger={
+              <span className="ml-auto text-[12px] text-text-muted cursor-pointer hover:text-text-main">
+                <i className="fa-solid fa-arrow-up-wide-short text-[9px] mr-1" />
+                Sort: {SORT_LABEL[sort]}
+              </span>
+            }
+            items={(['popular', 'name', 'category'] as CatalogSort[]).map((k) => ({
+              key: k, label: SORT_LABEL[k], selected: sort === k, onClick: () => setSort(k),
+            }))}
+          />
         </div>
 
         {/* Catalog grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {AGENTS.map((a, i) => {
+          {visibleAgents.map((a, i) => {
             const liveHired = hiredRoles.has(a.role);
             const pending = hire.isPending && (hire.variables as any)?.role === a.role;
             return (
@@ -261,7 +337,7 @@ export default function HireCatalogPage() {
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-[15px] font-bold tracking-tight">Coming next quarter</h2>
             <div className="flex-1 h-px bg-gray-200" />
-            <button className="text-[11.5px] text-primary font-semibold hover:underline">Suggest a specialist →</button>
+            <button onClick={() => setSuggestOpen(true)} className="text-[11.5px] text-primary font-semibold hover:underline">Suggest a specialist →</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -288,6 +364,35 @@ export default function HireCatalogPage() {
         </section>
 
       </div>
+
+      {/* Suggest a specialist modal */}
+      <V2Modal
+        open={suggestOpen}
+        onClose={() => setSuggestOpen(false)}
+        title="Suggest a specialist"
+        subtitle="What role would round out your team? We read every suggestion."
+        icon="lightbulb"
+        iconGradient="linear-gradient(135deg,#F59E0B,#EA580C)"
+        footer={
+          <>
+            <ModalCancel onClick={() => setSuggestOpen(false)} />
+            <ModalPrimary onClick={submitSuggestion} label="Submit" icon="paper-plane" disabled={!suggestText.trim()} />
+          </>
+        }
+      >
+        <textarea
+          value={suggestText}
+          onChange={(e) => setSuggestText(e.target.value)}
+          rows={5}
+          placeholder="e.g. 'Talent Mapper — surfaces silver-medal candidates from past pipelines + maintains a passive bench list.'"
+          className="w-full px-3 py-2.5 rounded-lg text-[13.5px] outline-none resize-none focus:border-primary/40"
+          style={{ border: '1px solid #E5E7EB' }}
+          autoFocus
+        />
+        <div className="text-[11px] text-text-muted mt-2">
+          Tell us what they'd do, what Skills they'd have, and what surface they'd live on.
+        </div>
+      </V2Modal>
     </WorkspaceShell>
   );
 }

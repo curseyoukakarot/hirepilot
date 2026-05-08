@@ -11,10 +11,17 @@
  *   - Recent runs from rex_activity_log filtered by agent_id
  */
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar from '../components/WorkspaceTopbar';
+import V2Dropdown from '../components/V2Dropdown';
+import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
+import V2ConfirmDialog from '../components/V2ConfirmDialog';
+import { toastSoon, toastSuccess, toastInfo } from '../components/V2Toast';
+import { useAgents, findAgentByRole } from '../hooks/useAgents';
+import { useGoals } from '../hooks/useGoals';
+import type { TrustLevel } from '../types';
 
 const sourcerStatusPill = (
   <div className="status-pill ml-3">
@@ -27,6 +34,44 @@ const sourcerStatusPill = (
 );
 
 export default function AgentSourcerPage() {
+  const navigate = useNavigate();
+  const { agents, update } = useAgents();
+  const sourcer = findAgentByRole(agents, 'sourcer');
+  const trust: TrustLevel = (sourcer?.trust_level as TrustLevel) || 'autopilot';
+  const paused = !!sourcer?.paused;
+
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [goalDraft, setGoalDraft] = useState('');
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
+
+  const { create: createGoal } = useGoals();
+
+  const setTrust = (next: TrustLevel) => {
+    if (!sourcer || next === trust) return;
+    update.mutate({ id: sourcer.id, trust_level: next }, {
+      onSuccess: () => toastSuccess(`Sourcer set to ${next === 'autopilot' ? 'Autopilot' : next === 'suggest' ? 'Suggest' : 'Manual'}`),
+    });
+  };
+  const togglePaused = () => {
+    if (!sourcer) return;
+    const next = !paused;
+    update.mutate({ id: sourcer.id, paused: next }, {
+      onSuccess: () => toastSuccess(next ? 'Sourcer paused' : 'Sourcer resumed'),
+    });
+  };
+  const submitGoal = () => {
+    const title = goalDraft.trim();
+    if (!title) return;
+    createGoal.mutate({ title, prompt: title }, {
+      onSuccess: () => {
+        setGoalModalOpen(false);
+        setGoalDraft('');
+        toastSuccess('Goal created — REX is planning it.');
+        setTimeout(() => navigate('/v2/goals'), 600);
+      },
+    });
+  };
+
   return (
     <WorkspaceShell autopilot>
       {/* Custom topbar with breadcrumb */}
@@ -38,7 +83,23 @@ export default function AgentSourcerPage() {
         </div>
         {sourcerStatusPill}
         <div className="ml-auto flex items-center gap-2.5">
-          <button className="trust-badge"><i className="fa-solid fa-rocket text-[10px]" />Autopilot<i className="fa-solid fa-chevron-down text-[9px] opacity-80" /></button>
+          <V2Dropdown
+            align="right"
+            minWidth={260}
+            trigger={
+              <span className="trust-badge cursor-pointer">
+                <i className={`fa-solid fa-${trust === 'autopilot' ? 'rocket' : trust === 'suggest' ? 'wand-magic-sparkles' : 'hand'} text-[10px]`} />
+                {trust === 'autopilot' ? 'Autopilot' : trust === 'suggest' ? 'Suggest' : 'Manual'}
+                <i className="fa-solid fa-chevron-down text-[9px] opacity-80" />
+              </span>
+            }
+            items={[
+              { key: 'hdr', header: true, label: 'Sourcer trust' },
+              { key: 'auto', icon: 'rocket', label: 'Autopilot — auto-execute above threshold', selected: trust === 'autopilot', onClick: () => setTrust('autopilot') },
+              { key: 'sug',  icon: 'wand-magic-sparkles', label: 'Suggest — review every action', selected: trust === 'suggest', onClick: () => setTrust('suggest') },
+              { key: 'man',  icon: 'hand', label: 'Manual — Sourcer waits for you', selected: trust === 'manual', onClick: () => setTrust('manual') },
+            ]}
+          />
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-blue-400 ring-2 ring-white" />
         </div>
       </header>
@@ -79,16 +140,25 @@ export default function AgentSourcerPage() {
 
             <div className="flex flex-col items-end gap-2 shrink-0">
               <div className="trust-mini">
-                <span className="trust-mini-seg">Manual</span>
-                <span className="trust-mini-seg">Suggest</span>
-                <span className="trust-mini-seg active">Autopilot</span>
+                <span className={`trust-mini-seg cursor-pointer${trust === 'manual' ? ' active' : ''}`} onClick={() => setTrust('manual')}>Manual</span>
+                <span className={`trust-mini-seg cursor-pointer${trust === 'suggest' ? ' active suggest' : ''}`} onClick={() => setTrust('suggest')}>Suggest</span>
+                <span className={`trust-mini-seg cursor-pointer${trust === 'autopilot' ? ' active' : ''}`} onClick={() => setTrust('autopilot')}>Autopilot</span>
               </div>
-              <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#06B6D4,#3B82F6)', boxShadow: '0 6px 14px -4px rgba(6,182,212,.35)' }}>
+              <button
+                onClick={() => setGoalModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg,#06B6D4,#3B82F6)', boxShadow: '0 6px 14px -4px rgba(6,182,212,.35)' }}
+              >
                 <i className="fa-solid fa-bolt text-[10px]" />Give Sourcer a goal
               </button>
               <div className="flex items-center gap-1">
-                <button className="ghost-btn"><i className="fa-solid fa-pause text-[10px]" />Pause</button>
-                <button className="ghost-btn"><i className="fa-solid fa-sliders text-[10px]" />Configure</button>
+                <button onClick={() => setPauseConfirmOpen(true)} className="ghost-btn">
+                  <i className={`fa-solid fa-${paused ? 'play' : 'pause'} text-[10px]`} />
+                  {paused ? 'Resume' : 'Pause'}
+                </button>
+                <button onClick={() => navigate('/v2/settings/team')} className="ghost-btn">
+                  <i className="fa-solid fa-sliders text-[10px]" />Configure
+                </button>
               </div>
             </div>
           </div>
@@ -105,9 +175,9 @@ export default function AgentSourcerPage() {
               <p className="text-text-muted text-[12px] mt-0.5">Goal: Build company intel for Q2 Senior Engineers ICP fingerprint · started 2m 14s ago</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <button className="ghost-btn"><i className="fa-solid fa-expand text-[10px]" />Open session</button>
-              <button className="ghost-btn"><i className="fa-solid fa-pause text-[10px]" />Pause</button>
-              <button className="ghost-btn"><i className="fa-solid fa-stop text-[10px]" />Stop</button>
+              <button onClick={() => toastSoon('Live session viewer')} className="ghost-btn"><i className="fa-solid fa-expand text-[10px]" />Open session</button>
+              <button onClick={() => toastSoon('Pause running session')} className="ghost-btn"><i className="fa-solid fa-pause text-[10px]" />Pause</button>
+              <button onClick={() => toastSoon('Stop session')} className="ghost-btn"><i className="fa-solid fa-stop text-[10px]" />Stop</button>
             </div>
           </div>
 
@@ -241,7 +311,11 @@ export default function AgentSourcerPage() {
                 </ul>
               </div>
 
-              <button className="w-full inline-flex items-center gap-1.5 justify-center px-3.5 py-2 rounded-lg text-[11.5px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#06B6D4,#3B82F6)', boxShadow: '0 6px 14px -4px rgba(6,182,212,.35)' }}>
+              <button
+                onClick={() => toastSoon('Save scraped intel as ICP fingerprint')}
+                className="w-full inline-flex items-center gap-1.5 justify-center px-3.5 py-2 rounded-lg text-[11.5px] font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg,#06B6D4,#3B82F6)', boxShadow: '0 6px 14px -4px rgba(6,182,212,.35)' }}
+              >
                 <i className="fa-solid fa-arrow-right text-[9px]" />Use as ICP for Q2 Engineers
               </button>
             </div>
@@ -255,7 +329,7 @@ export default function AgentSourcerPage() {
               <h2 className="text-[18px] font-bold tracking-tight">Skills</h2>
               <p className="text-text-muted text-[12px] mt-0.5">4 installed · 4 more available in the catalog.</p>
             </div>
-            <button className="btn-outline"><i className="fa-solid fa-plus text-[10px]" />Add Skill</button>
+            <button onClick={() => navigate('/v2/hire')} className="btn-outline"><i className="fa-solid fa-plus text-[10px]" />Add Skill</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -299,7 +373,9 @@ export default function AgentSourcerPage() {
           <section className="float-in d-9 bg-white rounded-2xl p-5" style={{ border: '1px solid #ECECEC' }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[15px] font-bold tracking-tight">Schedule</h2>
-              <button className="ghost-btn"><i className="fa-solid fa-plus text-[10px]" />Add</button>
+              <button onClick={() => navigate('/v2/team')} className="ghost-btn" title="Manage scheduled Skills on the Team page">
+                <i className="fa-solid fa-plus text-[10px]" />Add
+              </button>
             </div>
             {[
               { icon: 'fa-clock-rotate-left', title: 'Daily ICP refresh', desc: 'Re-analyzes top responders · 9:00 AM PT every weekday', when: 'Next · tomorrow 9 AM' },
@@ -321,7 +397,7 @@ export default function AgentSourcerPage() {
           <section className="float-in d-9 bg-white rounded-2xl p-5" style={{ border: '1px solid #ECECEC' }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[15px] font-bold tracking-tight">Recent runs · 24h</h2>
-              <button className="ghost-btn">View all →</button>
+              <button onClick={() => navigate('/v2/today')} className="ghost-btn">View all →</button>
             </div>
             {[
               { dot: 'bg-sourcer', when: '2m ago', text: <><strong>Browser Researcher</strong> started · stripe.com</>, tag: 'Running', tagCls: 'tag-sourcer' },
@@ -347,7 +423,7 @@ export default function AgentSourcerPage() {
               <h2 className="text-[15px] font-bold tracking-tight">Guardrails</h2>
               <p className="text-[11.5px] text-text-muted mt-0.5">What Sourcer is allowed to do on autopilot. Edit any of these to tighten or loosen.</p>
             </div>
-            <button className="ghost-btn"><i className="fa-solid fa-pen text-[10px]" />Edit</button>
+            <button onClick={() => navigate('/v2/settings/team')} className="ghost-btn"><i className="fa-solid fa-pen text-[10px]" />Edit</button>
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[12.5px]">
             {[
@@ -366,6 +442,57 @@ export default function AgentSourcerPage() {
           </ul>
         </section>
       </div>
+
+      {/* Give Sourcer a goal modal */}
+      <V2Modal
+        open={goalModalOpen}
+        onClose={() => setGoalModalOpen(false)}
+        title="Give Sourcer a goal"
+        subtitle="Plain English. REX will plan it; Sourcer will execute."
+        icon="bolt"
+        iconGradient="linear-gradient(135deg,#06B6D4,#3B82F6)"
+        footer={
+          <>
+            <ModalCancel onClick={() => setGoalModalOpen(false)} />
+            <ModalPrimary
+              onClick={submitGoal}
+              label="Plan goal"
+              icon="arrow-up"
+              disabled={!goalDraft.trim()}
+              loading={createGoal.isPending}
+            />
+          </>
+        }
+      >
+        <textarea
+          value={goalDraft}
+          onChange={(e) => setGoalDraft(e.target.value)}
+          rows={4}
+          placeholder="e.g. 'Find 50 senior backend engineers in NY at Series B startups, score them, queue the top 30 for outreach.'"
+          className="w-full px-3 py-2.5 rounded-lg text-[13.5px] outline-none resize-none focus:border-primary/40"
+          style={{ border: '1px solid #E5E7EB' }}
+          autoFocus
+        />
+        <div className="text-[11px] text-text-muted mt-2 flex items-center gap-1.5">
+          <i className="fa-solid fa-info-circle text-[10px]" />
+          REX drafts a plan first — you approve before any sourcing runs.
+        </div>
+      </V2Modal>
+
+      <V2ConfirmDialog
+        open={pauseConfirmOpen}
+        onClose={() => setPauseConfirmOpen(false)}
+        onConfirm={() => { togglePaused(); setPauseConfirmOpen(false); }}
+        title={paused ? 'Resume Sourcer?' : 'Pause Sourcer?'}
+        message={
+          paused
+            ? 'Sourcer will start picking up scheduled Skill runs again. Active goals will resume execution.'
+            : 'Sourcer will stop running scheduled Skills and pause any in-flight goal steps that involve it. You can resume any time.'
+        }
+        confirmLabel={paused ? 'Resume Sourcer' : 'Pause Sourcer'}
+        icon={paused ? 'play' : 'pause'}
+        loading={update.isPending}
+      />
     </WorkspaceShell>
   );
 }

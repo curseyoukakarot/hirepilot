@@ -18,8 +18,27 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useWorkspaceSettings } from '../hooks/useWorkspaceSettings';
 import { useBillingSummary, openBillingPortal } from '../hooks/useBilling';
 import { useV2Theme } from '../hooks/useV2Theme';
+import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
+import V2ConfirmDialog from '../components/V2ConfirmDialog';
+import { toastSuccess, toastSoon } from '../components/V2Toast';
+import { apiPost } from '../../lib/api';
+import { useMyWorkspaces } from '../hooks/useWorkspaces';
 import type { TeamColor } from '../types';
 import '../../styles/v2.css';
+
+/** Sub-nav link to a legacy settings tab. */
+function SubNavLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+  return (
+    <a
+      href={href}
+      className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"
+    >
+      <i className={`fa-solid fa-${icon} w-3.5 text-[10.5px]`} />
+      <span className="flex-1">{label}</span>
+      <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" title="opens in classic UI" />
+    </a>
+  );
+}
 
 const SWATCHES: { key: TeamColor; gradient: string; title: string }[] = [
   { key: 'indigo',  gradient: 'linear-gradient(135deg,#6B46C1,#0C5CF4)', title: 'Indigo' },
@@ -43,9 +62,54 @@ export default function TeamSettingsPage() {
   useV2Theme();
 
   const { settings, isLoading, update } = useWorkspaceSettings();
+  const { activeId } = useMyWorkspaces();
   const currentColor: TeamColor = settings?.team_color || 'indigo';
   const [nameDraft, setNameDraft] = useState<string>('');
   const [initialDraft, setInitialDraft] = useState<string>('');
+
+  // Action modals
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTo, setTransferTo] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const sendInvite = async () => {
+    if (!inviteEmail.trim() || !activeId) return;
+    setInviteSending(true);
+    try {
+      await apiPost(`/api/workspaces/${activeId}/invite`, { email: inviteEmail.trim(), role: inviteRole });
+      toastSuccess(`Invitation sent to ${inviteEmail}`);
+      setInviteOpen(false);
+      setInviteEmail('');
+      setInviteRole('member');
+    } catch (e: any) {
+      toastSoon(`Couldn't send invite: ${e?.message || 'unknown error'}`);
+    } finally {
+      setInviteSending(false);
+    }
+  };
+
+  const submitTransfer = () => {
+    // No backend endpoint yet — toast intent + close.
+    setTransferOpen(false);
+    toastSoon(`Ownership transfer to ${transferTo || 'selected admin'}`);
+    setTransferTo('');
+  };
+
+  const submitDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      // No delete endpoint yet — toast intent and direct user to support.
+      toastSoon('Workspace deletion (contact support to delete)');
+      setDeleteOpen(false);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // Hydrate local drafts when settings load.
   useEffect(() => {
@@ -81,25 +145,27 @@ export default function TeamSettingsPage() {
       />
 
       <main className="flex-1 min-w-0 flex">
-        {/* Sub-nav */}
+        {/* Sub-nav — Team is the only v2 page; rest link to legacy surfaces */}
         <aside className="w-[200px] shrink-0 border-r border-gray-100 bg-white/40 h-screen sticky top-0 p-4 overflow-y-auto">
           <div className="font-bold text-[15px] mb-4 px-1">Settings</div>
           <div className="flex flex-col gap-px">
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">Workspace</span>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer" style={{ background: 'rgba(107,70,193,.1)', color: '#6B46C1' }}><i className="fa-solid fa-people-roof w-3.5 text-[10.5px]" />Team</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-puzzle-piece w-3.5 text-[10.5px]" />Integrations</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-credit-card w-3.5 text-[10.5px]" />Billing</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-key w-3.5 text-[10.5px]" />API &amp; Webhooks</a>
+            <a href="/v2/settings/team" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer" style={{ background: 'rgba(107,70,193,.1)', color: '#6B46C1' }}>
+              <i className="fa-solid fa-people-roof w-3.5 text-[10.5px]" />Team
+            </a>
+            <SubNavLink href="/settings?tab=integrations" icon="puzzle-piece" label="Integrations" />
+            <SubNavLink href="/settings?tab=billing"      icon="credit-card"  label="Billing" />
+            <SubNavLink href="/settings?tab=webhooks"     icon="key"          label="API & Webhooks" />
 
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">REX</span>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-shield-halved w-3.5 text-[10.5px]" />Guardrails</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-microphone w-3.5 text-[10.5px]" />Voice &amp; tone</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-bolt w-3.5 text-[10.5px]" />Automations</a>
+            <SubNavLink href="/settings?tab=guardrails"   icon="shield-halved" label="Guardrails" />
+            <SubNavLink href="/settings?tab=voice"        icon="microphone"    label="Voice & tone" />
+            <SubNavLink href="/settings?tab=automations"  icon="bolt"          label="Automations" />
 
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">Account</span>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-user w-3.5 text-[10.5px]" />Profile</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-bell w-3.5 text-[10.5px]" />Notifications</a>
-            <a className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"><i className="fa-solid fa-shield w-3.5 text-[10.5px]" />Security &amp; 2FA</a>
+            <SubNavLink href="/settings?tab=profile"       icon="user"   label="Profile" />
+            <SubNavLink href="/settings?tab=notifications" icon="bell"   label="Notifications" />
+            <SubNavLink href="/settings?tab=security"      icon="shield" label="Security & 2FA" />
           </div>
         </aside>
 
@@ -205,7 +271,7 @@ export default function TeamSettingsPage() {
                   <h2 className="text-[16px] font-bold tracking-tight">Members &amp; roles</h2>
                   <p className="text-[11.5px] text-text-muted mt-0.5">4 of 5 seats used · $79/mo per additional seat (prorated)</p>
                 </div>
-                <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 6px 14px -4px rgba(16,185,129,.4)' }}>
+                <button onClick={() => setInviteOpen(true)} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-white" style={{ background: 'linear-gradient(135deg,#10B981,#0D9488)', boxShadow: '0 6px 14px -4px rgba(16,185,129,.4)' }}>
                   <i className="fa-solid fa-user-plus text-[10px]" />Invite teammate
                 </button>
               </div>
@@ -245,12 +311,12 @@ export default function TeamSettingsPage() {
                     <div className="text-[11px] text-text-muted">Invitation pending · sent 2 days ago</div>
                   </div>
                   <span className="tag tag-warn">Pending</span>
-                  <button className="ghost-btn p-1.5 text-[11px]">Resend</button>
-                  <button className="ghost-btn p-1.5 text-[11px] text-danger">Revoke</button>
+                  <button onClick={() => toastSoon('Resend invite')} className="ghost-btn p-1.5 text-[11px]">Resend</button>
+                  <button onClick={() => toastSoon('Revoke invite')} className="ghost-btn p-1.5 text-[11px] text-danger">Revoke</button>
                 </div>
               </div>
 
-              <p className="text-[11px] text-text-muted mt-4">Need read-only / commenter access for a specific job, table, or task? Use <a href="#" className="text-primary font-semibold hover:underline">per-resource collaborators</a> from the resource itself — no extra seat charge.</p>
+              <p className="text-[11px] text-text-muted mt-4">Need read-only / commenter access for a specific job, table, or task? Use <a href="/v2/pipelines" className="text-primary font-semibold hover:underline">per-resource collaborators</a> from the resource itself — no extra seat charge.</p>
             </section>
 
             {/* Sharing defaults */}
@@ -316,14 +382,14 @@ export default function TeamSettingsPage() {
                   <div className="font-semibold text-[13px]">Transfer ownership</div>
                   <div className="text-[11.5px] text-text-muted">Move workspace ownership to another Admin. Billing transfers too.</div>
                 </div>
-                <button className="ghost-btn !text-danger"><i className="fa-solid fa-arrow-right-arrow-left text-[10px]" />Transfer</button>
+                <button onClick={() => setTransferOpen(true)} className="ghost-btn !text-danger"><i className="fa-solid fa-arrow-right-arrow-left text-[10px]" />Transfer</button>
               </div>
               <div className="flex items-center justify-between py-3 border-t border-gray-100">
                 <div>
                   <div className="font-semibold text-[13px] text-danger">Delete workspace</div>
                   <div className="text-[11.5px] text-text-muted">Permanently delete Apex Recruiting and all its data.</div>
                 </div>
-                <button className="ghost-btn !text-danger" style={{ borderColor: 'rgba(239,68,68,.25)' }}><i className="fa-solid fa-trash text-[10px]" />Delete</button>
+                <button onClick={() => setDeleteOpen(true)} className="ghost-btn !text-danger" style={{ borderColor: 'rgba(239,68,68,.25)' }}><i className="fa-solid fa-trash text-[10px]" />Delete</button>
               </div>
             </section>
 
@@ -334,6 +400,108 @@ export default function TeamSettingsPage() {
       <button className="rex-fab" title="Ask REX (⌘K)" aria-label="Open REX">
         <i className="fa-solid fa-wand-magic-sparkles" />
       </button>
+
+      {/* Invite teammate modal */}
+      <V2Modal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title="Invite teammate"
+        subtitle="They'll get an email with a workspace invite link."
+        icon="user-plus"
+        iconGradient="linear-gradient(135deg,#10B981,#0D9488)"
+        footer={
+          <>
+            <ModalCancel onClick={() => setInviteOpen(false)} />
+            <ModalPrimary onClick={sendInvite} label="Send invite" icon="paper-plane" disabled={!inviteEmail.trim()} loading={inviteSending} />
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Email</label>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="teammate@company.com"
+              className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40"
+              style={{ border: '1px solid #E5E7EB' }}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Role</label>
+            <div className="mt-1.5 flex gap-2">
+              <button onClick={() => setInviteRole('member')} className={`flex-1 px-3 py-2 rounded-lg text-[12.5px] font-semibold transition ${inviteRole === 'member' ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-white text-text-secondary border border-gray-200'}`}>
+                <i className="fa-solid fa-user text-[10px] mr-1.5" />Member
+              </button>
+              <button onClick={() => setInviteRole('admin')} className={`flex-1 px-3 py-2 rounded-lg text-[12.5px] font-semibold transition ${inviteRole === 'admin' ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-white text-text-secondary border border-gray-200'}`}>
+                <i className="fa-solid fa-shield-halved text-[10px] mr-1.5" />Admin
+              </button>
+            </div>
+            <p className="text-[10.5px] text-text-muted mt-1.5">
+              {inviteRole === 'admin' ? 'Admins can manage settings, members, sharing, and billing.' : 'Members get full workspace access. Per-resource collaborators stay separate.'}
+            </p>
+          </div>
+        </div>
+      </V2Modal>
+
+      {/* Transfer ownership modal */}
+      <V2Modal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        title="Transfer ownership"
+        subtitle="Move this workspace to another Admin. Billing transfers too."
+        icon="arrow-right-arrow-left"
+        iconGradient="linear-gradient(135deg,#F59E0B,#EA580C)"
+        footer={
+          <>
+            <ModalCancel onClick={() => setTransferOpen(false)} />
+            <ModalPrimary onClick={submitTransfer} label="Transfer" icon="arrow-right-arrow-left" danger disabled={!transferTo.trim()} />
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="text-[12.5px] text-text-secondary">
+            The new owner takes over: workspace settings, billing, member management, and ownership of all data. You'll become an Admin afterwards.
+          </div>
+          <div>
+            <label className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">New owner's email</label>
+            <input
+              type="email"
+              value={transferTo}
+              onChange={(e) => setTransferTo(e.target.value)}
+              placeholder="admin@company.com"
+              className="mt-1.5 w-full px-3 py-2 rounded-lg text-[13.5px] outline-none focus:border-primary/40"
+              style={{ border: '1px solid #E5E7EB' }}
+              autoFocus
+            />
+            <p className="text-[10.5px] text-text-muted mt-1.5">
+              They must already be an Admin in this workspace.
+            </p>
+          </div>
+        </div>
+      </V2Modal>
+
+      {/* Delete workspace confirm */}
+      <V2ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={submitDelete}
+        title="Delete workspace?"
+        confirmText={settings?.workspace_name || 'My HirePilot'}
+        confirmLabel="Permanently delete"
+        destructive
+        icon="trash"
+        loading={deleteLoading}
+        message={
+          <>
+            This permanently deletes <strong>{settings?.workspace_name || 'your workspace'}</strong>, all hired specialists, goals, decisions, settings, and the activity log. <strong>This cannot be undone.</strong>
+            <br /><br />
+            Leads, candidates, deals, and pipelines stored at the user level will remain in your account.
+          </>
+        }
+      />
     </div>
   );
 }

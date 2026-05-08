@@ -18,6 +18,8 @@ import React, { useState } from 'react';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
 import { useGoals, useGoalLogs } from '../hooks/useGoals';
+import V2Dropdown from '../components/V2Dropdown';
+import FilterPill from '../components/FilterPill';
 import type { Goal, GoalStatus } from '../types';
 
 // Local helper styles for goal-specific cards
@@ -33,15 +35,45 @@ const goalCardStyles: Record<string, React.CSSProperties> = {
   },
 };
 
+type GoalsFilter = 'all' | 'running' | 'awaiting_approval' | 'completed';
+type GoalsSort   = 'recent' | 'oldest' | 'most_steps' | 'progress';
+const SORT_LABELS: Record<GoalsSort, string> = {
+  recent: 'Recent', oldest: 'Oldest first', most_steps: 'Most steps', progress: '% progress',
+};
+
 export default function GoalsPage() {
   const { goals, isLoading, create, approve, pause, resume, cancel, planGoal, executeStep } = useGoals();
   const [draft, setDraft] = useState('');
+  const [filter, setFilter] = useState<GoalsFilter>('all');
+  const [sort, setSort] = useState<GoalsSort>('recent');
 
   const counts: Record<GoalStatus | 'total', number> = {
     planning: 0, awaiting_approval: 0, running: 0, paused: 0,
     completed: 0, failed: 0, cancelled: 0, total: goals.length
   } as any;
   for (const g of goals) counts[g.status as GoalStatus] = (counts[g.status as GoalStatus] || 0) + 1;
+
+  const visibleGoals = (() => {
+    let list = goals;
+    if (filter === 'running')           list = list.filter((g) => g.status === 'running');
+    else if (filter === 'awaiting_approval') list = list.filter((g) => g.status === 'awaiting_approval');
+    else if (filter === 'completed')    list = list.filter((g) => g.status === 'completed');
+    const sorted = [...list].sort((a, b) => {
+      if (sort === 'recent')     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sort === 'oldest')     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sort === 'most_steps') return ((b.plan as any)?.steps?.length || 0) - ((a.plan as any)?.steps?.length || 0);
+      if (sort === 'progress') {
+        const prog = (g: any) => {
+          const steps = g.plan?.steps || [];
+          if (!steps.length) return 0;
+          return steps.filter((s: any) => s.status === 'done').length / steps.length;
+        };
+        return prog(b) - prog(a);
+      }
+      return 0;
+    });
+    return sorted;
+  })();
 
   const handlePlan = () => {
     const title = draft.trim();
@@ -157,9 +189,14 @@ export default function GoalsPage() {
         {goals.length > 0 && (
           <section className="float-in d-2 space-y-2">
             <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted px-1">
-              Your workspace · {goals.length} goal{goals.length === 1 ? '' : 's'}
+              {filter === 'all' ? 'Your workspace' : `Filtered · ${filter.replace('_', ' ')}`} · {visibleGoals.length} of {goals.length} goal{goals.length === 1 ? '' : 's'}
             </div>
-            {goals.map((g) => (
+            {visibleGoals.length === 0 && (
+              <div className="bg-white border border-gray-100 rounded-xl p-6 text-center text-[12.5px] text-text-muted">
+                No goals match this filter.
+              </div>
+            )}
+            {visibleGoals.map((g) => (
               <GoalListRow
                 key={g.id}
                 goal={g}
@@ -175,13 +212,25 @@ export default function GoalsPage() {
           </section>
         )}
 
-        {/* Filter pills */}
+        {/* Filter pills + sort */}
         <div className="float-in d-2 flex items-center gap-1.5 flex-wrap">
-          <span className="px-3 py-1 rounded-full bg-primary text-white text-[11.5px] font-semibold">All · 11</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary"><span className="live-dot inline-block mr-1" />Running · 2</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary"><i className="fa-solid fa-circle-question text-warn text-[8px] mr-1" />Awaiting · 1</span>
-          <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-[11.5px] text-text-secondary">Done · 8</span>
-          <span className="ml-auto text-[11.5px] text-text-muted"><i className="fa-solid fa-arrow-up-wide-short text-[9px] mr-1" />Sort: Recent</span>
+          <FilterPill label={`All · ${counts.total}`}                         active={filter === 'all'}               onClick={() => setFilter('all')} />
+          <FilterPill label={<><span className="live-dot inline-block mr-1" />Running · {counts.running}</>}                  active={filter === 'running'}           onClick={() => setFilter('running')} />
+          <FilterPill label={<><i className="fa-solid fa-circle-question text-warn text-[8px] mr-1" />Awaiting · {counts.awaiting_approval}</>} active={filter === 'awaiting_approval'} onClick={() => setFilter('awaiting_approval')} />
+          <FilterPill label={`Done · ${counts.completed}`}                    active={filter === 'completed'}         onClick={() => setFilter('completed')} />
+          <V2Dropdown
+            align="right"
+            minWidth={180}
+            trigger={
+              <span className="ml-auto text-[11.5px] text-text-muted cursor-pointer hover:text-text-main">
+                <i className="fa-solid fa-arrow-up-wide-short text-[9px] mr-1" />
+                Sort: {SORT_LABELS[sort]}
+              </span>
+            }
+            items={(['recent', 'oldest', 'most_steps', 'progress'] as GoalsSort[]).map((k) => ({
+              key: k, label: SORT_LABELS[k], selected: sort === k, onClick: () => setSort(k),
+            }))}
+          />
         </div>
 
       </div>
@@ -402,3 +451,5 @@ function GoalExecutionConsole({ goalId, isRunning }: { goalId: string; isRunning
     </div>
   );
 }
+
+// FilterPill is imported from '../components/FilterPill'.
