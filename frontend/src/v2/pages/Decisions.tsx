@@ -14,13 +14,34 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar from '../components/WorkspaceTopbar';
 import { useDecisions } from '../hooks/useDecisions';
+import { toastSuccess, toastInfo } from '../components/V2Toast';
 import type { Decision } from '../types';
 
 export default function DecisionsPage() {
+  const navigate = useNavigate();
   const pendingQ = useDecisions({ status: 'pending' });
+
+  /**
+   * "Approve all safe" — bulk-approve every pending decision whose type
+   * is reply_draft / pipeline_move / scale_recommendation. Skips offer
+   * sends + submittal sends + guardrail overrides (those need eyes-on).
+   */
+  const approveAllSafe = () => {
+    const SAFE: Decision['type'][] = ['reply_draft', 'pipeline_move', 'scale_recommendation'];
+    const safeDecisions = pendingQ.decisions.filter((d) => SAFE.includes(d.type));
+    if (safeDecisions.length === 0) {
+      toastInfo('No safe-to-approve decisions in the queue.');
+      return;
+    }
+    Promise.all(safeDecisions.map((d) => pendingQ.approve.mutateAsync(d.id))).then(
+      () => toastSuccess(`Approved ${safeDecisions.length} decisions`),
+      () => toastInfo('Some approvals failed — check the list.'),
+    );
+  };
   const pending = pendingQ.decisions;
   const oldest = pending.length
     ? pending.reduce((acc, d) => (new Date(d.created_at) < new Date(acc.created_at) ? d : acc), pending[0])
@@ -62,8 +83,8 @@ export default function DecisionsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="ghost-btn"><i className="fa-solid fa-sliders text-[10px]" />Edit guardrails</button>
-            <button className="btn-solid"><i className="fa-solid fa-bolt text-[10px]" />Approve all safe</button>
+            <button onClick={() => navigate('/v2/settings/team')} className="ghost-btn"><i className="fa-solid fa-sliders text-[10px]" />Edit guardrails</button>
+            <button onClick={approveAllSafe} disabled={pendingQ.approve.isPending} className="btn-solid disabled:opacity-50"><i className="fa-solid fa-bolt text-[10px]" />Approve all safe</button>
           </div>
         </section>
 
@@ -111,7 +132,7 @@ export default function DecisionsPage() {
           <div className="float-in d-5 flex items-center gap-3 mb-3 mt-4">
             <span className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">Recent activity</span>
             <div className="flex-1 h-px bg-gray-200" />
-            <button className="text-[11px] text-text-muted hover:text-text-main">View full audit log</button>
+            <button onClick={() => navigate('/v2/today')} className="text-[11px] text-text-muted hover:text-text-main">View full audit log</button>
           </div>
 
           <div className="space-y-2">

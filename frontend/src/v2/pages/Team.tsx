@@ -23,6 +23,8 @@ import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
 import { useAgents, findAgentByRole } from '../hooks/useAgents';
 import { useActivity, type ActivityEvent } from '../hooks/useActivity';
 import { ScheduledSkillsPanel } from '../components/ScheduledSkillsPanel';
+import { toastInfo } from '../components/V2Toast';
+import { useNavigate } from 'react-router-dom';
 import type { Agent, AgentRole, TrustLevel } from '../types';
 
 /** Most-recent activity row for an agent — drives the "Right now" line. */
@@ -66,6 +68,7 @@ function TrustMini({ agent, onChange }: { agent: Agent | undefined; onChange: (l
 }
 
 export default function TeamPage() {
+  const navigate = useNavigate();
   const { agents, isLoading, hire, update } = useAgents();
   const { activity } = useActivity({ limit: 100 });
   const sourcer = findAgentByRole(agents, 'sourcer');
@@ -119,7 +122,7 @@ export default function TeamPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button className="ghost-btn">
+            <button onClick={() => navigate('/v2/today')} className="ghost-btn" title="Full activity log on Today">
               <i className="fa-solid fa-clock-rotate-left text-[11px]" />Activity
             </button>
             <Link to="/v2/hire" className="btn-solid">
@@ -180,10 +183,10 @@ export default function TeamPage() {
                 <span className="trust-mini-seg">Suggest</span>
                 <span className="trust-mini-seg active">Auto</span>
               </div>
-              <button className="btn-solid">
+              <button onClick={() => toastInfo('Press ⌘K to open REX from anywhere')} className="btn-solid">
                 <i className="fa-solid fa-comments text-[10px]" />Talk to REX
               </button>
-              <button className="ghost-btn">
+              <button onClick={() => navigate('/v2/settings/team')} className="ghost-btn">
                 <i className="fa-solid fa-sliders text-[11px]" />Configure
               </button>
             </div>
@@ -483,7 +486,7 @@ export default function TeamPage() {
         <section>
           <div className="float-in d-7 flex items-end justify-between mb-3">
             <h2 className="text-[15px] font-bold tracking-tight">Team activity · today</h2>
-            <button className="ghost-btn">View all →</button>
+            <button onClick={() => navigate('/v2/today')} className="ghost-btn">View all →</button>
           </div>
           <div className="bg-white border border-gray-100 rounded-2xl p-5 float-in d-7">
             <div className="activity-row">
