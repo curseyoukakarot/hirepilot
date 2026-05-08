@@ -98,14 +98,40 @@ export default function LeadsPage() {
   const [drawerTab, setDrawerTab] = useState<'activity' | 'messages' | 'notes' | 'files'>('activity');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  type LeadView = 'hot' | 'replied' | 'bookmarked' | 'campaign' | 'all';
+  type LeadSort = 'last' | 'name' | 'score' | 'created';
+  const [view, setView] = useState<LeadView>('all');
+  const [sort, setSort] = useState<LeadSort>('last');
+
+  /** Apply view + sort to the raw leads list. */
+  const displayLeads = useMemo(() => {
+    let list = [...leads];
+    // View filters
+    if (view === 'hot') list = list.filter((l: any) => (l.score ?? 0) >= 90);
+    else if (view === 'replied') {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      list = list.filter((l: any) => l.last_message_at && new Date(l.last_message_at) >= todayStart);
+    } else if (view === 'campaign') list = list.filter((l: any) => !!l.campaign_id);
+    // Sort
+    if (sort === 'name') {
+      list.sort((a, b) => (a.first_name || a.name || '').localeCompare(b.first_name || b.name || ''));
+    } else if (sort === 'score') {
+      list.sort((a, b) => ((b as any).score ?? 0) - ((a as any).score ?? 0));
+    } else {
+      // last activity / created — both fall back to created_at desc
+      list.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    }
+    return list;
+  }, [leads, view, sort]);
   const PAGE_SIZE = 25;
   const selected: Lead | undefined = useMemo(
     () => leads.find((l) => l.id === selectedId) || leads[0],
     [leads, selectedId],
   );
-  const totalPages = Math.max(1, Math.ceil(leads.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(displayLeads.length / PAGE_SIZE));
   const pageStart = (page - 1) * PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + PAGE_SIZE, leads.length);
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, displayLeads.length);
 
   // Clamp page if leads list shrinks (filter changes, etc).
   useEffect(() => {
@@ -144,23 +170,36 @@ export default function LeadsPage() {
             <button onClick={() => toastSoon('Custom saved views')} className="text-text-muted hover:text-text-main" title="Save current filters as a view"><i className="fa-solid fa-plus text-[10px]" /></button>
           </div>
           <ul className="space-y-px text-[13px]">
-            {[
-              { key: 'hot',     active: true, icon: 'fa-fire',                  label: 'Hot leads',          count: leads.filter((l: any) => (l.score ?? 0) >= 90).length || 0 },
-              { key: 'replied', icon: 'fa-regular fa-clock',                    label: 'Replied today',      count: '—' },
-              { key: 'bookmarked', icon: 'fa-regular fa-bookmark',              label: 'Bookmarked',         count: '—' },
-              { key: 'campaign',   icon: 'fa-regular fa-paper-plane',           label: 'In active campaign', count: leads.filter((l: any) => l.campaign_id).length || 0 },
-              { key: 'all',     icon: 'fa-solid fa-database',                   label: 'All leads',          count: leads.length || 0 },
-            ].map((v) => (
+            {([
+              { key: 'hot',        icon: 'fa-fire',                       label: 'Hot leads',           count: leads.filter((l: any) => (l.score ?? 0) >= 90).length },
+              { key: 'replied',    icon: 'fa-regular fa-clock',           label: 'Replied today',       count: leads.filter((l: any) => {
+                  if (!l.last_message_at) return false;
+                  const ts = new Date(l.last_message_at);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return ts >= today;
+                }).length },
+              { key: 'bookmarked', icon: 'fa-regular fa-bookmark',        label: 'Bookmarked',          count: '—', soon: true },
+              { key: 'campaign',   icon: 'fa-regular fa-paper-plane',     label: 'In active campaign',  count: leads.filter((l: any) => l.campaign_id).length },
+              { key: 'all',        icon: 'fa-solid fa-database',          label: 'All leads',           count: leads.length },
+            ] as const).map((v) => {
+              const isActive = view === v.key;
+              return (
               <li key={v.key}>
                 <button
-                  onClick={() => toastSoon(`Saved view: ${v.label}`)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md ${v.active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-surface text-text-secondary'}`}
+                  onClick={() => {
+                    if ('soon' in v && v.soon) { toastSoon(`Saved view: ${v.label}`); return; }
+                    setView(v.key as LeadView);
+                    setPage(1);
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md ${isActive ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-surface text-text-secondary'}`}
                 >
-                  <span className="flex items-center gap-2"><i className={`fa-solid ${v.icon} w-3 text-[10px] ${v.active ? '' : 'text-text-muted'}`} />{v.label}</span>
-                  <span className={`text-[10px] ${v.active ? '' : 'text-text-muted'}`}>{v.count}</span>
+                  <span className="flex items-center gap-2"><i className={`fa-solid ${v.icon} w-3 text-[10px] ${isActive ? '' : 'text-text-muted'}`} />{v.label}</span>
+                  <span className={`text-[10px] ${isActive ? '' : 'text-text-muted'}`}>{v.count}</span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
 
@@ -236,7 +275,8 @@ export default function LeadsPage() {
         {/* Action bar */}
         <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-2.5 flex-wrap">
           <h2 className="text-[20px] font-bold tracking-tight flex items-center gap-2">
-            Hot leads <span className="text-[12px] text-text-muted font-normal">12 of 3,247</span>
+            {view === 'hot' ? 'Hot leads' : view === 'replied' ? 'Replied today' : view === 'campaign' ? 'In active campaign' : view === 'bookmarked' ? 'Bookmarked' : 'All leads'}
+            <span className="text-[12px] text-text-muted font-normal">{displayLeads.length} {displayLeads.length === 1 ? 'lead' : 'leads'}</span>
           </h2>
           <div className="flex items-center gap-1.5 ml-3">
             <button
@@ -261,14 +301,14 @@ export default function LeadsPage() {
               minWidth={180}
               trigger={
                 <span className="btn-outline cursor-pointer">
-                  <i className="fa-solid fa-arrow-up-wide-short text-[10px]" />Sort: Last activity
+                  <i className="fa-solid fa-arrow-up-wide-short text-[10px]" />Sort: {sort === 'name' ? 'Name' : sort === 'score' ? 'Score' : sort === 'created' ? 'Recently added' : 'Last activity'}
                 </span>
               }
               items={[
-                { key: 'last',  icon: 'clock-rotate-left',     label: 'Last activity', selected: true,  onClick: () => {} },
-                { key: 'name',  icon: 'arrow-down-a-z',        label: 'Name (A→Z)',    onClick: () => toastSoon('Sort by name') },
-                { key: 'score', icon: 'arrow-down-9-1',        label: 'Score (high→low)', onClick: () => toastSoon('Sort by score') },
-                { key: 'created', icon: 'calendar-plus',       label: 'Recently added', onClick: () => toastSoon('Sort by created date') },
+                { key: 'last',    icon: 'clock-rotate-left',  label: 'Last activity',     selected: sort === 'last',    onClick: () => setSort('last') },
+                { key: 'name',    icon: 'arrow-down-a-z',     label: 'Name (A→Z)',        selected: sort === 'name',    onClick: () => setSort('name') },
+                { key: 'score',   icon: 'arrow-down-9-1',     label: 'Score (high→low)',  selected: sort === 'score',   onClick: () => setSort('score') },
+                { key: 'created', icon: 'calendar-plus',      label: 'Recently added',    selected: sort === 'created', onClick: () => setSort('created') },
               ]}
             />
             <button onClick={() => window.location.href = '/leads/import'} className="btn-outline" title="Import leads (opens in classic UI)"><i className="fa-solid fa-file-import text-[10px]" />Import</button>
@@ -321,7 +361,7 @@ export default function LeadsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {/* Live leads from /api/leads — paginated to current page */}
-                {leads.length > 0 ? leads.slice(pageStart, pageEnd).map((lead) => {
+                {displayLeads.length > 0 ? displayLeads.slice(pageStart, pageEnd).map((lead) => {
                   const active = (selectedId || leads[0]?.id) === lead.id;
                   const score = (lead as any).score ?? null;
                   return (
@@ -401,11 +441,11 @@ export default function LeadsPage() {
 
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 text-[11px] text-text-muted">
               <span>{
-                leads.length > 0
-                  ? `Showing ${pageStart + 1}–${pageEnd} of ${leads.length} leads`
-                  : isLoading ? 'Loading…' : 'No leads yet — sample data shown'
+                displayLeads.length > 0
+                  ? `Showing ${pageStart + 1}–${pageEnd} of ${displayLeads.length} leads`
+                  : isLoading ? 'Loading…' : 'No leads match this view'
               }</span>
-              {leads.length > 0 && totalPages > 1 && (
+              {displayLeads.length > 0 && totalPages > 1 && (
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
