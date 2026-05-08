@@ -312,11 +312,31 @@ export default function AgentSourcerPage() {
               </div>
 
               <button
-                onClick={() => toastSoon('Save scraped intel as ICP fingerprint')}
-                className="w-full inline-flex items-center gap-1.5 justify-center px-3.5 py-2 rounded-lg text-[11.5px] font-semibold text-white"
+                onClick={() => {
+                  if (!sourcer) return;
+                  const fingerprint = {
+                    label: 'Q2 Senior Engineers',
+                    must_haves: [
+                      '5+ years senior backend',
+                      'Payments / fintech infra',
+                      'Go or Rust primary',
+                      'Distributed systems',
+                    ],
+                    saved_at: new Date().toISOString(),
+                  };
+                  update.mutate(
+                    { id: sourcer.id, config: { ...(sourcer.config || {}), icp_fingerprint: fingerprint } },
+                    {
+                      onSuccess: () => toastSuccess('ICP fingerprint saved to Sourcer · used for future runs.'),
+                    },
+                  );
+                }}
+                disabled={!sourcer || update.isPending}
+                className="w-full inline-flex items-center gap-1.5 justify-center px-3.5 py-2 rounded-lg text-[11.5px] font-semibold text-white disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg,#06B6D4,#3B82F6)', boxShadow: '0 6px 14px -4px rgba(6,182,212,.35)' }}
               >
-                <i className="fa-solid fa-arrow-right text-[9px]" />Use as ICP for Q2 Engineers
+                <i className={`fa-solid ${update.isPending ? 'fa-spinner fa-spin' : 'fa-arrow-right'} text-[9px]`} />
+                {update.isPending ? 'Saving…' : 'Use as ICP for Q2 Engineers'}
               </button>
             </div>
           </div>

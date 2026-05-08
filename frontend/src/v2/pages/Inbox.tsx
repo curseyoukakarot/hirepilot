@@ -89,6 +89,39 @@ export default function InboxPage() {
     [threads, selectedId],
   );
 
+  // Schedule meeting via Coordinator's interview_booker skill.
+  const { agents: allAgents, invokeSkill } = useAgents();
+  const coordinator = findAgentByRole(allAgents, 'coordinator');
+  const scheduleMeeting = () => {
+    if (!coordinator) {
+      toastInfo('Hire the Coordinator first to schedule meetings from Inbox.');
+      return;
+    }
+    if (invokeSkill.isPending) return;
+    const lead = selectedThread?.lead;
+    const candidate = lead
+      ? {
+          first_name: lead.first_name || lead.name?.split(' ')[0] || 'Candidate',
+          last_name: lead.last_name || undefined,
+          email: lead.email || selectedThread?.sender_email || undefined,
+        }
+      : { first_name: 'Candidate', email: selectedThread?.sender_email || undefined };
+    invokeSkill.mutate(
+      {
+        agentId: coordinator.id,
+        skillId: 'interview_booker',
+        input: { candidate, interviewers: [], duration_min: 30, topic: selectedThread?.subject || undefined },
+      },
+      {
+        onSuccess: () => {
+          toastSuccess('Coordinator is finding times — review proposed slots in Decisions.');
+          setTimeout(() => { window.location.href = '/v2/decisions'; }, 600);
+        },
+        onError: (e: any) => toastInfo(`Couldn't schedule: ${e?.message || 'unknown error'}`),
+      },
+    );
+  };
+
   // Filter counts + visible list. "Hot" = positive classification or
   // meeting_request. "REX drafts" requires a thread.has_pending_draft signal
   // we don't yet expose — for now treat them as "any pending decision attached".
@@ -220,7 +253,7 @@ export default function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toastSoon('Schedule meeting from thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Schedule meeting"><i className="fa-solid fa-calendar text-sm" /></button>
+                <button onClick={scheduleMeeting} disabled={invokeSkill.isPending} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary disabled:opacity-50" title="Schedule meeting (Coordinator)"><i className={`fa-solid ${invokeSkill.isPending ? 'fa-spinner fa-spin' : 'fa-calendar'} text-sm`} /></button>
                 <button onClick={() => toastSoon('Forward / share thread')} className="w-9 h-9 rounded-md hover:bg-surface flex items-center justify-center text-text-secondary" title="Share thread"><i className="fa-solid fa-share-nodes text-sm" /></button>
                 <V2Dropdown
                   align="right"
@@ -302,9 +335,9 @@ export default function InboxPage() {
                     Anything specific you want me to prep on the call?<br /><br />— Brandon
                   </p>
                   <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-primary/10 flex-wrap">
-                    <button onClick={() => toastSoon('Send drafted reply (sample mock-up)')} className="btn-solid"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
-                    <button onClick={() => toastSoon('Open inline editor for the draft')} className="btn-outline">Edit</button>
-                    <button onClick={() => toastSoon('Regenerate via Recruiter reply_handler')} className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
+                    <button onClick={() => { window.location.href = '/v2/decisions'; }} className="btn-solid" title="Approve in Decisions"><i className="fa-solid fa-paper-plane text-[10px]" />Send as-is</button>
+                    <button onClick={() => { window.location.href = '/v2/decisions'; }} className="btn-outline" title="Edit in Decisions">Edit</button>
+                    <button onClick={() => toastInfo('Open this decision in /v2/decisions to regenerate via Recruiter.')} className="btn-outline"><i className="fa-solid fa-rotate text-[10px]" />Regenerate</button>
                     <span className="ml-auto text-[10.5px] text-text-muted flex items-center gap-1"><i className="fa-solid fa-shield-check text-[10px]" />Tone: warm professional</span>
                   </div>
                 </div>

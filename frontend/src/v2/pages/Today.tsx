@@ -7,7 +7,7 @@
  * candidate routes are wired to /api/v2/* equivalents.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import WorkspaceShell from '../components/WorkspaceShell';
 import WorkspaceTopbar, { RexStatusPill } from '../components/WorkspaceTopbar';
@@ -16,6 +16,7 @@ import { useGoals } from '../hooks/useGoals';
 import { useDecisions } from '../hooks/useDecisions';
 import { useAgents } from '../hooks/useAgents';
 import { toastSoon, toastInfo } from '../components/V2Toast';
+import V2Modal, { ModalCancel } from '../components/V2Modal';
 import { useNavigate } from 'react-router-dom';
 
 export default function TodayPage() {
@@ -23,6 +24,8 @@ export default function TodayPage() {
   const { activity } = useActivity({ limit: 30 });
   const { goals } = useGoals('running');
   const { decisions: pending } = useDecisions({ status: 'pending' });
+  const [overnightOpen, setOvernightOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const { agents, isLoading: agentsLoading } = useAgents();
 
   const runningGoals = goals.length;
@@ -142,7 +145,7 @@ export default function TodayPage() {
                     <i className="fa-solid fa-bolt text-[10px]" />Open hot replies
                   </button>
                   <button onClick={() => navigate('/v2/goals')} className="ghost-btn">Show today's plan</button>
-                  <button onClick={() => toastSoon("Overnight summary report")} className="ghost-btn">Open overnight summary</button>
+                  <button onClick={() => setOvernightOpen(true)} className="ghost-btn">Open overnight summary</button>
                 </div>
               </div>
             </div>
@@ -168,7 +171,7 @@ export default function TodayPage() {
               <h2 className="text-[20px] font-bold tracking-tight">Your workspace</h2>
               <p className="text-text-muted text-[13px] mt-0.5">Sourcing · ATS · CRM · outreach · reporting — all in one place.</p>
             </div>
-            <button onClick={() => toastSoon('Customize workspace cards')} className="ghost-btn">
+            <button onClick={() => setCustomizeOpen(true)} className="ghost-btn">
               <i className="fa-solid fa-sliders text-[11px]" />Customize
             </button>
           </div>
@@ -407,6 +410,110 @@ export default function TodayPage() {
           </div>
         </section>
       </div>
+
+      {/* Overnight summary modal */}
+      <V2Modal
+        open={overnightOpen}
+        onClose={() => setOvernightOpen(false)}
+        title="Overnight summary"
+        subtitle="What REX + your team handled while you slept."
+        icon="moon"
+        size="lg"
+        footer={<ModalCancel onClick={() => setOvernightOpen(false)} label="Close" />}
+      >
+        <div className="space-y-3 text-[13px]">
+          {/* Hero stat row */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-surface/60 rounded-lg p-3 text-center">
+              <div className="text-[20px] font-bold grad-text leading-none">{activity.length}</div>
+              <div className="text-[10px] text-text-muted mt-1 uppercase tracking-wider">Events</div>
+            </div>
+            <div className="bg-surface/60 rounded-lg p-3 text-center">
+              <div className="text-[20px] font-bold leading-none">{goals.length}</div>
+              <div className="text-[10px] text-text-muted mt-1 uppercase tracking-wider">Goals running</div>
+            </div>
+            <div className="bg-surface/60 rounded-lg p-3 text-center">
+              <div className="text-[20px] font-bold text-warn leading-none">{pending.length}</div>
+              <div className="text-[10px] text-text-muted mt-1 uppercase tracking-wider">Decisions held</div>
+            </div>
+          </div>
+
+          {/* Recent activity timeline */}
+          <div>
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-2">
+              Recent activity
+            </div>
+            {activity.length === 0 ? (
+              <div className="text-text-muted italic text-[12.5px] py-4 text-center">
+                Quiet night — nothing to report.
+              </div>
+            ) : (
+              <ul className="space-y-1.5 max-h-[280px] overflow-y-auto">
+                {activity.slice(0, 8).map((row) => (
+                  <li key={row.id} className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-surface/50">
+                    <i className="fa-solid fa-circle text-text-muted/30 text-[6px] mt-2 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] truncate">{row.summary || row.event_type}</div>
+                      <div className="text-[10.5px] text-text-muted">{new Date(row.created_at).toLocaleString()}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+            <button
+              onClick={() => { setOvernightOpen(false); navigate('/v2/today'); }}
+              className="ghost-btn flex-1 justify-center"
+            >
+              <i className="fa-solid fa-clock-rotate-left text-[10px]" />Full audit log
+            </button>
+            <button
+              onClick={() => { setOvernightOpen(false); navigate('/v2/decisions'); }}
+              className="btn-solid flex-1 justify-center"
+              disabled={pending.length === 0}
+            >
+              <i className="fa-solid fa-circle-question text-[10px]" />
+              Review {pending.length || 0} decisions
+            </button>
+          </div>
+        </div>
+      </V2Modal>
+
+      {/* Customize modal */}
+      <V2Modal
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+        title="Customize workspace"
+        subtitle="Pick what shows up on Today. Coming soon — drag-and-drop ordering."
+        icon="sliders"
+      >
+        <div className="space-y-3 text-[13px]">
+          <p className="text-text-secondary text-[12.5px]">
+            Right now Today shows a default mix of cards. Per-user
+            customization is in progress — we're adding:
+          </p>
+          <ul className="space-y-2 text-[12.5px]">
+            {[
+              { icon: 'fa-grip-vertical', label: 'Reorder cards by drag-and-drop' },
+              { icon: 'fa-eye-slash', label: 'Hide cards you don\'t use (e.g. Reports if you\'re solo)' },
+              { icon: 'fa-bell', label: 'Per-card notification preferences' },
+              { icon: 'fa-clock', label: 'Choose your "today" cutoff (8am, midnight, etc.)' },
+            ].map((row) => (
+              <li key={row.label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface/60">
+                <i className={`fa-solid ${row.icon} text-text-muted text-[11px] w-4`} />
+                <span className="flex-1">{row.label}</span>
+                <span className="tag tag-muted">soon</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11.5px] text-text-muted pt-2 border-t border-gray-100">
+            Want a specific card or hidden? Tell REX with <span className="font-mono bg-surface px-1 rounded">⌘K</span>:
+            "<em>hide reports</em>" or "<em>add a renewal reminders card</em>".
+          </p>
+        </div>
+      </V2Modal>
     </WorkspaceShell>
   );
 }

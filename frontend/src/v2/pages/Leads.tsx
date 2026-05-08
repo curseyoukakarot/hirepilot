@@ -23,6 +23,7 @@ import { toastSoon, toastInfo, toastSuccess } from '../components/V2Toast';
 import V2Modal, { ModalCancel, ModalPrimary } from '../components/V2Modal';
 import V2Dropdown from '../components/V2Dropdown';
 import NewLeadModal from '../components/NewLeadModal';
+import { apiPatch } from '../../lib/api';
 import '../../styles/v2.css';
 
 /** Random gradient palette for lead avatars (deterministic by id). */
@@ -98,6 +99,35 @@ export default function LeadsPage() {
   const [drawerTab, setDrawerTab] = useState<'activity' | 'messages' | 'notes' | 'files'>('activity');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [tagModalLead, setTagModalLead] = useState<Lead | null>(null);
+  const [newTag, setNewTag] = useState('');
+  const [tagSaving, setTagSaving] = useState(false);
+  const openTagModal = (lead: Lead | null | undefined) => {
+    if (!lead) return;
+    setTagModalLead(lead);
+    setNewTag('');
+  };
+  const saveTag = async () => {
+    if (!tagModalLead || !newTag.trim() || tagSaving) return;
+    const tag = newTag.trim();
+    const existing: string[] = Array.isArray((tagModalLead as any).tags) ? (tagModalLead as any).tags : [];
+    if (existing.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+      toastInfo(`"${tag}" is already on this lead.`);
+      return;
+    }
+    setTagSaving(true);
+    try {
+      await apiPatch(`/api/leads/${tagModalLead.id}`, { tags: [...existing, tag] });
+      toastSuccess(`Tagged "${tag}"`);
+      setTagModalLead(null);
+      setNewTag('');
+      refetch();
+    } catch (e: any) {
+      toastInfo(`Couldn't save: ${e?.message || 'unknown error'}`);
+    } finally {
+      setTagSaving(false);
+    }
+  };
   type LeadView = 'hot' | 'replied' | 'bookmarked' | 'campaign' | 'all';
   type LeadSort = 'last' | 'name' | 'score' | 'created';
   const [view, setView] = useState<LeadView>('all');
@@ -514,7 +544,7 @@ export default function LeadsPage() {
               }
               items={[
                 { key: 'open-classic', icon: 'arrow-up-right-from-square', label: 'Open in classic UI', onClick: () => { if (selected?.id) window.location.href = `/leads/${selected.id}`; } },
-                { key: 'add-tag',  icon: 'tag',          label: 'Add tag',           onClick: () => toastSoon('Add tag to lead') },
+                { key: 'add-tag',  icon: 'tag',          label: 'Add tag',           onClick: () => openTagModal(selected) },
                 { key: 'campaign', icon: 'paper-plane',  label: 'Add to campaign',   onClick: () => toastSoon('Add lead to campaign') },
                 { key: 'pipeline', icon: 'table-columns',label: 'Move to pipeline',  onClick: () => toastSoon('Move lead to pipeline') },
                 { key: 'd1', divider: true, label: '' },
@@ -554,7 +584,7 @@ export default function LeadsPage() {
             <span className="tag" style={{ background: 'rgba(107,70,193,.1)', color: '#6B46C1' }}>Engineering</span>
             <span className="tag tag-warn">Senior</span>
             <span className="tag tag-success">Remote</span>
-            <button onClick={() => toastSoon('Add tag to lead')} title="Add tag" className="tag tag-muted hover:bg-gray-200"><i className="fa-solid fa-plus text-[8px]" /></button>
+            <button onClick={() => openTagModal(selected)} title="Add tag" className="tag tag-muted hover:bg-gray-200"><i className="fa-solid fa-plus text-[8px]" /></button>
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -736,6 +766,55 @@ export default function LeadsPage() {
         onClose={() => setNewLeadOpen(false)}
         onCreated={() => refetch()}
       />
+
+      {/* Add-tag modal — wired to PATCH /api/leads/:id { tags } */}
+      <V2Modal
+        open={!!tagModalLead}
+        onClose={() => { if (!tagSaving) { setTagModalLead(null); setNewTag(''); } }}
+        title="Add tag"
+        subtitle={tagModalLead ? `Tag "${[tagModalLead.first_name, tagModalLead.last_name].filter(Boolean).join(' ') || tagModalLead.name || tagModalLead.email || 'this lead'}"` : undefined}
+        icon="tag"
+        footer={
+          <>
+            <ModalCancel onClick={() => { if (!tagSaving) { setTagModalLead(null); setNewTag(''); } }} />
+            <ModalPrimary
+              onClick={saveTag}
+              disabled={!newTag.trim()}
+              loading={tagSaving}
+              label={tagSaving ? 'Saving…' : 'Add tag'}
+              icon="plus"
+            />
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {(() => {
+            const existing: string[] = Array.isArray((tagModalLead as any)?.tags) ? (tagModalLead as any).tags : [];
+            return existing.length > 0 ? (
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted mb-1.5">Current tags</div>
+                <div className="flex flex-wrap gap-1">
+                  {existing.map((t) => (
+                    <span key={t} className="tag tag-primary">{t}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+          <div>
+            <label className="text-[12px] font-semibold mb-1.5 block">New tag</label>
+            <input
+              autoFocus
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveTag(); }}
+              placeholder="e.g. Engineering, Senior, Hot"
+              className="w-full bg-surface border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-primary"
+            />
+            <div className="text-[10.5px] text-text-muted mt-1.5">Tags help you filter and route leads later.</div>
+          </div>
+        </div>
+      </V2Modal>
     </div>
   );
 }
