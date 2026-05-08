@@ -112,6 +112,8 @@ const V2Forms = lazy(() => import('./v2/pages/Forms'));
 const V2Tasks = lazy(() => import('./v2/pages/Tasks'));
 const V2Sequences = lazy(() => import('./v2/pages/Sequences'));
 const V2Templates = lazy(() => import('./v2/pages/Templates'));
+const V2SettingsHub = lazy(() => import('./v2/pages/SettingsHub'));
+const V2SettingsWrapper = lazy(() => import('./v2/pages/SettingsWrapper'));
 
 // Tiny loading placeholder that uses our v2 visual style
 function V2Loading() {
@@ -957,7 +959,9 @@ function InnerApp() {
                   <Route path="/v2/pipelines"    element={<Suspense fallback={<V2Loading />}><V2Pipelines /></Suspense>} />
                   <Route path="/v2/deals"        element={<Suspense fallback={<V2Loading />}><V2Deals /></Suspense>} />
                   <Route path="/v2/inbox"        element={<Suspense fallback={<V2Loading />}><V2Inbox /></Suspense>} />
+                  <Route path="/v2/settings"     element={<Suspense fallback={<V2Loading />}><V2SettingsHub /></Suspense>} />
                   <Route path="/v2/settings/team" element={<Suspense fallback={<V2Loading />}><V2TeamSettings /></Suspense>} />
+                  <Route path="/v2/settings/:tab" element={<Suspense fallback={<V2Loading />}><V2SettingsWrapper /></Suspense>} />
                 </>
               )}
               <Route path="/campaigns" element={<Campaigns />} />

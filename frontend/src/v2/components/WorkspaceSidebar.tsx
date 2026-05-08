@@ -216,11 +216,10 @@ export default function WorkspaceSidebar({
               </NavLink>
             </li>
             <li>
-              <a href="/settings" className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface text-text-secondary">
+              <NavLink to="/v2/settings" className={navClass} end>
                 <i className="fa-solid fa-gear w-4 text-[11px] text-text-muted" />
                 <span className="flex-1">All Settings</span>
-                <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" />
-              </a>
+              </NavLink>
             </li>
           </ul>
         </div>

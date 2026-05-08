@@ -14,6 +14,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { useWorkspaceSettings } from '../hooks/useWorkspaceSettings';
 import { useBillingSummary, openBillingPortal } from '../hooks/useBilling';
@@ -26,17 +27,23 @@ import { useMyWorkspaces } from '../hooks/useWorkspaces';
 import type { TeamColor } from '../types';
 import '../../styles/v2.css';
 
-/** Sub-nav link to a legacy settings tab. */
-function SubNavLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+/** Sub-nav link — stays in v2 SettingsWrapper for everything except `team` (native v2). */
+function SubNavLink({ to, icon, label }: { to: string; icon: string; label: string }) {
   return (
-    <a
-      href={href}
-      className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer hover:bg-surface text-text-secondary"
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }: { isActive: boolean }) =>
+        `flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] cursor-pointer ${
+          isActive
+            ? 'bg-primary/10 text-primary font-semibold'
+            : 'hover:bg-surface text-text-secondary'
+        }`
+      }
     >
       <i className={`fa-solid fa-${icon} w-3.5 text-[10.5px]`} />
       <span className="flex-1">{label}</span>
-      <i className="fa-solid fa-arrow-up-right-from-square text-[8px] text-text-muted" title="opens in classic UI" />
-    </a>
+    </NavLink>
   );
 }
 
@@ -164,19 +171,19 @@ export default function TeamSettingsPage() {
             <a href="/v2/settings/team" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer" style={{ background: 'rgba(107,70,193,.1)', color: '#6B46C1' }}>
               <i className="fa-solid fa-people-roof w-3.5 text-[10.5px]" />Team
             </a>
-            <SubNavLink href="/settings?tab=integrations" icon="puzzle-piece" label="Integrations" />
-            <SubNavLink href="/settings?tab=billing"      icon="credit-card"  label="Billing" />
-            <SubNavLink href="/settings?tab=webhooks"     icon="key"          label="API & Webhooks" />
+            <SubNavLink to="/v2/settings/integrations" icon="puzzle-piece" label="Integrations" />
+            <SubNavLink to="/v2/settings/billing"      icon="credit-card"  label="Billing" />
+            <SubNavLink to="/v2/settings/api"          icon="key"          label="API & Webhooks" />
 
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">REX</span>
-            <SubNavLink href="/settings?tab=guardrails"   icon="shield-halved" label="Guardrails" />
-            <SubNavLink href="/settings?tab=voice"        icon="microphone"    label="Voice & tone" />
-            <SubNavLink href="/settings?tab=automations"  icon="bolt"          label="Automations" />
+            <SubNavLink to="/v2/settings/team"          icon="shield-halved" label="Guardrails" />
+            <SubNavLink to="/v2/settings/team"          icon="microphone"    label="Voice & tone" />
+            <SubNavLink to="/v2/settings/team"          icon="bolt"          label="Automations" />
 
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-2.5 pt-2.5 pb-1">Account</span>
-            <SubNavLink href="/settings?tab=profile"       icon="user"   label="Profile" />
-            <SubNavLink href="/settings?tab=notifications" icon="bell"   label="Notifications" />
-            <SubNavLink href="/settings?tab=security"      icon="shield" label="Security & 2FA" />
+            <SubNavLink to="/v2/settings/profile"       icon="user"   label="Profile" />
+            <SubNavLink to="/v2/settings/notifications" icon="bell"   label="Notifications" />
+            <SubNavLink to="/v2/settings/team"          icon="shield" label="Security & 2FA" />
           </div>
         </aside>
 
