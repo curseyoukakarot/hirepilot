@@ -1,16 +1,30 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  CostInput,
+  SponsorInput,
+  addDocument,
+  archiveEvent,
+  deleteDocument,
+  fetchEvent,
+  replaceCosts,
+  replaceSponsors,
+} from './api';
+import {
+  COST_CATEGORIES,
+  CostCategory,
+  CostLine,
+  CostStatus,
+  DocumentType,
   EventRecord,
   Sponsor,
+  SponsorKind,
   SponsorStatus,
-  CostLine,
   eventMargin,
   formatMoney,
-  getEventById,
   totalCostsByCategory,
   totalInKindValue,
-} from './mockData';
+} from './types';
 
 type Tab = 'overview' | 'sponsors' | 'costs' | 'people' | 'documents';
 
@@ -36,18 +50,60 @@ const SPONSOR_STATUS_BADGE: Record<SponsorStatus, string> = {
   paid: 'bg-emerald-100 text-emerald-700 border-emerald-200',
 };
 
-const COST_STATUS_BADGE: Record<CostLine['status'], string> = {
+const COST_STATUS_BADGE: Record<CostStatus, string> = {
   budgeted: 'bg-gray-100 text-gray-700 border-gray-200',
   committed: 'bg-blue-100 text-blue-700 border-blue-200',
   invoiced: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-emerald-100 text-emerald-700 border-emerald-200',
 };
 
+const SPONSOR_STATUS_OPTIONS: SponsorStatus[] = ['prospect', 'committed', 'invoiced', 'paid'];
+const COST_STATUS_OPTIONS: CostStatus[] = ['budgeted', 'committed', 'invoiced', 'paid'];
+const DOC_TYPE_OPTIONS: DocumentType[] = ['beo', 'invoice', 'contract', 'quote', 'misc'];
+
 export default function EventDetailPage() {
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
-  const event = useMemo(() => (eventId ? getEventById(eventId) : undefined), [eventId]);
+  const [event, setEvent] = useState<EventRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
+  const [savingMessage, setSavingMessage] = useState<string | null>(null);
+
+  const reload = async () => {
+    if (!eventId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchEvent(eventId);
+      setEvent(data);
+    } catch (e: any) {
+      setError(String(e?.message || 'Failed to load event.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void reload();
+  }, [eventId]);
+
+  if (loading && !event) {
+    return (
+      <div className="p-8 text-sm text-gray-500">Loading event...</div>
+    );
+  }
+
+  if (error && !event) {
+    return (
+      <div className="p-8">
+        <p className="text-sm text-rose-600">{error}</p>
+        <Link to="/ignite/events" className="mt-3 inline-block text-sm text-blue-600 hover:underline">
+          Back to events
+        </Link>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -70,6 +126,43 @@ export default function EventDetailPage() {
   const costPaid = event.costs
     .filter((cost) => cost.status === 'paid')
     .reduce((sum, cost) => sum + cost.qty * cost.unitCost, 0);
+
+  const handleSave = async (action: () => Promise<void>, label: string) => {
+    setSavingMessage(`${label}...`);
+    setError(null);
+    try {
+      await action();
+      await reload();
+      setSavingMessage(`${label} ✓`);
+      setTimeout(() => setSavingMessage(null), 1500);
+    } catch (e: any) {
+      setError(String(e?.message || `${label} failed.`));
+      setSavingMessage(null);
+    }
+  };
+
+  const sponsorsToInputs = (sponsors: Sponsor[]): SponsorInput[] =>
+    sponsors.map((sponsor) => ({
+      name: sponsor.name,
+      kind: sponsor.kind,
+      amount: sponsor.amount,
+      status: sponsor.status,
+      contact: sponsor.contact ?? null,
+      notes: sponsor.notes ?? null,
+      referralOwner: sponsor.referralOwner ?? null,
+      referralPercent: sponsor.referralPercent ?? null,
+    }));
+
+  const costsToInputs = (costs: CostLine[]): CostInput[] =>
+    costs.map((cost) => ({
+      category: cost.category,
+      description: cost.description,
+      vendor: cost.vendor ?? null,
+      qty: cost.qty,
+      unitCost: cost.unitCost,
+      status: cost.status,
+      notes: cost.notes ?? null,
+    }));
 
   return (
     <div className="space-y-6">
@@ -102,12 +195,13 @@ export default function EventDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
             <p className="mt-1 text-sm text-gray-600">
               {event.kind === 'external' && event.clientName ? `${event.clientName} · ` : ''}
-              {event.venue}, {event.city}
+              {event.venue || 'Venue TBD'}
+              {event.city ? `, ${event.city}` : ''}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600 sm:grid-cols-4">
               <span>
                 <i className="fa-solid fa-calendar mr-1.5 text-gray-400" />
-                {event.startDate}
+                {event.startDate || 'TBD'}
                 {event.endDate && event.endDate !== event.startDate ? ` → ${event.endDate}` : ''}
               </span>
               <span>
@@ -116,31 +210,32 @@ export default function EventDetailPage() {
               </span>
               <span>
                 <i className="fa-solid fa-user-tie mr-1.5 text-gray-400" />
-                Owner: {event.ownerName}
+                Owner: {event.ownerName || '—'}
               </span>
               <span>
                 <i className="fa-solid fa-address-card mr-1.5 text-gray-400" />
-                {event.primaryContact}
+                {event.primaryContact || '—'}
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {savingMessage && <span className="text-xs text-gray-500">{savingMessage}</span>}
             <button
               type="button"
-              onClick={() => alert('Mock: would export P&L PDF')}
+              onClick={() => {
+                if (window.confirm('Archive this event? It will be marked closed.')) {
+                  void handleSave(() => archiveEvent(event.id), 'Archived');
+                }
+              }}
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
-              <i className="fa-solid fa-download mr-2" /> Export P&amp;L
-            </button>
-            <button
-              type="button"
-              onClick={() => alert('Mock: would open edit wizard')}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <i className="fa-solid fa-pen mr-2" /> Edit Event
+              <i className="fa-solid fa-box-archive mr-2" /> Archive
             </button>
           </div>
         </div>
+        {error && (
+          <p className="mt-2 text-sm text-rose-600">{error}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -188,10 +283,47 @@ export default function EventDetailPage() {
           {tab === 'overview' && (
             <OverviewTab event={event} sponsorPaid={sponsorPaid} costPaid={costPaid} />
           )}
-          {tab === 'sponsors' && <SponsorsTab event={event} />}
-          {tab === 'costs' && <CostsTab event={event} />}
-          {tab === 'people' && <PeopleTab event={event} />}
-          {tab === 'documents' && <DocumentsTab event={event} />}
+          {tab === 'sponsors' && (
+            <SponsorsTab
+              event={event}
+              onSave={(sponsors) =>
+                handleSave(() => replaceSponsors(event.id, sponsorsToInputs(sponsors)), 'Sponsors saved')
+              }
+            />
+          )}
+          {tab === 'costs' && (
+            <CostsTab
+              event={event}
+              onSave={(costs) =>
+                handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'Costs saved')
+              }
+            />
+          )}
+          {tab === 'people' && (
+            <PeopleTab
+              event={event}
+              onSave={(costs) =>
+                handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'People saved')
+              }
+            />
+          )}
+          {tab === 'documents' && (
+            <DocumentsTab
+              event={event}
+              onAdd={(doc) =>
+                handleSave(
+                  () =>
+                    addDocument(event.id, {
+                      name: doc.name,
+                      docType: doc.docType,
+                      fileUrl: doc.fileUrl,
+                    }).then(() => undefined),
+                  'Document added'
+                )
+              }
+              onDelete={(docId) => handleSave(() => deleteDocument(event.id, docId), 'Document removed')}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -321,7 +453,9 @@ function OverviewTab({
             <strong>
               {formatMoney(margin.margin)} ({margin.marginPct.toFixed(1)}%)
             </strong>
-            {margin.marginPct >= 20 ? ' is healthy.' : ' is below the 20% target — review costs.'}
+            {margin.marginPct >= event.targetMarginPct
+              ? ' — on target.'
+              : ` — below ${event.targetMarginPct.toFixed(0)}% target.`}
           </p>
         </div>
       </div>
@@ -329,24 +463,90 @@ function OverviewTab({
   );
 }
 
-function SponsorsTab({ event }: { event: EventRecord }) {
-  const cashSponsors = event.sponsors.filter((sponsor) => sponsor.kind === 'cash');
-  const inKindSponsors = event.sponsors.filter((sponsor) => sponsor.kind === 'in_kind');
+function makeSponsorId(): string {
+  return `s_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function makeCostId(): string {
+  return `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function SponsorsTab({
+  event,
+  onSave,
+}: {
+  event: EventRecord;
+  onSave: (sponsors: Sponsor[]) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState<Sponsor[]>(event.sponsors);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setDraft(event.sponsors);
+    setDirty(false);
+  }, [event.sponsors]);
+
+  const update = (id: string, patch: Partial<Sponsor>) => {
+    setDraft((prev) => prev.map((sponsor) => (sponsor.id === id ? { ...sponsor, ...patch } : sponsor)));
+    setDirty(true);
+  };
+
+  const remove = (id: string) => {
+    setDraft((prev) => prev.filter((sponsor) => sponsor.id !== id));
+    setDirty(true);
+  };
+
+  const add = (kind: SponsorKind) => {
+    setDraft((prev) => [
+      ...prev,
+      {
+        id: makeSponsorId(),
+        name: '',
+        kind,
+        amount: 0,
+        status: 'prospect',
+      },
+    ]);
+    setDirty(true);
+  };
+
+  const cashSponsors = draft.filter((sponsor) => sponsor.kind === 'cash');
+  const inKindSponsors = draft.filter((sponsor) => sponsor.kind === 'in_kind');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-gray-900">
           Cash sponsors ({cashSponsors.length})
         </h3>
-        <button
-          type="button"
-          onClick={() => alert('Mock: would open Add Sponsor modal')}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-        >
-          <i className="fa-solid fa-plus mr-1.5" /> Add sponsor
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => add('cash')}
+            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            <i className="fa-solid fa-plus mr-1.5" /> Cash sponsor
+          </button>
+          <button
+            type="button"
+            onClick={() => add('in_kind')}
+            className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100"
+          >
+            <i className="fa-solid fa-handshake mr-1.5" /> In-kind sponsor
+          </button>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() => onSave(draft)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
+              dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
+            }`}
+          >
+            Save changes
+          </button>
+        </div>
       </div>
-      <SponsorTable sponsors={cashSponsors} />
+      <SponsorTable sponsors={cashSponsors} onUpdate={update} onRemove={remove} />
 
       <div className="flex items-center justify-between pt-4">
         <h3 className="text-base font-semibold text-gray-900">
@@ -354,7 +554,7 @@ function SponsorsTab({ event }: { event: EventRecord }) {
         </h3>
       </div>
       {inKindSponsors.length ? (
-        <SponsorTable sponsors={inKindSponsors} />
+        <SponsorTable sponsors={inKindSponsors} onUpdate={update} onRemove={remove} />
       ) : (
         <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
           No in-kind sponsors yet.
@@ -364,7 +564,15 @@ function SponsorsTab({ event }: { event: EventRecord }) {
   );
 }
 
-function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
+function SponsorTable({
+  sponsors,
+  onUpdate,
+  onRemove,
+}: {
+  sponsors: Sponsor[];
+  onUpdate: (id: string, patch: Partial<Sponsor>) => void;
+  onRemove: (id: string) => void;
+}) {
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -381,28 +589,74 @@ function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
         <tbody className="divide-y divide-gray-100 bg-white">
           {sponsors.map((sponsor) => (
             <tr key={sponsor.id} className="hover:bg-gray-50/60">
-              <td className="px-4 py-2.5 font-medium text-gray-900">{sponsor.name}</td>
-              <td className="px-4 py-2.5 text-gray-700">{formatMoney(sponsor.amount)}</td>
               <td className="px-4 py-2.5">
-                <span
+                <input
+                  type="text"
+                  value={sponsor.name}
+                  onChange={(e) => onUpdate(sponsor.id, { name: e.target.value })}
+                  placeholder="Sponsor name"
+                  className="w-44 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium focus:border-blue-300 focus:bg-white focus:outline-none"
+                />
+              </td>
+              <td className="px-4 py-2.5">
+                <input
+                  type="number"
+                  value={sponsor.amount}
+                  onChange={(e) => onUpdate(sponsor.id, { amount: Number(e.target.value || 0) })}
+                  className="w-32 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                />
+              </td>
+              <td className="px-4 py-2.5">
+                <select
+                  value={sponsor.status}
+                  onChange={(e) => onUpdate(sponsor.id, { status: e.target.value as SponsorStatus })}
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${SPONSOR_STATUS_BADGE[sponsor.status]}`}
                 >
-                  {sponsor.status}
-                </span>
+                  {SPONSOR_STATUS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </td>
-              <td className="px-4 py-2.5 text-gray-600">{sponsor.notes || '—'}</td>
-              <td className="px-4 py-2.5 text-gray-600">
-                {sponsor.referralOwner
-                  ? `${sponsor.referralOwner} (${sponsor.referralPercent || 0}%)`
-                  : '—'}
+              <td className="px-4 py-2.5">
+                <input
+                  type="text"
+                  value={sponsor.notes || ''}
+                  onChange={(e) => onUpdate(sponsor.id, { notes: e.target.value })}
+                  className="w-56 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                />
+              </td>
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={sponsor.referralOwner || ''}
+                    onChange={(e) => onUpdate(sponsor.id, { referralOwner: e.target.value })}
+                    placeholder="Owner"
+                    className="w-24 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                  />
+                  <input
+                    type="number"
+                    value={sponsor.referralPercent ?? ''}
+                    onChange={(e) =>
+                      onUpdate(sponsor.id, {
+                        referralPercent: e.target.value === '' ? null : Number(e.target.value),
+                      })
+                    }
+                    placeholder="%"
+                    className="w-14 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                  />
+                </div>
               </td>
               <td className="px-4 py-2.5 text-right">
                 <button
                   type="button"
-                  onClick={() => alert(`Mock: edit ${sponsor.name}`)}
-                  className="text-gray-400 hover:text-blue-600"
+                  onClick={() => onRemove(sponsor.id)}
+                  className="text-gray-400 hover:text-rose-500"
+                  title="Remove sponsor"
                 >
-                  <i className="fa-solid fa-pen-to-square" />
+                  <i className="fa-solid fa-trash" />
                 </button>
               </td>
             </tr>
@@ -413,70 +667,180 @@ function SponsorTable({ sponsors }: { sponsors: Sponsor[] }) {
   );
 }
 
-function CostsTab({ event }: { event: EventRecord }) {
-  const grouped = event.costs.reduce<Record<string, CostLine[]>>((acc, cost) => {
-    acc[cost.category] = acc[cost.category] || [];
-    acc[cost.category].push(cost);
-    return acc;
-  }, {});
-  const categories = Object.keys(grouped).sort();
+function CostsTab({
+  event,
+  onSave,
+}: {
+  event: EventRecord;
+  onSave: (costs: CostLine[]) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState<CostLine[]>(event.costs);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setDraft(event.costs);
+    setDirty(false);
+  }, [event.costs]);
+
+  const update = (id: string, patch: Partial<CostLine>) => {
+    setDraft((prev) => prev.map((cost) => (cost.id === id ? { ...cost, ...patch } : cost)));
+    setDirty(true);
+  };
+
+  const remove = (id: string) => {
+    setDraft((prev) => prev.filter((cost) => cost.id !== id));
+    setDirty(true);
+  };
+
+  const add = (category: CostCategory) => {
+    setDraft((prev) => [
+      ...prev,
+      {
+        id: makeCostId(),
+        category,
+        description: '',
+        vendor: null,
+        qty: 1,
+        unitCost: 0,
+        status: 'budgeted',
+      },
+    ]);
+    setDirty(true);
+  };
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, CostLine[]>();
+    for (const cost of draft) {
+      const key = String(cost.category || 'Other');
+      const list = map.get(key) || [];
+      list.push(cost);
+      map.set(key, list);
+    }
+    return map;
+  }, [draft]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-gray-900">Cost ledger</h3>
         <button
           type="button"
-          onClick={() => alert('Mock: would open Add Cost Line modal')}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          disabled={!dirty}
+          onClick={() => onSave(draft)}
+          className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
+            dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
+          }`}
         >
-          <i className="fa-solid fa-plus mr-1.5" /> Add cost line
+          Save changes
         </button>
       </div>
-      {categories.map((category) => {
-        const lines = grouped[category];
+      {COST_CATEGORIES.map((category) => {
+        const lines = grouped.get(category) || [];
         const total = lines.reduce((sum, line) => sum + line.qty * line.unitCost, 0);
         return (
           <div key={category} className="overflow-hidden rounded-xl border border-gray-200">
             <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5">
               <p className="text-sm font-semibold text-gray-800">{category}</p>
-              <p className="text-sm font-semibold text-gray-700">{formatMoney(total)}</p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm font-semibold text-gray-700">{formatMoney(total)}</p>
+                <button
+                  type="button"
+                  onClick={() => add(category)}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  <i className="fa-solid fa-plus mr-1" /> Add line
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-white text-left text-xs uppercase tracking-wide text-gray-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Description</th>
-                    <th className="px-4 py-2 font-medium">Vendor</th>
-                    <th className="px-4 py-2 font-medium">Qty</th>
-                    <th className="px-4 py-2 font-medium">Unit</th>
-                    <th className="px-4 py-2 font-medium">Total</th>
-                    <th className="px-4 py-2 font-medium">Status</th>
-                    <th className="px-4 py-2 font-medium">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {lines.map((line) => (
-                    <tr key={line.id} className="hover:bg-gray-50/60">
-                      <td className="px-4 py-2.5 text-gray-900">{line.description}</td>
-                      <td className="px-4 py-2.5 text-gray-600">{line.vendor || '—'}</td>
-                      <td className="px-4 py-2.5 text-gray-700">{line.qty}</td>
-                      <td className="px-4 py-2.5 text-gray-700">{formatMoney(line.unitCost, { decimals: 2 })}</td>
-                      <td className="px-4 py-2.5 font-medium text-gray-900">
-                        {formatMoney(line.qty * line.unitCost, { decimals: 2 })}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${COST_STATUS_BADGE[line.status]}`}
-                        >
-                          {line.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500">{line.notes || '—'}</td>
+            {lines.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-white text-left text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Description</th>
+                      <th className="px-4 py-2 font-medium">Vendor</th>
+                      <th className="px-4 py-2 font-medium">Qty</th>
+                      <th className="px-4 py-2 font-medium">Unit</th>
+                      <th className="px-4 py-2 font-medium">Total</th>
+                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-4 py-2 font-medium">Notes</th>
+                      <th className="px-4 py-2" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {lines.map((line) => (
+                      <tr key={line.id} className="hover:bg-gray-50/60">
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="text"
+                            value={line.description}
+                            onChange={(e) => update(line.id, { description: e.target.value })}
+                            className="w-64 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="text"
+                            value={line.vendor || ''}
+                            onChange={(e) => update(line.id, { vendor: e.target.value })}
+                            className="w-32 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="number"
+                            value={line.qty}
+                            onChange={(e) => update(line.id, { qty: Number(e.target.value || 0) })}
+                            className="w-16 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="number"
+                            value={line.unitCost}
+                            onChange={(e) => update(line.id, { unitCost: Number(e.target.value || 0) })}
+                            className="w-28 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-sm font-medium text-gray-900">
+                          {formatMoney(line.qty * line.unitCost, { decimals: 2 })}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <select
+                            value={line.status}
+                            onChange={(e) => update(line.id, { status: e.target.value as CostStatus })}
+                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${COST_STATUS_BADGE[line.status]}`}
+                          >
+                            {COST_STATUS_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <input
+                            type="text"
+                            value={line.notes || ''}
+                            onChange={(e) => update(line.id, { notes: e.target.value })}
+                            className="w-40 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                          />
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => remove(line.id)}
+                            className="text-gray-400 hover:text-rose-500"
+                          >
+                            <i className="fa-solid fa-trash" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
       })}
@@ -484,18 +848,73 @@ function CostsTab({ event }: { event: EventRecord }) {
   );
 }
 
-function PeopleTab({ event }: { event: EventRecord }) {
-  const people = event.costs.filter((cost) => cost.category === 'Manpower');
+function PeopleTab({
+  event,
+  onSave,
+}: {
+  event: EventRecord;
+  onSave: (costs: CostLine[]) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState<CostLine[]>(event.costs);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setDraft(event.costs);
+    setDirty(false);
+  }, [event.costs]);
+
+  const people = draft.filter((cost) => cost.category === 'Manpower');
   const totalManpower = people.reduce((sum, line) => sum + line.qty * line.unitCost, 0);
+
+  const update = (id: string, patch: Partial<CostLine>) => {
+    setDraft((prev) => prev.map((cost) => (cost.id === id ? { ...cost, ...patch } : cost)));
+    setDirty(true);
+  };
+
+  const add = () => {
+    setDraft((prev) => [
+      ...prev,
+      {
+        id: makeCostId(),
+        category: 'Manpower',
+        description: '',
+        vendor: null,
+        qty: 1,
+        unitCost: 0,
+        status: 'budgeted',
+      },
+    ]);
+    setDirty(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-gray-900">Crew &amp; contractors</h3>
-        <p className="text-sm text-gray-600">Total manpower: {formatMoney(totalManpower)}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-600">Total manpower: {formatMoney(totalManpower)}</p>
+          <button
+            type="button"
+            onClick={add}
+            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            <i className="fa-solid fa-user-plus mr-1.5" /> Add crew
+          </button>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() => onSave(draft)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
+              dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
+            }`}
+          >
+            Save changes
+          </button>
+        </div>
       </div>
       {people.length === 0 ? (
         <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-          No manpower lines yet. Add them on the Costs tab.
+          No manpower lines yet.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200">
@@ -513,19 +932,53 @@ function PeopleTab({ event }: { event: EventRecord }) {
             <tbody className="divide-y divide-gray-100 bg-white">
               {people.map((person) => (
                 <tr key={person.id} className="hover:bg-gray-50/60">
-                  <td className="px-4 py-2.5 text-gray-900">{person.description}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{person.vendor || '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-700">{person.qty}</td>
-                  <td className="px-4 py-2.5 text-gray-700">{formatMoney(person.unitCost)}</td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                  <td className="px-4 py-2.5">
+                    <input
+                      type="text"
+                      value={person.description}
+                      onChange={(e) => update(person.id, { description: e.target.value })}
+                      className="w-56 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                    />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <input
+                      type="text"
+                      value={person.vendor || ''}
+                      onChange={(e) => update(person.id, { vendor: e.target.value })}
+                      className="w-32 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                    />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <input
+                      type="number"
+                      value={person.qty}
+                      onChange={(e) => update(person.id, { qty: Number(e.target.value || 0) })}
+                      className="w-16 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                    />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <input
+                      type="number"
+                      value={person.unitCost}
+                      onChange={(e) => update(person.id, { unitCost: Number(e.target.value || 0) })}
+                      className="w-28 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                    />
+                  </td>
+                  <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
                     {formatMoney(person.qty * person.unitCost)}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span
+                    <select
+                      value={person.status}
+                      onChange={(e) => update(person.id, { status: e.target.value as CostStatus })}
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${COST_STATUS_BADGE[person.status]}`}
                     >
-                      {person.status}
-                    </span>
+                      {COST_STATUS_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -537,19 +990,82 @@ function PeopleTab({ event }: { event: EventRecord }) {
   );
 }
 
-function DocumentsTab({ event }: { event: EventRecord }) {
+function DocumentsTab({
+  event,
+  onAdd,
+  onDelete,
+}: {
+  event: EventRecord;
+  onAdd: (doc: { name: string; docType: DocumentType; fileUrl?: string | null }) => void | Promise<void>;
+  onDelete: (docId: string) => void | Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [docType, setDocType] = useState<DocumentType>('misc');
+  const [fileUrl, setFileUrl] = useState('');
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    await onAdd({ name: name.trim(), docType, fileUrl: fileUrl.trim() || null });
+    setName('');
+    setFileUrl('');
+    setDocType('misc');
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Documents</h3>
+      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:flex-row md:items-end">
+        <label className="flex-1">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Document name
+          </span>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. AMD Sponsor Agreement.pdf"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Type
+          </span>
+          <select
+            value={docType}
+            onChange={(e) => setDocType(e.target.value as DocumentType)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+          >
+            {DOC_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex-1">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            File URL (optional)
+          </span>
+          <input
+            type="url"
+            value={fileUrl}
+            onChange={(e) => setFileUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </label>
         <button
           type="button"
-          onClick={() => alert('Mock: would open file upload')}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          onClick={submit}
+          disabled={!name.trim()}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+            name.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
+          }`}
         >
-          <i className="fa-solid fa-upload mr-1.5" /> Upload
+          <i className="fa-solid fa-plus mr-1.5" /> Add
         </button>
       </div>
+
       {event.documents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
           <i className="fa-solid fa-folder-open mb-3 text-3xl text-gray-300" />
@@ -571,16 +1087,29 @@ function DocumentsTab({ event }: { event: EventRecord }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-gray-900">{doc.name}</p>
                 <p className="text-xs text-gray-500">
-                  {doc.type.toUpperCase()} · uploaded {doc.uploadedAt} · {doc.uploadedBy}
+                  {doc.type.toUpperCase()} · uploaded {doc.uploadedAt || 'recently'} · {doc.uploadedBy}
                 </p>
               </div>
+              {doc.fileUrl && (
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-400 hover:text-blue-600"
+                  title="Open"
+                >
+                  <i className="fa-solid fa-arrow-up-right-from-square" />
+                </a>
+              )}
               <button
                 type="button"
-                onClick={() => alert(`Mock: download ${doc.name}`)}
-                className="text-gray-400 hover:text-blue-600"
-                title="Download"
+                onClick={() => {
+                  if (window.confirm(`Remove "${doc.name}"?`)) void onDelete(doc.id);
+                }}
+                className="text-gray-400 hover:text-rose-500"
+                title="Remove"
               >
-                <i className="fa-solid fa-download" />
+                <i className="fa-solid fa-trash" />
               </button>
             </div>
           ))}

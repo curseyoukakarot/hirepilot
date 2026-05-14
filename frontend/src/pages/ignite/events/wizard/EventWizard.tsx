@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CostCategory, formatMoney } from '../mockData';
+import { COST_CATEGORIES, formatMoney } from '../types';
+import { createEvent, replaceCosts, replaceSponsors, updateEventBasics } from '../api';
 import EventBasicsStep from './EventBasicsStep';
 import EventSponsorsStep from './EventSponsorsStep';
 import EventCostsStep from './EventCostsStep';
@@ -13,24 +14,105 @@ import {
   WizardStepNumber,
 } from './types';
 
-const COST_CATEGORIES: CostCategory[] = [
-  'Venue',
-  'Manpower',
-  'Booth & Supplies',
-  'Travel',
-  'F&B',
-  'Production',
-  'Marketing',
-  'Other',
-];
+function wizardStateToBasics(state: EventWizardState) {
+  return {
+    name: state.name || 'Untitled Event',
+    kind: state.kind,
+    clientName: state.kind === 'external' ? state.clientName : null,
+    startDate: state.startDate || null,
+    endDate: state.endDate || null,
+    city: state.city || null,
+    venue: state.venue || null,
+    headcount: state.headcount,
+    primaryContact: state.primaryContact || null,
+    ownerName: state.ownerName || null,
+    description: state.description || null,
+    targetMarginPct: state.targetMarginPct,
+  };
+}
+
+function wizardStateToSponsors(state: EventWizardState) {
+  return state.sponsors
+    .filter((sponsor) => String(sponsor.name || '').trim())
+    .map((sponsor) => ({
+      name: sponsor.name,
+      kind: sponsor.kind,
+      amount: sponsor.amount || 0,
+      status: sponsor.status,
+      contact: sponsor.contact || null,
+      notes: sponsor.notes || null,
+    }));
+}
+
+function wizardStateToCosts(state: EventWizardState) {
+  return state.costs
+    .filter((cost) => String(cost.description || '').trim())
+    .map((cost) => ({
+      category: cost.category,
+      description: cost.description,
+      vendor: cost.vendor || null,
+      qty: cost.qty || 0,
+      unitCost: cost.unitCost || 0,
+      status: cost.status,
+    }));
+}
 
 export default function EventWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState<WizardStepNumber>(1);
   const [state, setState] = useState<EventWizardState>(DEFAULT_EVENT_WIZARD_STATE);
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const updateState = (patch: Partial<EventWizardState>) => {
     setState((prev) => ({ ...prev, ...patch }));
+  };
+
+  const persistDraft = async (currentState: EventWizardState): Promise<string | null> => {
+    if (!currentState.name.trim()) {
+      throw new Error('Add an event name before saving.');
+    }
+    let resolvedId = eventId;
+    if (!resolvedId) {
+      const created = await createEvent(wizardStateToBasics(currentState));
+      resolvedId = created.id;
+      setEventId(resolvedId);
+    } else {
+      await updateEventBasics(resolvedId, wizardStateToBasics(currentState));
+    }
+    if (!resolvedId) throw new Error('Failed to create event.');
+    await replaceSponsors(resolvedId, wizardStateToSponsors(currentState));
+    await replaceCosts(resolvedId, wizardStateToCosts(currentState));
+    return resolvedId;
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await persistDraft(state);
+      setSavedAt(Date.now());
+    } catch (e: any) {
+      setSaveError(String(e?.message || 'Failed to save draft.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLaunch = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const id = await persistDraft(state);
+      if (!id) throw new Error('Failed to launch event.');
+      await updateEventBasics(id, { status: 'planning' });
+      navigate(`/ignite/events/${id}`);
+    } catch (e: any) {
+      setSaveError(String(e?.message || 'Failed to launch event.'));
+      setIsSaving(false);
+    }
   };
 
   const totals = useMemo(() => {
@@ -71,6 +153,13 @@ export default function EventWizard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {savedAt && !isSaving && (
+              <span className="text-xs text-gray-500">
+                <i className="fa-solid fa-check-circle mr-1 text-green-500" />
+                Saved
+              </span>
+            )}
+            {isSaving && <span className="text-xs text-gray-500">Saving…</span>}
             <button
               type="button"
               onClick={() => navigate('/ignite/events')}
@@ -81,14 +170,16 @@ export default function EventWizard() {
             </button>
             <button
               type="button"
-              onClick={() => alert('Mock: would save draft to /api/ignite/events')}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 sm:px-4"
+              onClick={() => void handleSaveDraft()}
+              disabled={isSaving}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 sm:px-4"
             >
               <i className="fa-solid fa-save mr-2" />
               Save Draft
             </button>
           </div>
         </div>
+        {saveError && <p className="mt-2 text-sm text-rose-600">{saveError}</p>}
       </header>
 
       <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
@@ -192,10 +283,7 @@ export default function EventWizard() {
             state={state}
             totals={totals}
             onBack={() => setStep(4)}
-            onLaunch={() => {
-              alert('Mock: would POST event to /api/ignite/events and redirect to detail page.');
-              navigate('/ignite/events');
-            }}
+            onLaunch={() => void handleLaunch()}
           />
         )}
       </div>

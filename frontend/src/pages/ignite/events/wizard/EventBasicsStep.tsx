@@ -1,5 +1,4 @@
 import React from 'react';
-import { EventKind } from '../mockData';
 import { EventWizardState } from './types';
 
 type Props = {
@@ -7,14 +6,6 @@ type Props = {
   onChange: (patch: Partial<EventWizardState>) => void;
   onNext: () => void;
 };
-
-const QUICK_TEMPLATES: Array<{ id: string; label: string; kind: EventKind; tagline: string }> = [
-  { id: 'tpl_summit', label: 'Summit / Conference', kind: 'internal', tagline: 'Multi-sponsor, full agenda, large headcount' },
-  { id: 'tpl_dinner', label: 'Hospitality Dinner', kind: 'internal', tagline: 'Anchor + 1–2 co-sponsors, intimate' },
-  { id: 'tpl_offsite', label: 'GTC / Conf Off-site', kind: 'internal', tagline: 'Co-located with industry conference' },
-  { id: 'tpl_client_summit', label: 'Client Customer Summit', kind: 'external', tagline: 'Produced for a client, single funder' },
-  { id: 'tpl_client_qbr', label: 'Client QBR / Roadshow', kind: 'external', tagline: 'Recurring engagement, capped budget' },
-];
 
 export default function EventBasicsStep({ state, onChange, onNext }: Props) {
   return (
@@ -35,22 +26,6 @@ export default function EventBasicsStep({ state, onChange, onNext }: Props) {
             icon="fa-handshake-angle"
             onClick={() => onChange({ kind: 'external' })}
           />
-        </div>
-      </Card>
-
-      <Card title="Quick templates" subtitle="Pre-fill cost & sponsor structure (you can edit anything)">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {QUICK_TEMPLATES.filter((tpl) => tpl.kind === state.kind).map((tpl) => (
-            <button
-              key={tpl.id}
-              type="button"
-              onClick={() => alert(`Mock: would apply template "${tpl.label}"`)}
-              className="rounded-xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-md"
-            >
-              <p className="text-sm font-semibold text-gray-900">{tpl.label}</p>
-              <p className="mt-1 text-xs text-gray-500">{tpl.tagline}</p>
-            </button>
-          ))}
         </div>
       </Card>
 

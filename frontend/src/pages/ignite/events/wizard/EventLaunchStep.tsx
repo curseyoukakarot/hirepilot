@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatMoney } from '../mockData';
+import { formatMoney } from '../types';
 import { EventWizardState } from './types';
 
 type Totals = {
