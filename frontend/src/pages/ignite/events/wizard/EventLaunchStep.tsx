@@ -20,15 +20,15 @@ type Props = {
 export default function EventLaunchStep({ state, totals, onBack, onLaunch }: Props) {
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Ready to launch</h2>
-        <p className="mt-0.5 text-sm text-gray-500">
+      <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl">
+        <h2 className="text-lg font-semibold text-white">Ready to launch</h2>
+        <p className="mt-0.5 text-sm text-gray-400">
           Review the snapshot below. Launching creates the event record and unlocks live tracking.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Event</h3>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Event</h3>
             <dl className="space-y-2 text-sm">
               <Row label="Type" value={state.kind === 'internal' ? 'Internal (we host)' : 'Client (external)'} />
               <Row label="Name" value={state.name || '—'} />
@@ -41,8 +41,8 @@ export default function EventLaunchStep({ state, totals, onBack, onLaunch }: Pro
             </dl>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Money</h3>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Money</h3>
             <dl className="space-y-2 text-sm">
               <Row label="Sponsors" value={`${state.sponsors.length} total`} />
               <Row label="Cost lines" value={`${state.costs.length} total`} />
@@ -60,12 +60,12 @@ export default function EventLaunchStep({ state, totals, onBack, onLaunch }: Pro
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-blue-900">
-          <p className="font-medium">What happens on launch</p>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-blue-900/90">
+        <div className="mt-6 rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-blue-500/5 p-4 text-sm text-gray-200">
+          <p className="font-medium text-purple-200">What happens on launch</p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-gray-300">
             <li>Event becomes available on the Events Hub.</li>
             <li>Sponsors and cost lines are pushed to the live ledger.</li>
-            <li>Status flips from <code>draft</code> to <code>planning</code>.</li>
+            <li>Status flips from <code className="rounded bg-white/10 px-1 text-purple-200">draft</code> to <code className="rounded bg-white/10 px-1 text-purple-200">planning</code>.</li>
             <li>You can keep editing — every change is auditable.</li>
           </ul>
         </div>
@@ -75,14 +75,14 @@ export default function EventLaunchStep({ state, totals, onBack, onLaunch }: Pro
         <button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-gray-200 hover:border-white/20 hover:bg-white/10"
         >
           <i className="fa-solid fa-arrow-left mr-2" /> Back
         </button>
         <button
           type="button"
           onClick={onLaunch}
-          className="rounded-lg bg-gradient-to-r from-emerald-500 to-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:from-emerald-400 hover:to-blue-500"
+          className="rounded-xl bg-gradient-to-r from-emerald-500 via-purple-600 to-pink-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 hover:from-emerald-400 hover:via-purple-500 hover:to-pink-500"
         >
           <i className="fa-solid fa-rocket mr-2" /> Launch Event
         </button>
@@ -104,15 +104,15 @@ function Row({
 }) {
   const valueClass =
     accent === 'emerald'
-      ? 'text-emerald-700'
+      ? 'text-emerald-300'
       : accent === 'rose'
-      ? 'text-rose-700'
+      ? 'text-rose-300'
       : accent === 'cyan'
-      ? 'text-cyan-700'
-      : 'text-gray-900';
+      ? 'text-cyan-300'
+      : 'text-white';
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-gray-500">{label}</dt>
+      <dt className="text-gray-400">{label}</dt>
       <dd className={`${valueClass} ${bold ? 'font-semibold' : ''}`}>{value}</dd>
     </div>
   );

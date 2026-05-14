@@ -143,27 +143,29 @@ export default function EventWizard() {
   );
 
   return (
-    <div>
-      <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+    <div className="min-h-full rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] text-white">
+      <header className="rounded-t-2xl border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-blue-900/20 px-6 py-6 backdrop-blur-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Create Event</h1>
-            <p className="mt-1 text-sm text-gray-600 sm:text-base">
+            <h1 className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
+              Create Event
+            </h1>
+            <p className="mt-1 text-sm text-gray-400 sm:text-base">
               Plan an internal event or client engagement with end-to-end revenue, cost, and margin tracking.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {savedAt && !isSaving && (
-              <span className="text-xs text-gray-500">
-                <i className="fa-solid fa-check-circle mr-1 text-green-500" />
+              <span className="text-xs text-gray-400">
+                <i className="fa-solid fa-check-circle mr-1 text-emerald-400" />
                 Saved
               </span>
             )}
-            {isSaving && <span className="text-xs text-gray-500">Saving…</span>}
+            {isSaving && <span className="text-xs text-gray-400">Saving…</span>}
             <button
               type="button"
               onClick={() => navigate('/ignite/events')}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 sm:px-4"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-300 hover:border-white/20 hover:bg-white/10"
             >
               <i className="fa-solid fa-xmark mr-2" />
               Cancel
@@ -172,17 +174,17 @@ export default function EventWizard() {
               type="button"
               onClick={() => void handleSaveDraft()}
               disabled={isSaving}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 sm:px-4"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-gray-200 hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
             >
               <i className="fa-solid fa-save mr-2" />
               Save Draft
             </button>
           </div>
         </div>
-        {saveError && <p className="mt-2 text-sm text-rose-600">{saveError}</p>}
+        {saveError && <p className="mt-2 text-sm text-rose-300">{saveError}</p>}
       </header>
 
-      <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+      <div className="border-b border-white/10 bg-white/[0.02] px-6 py-4">
         <div className="flex items-center gap-4 overflow-x-auto pb-1 sm:gap-8">
           {([1, 2, 3, 4, 5] as WizardStepNumber[]).map((s, idx) => {
             const done = s < step && stepCompletion[s];
@@ -195,56 +197,56 @@ export default function EventWizard() {
                   className="flex shrink-0 items-center space-x-2"
                 >
                   <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all ${
                       active
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/30'
                         : done
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-600'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-white/5 text-gray-400 border border-white/10'
                     }`}
                   >
                     {done ? <i className="fa-solid fa-check text-xs" /> : s}
                   </div>
                   <span
-                    className={`${active ? 'font-medium text-blue-600' : 'text-gray-600'} hidden sm:inline`}
+                    className={`hidden sm:inline ${active ? 'font-medium text-white' : 'text-gray-400'}`}
                   >
                     {STEP_LABELS[s]}
                   </span>
                 </button>
-                {idx < 4 && <div className="h-px w-4 bg-gray-300 sm:w-8" />}
+                {idx < 4 && <div className="h-px w-4 bg-white/10 sm:w-8" />}
               </React.Fragment>
             );
           })}
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-blue-50/40 px-4 py-3 sm:px-6">
+      <div className="border-b border-white/10 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 px-6 py-3">
         <div className="flex flex-wrap items-center gap-4 text-sm">
-          <span className="text-blue-900">
-            <i className="fa-solid fa-sack-dollar mr-1.5 text-emerald-600" />
-            Revenue <strong className="ml-1">{formatMoney(totals.revenue)}</strong>
+          <span className="text-gray-300">
+            <i className="fa-solid fa-sack-dollar mr-1.5 text-emerald-400" />
+            Revenue <strong className="ml-1 text-white">{formatMoney(totals.revenue)}</strong>
           </span>
-          <span className="text-blue-900">
-            <i className="fa-solid fa-receipt mr-1.5 text-rose-600" />
-            Costs <strong className="ml-1">{formatMoney(totals.costs)}</strong>
+          <span className="text-gray-300">
+            <i className="fa-solid fa-receipt mr-1.5 text-rose-400" />
+            Costs <strong className="ml-1 text-white">{formatMoney(totals.costs)}</strong>
           </span>
-          <span className="text-blue-900">
-            <i className="fa-solid fa-chart-line mr-1.5 text-blue-600" />
+          <span className="text-gray-300">
+            <i className="fa-solid fa-chart-line mr-1.5 text-purple-400" />
             Margin{' '}
-            <strong className="ml-1">
+            <strong className="ml-1 text-white">
               {formatMoney(totals.margin)} ({totals.marginPct.toFixed(0)}%)
             </strong>
           </span>
           {totals.inKind > 0 && (
-            <span className="text-blue-900">
-              <i className="fa-solid fa-handshake mr-1.5 text-cyan-600" />
-              In-kind <strong className="ml-1">{formatMoney(totals.inKind)}</strong>
+            <span className="text-gray-300">
+              <i className="fa-solid fa-handshake mr-1.5 text-cyan-400" />
+              In-kind <strong className="ml-1 text-white">{formatMoney(totals.inKind)}</strong>
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 md:p-8">
+      <div className="p-6 sm:p-8">
         {step === 1 && (
           <EventBasicsStep
             state={state}

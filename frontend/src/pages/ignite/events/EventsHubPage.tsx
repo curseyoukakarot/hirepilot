@@ -12,20 +12,15 @@ import {
 type Filter = 'all' | EventKind;
 
 const STATUS_STYLES: Record<EventStatus, string> = {
-  draft: 'bg-amber-50 border-amber-200 text-amber-700',
-  planning: 'bg-blue-50 border-blue-200 text-blue-700',
-  live: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-  closed: 'bg-slate-100 border-slate-200 text-slate-600',
-};
-
-const KIND_STYLES: Record<EventKind, string> = {
-  internal: 'bg-purple-50 border-purple-200 text-purple-700',
-  external: 'bg-cyan-50 border-cyan-200 text-cyan-700',
+  draft: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300',
+  planning: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
+  live: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
+  closed: 'bg-slate-500/10 border-slate-500/20 text-slate-300',
 };
 
 function MarginBar({ revenue, costs }: { revenue: number; costs: number }) {
   if (revenue <= 0 && costs <= 0) {
-    return <div className="h-2 w-full rounded-full bg-gray-100" />;
+    return <div className="h-2 w-full rounded-full bg-white/10" />;
   }
   const total = Math.max(revenue, costs);
   const revPct = total > 0 ? Math.min(100, (revenue / total) * 100) : 0;
@@ -36,15 +31,15 @@ function MarginBar({ revenue, costs }: { revenue: number; costs: number }) {
         <span>Revenue</span>
         <span>Costs</span>
       </div>
-      <div className="relative h-2 overflow-hidden rounded-full bg-gray-100">
+      <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
         <div
-          className="absolute inset-y-0 left-0 bg-emerald-500"
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-400 to-emerald-500"
           style={{ width: `${revPct}%` }}
         />
       </div>
-      <div className="relative h-2 overflow-hidden rounded-full bg-gray-100">
+      <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
         <div
-          className="absolute inset-y-0 left-0 bg-rose-500"
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-400 to-rose-500"
           style={{ width: `${costPct}%` }}
         />
       </div>
@@ -112,20 +107,22 @@ export default function EventsHubPage() {
   const closedEvents = filtered.filter((event) => event.status === 'closed');
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-gray-100 p-6 md:flex-row md:items-start md:justify-between">
+    <div className="min-h-full rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] text-white">
+      <header className="sticky top-0 z-10 rounded-t-2xl border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-blue-900/20 px-8 py-6 backdrop-blur-xl">
+        <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Events</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-3xl font-bold text-transparent">
+              Events
+            </h1>
+            <p className="text-gray-400">
               Plan, track, and reconcile internal events &amp; client engagements with full P&amp;L visibility.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => void loadData()}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-medium text-gray-300 transition-all hover:border-white/20 hover:bg-white/10"
             >
               <i className="fa-solid fa-rotate-right mr-2" />
               Refresh
@@ -133,7 +130,7 @@ export default function EventsHubPage() {
             <button
               type="button"
               onClick={() => navigate('/ignite/events/new')}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+              className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 font-semibold shadow-lg shadow-purple-500/25 transition-all hover:from-purple-500 hover:to-pink-500"
             >
               <i className="fa-solid fa-plus mr-2" />
               Create Event
@@ -141,101 +138,86 @@ export default function EventsHubPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 md:gap-4 md:p-5">
-          <PortfolioStat
-            label="Cash Sponsorship"
-            value={formatMoney(portfolioTotals.revenue)}
-            icon="fa-sack-dollar"
-            accent="emerald"
-          />
-          <PortfolioStat
-            label="Total Costs"
-            value={formatMoney(portfolioTotals.costs)}
-            icon="fa-receipt"
-            accent="rose"
-          />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <PortfolioStat label="Cash Sponsorship" value={formatMoney(portfolioTotals.revenue)} accent="emerald" />
+          <PortfolioStat label="Total Costs" value={formatMoney(portfolioTotals.costs)} accent="rose" />
           <PortfolioStat
             label="Net Margin"
             value={formatMoney(portfolioTotals.margin)}
-            icon="fa-chart-line"
             accent={portfolioTotals.margin >= 0 ? 'emerald' : 'rose'}
-            subtitle={
-              portfolioTotals.revenue > 0
-                ? `${((portfolioTotals.margin / portfolioTotals.revenue) * 100).toFixed(0)}%`
-                : undefined
-            }
           />
           <PortfolioStat
             label="Active Events"
-            value={`${portfolioTotals.internal + portfolioTotals.external}`}
-            icon="fa-calendar-star"
-            accent="blue"
-            subtitle={`${portfolioTotals.internal} internal · ${portfolioTotals.external} client`}
+            value={`${portfolioTotals.internal} internal · ${portfolioTotals.external} client`}
+            accent="purple"
           />
         </div>
       </header>
 
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
+      <div className="space-y-8 p-8">
+        {error && (
+          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {error}
+          </div>
+        )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-          {(
-            [
-              { id: 'all', label: 'All' },
-              { id: 'internal', label: 'Internal' },
-              { id: 'external', label: 'Client' },
-            ] as Array<{ id: Filter; label: string }>
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilter(tab.id)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                filter === tab.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
+            {(
+              [
+                { id: 'all', label: 'All' },
+                { id: 'internal', label: 'Internal' },
+                { id: 'external', label: 'Client (External)' },
+              ] as Array<{ id: Filter; label: string }>
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilter(tab.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                  filter === tab.id
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/30'
+                    : 'text-gray-300 hover:bg-white/5'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-full max-w-xs">
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by event, venue, city..."
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white placeholder-gray-500 focus:border-purple-500/50 focus:outline-none"
+            />
+          </div>
         </div>
-        <div className="relative w-full max-w-xs">
-          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by event, venue, city..."
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
+
+        {loading && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-gray-300">
+            Loading events...
+          </div>
+        )}
+
+        {!loading && (
+          <>
+            <Section title="Live & Upcoming" badge={liveEvents.length}>
+              <CardGrid events={liveEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
+            </Section>
+
+            <Section title="Drafts & Planning" badge={draftEvents.length}>
+              <CardGrid events={draftEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
+            </Section>
+
+            <Section title="Closed" badge={closedEvents.length}>
+              <CardGrid events={closedEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
+            </Section>
+          </>
+        )}
       </div>
-
-      {loading ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-          <i className="fa-solid fa-spinner fa-spin mr-2 text-gray-400" />
-          Loading events...
-        </div>
-      ) : (
-        <>
-          <Section title="Live & Upcoming" badge={liveEvents.length} accent="emerald">
-            <CardGrid events={liveEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
-          </Section>
-
-          <Section title="Drafts & Planning" badge={draftEvents.length} accent="amber">
-            <CardGrid events={draftEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
-          </Section>
-
-          <Section title="Closed" badge={closedEvents.length} accent="slate">
-            <CardGrid events={closedEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
-          </Section>
-        </>
-      )}
     </div>
   );
 }
@@ -243,38 +225,22 @@ export default function EventsHubPage() {
 function PortfolioStat({
   label,
   value,
-  icon,
   accent,
-  subtitle,
 }: {
   label: string;
   value: string;
-  icon: string;
-  accent: 'emerald' | 'rose' | 'blue';
-  subtitle?: string;
+  accent: 'emerald' | 'rose' | 'purple';
 }) {
-  const valueClass =
+  const accentClass =
     accent === 'emerald'
-      ? 'text-emerald-700'
+      ? 'text-emerald-300'
       : accent === 'rose'
-      ? 'text-rose-700'
-      : 'text-blue-700';
-  const iconClass =
-    accent === 'emerald'
-      ? 'bg-emerald-50 text-emerald-600'
-      : accent === 'rose'
-      ? 'bg-rose-50 text-rose-600'
-      : 'bg-blue-50 text-blue-600';
+      ? 'text-rose-300'
+      : 'text-purple-300';
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-        <i className={`fa-solid ${icon}`} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
-        <p className={`text-base font-semibold ${valueClass}`}>{value}</p>
-        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-      </div>
+    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md">
+      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${accentClass}`}>{value}</p>
     </div>
   );
 }
@@ -282,25 +248,17 @@ function PortfolioStat({
 function Section({
   title,
   badge,
-  accent,
   children,
 }: {
   title: string;
   badge: number;
-  accent: 'emerald' | 'amber' | 'slate';
   children: React.ReactNode;
 }) {
-  const badgeClass =
-    accent === 'emerald'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : accent === 'amber'
-      ? 'border-amber-200 bg-amber-50 text-amber-700'
-      : 'border-slate-200 bg-slate-100 text-slate-600';
   return (
     <section>
       <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
+        <h2 className="text-xl font-bold">{title}</h2>
+        <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm font-medium text-gray-300">
           {badge}
         </span>
       </div>
@@ -318,13 +276,13 @@ function CardGrid({
 }) {
   if (!events.length) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500">
+      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-sm text-gray-400">
         Nothing here yet.
       </div>
     );
   }
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
       {events.map((event) => (
         <EventCard key={event.id} event={event} onOpen={() => onOpen(event.id)} />
       ))}
@@ -336,68 +294,82 @@ function EventCard({ event, onOpen }: { event: EventListItem; onOpen: () => void
   const margin = summaryToMargin(event.totals);
   const inKind = event.totals.inKindValue;
   const marginColor =
-    margin.margin > 0 ? 'text-emerald-700' : margin.margin < 0 ? 'text-rose-700' : 'text-gray-700';
+    margin.margin > 0 ? 'text-emerald-300' : margin.margin < 0 ? 'text-rose-300' : 'text-gray-300';
   return (
     <article
       onClick={onOpen}
-      className="group cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+      className="group cursor-pointer rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl transition-all hover:border-purple-500/30 hover:shadow-xl hover:shadow-purple-500/10"
     >
-      <div className="mb-3 flex items-start justify-between gap-2">
+      <div className="mb-4 flex items-start justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLES[event.status]}`}
+            className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${STATUS_STYLES[event.status]}`}
           >
             {event.status}
           </span>
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${KIND_STYLES[event.kind]}`}
+            className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+              event.kind === 'internal'
+                ? 'border-purple-400/30 bg-purple-500/10 text-purple-200'
+                : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
+            }`}
           >
             {event.kind === 'internal' ? 'Internal' : 'Client'}
           </span>
         </div>
-        <i className="fa-solid fa-arrow-up-right-from-square text-xs text-gray-300 group-hover:text-blue-500" />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+          title="Open"
+        >
+          <i className="fa-solid fa-arrow-up-right-from-square text-xs" />
+        </button>
       </div>
 
-      <h3 className="mb-1 text-base font-semibold text-gray-900 group-hover:text-blue-700">
+      <h3 className="mb-1 text-lg font-bold transition-colors group-hover:text-purple-300">
         {event.name}
       </h3>
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="mb-4 text-sm font-medium text-purple-300">
         {event.kind === 'external' && event.clientName ? event.clientName : 'Hosted by Ignite'}
       </p>
 
-      <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
+      <div className="mb-5 grid grid-cols-2 gap-2 text-sm text-gray-400">
         <div className="flex items-center gap-2">
-          <i className="fa-solid fa-calendar w-4 text-gray-400" />
-          <span className="truncate">{event.startDate || 'Date TBD'}</span>
+          <i className="fa-solid fa-calendar w-4" />
+          <span>{event.startDate || 'Date TBD'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <i className="fa-solid fa-location-dot w-4 text-gray-400" />
+          <i className="fa-solid fa-location-dot w-4" />
           <span className="truncate">{event.city || 'Location TBD'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <i className="fa-solid fa-users w-4 text-gray-400" />
+          <i className="fa-solid fa-users w-4" />
           <span>{event.headcount.toLocaleString()} attendees</span>
         </div>
         <div className="flex items-center gap-2">
-          <i className="fa-solid fa-user-tie w-4 text-gray-400" />
+          <i className="fa-solid fa-user-tie w-4" />
           <span className="truncate">{event.ownerName || '—'}</span>
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+      <div className="mb-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-gray-400">Revenue</p>
-          <p className="text-sm font-semibold text-emerald-700">{formatMoney(margin.revenue)}</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Revenue</p>
+          <p className="text-sm font-semibold text-emerald-300">{formatMoney(margin.revenue)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-gray-400">Costs</p>
-          <p className="text-sm font-semibold text-rose-700">{formatMoney(margin.costs)}</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Costs</p>
+          <p className="text-sm font-semibold text-rose-300">{formatMoney(margin.costs)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-gray-400">Margin</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Margin</p>
           <p className={`text-sm font-semibold ${marginColor}`}>
-            {formatMoney(margin.margin)}
-            <span className="ml-1 text-xs text-gray-400">({margin.marginPct.toFixed(0)}%)</span>
+            {formatMoney(margin.margin)}{' '}
+            <span className="text-xs text-gray-500">({margin.marginPct.toFixed(0)}%)</span>
           </p>
         </div>
       </div>
@@ -405,8 +377,8 @@ function EventCard({ event, onOpen }: { event: EventListItem; onOpen: () => void
       <MarginBar revenue={margin.revenue} costs={margin.costs} />
 
       {inKind > 0 && (
-        <p className="mt-3 text-xs text-gray-500">
-          <i className="fa-solid fa-handshake mr-1.5 text-cyan-600" />
+        <p className="mt-3 text-xs text-gray-400">
+          <i className="fa-solid fa-handshake mr-1.5 text-cyan-300" />
           {formatMoney(inKind)} in-kind value
         </p>
       )}
