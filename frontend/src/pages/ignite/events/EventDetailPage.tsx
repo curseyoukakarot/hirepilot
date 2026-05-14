@@ -37,29 +37,34 @@ const TAB_LABELS: Record<Tab, { label: string; icon: string }> = {
 };
 
 const STATUS_BADGE: Record<EventRecord['status'], string> = {
-  draft: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  planning: 'bg-blue-100 text-blue-800 border-blue-200',
-  live: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  closed: 'bg-slate-100 text-slate-800 border-slate-200',
+  draft: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300',
+  planning: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
+  live: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
+  closed: 'bg-slate-500/10 border-slate-500/20 text-slate-300',
 };
 
 const SPONSOR_STATUS_BADGE: Record<SponsorStatus, string> = {
-  prospect: 'bg-gray-100 text-gray-700 border-gray-200',
-  committed: 'bg-blue-100 text-blue-700 border-blue-200',
-  invoiced: 'bg-amber-100 text-amber-700 border-amber-200',
-  paid: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  prospect: 'bg-white/5 text-gray-300 border-white/10',
+  committed: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  invoiced: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  paid: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
 };
 
 const COST_STATUS_BADGE: Record<CostStatus, string> = {
-  budgeted: 'bg-gray-100 text-gray-700 border-gray-200',
-  committed: 'bg-blue-100 text-blue-700 border-blue-200',
-  invoiced: 'bg-amber-100 text-amber-700 border-amber-200',
-  paid: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  budgeted: 'bg-white/5 text-gray-300 border-white/10',
+  committed: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  invoiced: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  paid: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
 };
 
 const SPONSOR_STATUS_OPTIONS: SponsorStatus[] = ['prospect', 'committed', 'invoiced', 'paid'];
 const COST_STATUS_OPTIONS: CostStatus[] = ['budgeted', 'committed', 'invoiced', 'paid'];
 const DOC_TYPE_OPTIONS: DocumentType[] = ['beo', 'invoice', 'contract', 'quote', 'misc'];
+
+const INPUT_BASE =
+  'rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-purple-500/50 focus:bg-white/10 focus:outline-none';
+const INPUT_BARE =
+  'rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-purple-500/50 focus:bg-white/10 focus:outline-none';
 
 export default function EventDetailPage() {
   const navigate = useNavigate();
@@ -90,15 +95,17 @@ export default function EventDetailPage() {
 
   if (loading && !event) {
     return (
-      <div className="p-8 text-sm text-gray-500">Loading event...</div>
+      <div className="rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] p-8 text-sm text-gray-300">
+        Loading event...
+      </div>
     );
   }
 
   if (error && !event) {
     return (
-      <div className="p-8">
-        <p className="text-sm text-rose-600">{error}</p>
-        <Link to="/ignite/events" className="mt-3 inline-block text-sm text-blue-600 hover:underline">
+      <div className="rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] p-8 text-white">
+        <p className="text-sm text-rose-300">{error}</p>
+        <Link to="/ignite/events" className="mt-3 inline-block text-sm text-purple-300 hover:underline">
           Back to events
         </Link>
       </div>
@@ -107,10 +114,10 @@ export default function EventDetailPage() {
 
   if (!event) {
     return (
-      <div className="p-8">
-        <p className="text-sm text-gray-600">
+      <div className="rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] p-8 text-white">
+        <p className="text-sm text-gray-300">
           Event not found.{' '}
-          <Link to="/ignite/events" className="text-blue-600 hover:underline">
+          <Link to="/ignite/events" className="text-purple-300 hover:underline">
             Back to events
           </Link>
         </p>
@@ -165,165 +172,167 @@ export default function EventDetailPage() {
     }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <button
-          type="button"
-          onClick={() => navigate('/ignite/events')}
-          className="mb-3 inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-        >
-          <i className="fa-solid fa-arrow-left mr-2" /> All events
-        </button>
-        <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase ${STATUS_BADGE[event.status]}`}
-              >
-                {event.status}
-              </span>
-              <span
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase ${
-                  event.kind === 'internal'
-                    ? 'border-purple-200 bg-purple-50 text-purple-700'
-                    : 'border-cyan-200 bg-cyan-50 text-cyan-700'
-                }`}
-              >
-                {event.kind === 'internal' ? 'Internal' : 'Client'}
-              </span>
+    <div className="min-h-full rounded-2xl bg-gradient-to-br from-[#060609] via-[#0a0a0f] to-[#060609] text-white">
+      <div className="space-y-6 p-6 sm:p-8">
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate('/ignite/events')}
+            className="mb-3 inline-flex items-center text-sm text-gray-400 hover:text-white"
+          >
+            <i className="fa-solid fa-arrow-left mr-2" /> All events
+          </button>
+          <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase ${STATUS_BADGE[event.status]}`}
+                >
+                  {event.status}
+                </span>
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase ${
+                    event.kind === 'internal'
+                      ? 'border-purple-400/30 bg-purple-500/10 text-purple-200'
+                      : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
+                  }`}
+                >
+                  {event.kind === 'internal' ? 'Internal' : 'Client'}
+                </span>
+              </div>
+              <h1 className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-2xl font-bold text-transparent">
+                {event.name}
+              </h1>
+              <p className="mt-1 text-sm text-gray-400">
+                {event.kind === 'external' && event.clientName ? `${event.clientName} · ` : ''}
+                {event.venue || 'Venue TBD'}
+                {event.city ? `, ${event.city}` : ''}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-400 sm:grid-cols-4">
+                <span>
+                  <i className="fa-solid fa-calendar mr-1.5 text-gray-500" />
+                  {event.startDate || 'TBD'}
+                  {event.endDate && event.endDate !== event.startDate ? ` → ${event.endDate}` : ''}
+                </span>
+                <span>
+                  <i className="fa-solid fa-users mr-1.5 text-gray-500" />
+                  {event.headcount.toLocaleString()} attendees
+                </span>
+                <span>
+                  <i className="fa-solid fa-user-tie mr-1.5 text-gray-500" />
+                  Owner: {event.ownerName || '—'}
+                </span>
+                <span>
+                  <i className="fa-solid fa-address-card mr-1.5 text-gray-500" />
+                  {event.primaryContact || '—'}
+                </span>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              {event.kind === 'external' && event.clientName ? `${event.clientName} · ` : ''}
-              {event.venue || 'Venue TBD'}
-              {event.city ? `, ${event.city}` : ''}
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600 sm:grid-cols-4">
-              <span>
-                <i className="fa-solid fa-calendar mr-1.5 text-gray-400" />
-                {event.startDate || 'TBD'}
-                {event.endDate && event.endDate !== event.startDate ? ` → ${event.endDate}` : ''}
-              </span>
-              <span>
-                <i className="fa-solid fa-users mr-1.5 text-gray-400" />
-                {event.headcount.toLocaleString()} attendees
-              </span>
-              <span>
-                <i className="fa-solid fa-user-tie mr-1.5 text-gray-400" />
-                Owner: {event.ownerName || '—'}
-              </span>
-              <span>
-                <i className="fa-solid fa-address-card mr-1.5 text-gray-400" />
-                {event.primaryContact || '—'}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {savingMessage && <span className="text-xs text-gray-500">{savingMessage}</span>}
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Archive this event? It will be marked closed.')) {
-                  void handleSave(() => archiveEvent(event.id), 'Archived');
-                }
-              }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <i className="fa-solid fa-box-archive mr-2" /> Archive
-            </button>
-          </div>
-        </div>
-        {error && (
-          <p className="mt-2 text-sm text-rose-600">{error}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiTile label="Cash Revenue" value={formatMoney(margin.revenue)} accent="emerald" />
-        <KpiTile label="Total Costs" value={formatMoney(margin.costs)} accent="rose" />
-        <KpiTile
-          label="Net Margin"
-          value={`${formatMoney(margin.margin)} · ${margin.marginPct.toFixed(0)}%`}
-          accent={margin.margin >= 0 ? 'emerald' : 'rose'}
-        />
-        <KpiTile
-          label="In-kind value"
-          value={inKind > 0 ? formatMoney(inKind) : '—'}
-          accent="cyan"
-          subtitle={inKind > 0 ? `${event.sponsors.filter((s) => s.kind === 'in_kind').length} partners` : undefined}
-        />
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-1 border-b border-gray-100 px-4 pt-3">
-          {(Object.keys(TAB_LABELS) as Tab[]).map((id) => {
-            const active = tab === id;
-            return (
+            <div className="flex flex-wrap items-center gap-2">
+              {savingMessage && <span className="text-xs text-gray-400">{savingMessage}</span>}
               <button
-                key={id}
                 type="button"
-                onClick={() => setTab(id)}
-                className={`relative flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                }`}
+                onClick={() => {
+                  if (window.confirm('Archive this event? It will be marked closed.')) {
+                    void handleSave(() => archiveEvent(event.id), 'Archived');
+                  }
+                }}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 hover:border-white/20 hover:bg-white/10"
               >
-                <i className={`fa-solid ${TAB_LABELS[id].icon}`} />
-                <span>{TAB_LABELS[id].label}</span>
-                {active && (
-                  <span className="absolute inset-x-3 bottom-0 h-[2px] bg-blue-600" />
-                )}
+                <i className="fa-solid fa-box-archive mr-2" /> Archive
               </button>
-            );
-          })}
+            </div>
+          </div>
+          {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
         </div>
 
-        <div className="p-5 sm:p-6">
-          {tab === 'overview' && (
-            <OverviewTab event={event} sponsorPaid={sponsorPaid} costPaid={costPaid} />
-          )}
-          {tab === 'sponsors' && (
-            <SponsorsTab
-              event={event}
-              onSave={(sponsors) =>
-                handleSave(() => replaceSponsors(event.id, sponsorsToInputs(sponsors)), 'Sponsors saved')
-              }
-            />
-          )}
-          {tab === 'costs' && (
-            <CostsTab
-              event={event}
-              onSave={(costs) =>
-                handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'Costs saved')
-              }
-            />
-          )}
-          {tab === 'people' && (
-            <PeopleTab
-              event={event}
-              onSave={(costs) =>
-                handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'People saved')
-              }
-            />
-          )}
-          {tab === 'documents' && (
-            <DocumentsTab
-              event={event}
-              onAdd={(doc) =>
-                handleSave(
-                  () =>
-                    addDocument(event.id, {
-                      name: doc.name,
-                      docType: doc.docType,
-                      fileUrl: doc.fileUrl,
-                    }).then(() => undefined),
-                  'Document added'
-                )
-              }
-              onDelete={(docId) => handleSave(() => deleteDocument(event.id, docId), 'Document removed')}
-            />
-          )}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <KpiTile label="Cash Revenue" value={formatMoney(margin.revenue)} accent="emerald" />
+          <KpiTile label="Total Costs" value={formatMoney(margin.costs)} accent="rose" />
+          <KpiTile
+            label="Net Margin"
+            value={`${formatMoney(margin.margin)} · ${margin.marginPct.toFixed(0)}%`}
+            accent={margin.margin >= 0 ? 'emerald' : 'rose'}
+          />
+          <KpiTile
+            label="In-kind value"
+            value={inKind > 0 ? formatMoney(inKind) : '—'}
+            accent="cyan"
+            subtitle={inKind > 0 ? `${event.sponsors.filter((s) => s.kind === 'in_kind').length} partners` : undefined}
+          />
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl">
+          <div className="flex flex-wrap gap-1 border-b border-white/10 px-4 pt-3">
+            {(Object.keys(TAB_LABELS) as Tab[]).map((id) => {
+              const active = tab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
+                  className={`relative flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-white/[0.04] text-white'
+                      : 'text-gray-400 hover:bg-white/[0.02] hover:text-gray-200'
+                  }`}
+                >
+                  <i className={`fa-solid ${TAB_LABELS[id].icon}`} />
+                  <span>{TAB_LABELS[id].label}</span>
+                  {active && (
+                    <span className="absolute inset-x-3 bottom-0 h-[2px] bg-gradient-to-r from-purple-500 to-pink-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {tab === 'overview' && (
+              <OverviewTab event={event} sponsorPaid={sponsorPaid} costPaid={costPaid} />
+            )}
+            {tab === 'sponsors' && (
+              <SponsorsTab
+                event={event}
+                onSave={(sponsors) =>
+                  handleSave(() => replaceSponsors(event.id, sponsorsToInputs(sponsors)), 'Sponsors saved')
+                }
+              />
+            )}
+            {tab === 'costs' && (
+              <CostsTab
+                event={event}
+                onSave={(costs) =>
+                  handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'Costs saved')
+                }
+              />
+            )}
+            {tab === 'people' && (
+              <PeopleTab
+                event={event}
+                onSave={(costs) =>
+                  handleSave(() => replaceCosts(event.id, costsToInputs(costs)), 'People saved')
+                }
+              />
+            )}
+            {tab === 'documents' && (
+              <DocumentsTab
+                event={event}
+                onAdd={(doc) =>
+                  handleSave(
+                    () =>
+                      addDocument(event.id, {
+                        name: doc.name,
+                        docType: doc.docType,
+                        fileUrl: doc.fileUrl,
+                      }).then(() => undefined),
+                    'Document added'
+                  )
+                }
+                onDelete={(docId) => handleSave(() => deleteDocument(event.id, docId), 'Document removed')}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -341,16 +350,16 @@ function KpiTile({
   accent: 'emerald' | 'rose' | 'cyan';
   subtitle?: string;
 }) {
-  const cls =
+  const valueClass =
     accent === 'emerald'
-      ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700'
+      ? 'text-emerald-300'
       : accent === 'rose'
-      ? 'border-rose-200 bg-rose-50/60 text-rose-700'
-      : 'border-cyan-200 bg-cyan-50/60 text-cyan-700';
+      ? 'text-rose-300'
+      : 'text-cyan-300';
   return (
-    <div className={`rounded-xl border p-4 ${cls}`}>
-      <p className="text-[11px] uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-1 text-xl font-bold">{value}</p>
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${valueClass}`}>{value}</p>
       {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
     </div>
   );
@@ -376,13 +385,13 @@ function OverviewTab({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
         {event.description && (
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-sm text-gray-700">{event.description}</p>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="text-sm text-gray-300">{event.description}</p>
           </div>
         )}
 
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Cost mix
           </h3>
           <div className="space-y-2.5">
@@ -391,13 +400,13 @@ function OverviewTab({
               return (
                 <div key={category}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-700">{category}</span>
-                    <span className="text-gray-600">
+                    <span className="text-gray-300">{category}</span>
+                    <span className="text-gray-400">
                       {formatMoney(total)}{' '}
-                      <span className="text-xs text-gray-400">({pct.toFixed(0)}%)</span>
+                      <span className="text-xs text-gray-500">({pct.toFixed(0)}%)</span>
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
                     <div
                       className="h-full bg-gradient-to-r from-rose-400 to-rose-500"
                       style={{ width: `${pct}%` }}
@@ -414,43 +423,43 @@ function OverviewTab({
       </div>
 
       <div className="space-y-4">
-        <div className="rounded-xl border border-gray-200 p-4">
-          <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">Cash collected</p>
-          <p className="text-lg font-semibold text-emerald-700">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <p className="mb-1 text-xs uppercase tracking-wide text-gray-400">Cash collected</p>
+          <p className="text-lg font-semibold text-emerald-300">
             {formatMoney(sponsorPaid)}{' '}
             <span className="text-xs font-normal text-gray-500">
               of {formatMoney(margin.revenue)}
             </span>
           </p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full bg-emerald-500"
+              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
               style={{ width: `${Math.min(100, cashCollectedPct)}%` }}
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">{cashCollectedPct.toFixed(0)}% paid</p>
         </div>
-        <div className="rounded-xl border border-gray-200 p-4">
-          <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">Costs paid</p>
-          <p className="text-lg font-semibold text-rose-700">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <p className="mb-1 text-xs uppercase tracking-wide text-gray-400">Costs paid</p>
+          <p className="text-lg font-semibold text-rose-300">
             {formatMoney(costPaid)}{' '}
             <span className="text-xs font-normal text-gray-500">
               of {formatMoney(margin.costs)}
             </span>
           </p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full bg-rose-500"
+              className="h-full bg-gradient-to-r from-rose-400 to-rose-500"
               style={{ width: `${Math.min(100, costsPaidPct)}%` }}
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">{costsPaidPct.toFixed(0)}% paid</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-blue-50/40 p-4">
-          <p className="mb-1 text-xs uppercase tracking-wide text-blue-600">Margin guidance</p>
-          <p className="text-sm text-blue-900">
+        <div className="rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-blue-500/5 p-4">
+          <p className="mb-1 text-xs uppercase tracking-wide text-purple-300">Margin guidance</p>
+          <p className="text-sm text-gray-200">
             Net margin{' '}
-            <strong>
+            <strong className="text-white">
               {formatMoney(margin.margin)} ({margin.marginPct.toFixed(1)}%)
             </strong>
             {margin.marginPct >= event.targetMarginPct
@@ -470,6 +479,17 @@ function makeSponsorId(): string {
 function makeCostId(): string {
   return `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
+
+const PRIMARY_BTN =
+  'rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1.5 text-sm font-semibold text-white shadow-md shadow-purple-500/25 hover:from-purple-500 hover:to-pink-500';
+const PRIMARY_BTN_DISABLED =
+  'rounded-lg bg-white/10 px-3 py-1.5 text-sm font-semibold text-gray-500 cursor-not-allowed';
+const SECONDARY_BTN =
+  'rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-gray-200 hover:border-white/20 hover:bg-white/10';
+const ACCENT_BLUE_BTN =
+  'rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-1.5 text-sm font-medium text-blue-200 hover:bg-blue-500/20';
+const ACCENT_CYAN_BTN =
+  'rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-200 hover:bg-cyan-500/20';
 
 function SponsorsTab({
   event,
@@ -516,31 +536,21 @@ function SponsorsTab({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-white">
           Cash sponsors ({cashSponsors.length})
         </h3>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => add('cash')}
-            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-          >
+          <button type="button" onClick={() => add('cash')} className={ACCENT_BLUE_BTN}>
             <i className="fa-solid fa-plus mr-1.5" /> Cash sponsor
           </button>
-          <button
-            type="button"
-            onClick={() => add('in_kind')}
-            className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100"
-          >
+          <button type="button" onClick={() => add('in_kind')} className={ACCENT_CYAN_BTN}>
             <i className="fa-solid fa-handshake mr-1.5" /> In-kind sponsor
           </button>
           <button
             type="button"
             disabled={!dirty}
             onClick={() => onSave(draft)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
-              dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
-            }`}
+            className={dirty ? PRIMARY_BTN : PRIMARY_BTN_DISABLED}
           >
             Save changes
           </button>
@@ -549,14 +559,14 @@ function SponsorsTab({
       <SponsorTable sponsors={cashSponsors} onUpdate={update} onRemove={remove} />
 
       <div className="flex items-center justify-between pt-4">
-        <h3 className="text-base font-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-white">
           In-kind sponsors ({inKindSponsors.length})
         </h3>
       </div>
       {inKindSponsors.length ? (
         <SponsorTable sponsors={inKindSponsors} onUpdate={update} onRemove={remove} />
       ) : (
-        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-4 text-sm text-gray-400">
           No in-kind sponsors yet.
         </p>
       )}
@@ -574,9 +584,9 @@ function SponsorTable({
   onRemove: (id: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+    <div className="overflow-x-auto rounded-xl border border-white/10">
+      <table className="min-w-full divide-y divide-white/10 text-sm">
+        <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-gray-400">
           <tr>
             <th className="px-4 py-2 font-medium">Sponsor</th>
             <th className="px-4 py-2 font-medium">Amount</th>
@@ -586,16 +596,16 @@ function SponsorTable({
             <th className="px-4 py-2" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody className="divide-y divide-white/5">
           {sponsors.map((sponsor) => (
-            <tr key={sponsor.id} className="hover:bg-gray-50/60">
+            <tr key={sponsor.id} className="hover:bg-white/[0.02]">
               <td className="px-4 py-2.5">
                 <input
                   type="text"
                   value={sponsor.name}
                   onChange={(e) => onUpdate(sponsor.id, { name: e.target.value })}
                   placeholder="Sponsor name"
-                  className="w-44 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium focus:border-blue-300 focus:bg-white focus:outline-none"
+                  className={`w-44 font-medium ${INPUT_BARE}`}
                 />
               </td>
               <td className="px-4 py-2.5">
@@ -603,7 +613,7 @@ function SponsorTable({
                   type="number"
                   value={sponsor.amount}
                   onChange={(e) => onUpdate(sponsor.id, { amount: Number(e.target.value || 0) })}
-                  className="w-32 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                  className={`w-32 text-right ${INPUT_BASE}`}
                 />
               </td>
               <td className="px-4 py-2.5">
@@ -613,7 +623,7 @@ function SponsorTable({
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${SPONSOR_STATUS_BADGE[sponsor.status]}`}
                 >
                   {SPONSOR_STATUS_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
+                    <option key={option} value={option} className="bg-slate-900 text-white">
                       {option}
                     </option>
                   ))}
@@ -624,7 +634,7 @@ function SponsorTable({
                   type="text"
                   value={sponsor.notes || ''}
                   onChange={(e) => onUpdate(sponsor.id, { notes: e.target.value })}
-                  className="w-56 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                  className={`w-56 ${INPUT_BARE}`}
                 />
               </td>
               <td className="px-4 py-2.5">
@@ -634,7 +644,7 @@ function SponsorTable({
                     value={sponsor.referralOwner || ''}
                     onChange={(e) => onUpdate(sponsor.id, { referralOwner: e.target.value })}
                     placeholder="Owner"
-                    className="w-24 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                    className={`w-24 ${INPUT_BASE}`}
                   />
                   <input
                     type="number"
@@ -645,7 +655,7 @@ function SponsorTable({
                       })
                     }
                     placeholder="%"
-                    className="w-14 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                    className={`w-14 text-right ${INPUT_BASE}`}
                   />
                 </div>
               </td>
@@ -653,7 +663,7 @@ function SponsorTable({
                 <button
                   type="button"
                   onClick={() => onRemove(sponsor.id)}
-                  className="text-gray-400 hover:text-rose-500"
+                  className="text-gray-500 hover:text-rose-400"
                   title="Remove sponsor"
                 >
                   <i className="fa-solid fa-trash" />
@@ -722,14 +732,12 @@ function CostsTab({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Cost ledger</h3>
+        <h3 className="text-base font-semibold text-white">Cost ledger</h3>
         <button
           type="button"
           disabled={!dirty}
           onClick={() => onSave(draft)}
-          className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
-            dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
-          }`}
+          className={dirty ? PRIMARY_BTN : PRIMARY_BTN_DISABLED}
         >
           Save changes
         </button>
@@ -738,15 +746,15 @@ function CostsTab({
         const lines = grouped.get(category) || [];
         const total = lines.reduce((sum, line) => sum + line.qty * line.unitCost, 0);
         return (
-          <div key={category} className="overflow-hidden rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5">
-              <p className="text-sm font-semibold text-gray-800">{category}</p>
+          <div key={category} className="overflow-hidden rounded-xl border border-white/10">
+            <div className="flex items-center justify-between bg-white/[0.04] px-4 py-2.5">
+              <p className="text-sm font-semibold text-gray-100">{category}</p>
               <div className="flex items-center gap-3">
-                <p className="text-sm font-semibold text-gray-700">{formatMoney(total)}</p>
+                <p className="text-sm font-semibold text-gray-200">{formatMoney(total)}</p>
                 <button
                   type="button"
                   onClick={() => add(category)}
-                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                  className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-200 hover:border-white/20 hover:bg-white/10"
                 >
                   <i className="fa-solid fa-plus mr-1" /> Add line
                 </button>
@@ -754,8 +762,8 @@ function CostsTab({
             </div>
             {lines.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-white text-left text-xs uppercase tracking-wide text-gray-500">
+                <table className="min-w-full divide-y divide-white/10 text-sm">
+                  <thead className="bg-white/[0.02] text-left text-xs uppercase tracking-wide text-gray-400">
                     <tr>
                       <th className="px-4 py-2 font-medium">Description</th>
                       <th className="px-4 py-2 font-medium">Vendor</th>
@@ -767,15 +775,15 @@ function CostsTab({
                       <th className="px-4 py-2" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody className="divide-y divide-white/5">
                     {lines.map((line) => (
-                      <tr key={line.id} className="hover:bg-gray-50/60">
+                      <tr key={line.id} className="hover:bg-white/[0.02]">
                         <td className="px-4 py-2.5">
                           <input
                             type="text"
                             value={line.description}
                             onChange={(e) => update(line.id, { description: e.target.value })}
-                            className="w-64 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                            className={`w-64 ${INPUT_BARE}`}
                           />
                         </td>
                         <td className="px-4 py-2.5">
@@ -783,7 +791,7 @@ function CostsTab({
                             type="text"
                             value={line.vendor || ''}
                             onChange={(e) => update(line.id, { vendor: e.target.value })}
-                            className="w-32 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                            className={`w-32 ${INPUT_BARE}`}
                           />
                         </td>
                         <td className="px-4 py-2.5">
@@ -791,7 +799,7 @@ function CostsTab({
                             type="number"
                             value={line.qty}
                             onChange={(e) => update(line.id, { qty: Number(e.target.value || 0) })}
-                            className="w-16 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                            className={`w-16 text-right ${INPUT_BASE}`}
                           />
                         </td>
                         <td className="px-4 py-2.5">
@@ -799,10 +807,10 @@ function CostsTab({
                             type="number"
                             value={line.unitCost}
                             onChange={(e) => update(line.id, { unitCost: Number(e.target.value || 0) })}
-                            className="w-28 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                            className={`w-28 text-right ${INPUT_BASE}`}
                           />
                         </td>
-                        <td className="px-4 py-2.5 text-right text-sm font-medium text-gray-900">
+                        <td className="px-4 py-2.5 text-right text-sm font-medium text-gray-100">
                           {formatMoney(line.qty * line.unitCost, { decimals: 2 })}
                         </td>
                         <td className="px-4 py-2.5">
@@ -812,7 +820,7 @@ function CostsTab({
                             className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${COST_STATUS_BADGE[line.status]}`}
                           >
                             {COST_STATUS_OPTIONS.map((option) => (
-                              <option key={option} value={option}>
+                              <option key={option} value={option} className="bg-slate-900 text-white">
                                 {option}
                               </option>
                             ))}
@@ -823,14 +831,14 @@ function CostsTab({
                             type="text"
                             value={line.notes || ''}
                             onChange={(e) => update(line.id, { notes: e.target.value })}
-                            className="w-40 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                            className={`w-40 ${INPUT_BARE}`}
                           />
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <button
                             type="button"
                             onClick={() => remove(line.id)}
-                            className="text-gray-400 hover:text-rose-500"
+                            className="text-gray-500 hover:text-rose-400"
                           >
                             <i className="fa-solid fa-trash" />
                           </button>
@@ -890,36 +898,30 @@ function PeopleTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Crew &amp; contractors</h3>
+        <h3 className="text-base font-semibold text-white">Crew &amp; contractors</h3>
         <div className="flex items-center gap-3">
-          <p className="text-sm text-gray-600">Total manpower: {formatMoney(totalManpower)}</p>
-          <button
-            type="button"
-            onClick={add}
-            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-          >
+          <p className="text-sm text-gray-400">Total manpower: <span className="text-gray-100 font-medium">{formatMoney(totalManpower)}</span></p>
+          <button type="button" onClick={add} className={ACCENT_BLUE_BTN}>
             <i className="fa-solid fa-user-plus mr-1.5" /> Add crew
           </button>
           <button
             type="button"
             disabled={!dirty}
             onClick={() => onSave(draft)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
-              dirty ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
-            }`}
+            className={dirty ? PRIMARY_BTN : PRIMARY_BTN_DISABLED}
           >
             Save changes
           </button>
         </div>
       </div>
       {people.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-4 text-sm text-gray-400">
           No manpower lines yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto rounded-xl border border-white/10">
+          <table className="min-w-full divide-y divide-white/10 text-sm">
+            <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-gray-400">
               <tr>
                 <th className="px-4 py-2 font-medium">Person / Role</th>
                 <th className="px-4 py-2 font-medium">Vendor</th>
@@ -929,15 +931,15 @@ function PeopleTab({
                 <th className="px-4 py-2 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-white/5">
               {people.map((person) => (
-                <tr key={person.id} className="hover:bg-gray-50/60">
+                <tr key={person.id} className="hover:bg-white/[0.02]">
                   <td className="px-4 py-2.5">
                     <input
                       type="text"
                       value={person.description}
                       onChange={(e) => update(person.id, { description: e.target.value })}
-                      className="w-56 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                      className={`w-56 ${INPUT_BARE}`}
                     />
                   </td>
                   <td className="px-4 py-2.5">
@@ -945,7 +947,7 @@ function PeopleTab({
                       type="text"
                       value={person.vendor || ''}
                       onChange={(e) => update(person.id, { vendor: e.target.value })}
-                      className="w-32 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                      className={`w-32 ${INPUT_BARE}`}
                     />
                   </td>
                   <td className="px-4 py-2.5">
@@ -953,7 +955,7 @@ function PeopleTab({
                       type="number"
                       value={person.qty}
                       onChange={(e) => update(person.id, { qty: Number(e.target.value || 0) })}
-                      className="w-16 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                      className={`w-16 text-right ${INPUT_BASE}`}
                     />
                   </td>
                   <td className="px-4 py-2.5">
@@ -961,10 +963,10 @@ function PeopleTab({
                       type="number"
                       value={person.unitCost}
                       onChange={(e) => update(person.id, { unitCost: Number(e.target.value || 0) })}
-                      className="w-28 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                      className={`w-28 text-right ${INPUT_BASE}`}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
+                  <td className="px-4 py-2.5 text-sm font-medium text-gray-100">
                     {formatMoney(person.qty * person.unitCost)}
                   </td>
                   <td className="px-4 py-2.5">
@@ -974,7 +976,7 @@ function PeopleTab({
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${COST_STATUS_BADGE[person.status]}`}
                     >
                       {COST_STATUS_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
+                        <option key={option} value={option} className="bg-slate-900 text-white">
                           {option}
                         </option>
                       ))}
@@ -1013,9 +1015,9 @@ function DocumentsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:flex-row md:items-end">
+      <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-end">
         <label className="flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">
             Document name
           </span>
           <input
@@ -1023,27 +1025,27 @@ function DocumentsTab({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. AMD Sponsor Agreement.pdf"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className={`w-full ${INPUT_BASE} px-3 py-2`}
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">
             Type
           </span>
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value as DocumentType)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            className={`${INPUT_BASE} px-3 py-2`}
           >
             {DOC_TYPE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
+              <option key={option} value={option} className="bg-slate-900 text-white">
                 {option.toUpperCase()}
               </option>
             ))}
           </select>
         </label>
         <label className="flex-1">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">
             File URL (optional)
           </span>
           <input
@@ -1051,25 +1053,23 @@ function DocumentsTab({
             value={fileUrl}
             onChange={(e) => setFileUrl(e.target.value)}
             placeholder="https://..."
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className={`w-full ${INPUT_BASE} px-3 py-2`}
           />
         </label>
         <button
           type="button"
           onClick={submit}
           disabled={!name.trim()}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-            name.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300'
-          }`}
+          className={name.trim() ? PRIMARY_BTN + ' px-4 py-2' : PRIMARY_BTN_DISABLED + ' px-4 py-2'}
         >
           <i className="fa-solid fa-plus mr-1.5" /> Add
         </button>
       </div>
 
       {event.documents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-          <i className="fa-solid fa-folder-open mb-3 text-3xl text-gray-300" />
-          <p className="text-sm text-gray-600">No documents attached yet.</p>
+        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+          <i className="fa-solid fa-folder-open mb-3 text-3xl text-gray-600" />
+          <p className="text-sm text-gray-300">No documents attached yet.</p>
           <p className="mt-1 text-xs text-gray-500">
             BEOs, sponsor agreements, invoices, contracts.
           </p>
@@ -1079,14 +1079,14 @@ function DocumentsTab({
           {event.documents.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-300"
+              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-purple-400/30"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10 text-purple-300">
                 <i className="fa-solid fa-file" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">{doc.name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="truncate text-sm font-medium text-white">{doc.name}</p>
+                <p className="text-xs text-gray-400">
                   {doc.type.toUpperCase()} · uploaded {doc.uploadedAt || 'recently'} · {doc.uploadedBy}
                 </p>
               </div>
@@ -1095,7 +1095,7 @@ function DocumentsTab({
                   href={doc.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-gray-400 hover:text-blue-600"
+                  className="text-gray-400 hover:text-purple-300"
                   title="Open"
                 >
                   <i className="fa-solid fa-arrow-up-right-from-square" />
@@ -1106,7 +1106,7 @@ function DocumentsTab({
                 onClick={() => {
                   if (window.confirm(`Remove "${doc.name}"?`)) void onDelete(doc.id);
                 }}
-                className="text-gray-400 hover:text-rose-500"
+                className="text-gray-500 hover:text-rose-400"
                 title="Remove"
               >
                 <i className="fa-solid fa-trash" />

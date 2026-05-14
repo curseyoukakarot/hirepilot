@@ -13,11 +13,16 @@ type Props = {
 const STATUS_OPTIONS: WizardCostLine['status'][] = ['budgeted', 'committed', 'invoiced', 'paid'];
 
 const STATUS_COLOR: Record<WizardCostLine['status'], string> = {
-  budgeted: 'bg-gray-100 text-gray-700 border-gray-200',
-  committed: 'bg-blue-50 text-blue-700 border-blue-200',
-  invoiced: 'bg-amber-50 text-amber-700 border-amber-200',
-  paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  budgeted: 'bg-white/5 text-gray-300 border-white/10',
+  committed: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+  invoiced: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  paid: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
 };
+
+const INPUT_BARE =
+  'rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-purple-500/50 focus:bg-white/10 focus:outline-none';
+const INPUT_BASE =
+  'rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-purple-500/50 focus:bg-white/10 focus:outline-none';
 
 function newCost(category: CostCategory): WizardCostLine {
   return {
@@ -70,17 +75,17 @@ export default function EventCostsStep({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-5 backdrop-blur-xl sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Cost Plan</h2>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-white">Cost Plan</h2>
+            <p className="mt-0.5 text-sm text-gray-400">
               Group costs by category. Each line tracks status from budgeted → paid.
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Total cost plan</p>
-            <p className="text-xl font-bold text-rose-600">{formatMoney(grandTotal)}</p>
+            <p className="text-xs uppercase tracking-wide text-gray-400">Total cost plan</p>
+            <p className="text-xl font-bold text-rose-300">{formatMoney(grandTotal)}</p>
           </div>
         </div>
 
@@ -92,20 +97,20 @@ export default function EventCostsStep({
               0
             );
             return (
-              <div key={category} className="overflow-hidden rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5">
+              <div key={category} className="overflow-hidden rounded-xl border border-white/10">
+                <div className="flex items-center justify-between bg-white/[0.04] px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-sm font-semibold text-gray-800">{category}</h3>
+                    <h3 className="text-sm font-semibold text-gray-100">{category}</h3>
                     <span className="text-xs text-gray-500">{lines.length} items</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-sm font-semibold text-gray-200">
                       {formatMoney(categoryTotal)}
                     </span>
                     <button
                       type="button"
                       onClick={() => addCost(category)}
-                      className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-200 hover:border-white/20 hover:bg-white/10"
                     >
                       <i className="fa-solid fa-plus mr-1" /> Add line
                     </button>
@@ -113,8 +118,8 @@ export default function EventCostsStep({
                 </div>
                 {lines.length > 0 && (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-white text-left text-xs uppercase tracking-wide text-gray-500">
+                    <table className="min-w-full divide-y divide-white/10 text-sm">
+                      <thead className="bg-white/[0.02] text-left text-xs uppercase tracking-wide text-gray-400">
                         <tr>
                           <th className="px-3 py-2 font-medium">Description</th>
                           <th className="px-3 py-2 font-medium">Vendor</th>
@@ -125,11 +130,11 @@ export default function EventCostsStep({
                           <th className="px-3 py-2" />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
+                      <tbody className="divide-y divide-white/5">
                         {lines.map((line) => {
                           const lineTotal = Number(line.qty || 0) * Number(line.unitCost || 0);
                           return (
-                            <tr key={line.id} className="hover:bg-gray-50/60">
+                            <tr key={line.id} className="hover:bg-white/[0.02]">
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
@@ -138,7 +143,7 @@ export default function EventCostsStep({
                                     updateCost(line.id, { description: e.target.value })
                                   }
                                   placeholder="e.g. Venue rental – main ballroom"
-                                  className="w-64 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                                  className={`w-64 ${INPUT_BARE}`}
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -149,7 +154,7 @@ export default function EventCostsStep({
                                     updateCost(line.id, { vendor: e.target.value })
                                   }
                                   placeholder="Vendor"
-                                  className="w-36 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus:border-blue-300 focus:bg-white focus:outline-none"
+                                  className={`w-36 ${INPUT_BARE}`}
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -157,7 +162,7 @@ export default function EventCostsStep({
                                   type="number"
                                   value={line.qty}
                                   onChange={(e) => updateCost(line.id, { qty: e.target.value })}
-                                  className="w-16 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                                  className={`w-16 text-right ${INPUT_BASE}`}
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -168,10 +173,10 @@ export default function EventCostsStep({
                                     updateCost(line.id, { unitCost: e.target.value })
                                   }
                                   placeholder="0"
-                                  className="w-28 rounded-md border border-gray-200 px-2 py-1 text-right text-sm"
+                                  className={`w-28 text-right ${INPUT_BASE}`}
                                 />
                               </td>
-                              <td className="px-3 py-2 text-right text-sm font-medium text-gray-700">
+                              <td className="px-3 py-2 text-right text-sm font-medium text-gray-100">
                                 {formatMoney(lineTotal)}
                               </td>
                               <td className="px-3 py-2">
@@ -185,7 +190,7 @@ export default function EventCostsStep({
                                   className={`rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${STATUS_COLOR[line.status]}`}
                                 >
                                   {STATUS_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>
+                                    <option key={option} value={option} className="bg-slate-900 text-white">
                                       {option}
                                     </option>
                                   ))}
@@ -195,8 +200,8 @@ export default function EventCostsStep({
                                 <button
                                   type="button"
                                   onClick={() => removeCost(line.id)}
-                                  className="text-gray-400 hover:text-rose-500"
-                                  title="Remove line"
+                                  className="text-gray-500 hover:text-rose-400"
+                                  title="Remove"
                                 >
                                   <i className="fa-solid fa-trash" />
                                 </button>
@@ -218,14 +223,14 @@ export default function EventCostsStep({
         <button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-gray-200 hover:border-white/20 hover:bg-white/10"
         >
           <i className="fa-solid fa-arrow-left mr-2" /> Back
         </button>
         <button
           type="button"
           onClick={onNext}
-          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-pink-500"
         >
           Next: Margin Review <i className="fa-solid fa-arrow-right ml-2" />
         </button>
