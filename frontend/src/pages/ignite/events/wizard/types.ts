@@ -1,4 +1,4 @@
-import { CostCategory, EventKind, SponsorKind, SponsorStatus } from '../mockData';
+import { CostCategory, EventKind, SponsorKind, SponsorStatus } from '../types';
 
 export type WizardSponsor = {
   id: string;

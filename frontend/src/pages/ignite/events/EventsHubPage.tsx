@@ -1,17 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { listEvents } from './api';
 import {
   EventKind,
-  EventRecord,
-  MOCK_EVENTS,
-  eventMargin,
+  EventListItem,
+  EventStatus,
   formatMoney,
-  totalInKindValue,
-} from './mockData';
+  summaryToMargin,
+} from './types';
 
 type Filter = 'all' | EventKind;
 
-const STATUS_STYLES: Record<EventRecord['status'], string> = {
+const STATUS_STYLES: Record<EventStatus, string> = {
   draft: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300',
   planning: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
   live: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
@@ -49,11 +49,31 @@ function MarginBar({ revenue, costs }: { revenue: number; costs: number }) {
 
 export default function EventsHubPage() {
   const navigate = useNavigate();
+  const [events, setEvents] = useState<EventListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
 
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listEvents();
+      setEvents(rows);
+    } catch (e: any) {
+      setError(String(e?.message || 'Failed to load events.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
   const filtered = useMemo(() => {
-    return MOCK_EVENTS.filter((event) => {
+    return events.filter((event) => {
       if (filter !== 'all' && event.kind !== filter) return false;
       if (search.trim()) {
         const needle = search.trim().toLowerCase();
@@ -64,15 +84,15 @@ export default function EventsHubPage() {
       }
       return true;
     });
-  }, [filter, search]);
+  }, [filter, search, events]);
 
   const portfolioTotals = useMemo(() => {
-    const all = MOCK_EVENTS.reduce(
+    const all = events.reduce(
       (acc, event) => {
-        const margin = eventMargin(event);
+        const margin = summaryToMargin(event.totals);
         acc.revenue += margin.revenue;
         acc.costs += margin.costs;
-        acc.inKind += totalInKindValue(event);
+        acc.inKind += event.totals.inKindValue;
         if (event.kind === 'internal') acc.internal += 1;
         if (event.kind === 'external') acc.external += 1;
         return acc;
@@ -80,7 +100,7 @@ export default function EventsHubPage() {
       { revenue: 0, costs: 0, inKind: 0, internal: 0, external: 0 }
     );
     return { ...all, margin: all.revenue - all.costs };
-  }, []);
+  }, [events]);
 
   const draftEvents = filtered.filter((event) => event.status === 'draft' || event.status === 'planning');
   const liveEvents = filtered.filter((event) => event.status === 'live');
@@ -99,6 +119,14 @@ export default function EventsHubPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-medium text-gray-300 transition-all hover:border-white/20 hover:bg-white/10"
+            >
+              <i className="fa-solid fa-rotate-right mr-2" />
+              Refresh
+            </button>
             <button
               type="button"
               onClick={() => navigate('/ignite/events/new')}
@@ -127,6 +155,12 @@ export default function EventsHubPage() {
       </header>
 
       <div className="space-y-8 p-8">
+        {error && (
+          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {error}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
             {(
@@ -162,17 +196,27 @@ export default function EventsHubPage() {
           </div>
         </div>
 
-        <Section title="Live & Upcoming" badge={liveEvents.length}>
-          <CardGrid events={liveEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
-        </Section>
+        {loading && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-gray-300">
+            Loading events...
+          </div>
+        )}
 
-        <Section title="Drafts & Planning" badge={draftEvents.length}>
-          <CardGrid events={draftEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
-        </Section>
+        {!loading && (
+          <>
+            <Section title="Live & Upcoming" badge={liveEvents.length}>
+              <CardGrid events={liveEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
+            </Section>
 
-        <Section title="Closed" badge={closedEvents.length}>
-          <CardGrid events={closedEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} dense />
-        </Section>
+            <Section title="Drafts & Planning" badge={draftEvents.length}>
+              <CardGrid events={draftEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} />
+            </Section>
+
+            <Section title="Closed" badge={closedEvents.length}>
+              <CardGrid events={closedEvents} onOpen={(id) => navigate(`/ignite/events/${id}`)} dense />
+            </Section>
+          </>
+        )}
       </div>
     </div>
   );
@@ -228,7 +272,7 @@ function CardGrid({
   onOpen,
   dense = false,
 }: {
-  events: EventRecord[];
+  events: EventListItem[];
   onOpen: (id: string) => void;
   dense?: boolean;
 }) {
@@ -248,9 +292,9 @@ function CardGrid({
   );
 }
 
-function EventCard({ event, onOpen }: { event: EventRecord; onOpen: () => void }) {
-  const margin = eventMargin(event);
-  const inKind = totalInKindValue(event);
+function EventCard({ event, onOpen }: { event: EventListItem; onOpen: () => void }) {
+  const margin = summaryToMargin(event.totals);
+  const inKind = event.totals.inKindValue;
   const marginColor =
     margin.margin > 0 ? 'text-emerald-300' : margin.margin < 0 ? 'text-rose-300' : 'text-gray-300';
   return (
@@ -298,11 +342,11 @@ function EventCard({ event, onOpen }: { event: EventRecord; onOpen: () => void }
       <div className="mb-5 grid grid-cols-2 gap-2 text-sm text-gray-400">
         <div className="flex items-center gap-2">
           <i className="fa-solid fa-calendar w-4" />
-          <span>{event.startDate}</span>
+          <span>{event.startDate || 'Date TBD'}</span>
         </div>
         <div className="flex items-center gap-2">
           <i className="fa-solid fa-location-dot w-4" />
-          <span className="truncate">{event.city}</span>
+          <span className="truncate">{event.city || 'Location TBD'}</span>
         </div>
         <div className="flex items-center gap-2">
           <i className="fa-solid fa-users w-4" />
@@ -310,7 +354,7 @@ function EventCard({ event, onOpen }: { event: EventRecord; onOpen: () => void }
         </div>
         <div className="flex items-center gap-2">
           <i className="fa-solid fa-user-tie w-4" />
-          <span className="truncate">{event.ownerName}</span>
+          <span className="truncate">{event.ownerName || '—'}</span>
         </div>
       </div>
 

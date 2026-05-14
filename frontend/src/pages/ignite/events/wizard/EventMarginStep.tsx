@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { CostCategory, formatMoney } from '../mockData';
+import { CostCategory, formatMoney } from '../types';
 import { EventWizardState } from './types';
 
 type Totals = {

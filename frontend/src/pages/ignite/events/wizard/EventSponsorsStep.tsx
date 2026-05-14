@@ -1,5 +1,5 @@
 import React from 'react';
-import { SponsorKind, SponsorStatus, formatMoney } from '../mockData';
+import { SponsorKind, SponsorStatus, formatMoney } from '../types';
 import { EventWizardState, WizardSponsor } from './types';
 
 type Props = {
