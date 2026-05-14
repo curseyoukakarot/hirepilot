@@ -20,6 +20,9 @@ import IgniteVendorPayoutsPage from './IgniteVendorPayoutsPage';
 import VendorPayoutWizard from './wizard/VendorPayoutWizard';
 import IgniteVendorPayoutDetailPage from './IgniteVendorPayoutDetailPage';
 import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
+import EventsHubPage from './events/EventsHubPage';
+import EventDetailPage from './events/EventDetailPage';
+import EventWizard from './events/wizard/EventWizard';
 import DashboardPage from '../igniteBackoffice/DashboardPage';
 import LedgerPage from '../igniteBackoffice/LedgerPage';
 import AllocationsPage from '../igniteBackoffice/AllocationsPage';
@@ -39,6 +42,7 @@ function getIgnitePageFlavor(pathname: string): string {
   if (pathname.startsWith('/proposals/')) return 'ignite-page-client-proposal';
   if (pathname.startsWith('/share/')) return 'ignite-page-share';
   if (pathname.startsWith('/vendor-payout/')) return 'ignite-page-share';
+  if (pathname.startsWith('/ignite/events')) return 'ignite-page-events';
   if (pathname.startsWith('/ignite/templates')) return 'ignite-page-templates';
   if (pathname.startsWith('/ignite/rate-cards')) return 'ignite-page-rate-cards';
   if (pathname.startsWith('/ignite/clients')) return 'ignite-page-clients';
@@ -202,6 +206,36 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
                 <IgniteClientViewerPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/events"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <EventsHubPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/events/new"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <EventWizard />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/events/:eventId"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <EventDetailPage />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }

@@ -8,6 +8,7 @@ type IgniteAppLayoutProps = {
 };
 
 const NAV_ITEMS = [
+  { to: '/ignite/events', label: 'Events', icon: 'fa-calendar-star' },
   { to: '/ignite/proposals', label: 'Proposals', icon: 'fa-file-lines' },
   { to: '/ignite/templates', label: 'Templates', icon: 'fa-layer-group' },
   { to: '/ignite/rate-cards', label: 'Vendors / Rate Cards', icon: 'fa-users' },
