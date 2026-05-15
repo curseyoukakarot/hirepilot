@@ -1530,6 +1530,184 @@ router.post('/leads/:id/convert-to-client', apiKeyAuth, async (req: ApiRequest, 
   }
 });
 
+/**
+ * Create an opportunity (deal) tied to a client owned by the API-key user.
+ *
+ * POST /api/zapier/opportunities
+ * Body:
+ *  - title           required, string
+ *  - client_id       required, UUID of a `clients` row owned by the API-key user
+ *  - stage           optional string (free-form pipeline stage label)
+ *  - status          optional string (defaults to "open")
+ *  - value           optional number (deal value)
+ *  - billing_type    optional string ("contingency" | "retained" | "one_time" | etc.)
+ *  - tag             optional string (e.g. "rss", "job_seeker", custom tag)
+ *  - forecast_date   optional YYYY-MM-DD or ISO timestamp (date-only is stored)
+ *  - start_date      optional YYYY-MM-DD or ISO timestamp (date-only is stored)
+ *  - term_months     optional, must be one of 1, 3, 6, 12
+ *  - margin          optional number
+ *  - margin_type     optional, "currency" or "percent" (defaults to "currency")
+ *  - idempotency_key optional, used to dedupe repeat calls (recommended for Zapier/Make)
+ */
+router.post('/opportunities', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const body = (req.body || {}) as any;
+
+    const title = String(body.title || '').trim();
+    const client_id = String(body.client_id || '').trim();
+    const stage = body.stage != null ? String(body.stage).trim() : null;
+    const status = body.status != null && String(body.status).trim() ? String(body.status).trim() : 'open';
+    const billing_type = body.billing_type != null ? String(body.billing_type).trim() : null;
+    const tag = body.tag != null ? String(body.tag).trim() : null;
+    const idempotency_key = String(body.idempotency_key || '').trim();
+
+    if (!title) return res.status(400).json({ error: 'title is required' });
+    if (!client_id) return res.status(400).json({ error: 'client_id is required' });
+
+    // Numeric: value
+    let value: number | null = null;
+    if (body.value != null && body.value !== '') {
+      const n = Number(body.value);
+      if (!isFinite(n)) return res.status(400).json({ error: 'invalid value' });
+      value = n;
+    }
+
+    // Dates: forecast_date, start_date — accept either YYYY-MM-DD or full ISO; store date-only
+    const parseDate = (raw: any): string | null | 'INVALID' => {
+      if (raw == null || raw === '') return null;
+      if (typeof raw !== 'string') return 'INVALID';
+      const v = raw.slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return 'INVALID';
+      return v;
+    };
+    const forecast_date = parseDate(body.forecast_date);
+    if (forecast_date === 'INVALID') return res.status(400).json({ error: 'invalid forecast_date' });
+    const start_date = parseDate(body.start_date);
+    if (start_date === 'INVALID') return res.status(400).json({ error: 'invalid start_date' });
+
+    // term_months: must be one of 1, 3, 6, 12 (or null)
+    let term_months: number | null = null;
+    if (body.term_months != null && body.term_months !== '') {
+      const n = Number(body.term_months);
+      if (![1, 3, 6, 12].includes(n)) return res.status(400).json({ error: 'invalid term_months (must be 1, 3, 6, or 12)' });
+      term_months = n;
+    }
+
+    // margin: numeric or null
+    let margin: number | null = null;
+    if (body.margin != null && body.margin !== '') {
+      const n = Number(body.margin);
+      if (!isFinite(n)) return res.status(400).json({ error: 'invalid margin' });
+      margin = n;
+    }
+
+    // margin_type: 'currency' | 'percent'
+    let margin_type: string = 'currency';
+    if (body.margin_type != null && body.margin_type !== '') {
+      const v = String(body.margin_type).toLowerCase();
+      if (v !== 'currency' && v !== 'percent') return res.status(400).json({ error: 'invalid margin_type (must be "currency" or "percent")' });
+      margin_type = v;
+    }
+
+    // Idempotency: dedupe by user-scoped key
+    if (idempotency_key) {
+      const ok = await ensureIdempotent(`opportunity:${userId}:${idempotency_key}`);
+      if (!ok) {
+        // On repeat, try to look up the previously created opportunity by title+client+owner
+        const { data: existing } = await supabaseDb
+          .from('opportunities')
+          .select('*')
+          .eq('owner_id', userId)
+          .eq('client_id', client_id)
+          .eq('title', title)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return res.status(200).json({ deduped: true, opportunity: existing || null });
+      }
+    }
+
+    // Validate client ownership: the client must belong to the API-key user
+    const { data: client, error: clientErr } = await supabaseDb
+      .from('clients')
+      .select('id, owner_id')
+      .eq('id', client_id)
+      .maybeSingle();
+    if (clientErr) throw clientErr;
+    if (!client) return res.status(400).json({ error: 'client_id not found' });
+    if ((client as any).owner_id !== userId) return res.status(403).json({ error: 'Forbidden (client)' });
+
+    const nowIso = new Date().toISOString();
+    const insertRow: any = {
+      title,
+      client_id,
+      stage,
+      status,
+      value,
+      billing_type,
+      tag,
+      forecast_date,
+      start_date,
+      term_months,
+      margin,
+      margin_type,
+      owner_id: userId,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    const { data: opp, error } = await supabaseDb
+      .from('opportunities')
+      .insert(insertRow)
+      .select('*')
+      .single();
+    if (error) {
+      // If the schema lacks margin_type (older DBs), retry without it.
+      if ((error as any).code === '42703') {
+        const fallback = { ...insertRow };
+        delete fallback.margin_type;
+        const retry = await supabaseDb.from('opportunities').insert(fallback).select('*').single();
+        if (retry.error) throw retry.error;
+        return res.status(201).json({ success: true, opportunity: retry.data });
+      }
+      throw error;
+    }
+
+    return res.status(201).json({ success: true, opportunity: opp });
+  } catch (err: any) {
+    console.error('[Zapier] POST /opportunities error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Get a single opportunity by id (must belong to API-key user).
+ *
+ * GET /api/zapier/opportunities/:id
+ */
+router.get('/opportunities/:id', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const oppId = String(req.params.id || '').trim();
+    if (!oppId) return res.status(400).json({ error: 'Missing opportunity id' });
+
+    const { data: opp, error } = await supabaseDb
+      .from('opportunities')
+      .select('*')
+      .eq('id', oppId)
+      .eq('owner_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!opp) return res.status(404).json({ error: 'Opportunity not found' });
+
+    return res.status(200).json({ opportunity: opp });
+  } catch (err: any) {
+    console.error('[Zapier] GET /opportunities/:id error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
 // Mount test endpoints
 router.use('/', zapierTestRouter);
 
