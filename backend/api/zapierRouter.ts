@@ -952,6 +952,584 @@ router.post('/move-candidate', apiKeyAuth, async (req: ApiRequest, res: Response
   }
 });
 
+/**
+ * Search / list leads owned by the API-key user.
+ *
+ * GET /api/zapier/leads
+ * Query params (all optional):
+ *  - email          exact match on lead email (case-insensitive)
+ *  - linkedin_url   exact match on linkedin_url
+ *  - q              free-text substring match against name / email / company / title
+ *  - status         exact match on status (sourced/contacted/...)
+ *  - tag            return only leads whose tags array contains this value
+ *  - limit          page size (default 25, max 100)
+ *  - offset         row offset for pagination (default 0)
+ */
+router.get('/leads', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const email = String((req.query.email as any) ?? '').trim().toLowerCase();
+    const linkedinUrl = String((req.query.linkedin_url as any) ?? '').trim();
+    const q = String((req.query.q as any) ?? '').trim();
+    const status = String((req.query.status as any) ?? '').trim().toLowerCase();
+    const tag = String((req.query.tag as any) ?? '').trim();
+    const limit = Math.max(1, Math.min(100, Number((req.query.limit as any) ?? 25)));
+    const offset = Math.max(0, Number((req.query.offset as any) ?? 0));
+
+    let query = supabaseDb
+      .from('leads')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (email) query = query.ilike('email', email);
+    if (linkedinUrl) query = query.eq('linkedin_url', linkedinUrl);
+    if (status) query = query.eq('status', status);
+    if (tag) query = query.contains('tags', [tag]);
+    if (q) {
+      const like = `%${q.replace(/[%_]/g, m => `\\${m}`)}%`;
+      query = query.or(
+        [
+          `name.ilike.${like}`,
+          `email.ilike.${like}`,
+          `company.ilike.${like}`,
+          `title.ilike.${like}`
+        ].join(',')
+      );
+    }
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    return res.status(200).json({
+      leads: data || [],
+      meta: {
+        limit,
+        offset,
+        returned: (data || []).length,
+        total: typeof count === 'number' ? count : null,
+        filters: { email: email || null, linkedin_url: linkedinUrl || null, q: q || null, status: status || null, tag: tag || null }
+      }
+    });
+  } catch (err: any) {
+    console.error('[Zapier] GET /leads error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Get a single lead by id (must belong to API-key user).
+ *
+ * GET /api/zapier/leads/:id
+ */
+router.get('/leads/:id', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const leadId = String(req.params.id || '').trim();
+    if (!leadId) return res.status(400).json({ error: 'Missing lead id' });
+
+    const { data: lead, error } = await supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+    return res.status(200).json({ lead });
+  } catch (err: any) {
+    console.error('[Zapier] GET /leads/:id error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * List activities for a lead (must belong to API-key user).
+ *
+ * GET /api/zapier/leads/:id/activities
+ * Query params:
+ *  - limit  default 50, max 200
+ *  - since  ISO timestamp; only return activities at/after this time
+ */
+router.get('/leads/:id/activities', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const leadId = String(req.params.id || '').trim();
+    if (!leadId) return res.status(400).json({ error: 'Missing lead id' });
+
+    const limit = Math.max(1, Math.min(200, Number((req.query.limit as any) ?? 50)));
+    const since = String((req.query.since as any) ?? '').trim();
+
+    const { data: lead, error: leadErr } = await supabaseDb
+      .from('leads')
+      .select('id,user_id')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (leadErr) throw leadErr;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if ((lead as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    let query = supabaseDb
+      .from('lead_activities')
+      .select('id, lead_id, user_id, activity_type, tags, notes, activity_timestamp, created_at, updated_at')
+      .eq('lead_id', leadId)
+      .order('activity_timestamp', { ascending: false })
+      .limit(limit);
+
+    if (since) {
+      const d = new Date(since);
+      if (isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid since timestamp' });
+      query = query.gte('activity_timestamp', d.toISOString());
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return res.status(200).json({ lead_id: leadId, activities: data || [] });
+  } catch (err: any) {
+    console.error('[Zapier] GET /leads/:id/activities error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Log an activity on a lead (Call / Meeting / Outreach / Email / LinkedIn / Note / Other).
+ *
+ * POST /api/zapier/leads/:id/activities
+ * Body:
+ *  - activity_type        required, one of Call|Meeting|Outreach|Email|LinkedIn|Note|Other
+ *  - notes                optional free-text
+ *  - tags                 optional string[]
+ *  - activity_timestamp   optional ISO timestamp (defaults to now)
+ */
+router.post('/leads/:id/activities', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const leadId = String(req.params.id || '').trim();
+    if (!leadId) return res.status(400).json({ error: 'Missing lead id' });
+
+    const body = (req.body || {}) as any;
+    const activity_type = String(body.activity_type || '').trim();
+    const notes = body.notes != null ? String(body.notes) : null;
+    const tags = Array.isArray(body.tags)
+      ? body.tags.map((t: any) => String(t || '').trim()).filter(Boolean)
+      : [];
+    const activity_timestamp = body.activity_timestamp
+      ? String(body.activity_timestamp)
+      : new Date().toISOString();
+
+    const VALID = ['Call', 'Meeting', 'Outreach', 'Email', 'LinkedIn', 'Note', 'Other'];
+    if (!activity_type) return res.status(400).json({ error: 'activity_type required' });
+    if (!VALID.includes(activity_type)) {
+      return res.status(400).json({ error: `Invalid activity_type. Must be one of: ${VALID.join(', ')}` });
+    }
+    if (activity_timestamp && isNaN(new Date(activity_timestamp).getTime())) {
+      return res.status(400).json({ error: 'Invalid activity_timestamp' });
+    }
+
+    const { data: lead, error: leadErr } = await supabaseDb
+      .from('leads')
+      .select('id,user_id')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (leadErr) throw leadErr;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if ((lead as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    const insertRow = {
+      lead_id: leadId,
+      user_id: userId,
+      activity_type,
+      tags,
+      notes,
+      activity_timestamp
+    };
+
+    const { data: activity, error } = await supabaseDb
+      .from('lead_activities')
+      .insert(insertRow)
+      .select('id, lead_id, user_id, activity_type, tags, notes, activity_timestamp, created_at, updated_at')
+      .single();
+    if (error) throw error;
+
+    return res.status(201).json({
+      success: true,
+      activity,
+      message: `${activity_type} activity logged`
+    });
+  } catch (err: any) {
+    console.error('[Zapier] POST /leads/:id/activities error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * List activities for a candidate (must belong to API-key user).
+ *
+ * GET /api/zapier/candidates/:id/activities
+ * Query params:
+ *  - limit  default 50, max 200
+ *  - since  ISO timestamp; only return activities created at/after this time
+ *  - job_id optional; filter to a specific job_requisition
+ */
+router.get('/candidates/:id/activities', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const candidateId = String(req.params.id || '').trim();
+    if (!candidateId) return res.status(400).json({ error: 'Missing candidate id' });
+
+    const limit = Math.max(1, Math.min(200, Number((req.query.limit as any) ?? 50)));
+    const since = String((req.query.since as any) ?? '').trim();
+    const jobIdFilter = String((req.query.job_id as any) ?? '').trim();
+
+    const { data: candidate, error: candErr } = await supabaseDb
+      .from('candidates')
+      .select('id,user_id')
+      .eq('id', candidateId)
+      .maybeSingle();
+    if (candErr) throw candErr;
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+    if ((candidate as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    let query = supabaseDb
+      .from('candidate_activities')
+      .select('id, candidate_id, job_id, status, notes, created_at, created_by')
+      .eq('candidate_id', candidateId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (since) {
+      const d = new Date(since);
+      if (isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid since timestamp' });
+      query = query.gte('created_at', d.toISOString());
+    }
+    if (jobIdFilter) query = query.eq('job_id', jobIdFilter);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return res.status(200).json({ candidate_id: candidateId, activities: data || [] });
+  } catch (err: any) {
+    console.error('[Zapier] GET /candidates/:id/activities error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Log an activity on a candidate (Call / Meeting / Outreach / Email / LinkedIn / Note / Other).
+ *
+ * Note: the underlying `candidate_activities` table only stores
+ * (candidate_id, job_id, status, notes, created_at, created_by). The
+ * `activity_type` / `tags` you pass are echoed back in a normalized response
+ * payload but are not currently persisted as separate columns.
+ *
+ * POST /api/zapier/candidates/:id/activities
+ * Body:
+ *  - activity_type   optional, one of Call|Meeting|Outreach|Email|LinkedIn|Note|Other
+ *                    (defaults to "Note")
+ *  - notes           optional free-text notes
+ *  - status          optional, one of sourced|contacted|interviewed|offered|hired|rejected
+ *                    (must match the candidate_status enum to be persisted)
+ *  - tags            optional string[] (echoed back, not persisted)
+ *  - job_id          optional UUID of a job_requisition this activity is tied to
+ */
+router.post('/candidates/:id/activities', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const candidateId = String(req.params.id || '').trim();
+    if (!candidateId) return res.status(400).json({ error: 'Missing candidate id' });
+
+    const body = (req.body || {}) as any;
+    const activity_type = body.activity_type ? String(body.activity_type).trim() : 'Note';
+    const notes = body.notes != null ? String(body.notes) : null;
+    const status = body.status != null ? String(body.status).trim().toLowerCase() : null;
+    const job_id = body.job_id ? String(body.job_id).trim() : null;
+    const tags = Array.isArray(body.tags)
+      ? body.tags.map((t: any) => String(t || '').trim()).filter(Boolean)
+      : [];
+
+    const VALID_TYPES = ['Call', 'Meeting', 'Outreach', 'Email', 'LinkedIn', 'Note', 'Other'];
+    if (!VALID_TYPES.includes(activity_type)) {
+      return res.status(400).json({ error: `Invalid activity_type. Must be one of: ${VALID_TYPES.join(', ')}` });
+    }
+
+    const VALID_STATUS = new Set(['sourced', 'contacted', 'interviewed', 'offered', 'hired', 'rejected']);
+    if (status && !VALID_STATUS.has(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${Array.from(VALID_STATUS).join(', ')}` });
+    }
+
+    if (!notes && !status && activity_type === 'Note') {
+      return res.status(400).json({ error: 'Provide notes, status, or activity_type to log an activity' });
+    }
+
+    const { data: candidate, error: candErr } = await supabaseDb
+      .from('candidates')
+      .select('id,user_id')
+      .eq('id', candidateId)
+      .maybeSingle();
+    if (candErr) throw candErr;
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+    if ((candidate as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    if (job_id) {
+      const { data: job, error: jobErr } = await supabaseDb
+        .from('job_requisitions')
+        .select('id,user_id')
+        .eq('id', job_id)
+        .maybeSingle();
+      if (jobErr) throw jobErr;
+      if (!job) return res.status(400).json({ error: 'job_id not found' });
+      if ((job as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden (job)' });
+    }
+
+    const insertRow: any = {
+      candidate_id: candidateId,
+      job_id: job_id || null,
+      notes,
+      created_by: userId,
+      created_at: new Date().toISOString()
+    };
+    if (status) insertRow.status = status;
+
+    const { data: row, error } = await supabaseDb
+      .from('candidate_activities')
+      .insert(insertRow)
+      .select('id, candidate_id, job_id, status, notes, created_at, created_by')
+      .single();
+    if (error) throw error;
+
+    // Normalized payload (mirrors UI ActivityLogSection shape used elsewhere)
+    const activity = {
+      id: row.id,
+      candidate_id: row.candidate_id,
+      job_id: row.job_id,
+      activity_type,
+      tags: tags.length ? tags : (row.status ? [row.status] : [activity_type]),
+      status: row.status || null,
+      notes: row.notes || null,
+      activity_timestamp: row.created_at,
+      created_at: row.created_at,
+      created_by: row.created_by,
+      origin: 'candidate'
+    };
+
+    // Emit a candidate_updated zap event so Zapier/Make polling triggers can react.
+    try {
+      await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES }) => {
+        emitZapEvent({
+          userId,
+          eventType: ZAP_EVENT_TYPES.CANDIDATE_UPDATED,
+          eventData: {
+            candidate_id: candidateId,
+            action: 'activity_logged',
+            activity_type,
+            status: row.status || null,
+            notes: row.notes || null,
+            tags,
+            job_id: row.job_id
+          },
+          sourceTable: 'candidate_activities',
+          sourceId: row.id
+        });
+      });
+    } catch (e) {
+      console.warn('[Zapier] candidate activity emit event failed', (e as any)?.message || e);
+    }
+
+    return res.status(201).json({
+      success: true,
+      activity,
+      message: `${activity_type} activity logged`
+    });
+  } catch (err: any) {
+    console.error('[Zapier] POST /candidates/:id/activities error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Get a single candidate by id (must belong to API-key user).
+ *
+ * GET /api/zapier/candidates/:id
+ */
+router.get('/candidates/:id', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const candidateId = String(req.params.id || '').trim();
+    if (!candidateId) return res.status(400).json({ error: 'Missing candidate id' });
+
+    const { data: candidate, error } = await supabaseDb
+      .from('candidates')
+      .select('*')
+      .eq('id', candidateId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    return res.status(200).json({ candidate });
+  } catch (err: any) {
+    console.error('[Zapier] GET /candidates/:id error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Convert a lead → client (and optionally seed decision-maker contacts).
+ * Mirrors POST /api/clients/convert-lead but is authenticated via X-API-Key
+ * so external agents can run it.
+ *
+ * POST /api/zapier/leads/:id/convert-to-client
+ * Body:
+ *  - include_contacts   boolean (default false)
+ *  - contacts           array of { name, title, email, phone } (used when include_contacts=true)
+ *  - archive_lead       boolean (default true) – if true, marks lead status=archived
+ */
+router.post('/leads/:id/convert-to-client', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const leadId = String(req.params.id || '').trim();
+    if (!leadId) return res.status(400).json({ error: 'Missing lead id' });
+
+    const body = (req.body || {}) as any;
+    const include_contacts = Boolean(body.include_contacts);
+    const contacts: any[] = Array.isArray(body.contacts) ? body.contacts : [];
+    const archive_lead = body.archive_lead === undefined ? true : Boolean(body.archive_lead);
+
+    const { data: lead, error: leadErr } = await supabaseDb
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (leadErr) throw leadErr;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if ((lead as any).user_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // Derive company info from enrichment if available
+    const enrich: any = (lead as any).enrichment_data || {};
+    const apolloOrg: any = enrich?.apollo?.organization || {};
+    const domainFromEnrich = apolloOrg.website_url || apolloOrg.domain || null;
+    const industryFromEnrich = apolloOrg.industry || null;
+    const locationFromEnrich =
+      apolloOrg.location ||
+      (enrich?.apollo?.location?.city
+        ? `${enrich.apollo.location.city}${enrich.apollo.location.state ? ', ' + enrich.apollo.location.state : ''}`
+        : null);
+
+    const parseRevenue = (value: any): number | null => {
+      if (value == null) return null;
+      if (typeof value === 'number') return value;
+      const s = String(value).trim().toUpperCase();
+      const mult = s.endsWith('B') ? 1_000_000_000 : s.endsWith('M') ? 1_000_000 : s.endsWith('K') ? 1_000 : 1;
+      const cleaned = s.replace(/[^0-9.]/g, '');
+      const n = Number(cleaned);
+      if (isNaN(n)) return null;
+      return Math.round(n * mult);
+    };
+    const revenueFromEnrich = parseRevenue(apolloOrg.estimated_annual_revenue || apolloOrg.revenue || null);
+
+    const insertClient: any = {
+      name: lead.company || apolloOrg.name || 'Untitled Company',
+      domain: domainFromEnrich ? normalizeDomain(domainFromEnrich) : null,
+      industry: industryFromEnrich || null,
+      revenue: revenueFromEnrich,
+      location: locationFromEnrich || (lead as any).location || null,
+      owner_id: userId,
+      created_at: new Date().toISOString()
+    };
+
+    const { data: clientRow, error: clientErr } = await supabaseDb
+      .from('clients')
+      .insert(insertClient)
+      .select('*')
+      .single();
+    if (clientErr || !clientRow) {
+      console.error('[Zapier] convert-to-client insert error', clientErr);
+      return res.status(500).json({ error: 'failed_create_client', details: clientErr?.message });
+    }
+
+    let createdContacts: any[] = [];
+    if (include_contacts && contacts.length) {
+      const rows = contacts.map((c: any) => ({
+        client_id: clientRow.id,
+        name: c?.name || null,
+        title: c?.title || null,
+        email: c?.email || null,
+        phone: c?.phone || null,
+        owner_id: userId,
+        created_at: new Date().toISOString()
+      }));
+      const { data: ins, error: cErr } = await supabaseDb
+        .from('contacts')
+        .insert(rows)
+        .select('*');
+      if (cErr) console.warn('[Zapier] convert-to-client: contacts insert warning', cErr.message);
+      createdContacts = ins || [];
+    }
+
+    if (archive_lead) {
+      await supabaseDb
+        .from('leads')
+        .update({ status: 'archived', updated_at: new Date().toISOString() })
+        .eq('id', leadId)
+        .eq('user_id', userId);
+    }
+
+    // Emit a client_created event so polling triggers (event_type=client_created) can react.
+    try {
+      await import('../lib/zapEventEmitter').then(({ emitZapEvent }) => {
+        emitZapEvent({
+          userId,
+          eventType: 'client_created' as any,
+          eventData: {
+            client_id: clientRow.id,
+            client_name: clientRow.name,
+            client_domain: clientRow.domain,
+            from_lead_id: leadId,
+            contacts_created: createdContacts.length
+          },
+          sourceTable: 'clients',
+          sourceId: clientRow.id
+        });
+      });
+    } catch (e) {
+      console.warn('[Zapier] convert-to-client: emit event failed', (e as any)?.message || e);
+    }
+
+    // Also emit lead_converted so existing automations watching that event still fire.
+    try {
+      await import('../lib/zapEventEmitter').then(({ emitZapEvent, ZAP_EVENT_TYPES }) => {
+        emitZapEvent({
+          userId,
+          eventType: ZAP_EVENT_TYPES.LEAD_CONVERTED,
+          eventData: {
+            lead_id: leadId,
+            client_id: clientRow.id,
+            client_name: clientRow.name,
+            target: 'client'
+          },
+          sourceTable: 'leads',
+          sourceId: leadId
+        });
+      });
+    } catch (e) {
+      console.warn('[Zapier] convert-to-client: emit lead_converted event failed', (e as any)?.message || e);
+    }
+
+    return res.status(200).json({
+      success: true,
+      client: clientRow,
+      contacts: createdContacts,
+      lead_archived: archive_lead
+    });
+  } catch (err: any) {
+    console.error('[Zapier] POST /leads/:id/convert-to-client error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
 // Mount test endpoints
 router.use('/', zapierTestRouter);
 
