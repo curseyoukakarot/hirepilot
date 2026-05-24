@@ -411,8 +411,12 @@ Inside your agent, call the two endpoints sequentially with the same shared HTTP
 | `/api/zapier/leads/:id`                          | GET    | X-API-Key   | Read a lead                                          |
 | `/api/zapier/opportunities`                      | POST   | X-API-Key   | Create an opportunity tied to a `client_id`          |
 | `/api/zapier/opportunities/:id`                  | GET    | X-API-Key   | Read an opportunity                                  |
+| `/api/zapier/opportunities/:id`                  | PATCH  | X-API-Key   | **Edit** an opportunity — see [Editing & Deleting an Opportunity guide](./edit-opportunity-guide.md) |
+| `/api/zapier/opportunities/:id`                  | DELETE | X-API-Key   | **Delete** an opportunity — see [Editing & Deleting an Opportunity guide](./edit-opportunity-guide.md) |
 | `/api/zapier/triggers/events?event_type=client_created` | GET | X-API-Key | Poll for newly created clients                       |
 | `/api/zapier/triggers/events?event_type=lead_converted` | GET | X-API-Key | Poll for converted leads                             |
+| `/api/zapier/triggers/events?event_type=opportunity_updated` | GET | X-API-Key | Poll for opportunity edits                       |
+| `/api/zapier/triggers/events?event_type=opportunity_deleted` | GET | X-API-Key | Poll for opportunity deletions                   |
 
 ### Implementation pointers (for maintainers)
 

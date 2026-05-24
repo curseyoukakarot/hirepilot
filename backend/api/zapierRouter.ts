@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { ApiRequest } from '../types/api';
 import { supabaseDb } from '../lib/supabase';
-import { EVENT_TYPES } from '../src/lib/events';
+import { EVENT_TYPES, createZapEvent } from '../src/lib/events';
 import enrichLead from './enrichLead';
 import zapierTestRouter from './zapierTestEvent';
 import axios from 'axios';
@@ -1704,6 +1704,290 @@ router.get('/opportunities/:id', apiKeyAuth, async (req: ApiRequest, res: Respon
     return res.status(200).json({ opportunity: opp });
   } catch (err: any) {
     console.error('[Zapier] GET /opportunities/:id error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Partially update an opportunity (deal) owned by the API-key user.
+ *
+ * PATCH /api/zapier/opportunities/:id
+ *
+ * Any field below may be sent (or omitted). Only the fields you include are
+ * updated. Send an explicit `null` (or empty string for date/numeric fields)
+ * to clear a value.
+ *
+ * Body (all optional):
+ *  - title           string (non-empty if provided)
+ *  - client_id       UUID of a `clients` row owned by the API-key user
+ *  - stage           free-form pipeline stage label
+ *  - status          lifecycle ("open" | "won" | "lost" | ...)
+ *  - value           number (deal dollar amount) — pass null to clear
+ *  - billing_type    string ("contingency" | "retained" | "one_time" | ...)
+ *  - tag             string (e.g. "rss", "job_seeker", custom)
+ *  - forecast_date   YYYY-MM-DD or ISO timestamp; null/"" clears
+ *  - start_date      YYYY-MM-DD or ISO timestamp; null/"" clears
+ *  - term_months     one of 1, 3, 6, 12; null/"" clears
+ *  - margin          number; null/"" clears
+ *  - margin_type     "currency" | "percent"
+ *
+ * SECURITY: `owner_id` cannot be changed via this endpoint.
+ *
+ * Side effects:
+ *  - Emits `opportunity_updated` zap event on success.
+ *  - Emits `opportunity_closed_won` when the resulting row is in a
+ *    Close Won stage/status AND tag is "Job Seeker" (parity with the
+ *    in-app /deals editor).
+ */
+router.patch('/opportunities/:id', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const oppId = String(req.params.id || '').trim();
+    if (!oppId) return res.status(400).json({ error: 'Missing opportunity id' });
+    const body = (req.body || {}) as Record<string, any>;
+
+    // Load existing row first to enforce ownership and to enable workflow checks.
+    const { data: existing, error: loadErr } = await supabaseDb
+      .from('opportunities')
+      .select('id, owner_id, stage, status, tag, client_id, title, value')
+      .eq('id', oppId)
+      .maybeSingle();
+    if (loadErr) throw loadErr;
+    if (!existing) return res.status(404).json({ error: 'Opportunity not found' });
+    if ((existing as any).owner_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    const update: Record<string, any> = {};
+
+    // title — if provided, must be a non-empty string
+    if (body.title !== undefined) {
+      const t = typeof body.title === 'string' ? body.title.trim() : '';
+      if (!t) return res.status(400).json({ error: 'title must be a non-empty string' });
+      update.title = t;
+    }
+
+    // client_id — if provided, must reference a client owned by the same user
+    if (body.client_id !== undefined) {
+      const cid = String(body.client_id || '').trim();
+      if (!cid) return res.status(400).json({ error: 'client_id must be a non-empty UUID' });
+      const { data: client, error: clientErr } = await supabaseDb
+        .from('clients')
+        .select('id, owner_id')
+        .eq('id', cid)
+        .maybeSingle();
+      if (clientErr) throw clientErr;
+      if (!client) return res.status(400).json({ error: 'client_id not found' });
+      if ((client as any).owner_id !== userId) return res.status(403).json({ error: 'Forbidden (client)' });
+      update.client_id = cid;
+    }
+
+    // Free-form string fields (stage/status/billing_type/tag). null clears.
+    for (const field of ['stage', 'status', 'billing_type', 'tag'] as const) {
+      if (body[field] !== undefined) {
+        const raw = body[field];
+        if (raw === null) {
+          update[field] = null;
+        } else {
+          update[field] = String(raw).trim();
+        }
+      }
+    }
+
+    // value — numeric, null clears
+    if (body.value !== undefined) {
+      const raw = body.value;
+      if (raw === null || raw === '') {
+        update.value = null;
+      } else {
+        const n = Number(raw);
+        if (!isFinite(n)) return res.status(400).json({ error: 'invalid value' });
+        update.value = n;
+      }
+    }
+
+    // Date fields — accept YYYY-MM-DD or ISO; store date-only; null/"" clears
+    const parseDate = (raw: any): string | null | 'INVALID' => {
+      if (raw === null || raw === '') return null;
+      if (typeof raw !== 'string') return 'INVALID';
+      const v = raw.slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return 'INVALID';
+      return v;
+    };
+    if (body.forecast_date !== undefined) {
+      const v = parseDate(body.forecast_date);
+      if (v === 'INVALID') return res.status(400).json({ error: 'invalid forecast_date' });
+      update.forecast_date = v;
+    }
+    if (body.start_date !== undefined) {
+      const v = parseDate(body.start_date);
+      if (v === 'INVALID') return res.status(400).json({ error: 'invalid start_date' });
+      update.start_date = v;
+    }
+
+    // term_months — one of 1, 3, 6, 12; null/"" clears
+    if (body.term_months !== undefined) {
+      const raw = body.term_months;
+      if (raw === null || raw === '') {
+        update.term_months = null;
+      } else {
+        const n = Number(raw);
+        if (![1, 3, 6, 12].includes(n)) return res.status(400).json({ error: 'invalid term_months (must be 1, 3, 6, or 12)' });
+        update.term_months = n;
+      }
+    }
+
+    // margin — numeric; null/"" clears
+    if (body.margin !== undefined) {
+      const raw = body.margin;
+      if (raw === null || raw === '') {
+        update.margin = null;
+      } else {
+        const n = Number(raw);
+        if (!isFinite(n)) return res.status(400).json({ error: 'invalid margin' });
+        update.margin = n;
+      }
+    }
+
+    // margin_type — 'currency' | 'percent'
+    if (body.margin_type !== undefined) {
+      const raw = body.margin_type;
+      if (raw === null || raw === '') {
+        update.margin_type = 'currency';
+      } else {
+        const v = String(raw).toLowerCase();
+        if (v !== 'currency' && v !== 'percent') return res.status(400).json({ error: 'invalid margin_type (must be "currency" or "percent")' });
+        update.margin_type = v;
+      }
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: 'No editable fields supplied' });
+    }
+    update.updated_at = new Date().toISOString();
+
+    let { data: updated, error: updErr } = await supabaseDb
+      .from('opportunities')
+      .update(update)
+      .eq('id', oppId)
+      .eq('owner_id', userId)
+      .select('*')
+      .single();
+    // Older DBs may lack margin_type; retry without it.
+    if (updErr && (updErr as any).code === '42703' && update.margin_type !== undefined) {
+      const fallback = { ...update };
+      delete fallback.margin_type;
+      const retry = await supabaseDb
+        .from('opportunities')
+        .update(fallback)
+        .eq('id', oppId)
+        .eq('owner_id', userId)
+        .select('*')
+        .single();
+      if (retry.error) throw retry.error;
+      updated = retry.data as any;
+    } else if (updErr) {
+      throw updErr;
+    }
+
+    // Emit generic update event
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_updated,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: oppId,
+        payload: { before: existing, after: updated, changed_fields: Object.keys(update).filter(k => k !== 'updated_at') }
+      });
+    } catch {}
+
+    // Emit Close Won + Job Seeker workflow event (parity with /api/opportunities PATCH)
+    try {
+      const afterStage = String((updated as any)?.stage || '').toLowerCase();
+      const afterStatus = String((updated as any)?.status || '').toLowerCase();
+      const afterTag = String((updated as any)?.tag ?? '').toLowerCase();
+      const isCloseWon = /close\s*won/.test(afterStage) || ['close_won', 'closed_won', 'won'].includes(afterStatus);
+      const isJobSeeker = afterTag === 'job seeker' || afterTag === 'job_seeker';
+      if (isCloseWon && isJobSeeker) {
+        await createZapEvent({
+          event_type: EVENT_TYPES.opportunity_closed_won,
+          user_id: userId,
+          entity: 'opportunity',
+          entity_id: oppId,
+          payload: {
+            id: oppId,
+            name: (updated as any)?.title,
+            amount: (updated as any)?.value ?? null,
+            tag: (updated as any)?.tag ?? null,
+            stage: (updated as any)?.stage ?? null,
+            status: (updated as any)?.status ?? null
+          }
+        });
+      }
+    } catch {}
+
+    return res.status(200).json({ success: true, opportunity: updated });
+  } catch (err: any) {
+    console.error('[Zapier] PATCH /opportunities/:id error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Delete an opportunity owned by the API-key user.
+ *
+ * DELETE /api/zapier/opportunities/:id
+ *
+ * Parity with the trash-icon action in the in-app /deals page.
+ *  - Removes any `opportunity_job_reqs` links first (does NOT delete the
+ *    underlying job requisitions themselves).
+ *  - Then deletes the `opportunities` row.
+ *  - Owner-only: 403 if the row belongs to another user.
+ *
+ * Side effects:
+ *  - Emits an `opportunity_deleted` zap event with the pre-delete snapshot.
+ */
+router.delete('/opportunities/:id', apiKeyAuth, async (req: ApiRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const oppId = String(req.params.id || '').trim();
+    if (!oppId) return res.status(400).json({ error: 'Missing opportunity id' });
+
+    // Load existing row first to enforce ownership and capture the snapshot for the event.
+    const { data: existing, error: loadErr } = await supabaseDb
+      .from('opportunities')
+      .select('*')
+      .eq('id', oppId)
+      .maybeSingle();
+    if (loadErr) throw loadErr;
+    if (!existing) return res.status(404).json({ error: 'Opportunity not found' });
+    if ((existing as any).owner_id !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+    // Best-effort: unlink job reqs first to avoid FK constraints; do NOT delete job reqs themselves.
+    try {
+      await supabaseDb.from('opportunity_job_reqs').delete().eq('opportunity_id', oppId);
+    } catch (e) {
+      console.warn('[Zapier] DELETE /opportunities/:id unlink reqs warning:', (e as any)?.message || e);
+    }
+
+    const { error: delErr } = await supabaseDb
+      .from('opportunities')
+      .delete()
+      .eq('id', oppId)
+      .eq('owner_id', userId);
+    if (delErr) throw delErr;
+
+    try {
+      await createZapEvent({
+        event_type: EVENT_TYPES.opportunity_deleted,
+        user_id: userId,
+        entity: 'opportunity',
+        entity_id: oppId,
+        payload: { opportunity: existing }
+      });
+    } catch {}
+
+    return res.status(200).json({ success: true, id: oppId });
+  } catch (err: any) {
+    console.error('[Zapier] DELETE /opportunities/:id error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 });
