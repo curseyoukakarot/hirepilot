@@ -1028,6 +1028,109 @@ router.get('/vendor-payout/:token', async (req: Request, res: Response) => {
 router.use(requireAuth as any);
 router.use(requireIgniteAccess as any);
 
+// ──────────────────────────────────────────────────────────
+// Ignite API keys (x-api-key) — let Ignite users mint keys that
+// authenticate programmatic access (e.g. uploading events via the API).
+// Keys are stored in the shared public.api_keys table; we only surface
+// Ignite-minted keys (prefixed `ignite_`) here so the portal stays clean.
+// ──────────────────────────────────────────────────────────
+
+const IGNITE_API_KEY_PREFIX = 'ignite';
+const IGNITE_API_KEY_SCOPES = ['ignite:events:write', 'ignite:events:read', 'ignite:proposals:read'];
+
+function maskApiKey(key: string): string {
+  const value = String(key || '');
+  if (value.length <= 12) return value;
+  const head = value.slice(0, 12);
+  const tail = value.slice(-4);
+  return `${head}…${tail}`;
+}
+
+function serializeApiKeyRow(row: any) {
+  return {
+    id: String(row.id),
+    name: row.name ? String(row.name) : null,
+    masked_key: maskApiKey(String(row.key || '')),
+    environment: row.environment || null,
+    scopes: Array.isArray(row.scopes) ? row.scopes : [],
+    is_active: row.is_active !== false,
+    created_at: row.created_at || null,
+    last_used_at: row.last_used_at || null,
+  };
+}
+
+// GET /ignite/api-keys — list the current user's Ignite API keys (masked)
+router.get('/api-keys', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('*')
+      .eq('user_id', ctx.userId)
+      .like('key', `${IGNITE_API_KEY_PREFIX}_%`)
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ keys: (data || []).map(serializeApiKeyRow) });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_list_api_keys' });
+  }
+});
+
+// POST /ignite/api-keys — mint a new key. Returns the full key exactly once.
+router.post('/api-keys', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const name = String((req.body || {}).name || '').trim().slice(0, 120) || null;
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    const envTag = environment === 'production' ? 'live' : 'test';
+    const apiKey = `${IGNITE_API_KEY_PREFIX}_${envTag}_${crypto.randomBytes(24).toString('hex')}`;
+
+    const { data, error } = await supabase
+      .from('api_keys')
+      .insert({
+        user_id: ctx.userId,
+        key: apiKey,
+        name,
+        environment,
+        scopes: IGNITE_API_KEY_SCOPES,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      })
+      .select('*')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+
+    // Return the plaintext key ONCE; subsequent reads only show the masked form.
+    return res.status(201).json({
+      api_key: apiKey,
+      key: data ? serializeApiKeyRow(data) : null,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_create_api_key' });
+  }
+});
+
+// DELETE /ignite/api-keys/:id — revoke a key the current user owns
+router.delete('/api-keys/:id', async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const keyId = String(req.params.id || '');
+    const { data, error } = await supabase
+      .from('api_keys')
+      .delete()
+      .eq('id', keyId)
+      .eq('user_id', ctx.userId)
+      .like('key', `${IGNITE_API_KEY_PREFIX}_%`)
+      .select('id')
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'api_key_not_found' });
+    return res.json({ ok: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_delete_api_key' });
+  }
+});
+
 // GET /ignite/client/proposals/:id
 router.get('/client/proposals/:id', async (req: ApiRequest, res: Response) => {
   try {

@@ -493,6 +493,179 @@ router.post('/:id/documents', requireIgniteTeam as any, async (req: ApiRequest, 
   }
 });
 
+// POST /:id/convert-to-proposal — one-click: create a draft proposal seeded
+// from this event. Auto-creates a client when the event has none.
+router.post('/:id/convert-to-proposal', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
+  try {
+    const ctx = req.igniteContext!;
+    const eventId = String(req.params.id || '');
+    const event = await getEventOr404(eventId, res);
+    if (!event) return;
+
+    const bundle = await loadEventBundle(eventId);
+    const sponsors = bundle.sponsors || [];
+    const costs = bundle.costs || [];
+
+    // 1) Resolve (or auto-create) the client this proposal belongs to.
+    let clientId = event.client_id ? String(event.client_id) : '';
+    let createdClient = false;
+    if (!clientId) {
+      const clientName =
+        nullableString(event.client_name_override) ||
+        `${String(event.name || 'Untitled Event')} Client`;
+      const { data: newClient, error: clientError } = await supabase
+        .from('ignite_clients')
+        .insert({
+          workspace_id: event.workspace_id ?? ctx.workspaceId,
+          name: clientName,
+          metadata_json: { created_from_event_id: eventId, source: 'event_conversion' },
+          created_by: ctx.userId,
+        })
+        .select('id')
+        .maybeSingle();
+      if (clientError) return res.status(500).json({ error: clientError.message });
+      clientId = newClient?.id ? String(newClient.id) : '';
+      createdClient = true;
+      if (!clientId) return res.status(500).json({ error: 'failed_to_auto_create_client' });
+      // Link the event to the freshly created client for future reference.
+      await supabase.from('ignite_events').update({ client_id: clientId, kind: 'external' }).eq('id', eventId);
+    }
+
+    // 2) Build the proposal assumptions/settings from the event datapoints.
+    const cashSponsors = sponsors.filter((s: any) => String(s?.kind || 'cash') === 'cash');
+    const primarySponsor = cashSponsors[0]?.name ? String(cashSponsors[0].name) : null;
+    const coSponsors = cashSponsors
+      .slice(1)
+      .map((s: any) => String(s?.name || '').trim())
+      .filter(Boolean);
+
+    const assumptionsJson = {
+      event: {
+        location: nullableString(event.venue) || '',
+        venueAddress: nullableString(event.venue) || '',
+        city: nullableString(event.city) || '',
+        eventDate: nullableString(event.start_date) || '',
+        startTime: '',
+        endTime: '',
+        headcount: Math.max(0, Math.floor(toNumber(event.headcount, 0))),
+        primarySponsor,
+        coSponsors,
+        eventObjective: nullableString(event.description),
+        successCriteria: [] as string[],
+        source_event_id: eventId,
+      },
+      agreement: {
+        depositPercent: 50,
+        depositDueRule: null,
+        balanceDueRule: null,
+        cancellationWindowDays: 30,
+        confidentialityEnabled: true,
+        costSplitNotes: null,
+        signerName: nullableString(event.primary_contact),
+        signerEmail: null,
+        signerTitle: null,
+        signerCompany: nullableString(event.client_name_override),
+      },
+      serviceChargePercent: 0,
+      salesTaxPercent: 0,
+      taxAppliesAfterService: true,
+      modelType: 'cost-plus',
+      optionsCount: 1,
+      quickTemplate: null,
+      venuePreset: null,
+      workflow: { lastStep: 1 },
+    };
+
+    const settingsJson = {
+      igniteFeeRate: 0,
+      contingencyRate: 0,
+      turnkeyMethod: 'margin',
+      targetMarginPercent: toNumber(event.target_margin_pct, 20),
+      targetPrice: 0,
+      saveAsDefault: false,
+    };
+
+    // 3) Create the draft proposal.
+    const { data: proposal, error: proposalError } = await supabase
+      .from('ignite_proposals')
+      .insert({
+        workspace_id: event.workspace_id ?? ctx.workspaceId,
+        client_id: clientId,
+        created_by: ctx.userId,
+        updated_by: ctx.userId,
+        name: String(event.name || 'Untitled Event Proposal'),
+        status: 'draft',
+        pricing_mode: 'cost_plus',
+        currency: 'USD',
+        assumptions_json: assumptionsJson,
+        settings_json: settingsJson,
+      })
+      .select('*')
+      .maybeSingle();
+    if (proposalError) return res.status(500).json({ error: proposalError.message });
+    if (!proposal?.id) return res.status(500).json({ error: 'failed_to_create_proposal' });
+    const proposalId = String(proposal.id);
+
+    // 4) Seed a single option and map event cost lines into it so the draft
+    //    opens with the event's basic parameters already in place.
+    const { data: option, error: optionError } = await supabase
+      .from('ignite_proposal_options')
+      .insert({
+        proposal_id: proposalId,
+        option_key: 'option_1',
+        label: 'Option 1',
+        sort_order: 0,
+        is_enabled: true,
+        pricing_mode: 'cost_plus',
+        package_price: null,
+        metadata_json: {},
+      })
+      .select('id')
+      .maybeSingle();
+    if (optionError) return res.status(500).json({ error: optionError.message });
+    const optionId = option?.id ? String(option.id) : null;
+
+    if (optionId && costs.length > 0) {
+      const lineRows = costs.map((cost: any, index: number) => ({
+        proposal_id: proposalId,
+        option_id: optionId,
+        category: String(cost?.category || 'Other'),
+        line_name: String(cost?.description || cost?.category || 'Line item'),
+        description: nullableString(cost?.notes),
+        qty: toNumber(cost?.qty, 1),
+        unit_cost: toNumber(cost?.unit_cost, 0),
+        apply_service: false,
+        service_rate: 0,
+        apply_tax: false,
+        tax_rate: 0,
+        tax_applies_after_service: true,
+        sort_order: index,
+        is_hidden_from_client: false,
+        metadata_json: { vendor: nullableString(cost?.vendor), display: 'DETAIL', source_cost_id: String(cost?.id || '') },
+      }));
+      const { error: lineError } = await supabase.from('ignite_proposal_line_items').insert(lineRows);
+      if (lineError) return res.status(500).json({ error: lineError.message });
+    }
+
+    // 5) Back-reference the proposal on the event metadata.
+    const existingMeta = (event.metadata_json && typeof event.metadata_json === 'object') ? event.metadata_json : {};
+    await supabase
+      .from('ignite_events')
+      .update({ metadata_json: { ...existingMeta, proposal_id: proposalId } })
+      .eq('id', eventId);
+
+    return res.status(201).json({
+      proposal,
+      proposal_id: proposalId,
+      client_id: clientId,
+      created_client: createdClient,
+      line_items_count: costs.length,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed_to_convert_event' });
+  }
+});
+
 router.delete('/:id/documents/:docId', requireIgniteTeam as any, async (req: ApiRequest, res: Response) => {
   try {
     const eventId = String(req.params.id || '');

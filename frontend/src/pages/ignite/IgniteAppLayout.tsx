@@ -17,6 +17,10 @@ const NAV_ITEMS = [
   { to: '/ignite/exports', label: 'Exports', icon: 'fa-download' },
 ];
 
+const SETTINGS_ITEMS = [
+  { to: '/ignite/settings/api', label: 'API Keys', icon: 'fa-key' },
+];
+
 function isActivePath(currentPath: string, targetPath: string): boolean {
   return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
 }
@@ -26,6 +30,11 @@ export default function IgniteAppLayout({ children }: IgniteAppLayoutProps) {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(
+    () => location.pathname.startsWith('/ignite/settings')
+  );
+
+  const settingsActive = location.pathname.startsWith('/ignite/settings');
 
   const handleSignOut = async () => {
     markIntentionalSignOut();
@@ -106,8 +115,54 @@ export default function IgniteAppLayout({ children }: IgniteAppLayoutProps) {
             <div className="mt-4 border-t border-gray-200 pt-4">
               <button
                 type="button"
+                onClick={() => {
+                  if (desktopCollapsed) {
+                    navigate('/ignite/settings/api');
+                    setMobileNavOpen(false);
+                    return;
+                  }
+                  setSettingsOpen((prev) => !prev);
+                }}
+                aria-expanded={settingsOpen}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-sm ${
+                  settingsActive ? 'bg-blue-50 font-medium text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                } ${desktopCollapsed ? 'justify-center' : 'justify-between'}`}
+                title={desktopCollapsed ? 'Settings' : undefined}
+              >
+                <span className={`flex items-center ${desktopCollapsed ? '' : 'space-x-3'}`}>
+                  <i className="fa-solid fa-gear" />
+                  {!desktopCollapsed && <span>Settings</span>}
+                </span>
+                {!desktopCollapsed && (
+                  <i className={`fa-solid fa-chevron-${settingsOpen ? 'up' : 'down'} text-xs text-gray-400`} />
+                )}
+              </button>
+
+              {settingsOpen && !desktopCollapsed && (
+                <div className="mt-1 space-y-1 pl-3">
+                  {SETTINGS_ITEMS.map((item) => {
+                    const active = isActivePath(location.pathname, item.to);
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setMobileNavOpen(false)}
+                        className={`flex items-center space-x-3 rounded-lg px-3 py-2 text-sm ${
+                          active ? 'bg-blue-50 font-medium text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <i className={`fa-solid ${item.icon} w-4 text-center`} />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
                 onClick={handleSignOut}
-                className={`flex w-full items-center rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
+                className={`mt-1 flex w-full items-center rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
                   desktopCollapsed ? 'justify-center' : 'space-x-3'
                 }`}
                 title={desktopCollapsed ? 'Sign out' : undefined}

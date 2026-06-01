@@ -23,6 +23,7 @@ import BackofficeProposalPreviewPage from './BackofficeProposalPreviewPage';
 import EventsHubPage from './events/EventsHubPage';
 import EventDetailPage from './events/EventDetailPage';
 import EventWizard from './events/wizard/EventWizard';
+import IgniteApiKeysPage from './settings/IgniteApiKeysPage';
 import DashboardPage from '../igniteBackoffice/DashboardPage';
 import LedgerPage from '../igniteBackoffice/LedgerPage';
 import AllocationsPage from '../igniteBackoffice/AllocationsPage';
@@ -47,6 +48,7 @@ function getIgnitePageFlavor(pathname: string): string {
   if (pathname.startsWith('/ignite/rate-cards')) return 'ignite-page-rate-cards';
   if (pathname.startsWith('/ignite/clients')) return 'ignite-page-clients';
   if (pathname.startsWith('/ignite/exports')) return 'ignite-page-exports';
+  if (pathname.startsWith('/ignite/settings')) return 'ignite-page-settings';
   if (pathname.startsWith('/ignite/backoffice')) return 'ignite-page-backoffice';
   if (pathname.startsWith('/ignite/proposals')) return 'ignite-page-proposals';
   return 'ignite-page-default';
@@ -296,6 +298,16 @@ export default function IgniteRoutes({ role }: IgniteRoutesProps) {
             <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
               <IgniteAppLayout>
                 <IgniteExportsPage />
+              </IgniteAppLayout>
+            </RequireIgniteAccess>
+          }
+        />
+        <Route
+          path="/ignite/settings/api"
+          element={
+            <RequireIgniteAccess role={role} allowedRoles={['ignite_admin', 'ignite_team']}>
+              <IgniteAppLayout>
+                <IgniteApiKeysPage />
               </IgniteAppLayout>
             </RequireIgniteAccess>
           }

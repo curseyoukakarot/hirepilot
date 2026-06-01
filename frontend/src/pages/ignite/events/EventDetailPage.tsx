@@ -5,6 +5,7 @@ import {
   SponsorInput,
   addDocument,
   archiveEvent,
+  convertEventToProposal,
   deleteDocument,
   fetchEvent,
   replaceCosts,
@@ -74,6 +75,7 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   const [savingMessage, setSavingMessage] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
 
   const reload = async () => {
     if (!eventId) return;
@@ -145,6 +147,22 @@ export default function EventDetailPage() {
     } catch (e: any) {
       setError(String(e?.message || `${label} failed.`));
       setSavingMessage(null);
+    }
+  };
+
+  const handleConvertToProposal = async () => {
+    if (!event) return;
+    setConverting(true);
+    setError(null);
+    setSavingMessage('Creating draft proposal...');
+    try {
+      const result = await convertEventToProposal(event.id);
+      if (!result.proposalId) throw new Error('Conversion did not return a proposal.');
+      navigate(`/ignite/proposals/new?proposalId=${result.proposalId}&step=1`);
+    } catch (e: any) {
+      setError(String(e?.message || 'Failed to convert event to a proposal.'));
+      setSavingMessage(null);
+      setConverting(false);
     }
   };
 
@@ -230,6 +248,16 @@ export default function EventDetailPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {savingMessage && <span className="text-xs text-gray-400">{savingMessage}</span>}
+              <button
+                type="button"
+                onClick={() => void handleConvertToProposal()}
+                disabled={converting}
+                className="rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:from-purple-500 hover:to-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Create a draft proposal from this event"
+              >
+                <i className={`fa-solid ${converting ? 'fa-spinner fa-spin' : 'fa-file-export'} mr-2`} />
+                {converting ? 'Converting...' : 'Convert to Proposal'}
+              </button>
               <button
                 type="button"
                 onClick={() => {

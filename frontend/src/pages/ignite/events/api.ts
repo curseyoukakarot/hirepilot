@@ -295,6 +295,23 @@ export async function archiveEvent(eventId: string): Promise<void> {
   await apiDelete(`/api/ignite/events/${eventId}`);
 }
 
+export type ConvertEventResult = {
+  proposalId: string;
+  clientId: string | null;
+  createdClient: boolean;
+  lineItemsCount: number;
+};
+
+export async function convertEventToProposal(eventId: string): Promise<ConvertEventResult> {
+  const response = await apiPost(`/api/ignite/events/${eventId}/convert-to-proposal`, {});
+  return {
+    proposalId: String(response?.proposal_id || response?.proposal?.id || ''),
+    clientId: response?.client_id ? String(response.client_id) : null,
+    createdClient: Boolean(response?.created_client),
+    lineItemsCount: asNumber(response?.line_items_count, 0),
+  };
+}
+
 export async function replaceSponsors(eventId: string, sponsors: SponsorInput[]): Promise<void> {
   await apiPut(`/api/ignite/events/${eventId}/sponsors`, {
     sponsors: sponsors.map(serializeSponsor),
