@@ -1085,19 +1085,32 @@ router.post('/api-keys', async (req: ApiRequest, res: Response) => {
     const envTag = environment === 'production' ? 'live' : 'test';
     const apiKey = `${IGNITE_API_KEY_PREFIX}_${envTag}_${crypto.randomBytes(24).toString('hex')}`;
 
-    const { data, error } = await supabase
+    const basePayload: Record<string, any> = {
+      user_id: ctx.userId,
+      key: apiKey,
+      name,
+      environment,
+      scopes: IGNITE_API_KEY_SCOPES,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabase
       .from('api_keys')
-      .insert({
-        user_id: ctx.userId,
-        key: apiKey,
-        name,
-        environment,
-        scopes: IGNITE_API_KEY_SCOPES,
-        is_active: true,
-        created_at: new Date().toISOString(),
-      })
+      .insert(basePayload)
       .select('*')
       .maybeSingle();
+
+    // Resilience: the optional `name` column may not exist yet on some
+    // deployments. Retry once without it instead of failing the request.
+    if (error && /name/i.test(String(error.message || ''))) {
+      const { name: _omitName, ...payloadWithoutName } = basePayload;
+      ({ data, error } = await supabase
+        .from('api_keys')
+        .insert(payloadWithoutName)
+        .select('*')
+        .maybeSingle());
+    }
     if (error) return res.status(500).json({ error: error.message });
 
     // Return the plaintext key ONCE; subsequent reads only show the masked form.
