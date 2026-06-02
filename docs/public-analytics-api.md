@@ -188,6 +188,81 @@ curl -s "https://api.thehirepilot.com/v1/analytics/campaigns/7c3f1a2b-7e4d-4b1a-
 
 ---
 
+## 4) Campaign replies (actual reply messages)
+
+`GET /v1/analytics/campaigns/:id/replies`
+
+Returns the **inbound reply messages** behind the reply rate — the actual subject/body the lead sent back, with the related lead attached. (The reply *rate* in `/performance` is counted from tracking events; this endpoint returns the message *content* from the reply store.)
+
+### Path params
+
+| Name | Type | Description |
+|------|------|-------------|
+| `id` | UUID \| `all` | A campaign id, or `all` to pull replies across every campaign |
+
+### Query params
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | number | `50` | Page size (max `200`) |
+| `offset` | number | `0` | Offset for pagination |
+| `classification` | string | – | Optional exact filter (e.g. `positive`, `neutral`, `negative`) when replies have been AI-classified |
+
+### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `campaign_id` | string | Echoes the requested id (or `all`) |
+| `total` | number | Total matching replies (for pagination) |
+| `limit` / `offset` | number | Echoes the pagination params |
+| `replies` | array | The reply messages, newest first |
+
+Each item in `replies` includes: `id`, `campaign_id`, `lead_id`, `subject`, `text_body`, `html_body`, `from_email` / `sender_email`, `classification`, `message_id`, `in_reply_to`, `reply_ts` / `created_at`, and a nested `lead` object (`id`, `first_name`, `last_name`, `name`, `email`, `title`, `company`, `linkedin_url`, `status`).
+
+### Example request
+
+```bash
+curl -s "https://api.thehirepilot.com/v1/analytics/campaigns/7c3f1a2b-7e4d-4b1a-9b2c-1d2e3f4a5b6c/replies?limit=20" \
+  -H "X-API-Key: hp_live_xxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+### Example response
+
+```json
+{
+  "campaign_id": "7c3f1a2b-7e4d-4b1a-9b2c-1d2e3f4a5b6c",
+  "total": 1,
+  "limit": 20,
+  "offset": 0,
+  "replies": [
+    {
+      "id": "f1e2d3c4-...",
+      "campaign_id": "7c3f1a2b-7e4d-4b1a-9b2c-1d2e3f4a5b6c",
+      "lead_id": "a1b2c3d4-...",
+      "subject": "Re: Senior Backend role at Microsoft",
+      "text_body": "Thanks for reaching out — happy to chat next week.",
+      "html_body": "<p>Thanks for reaching out — happy to chat next week.</p>",
+      "from_email": "jane.doe@example.com",
+      "classification": "positive",
+      "message_id": "msg_abc123",
+      "reply_ts": "2026-06-01T15:04:22.000Z",
+      "created_at": "2026-06-01T15:04:22.000Z",
+      "lead": {
+        "id": "a1b2c3d4-...",
+        "name": "Jane Doe",
+        "email": "jane.doe@example.com",
+        "title": "Senior Engineer",
+        "company": "Example Inc"
+      }
+    }
+  ]
+}
+```
+
+> Replies are matched to classic `campaigns` (the ones shown on the Campaign Performance page). For AI **sourcing** campaigns, reply content lives in a separate store; ask if you need that exposed too.
+
+---
+
 ## Recipes
 
 ### Pull all campaigns and their KPIs (bash)
@@ -243,3 +318,4 @@ console.log(metrics.open_rate, metrics.reply_rate);
 | `GET /v1/analytics/campaigns/all/performance` | Aggregate KPIs across all campaigns |
 | `GET /v1/analytics/campaigns/:id/time-series` | Time‑bucketed metrics for one campaign |
 | `GET /v1/analytics/time-series?campaign_id=…` | Time‑bucketed metrics (query‑param form) |
+| `GET /v1/analytics/campaigns/:id/replies` | Actual inbound reply messages for a campaign |

@@ -3,6 +3,7 @@ import { requireApiKeyScopes } from '../middleware/requireApiKeyScopes';
 import campaignPerformance from '../../api/campaignPerformance';
 import analyticsTimeSeries from '../../api/analyticsTimeSeries';
 import getCampaigns from '../../api/getCampaigns';
+import campaignReplies from '../../api/campaignReplies';
 
 /**
  * Public V1 Analytics API (API key required).
@@ -46,5 +47,10 @@ router.get('/campaigns/:id/time-series', (req: Request, res: Response) => {
 
 // GET /v1/analytics/time-series?campaign_id=all|<uuid>&time_range=30d|90d|1y
 router.get('/time-series', analyticsTimeSeries);
+
+// GET /v1/analytics/campaigns/:id/replies?limit=&offset=&classification=
+// The actual inbound reply messages (subject/body/lead) behind the reply
+// rate. Use `all` as :id to pull replies across every campaign.
+router.get('/campaigns/:id/replies', campaignReplies);
 
 export default router;
