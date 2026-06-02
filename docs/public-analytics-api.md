@@ -1,6 +1,6 @@
 # Public Campaign Analytics API (V1)
 
-These endpoints expose the same **campaign outreach data** shown on the in‑app **Campaign Performance / Analytics** page (Leads Messaged, Open Rate, Reply Rate, Conversion Rate, Converted Candidates, and time‑series for charting) to third‑party tools — Zapier, Make, n8n, BI dashboards, your own scripts — using a HirePilot API key.
+These endpoints expose the same **campaign outreach data** shown on the in‑app **Campaign Performance / Analytics** page (Leads Messaged, Open Rate, Reply Rate, Conversion Rate, Converted Candidates, and time‑series for charting) — plus the **actual inbound reply messages** leads send back — to third‑party tools (Zapier, Make, n8n, BI dashboards, your own scripts) using a HirePilot API key.
 
 > The API returns data scoped to the user (and team) that owns the API key, and it honors your team's **analytics‑sharing** setting exactly like the dashboard does. If a team admin has disabled analytics sharing, these endpoints return `403 analytics_sharing_disabled`.
 
@@ -192,7 +192,10 @@ curl -s "https://api.thehirepilot.com/v1/analytics/campaigns/7c3f1a2b-7e4d-4b1a-
 
 `GET /v1/analytics/campaigns/:id/replies`
 
-Returns the **inbound reply messages** behind the reply rate — the actual subject/body the lead sent back, with the related lead attached. (The reply *rate* in `/performance` is counted from tracking events; this endpoint returns the message *content* from the reply store.)
+Returns the **inbound reply messages** behind the reply rate — the actual subject/body the lead sent back, with the related lead attached.
+
+> **Reply rate vs. reply content — two different data sources.**
+> The reply *rate* in `/performance` is counted from lightweight tracking events (the `email_events` table) and contains **no message text**. The actual reply *content* (subject + body) is stored separately in the `email_replies` table when an inbound reply is ingested (e.g. via SendGrid Inbound Parse). This endpoint reads that content store. As a result, it's possible to see a non‑zero reply *rate* while this endpoint returns fewer rows — replies are only returned here once their full body has been captured and linked to the campaign.
 
 ### Path params
 
