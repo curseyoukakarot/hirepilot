@@ -94,6 +94,7 @@ import kanbanRouter from './src/routes/kanban';
 import tasksRouter from './src/routes/tasks';
 import publicKanbanV1Router from './src/routes/publicKanbanV1';
 import publicWebhooksV1Router from './src/routes/publicWebhooksV1';
+import publicAnalyticsV1Router from './src/routes/publicAnalyticsV1';
 import featureEventsRouter from './src/routes/events.feature';
 import resumeDraftsRouter from './src/routes/resumeDrafts';
 import resumesRouter from './src/routes/resumes';
@@ -587,6 +588,7 @@ app.use('/api/public/tables', publicTablesRouter);
 // Public V1 API (API key required)
 app.use('/v1/kanban', publicKanbanV1Router);
 app.use('/v1/webhooks', publicWebhooksV1Router);
+app.use('/v1/analytics', publicAnalyticsV1Router);
 // Offr Group public chatbot + lead capture
 app.use('/api', offrWebsiteRouter);
 app.use('/api/phantombuster', runPhantomRouter);

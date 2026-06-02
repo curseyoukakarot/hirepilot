@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { withApiKeyAuth } from './withApiKeyAuth';
 
-const DEFAULT_SCOPES = ['kanban:read', 'kanban:write', 'webhooks:manage', 'tasks:read', 'tasks:write'];
+const DEFAULT_SCOPES = ['kanban:read', 'kanban:write', 'webhooks:manage', 'tasks:read', 'tasks:write', 'analytics:read'];
 
 function normalizeScopes(scopes: string[] | undefined | null): string[] {
   if (!scopes || !Array.isArray(scopes)) return [];

@@ -15,7 +15,7 @@ const handler: ApiHandler = async (req: ApiRequest, res: Response) => {
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     const prefix = environment === 'production' ? 'hp_live' : 'hp_test';
     const apiKey = `${prefix}_${uuidv4().replace(/-/g, '')}`;
-    const scopes = ['kanban:read', 'kanban:write', 'webhooks:manage'];
+    const scopes = ['kanban:read', 'kanban:write', 'webhooks:manage', 'analytics:read'];
     const { error } = await supabaseDb
       .from('api_keys')
       .insert({
