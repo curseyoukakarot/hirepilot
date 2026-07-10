@@ -138,3 +138,26 @@ What this migration adds:
 - `tasks`, `task_comments`, `task_statuses`
 - Workspace-scoped RLS for all three tables
 - Default task statuses per workspace (`Open`, `In Progress`, `Waiting`, `Completed`) with auto-seed on new workspace creation
+## Documentation
+
+- [Access token hook setup](ACCESS_TOKEN_HOOK_SETUP.md)
+- [Browserless troubleshooting guide](browserless-troubleshooting-guide.md)
+- [Deployment summary](DEPLOYMENT_SUMMARY.md)
+- [Engineer debug prompt](ENGINEER_DEBUG_PROMPT.md)
+- [JWT role injection deployment](JWT_ROLE_INJECTION_DEPLOYMENT.md)
+- [N8n integration](N8N_INTEGRATION_SUMMARY.md)
+- [Quick fix guide](QUICK_FIX_GUIDE.md)
+- [Sourcing agent](SOURCING_AGENT_COMPLETE.md)
+- Guides and APIs: see [`docs/`](docs/)
+
+## Git hooks
+
+This repo uses [prek](https://github.com/j178/prek) for code checks.
+One-time setup after cloning:
+
+    brew install prek   # or: uv tool install prek
+    prek install
+
+The checks are currently on-demand (they do not block commits yet). Run them:
+
+    prek run --hook-stage manual --all-files

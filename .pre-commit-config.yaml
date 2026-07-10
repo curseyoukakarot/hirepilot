@@ -1,0 +1,31 @@
+# Pre-commit checks (prek). One-time setup: brew install prek && prek install
+# All checks are currently on-demand (warn) — run them with:
+#   prek run --hook-stage manual --all-files
+# They are non-blocking pending a dedicated secret/logging cleanup pass.
+repos:
+  - repo: local
+    hooks:
+      - id: check-hardcoded-secrets-ts
+        name: TS — hardcoded secrets / embedded DB credentials (warn, on-demand)
+        entry: node scripts/checks/check-hardcoded-secrets.mjs backend frontend/src
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: check-env-var-defaults-ts
+        name: TS — sensitive env var defaults (warn, on-demand)
+        entry: node scripts/checks/check-env-var-defaults.mjs backend frontend/src
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: check-sensitive-field-logging-ts
+        name: TS — sensitive field logging (warn, on-demand)
+        entry: node scripts/checks/check-sensitive-field-logging.mjs backend frontend/src
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: check-exception-leakage-ts
+        name: TS — exception detail leakage (warn, on-demand)
+        entry: node scripts/checks/check-exception-leakage.mjs backend frontend/src
+        language: system
+        pass_filenames: false
+        stages: [manual]

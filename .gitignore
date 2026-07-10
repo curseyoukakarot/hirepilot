@@ -9,3 +9,11 @@ dist/
 .vite/
 
 backend/.env*
+
+# IDE / editor config that can hold connection strings
+.cursor/
+.vscode/
+.idea/
+# build + coverage artifacts
+coverage/
+*.tsbuildinfo
