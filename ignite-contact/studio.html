@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Start a Project — Ignite Studio</title>
+  <meta name="description" content="Tell Ignite Studio what you want to make — short and long-form content, podcast sessions, strategic interviews." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,72..125,100..900;1,72..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="forms.css" />
+</head>
+<body class="form-studio">
+
+  <header class="bar">
+    <a class="bar__logo" href="https://www.ignitegtm.com/studio.html" aria-label="Ignite Studio">
+      <img src="assets/ignite-logo.png" alt="IGN!TE" />
+      <span>STUDIO</span>
+    </a>
+    <a class="bar__back" href="https://www.ignitegtm.com/studio.html">&larr; Back to the studio</a>
+  </header>
+
+  <main>
+    <p class="crumb">IGNITEGTM <span class="sep">//</span> CONTACT <span class="sep">//</span> <span class="here">STUDIO</span></p>
+    <h1>LET&rsquo;S MAKE SOMETHING <span class="h-grad">THAT HITS</span><span class="dot-red">.</span></h1>
+    <p class="lede">Tell us the story you need told &mdash; we&rsquo;ll bring the cameras, the cut, and five years of
+      being inside the rooms it came from.</p>
+
+    <div class="card">
+      <form id="intakeForm" action="/api/ignite/intake" method="POST" novalidate>
+        <input type="hidden" name="form" value="studio" />
+        <input type="hidden" name="source" id="srcField" value="" />
+        <div class="hp" aria-hidden="true">
+          <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fFirst">First Name</label>
+            <input id="fFirst" name="first_name" type="text" autocomplete="given-name" required placeholder="Ada" />
+          </div>
+          <div class="field">
+            <label for="fLast">Last Name</label>
+            <input id="fLast" name="last_name" type="text" autocomplete="family-name" required placeholder="Lovelace" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fEmail">Email</label>
+            <input id="fEmail" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
+          </div>
+          <div class="field">
+            <label for="fCompany">Company</label>
+            <input id="fCompany" name="company" type="text" autocomplete="organization" placeholder="Acme Compute" />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>Interested in &mdash; select all that apply</legend>
+          <div class="chips">
+            <input type="checkbox" id="cContent" name="interests" value="Short and Long-form content" />
+            <label for="cContent">Short &amp; Long-form Content</label>
+            <input type="checkbox" id="cPodcast" name="interests" value="Podcast sessions" />
+            <label for="cPodcast">Podcast Sessions</label>
+            <input type="checkbox" id="cInterviews" name="interests" value="Strategic Interviews" />
+            <label for="cInterviews">Strategic Interviews</label>
+            <input type="checkbox" id="cInfo" name="interests" value="General Information" />
+            <label for="cInfo">General Information</label>
+          </div>
+        </fieldset>
+
+        <button class="btn" type="submit"><span>Start a Project</span></button>
+        <p class="note note--err" id="errNote" hidden>Something broke &mdash; email us at
+          <a href="mailto:hello@ignitegtm.com" style="color:inherit">hello@ignitegtm.com</a></p>
+      </form>
+
+      <div class="success" id="successPanel" hidden>
+        <span class="bolt" aria-hidden="true"></span>
+        <h2>Got it<span class="dot-red">.</span></h2>
+        <p>Your project brief is in &mdash; the Studio team will be in touch shortly.</p>
+        <a class="bar__back" href="https://www.ignitegtm.com/studio.html">&larr; Back to the studio</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <span>&copy; 2026 IgniteGTM</span>
+    <span><a href="https://www.ignitegtm.com">ignitegtm.com</a> &middot; San Jose, CA</span>
+  </footer>
+
+  <script src="forms.js"></script>
+</body>
+</html>

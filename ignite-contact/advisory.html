@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talk Strategy — IgniteGTM Advisory</title>
+  <meta name="description" content="Tell IgniteGTM Advisory what you need — technical positioning, fundraising, strategic business development, manpower." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,72..125,100..900;1,72..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="forms.css" />
+</head>
+<body class="form-advisory">
+
+  <header class="bar">
+    <a class="bar__logo" href="https://www.ignitegtm.com/advisory.html" aria-label="IgniteGTM Advisory">
+      <img src="assets/ignite-logo.png" alt="IGN!TE" />
+      <span>ADVISORY</span>
+    </a>
+    <a class="bar__back" href="https://www.ignitegtm.com/advisory.html">&larr; Back to advisory</a>
+  </header>
+
+  <main>
+    <p class="crumb">IGNITEGTM <span class="sep">//</span> CONTACT <span class="sep">//</span> <span class="here">ADVISORY</span></p>
+    <h1>READY TO REACH <span class="h-grad">YOUR MARKET</span><span class="dot-red">?</span></h1>
+    <p class="lede">Tell us where you sit in the stack and what you need. We&rsquo;ll map the buyers, sharpen the
+      story, open the rooms, and make the introductions that move your business forward.</p>
+
+    <div class="card">
+      <form id="intakeForm" action="/api/ignite/intake" method="POST" novalidate>
+        <input type="hidden" name="form" value="advisory" />
+        <input type="hidden" name="source" id="srcField" value="" />
+        <div class="hp" aria-hidden="true">
+          <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fFirst">First Name</label>
+            <input id="fFirst" name="first_name" type="text" autocomplete="given-name" required placeholder="Ada" />
+          </div>
+          <div class="field">
+            <label for="fLast">Last Name</label>
+            <input id="fLast" name="last_name" type="text" autocomplete="family-name" required placeholder="Lovelace" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fEmail">Email</label>
+            <input id="fEmail" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
+          </div>
+          <div class="field">
+            <label for="fCompany">Company</label>
+            <input id="fCompany" name="company" type="text" autocomplete="organization" placeholder="Acme Compute" />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>Need help with &mdash; select all that apply</legend>
+          <div class="chips">
+            <input type="checkbox" id="cPositioning" name="interests" value="Technical Positioning" />
+            <label for="cPositioning">Technical Positioning</label>
+            <input type="checkbox" id="cFundraising" name="interests" value="Fundraising" />
+            <label for="cFundraising">Fundraising</label>
+            <input type="checkbox" id="cBizdev" name="interests" value="Strategic Business Development" />
+            <label for="cBizdev">Strategic Business Development</label>
+            <input type="checkbox" id="cManpower" name="interests" value="Manpower" />
+            <label for="cManpower">Manpower</label>
+          </div>
+        </fieldset>
+
+        <button class="btn" type="submit"><span>Talk Strategy</span></button>
+        <p class="note note--err" id="errNote" hidden>Something broke &mdash; email us at
+          <a href="mailto:hello@ignitegtm.com" style="color:inherit">hello@ignitegtm.com</a></p>
+      </form>
+
+      <div class="success" id="successPanel" hidden>
+        <span class="bolt" aria-hidden="true"></span>
+        <h2>Got it<span class="dot-red">.</span></h2>
+        <p>Your brief is in &mdash; the Advisory team will be in touch shortly.</p>
+        <a class="bar__back" href="https://www.ignitegtm.com/advisory.html">&larr; Back to advisory</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <span>&copy; 2026 IgniteGTM</span>
+    <span><a href="https://www.ignitegtm.com">ignitegtm.com</a> &middot; San Jose, CA</span>
+  </footer>
+
+  <script src="forms.js"></script>
+</body>
+</html>
