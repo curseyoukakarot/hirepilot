@@ -14,6 +14,8 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import igniteIntakeRouter from './routes/igniteIntake';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
@@ -292,6 +294,11 @@ const allowed = [
   'https://clients.ignitegtm.com',
   'https://backoffice.ignitegtm.com',
   'https://backoffce.ignitegtm.com',
+  // IgniteGTM marketing site + contact forms
+  'https://contact.ignitegtm.com',
+  'https://www.ignitegtm.com',
+  'https://ignitegtm.com',
+  'https://curseyoukakarot.github.io',
   // OpenAI Agent Builder origins (allow fetching MCP manifest/tools from browser)
   'https://platform.openai.com',
   'https://builder.openai.com',
@@ -392,6 +399,23 @@ app.get('/api/slack-events/ping', (_req, res) => res.json({ ok: true }));
 app.use(express.json({ limit: '25mb' }));
 // Public checkout must be reachable without auth; mount early before auth/teams.
 app.use('/api/public-checkout', publicCheckoutRouter);
+
+// IgniteGTM contact forms — public intake API + static pages for
+// contact.ignitegtm.com (host-gated so other domains are untouched).
+app.use('/api/ignite', igniteIntakeRouter);
+const igniteContactDir = [
+  path.join(__dirname, '../../ignite-contact'), // compiled: backend/dist/server.js
+  path.join(__dirname, '../ignite-contact'),    // ts-node dev: backend/server.ts
+].find((p) => fs.existsSync(p));
+if (igniteContactDir) {
+  const igniteContactStatic = express.static(igniteContactDir, { extensions: ['html'] });
+  app.use((req, res, next) => {
+    if ((req.hostname || '').toLowerCase().startsWith('contact.ignitegtm')) {
+      return igniteContactStatic(req, res, next);
+    }
+    next();
+  });
+}
 // Attempt unified authentication early (API key first, then session); safe no-op if unauthenticated
 app.use(async (req, _res, next) => {
   try {
