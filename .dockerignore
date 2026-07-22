@@ -7,6 +7,10 @@
 !shared/
 !shared/**
 
+# IgniteGTM contact form pages (served at contact.ignitegtm.com)
+!ignite-contact/
+!ignite-contact/**
+
 # Include root-level files that might be required
 !package.json
 !package-lock.json
