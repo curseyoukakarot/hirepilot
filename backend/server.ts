@@ -410,7 +410,11 @@ const igniteContactDir = [
 if (igniteContactDir) {
   const igniteContactStatic = express.static(igniteContactDir, { extensions: ['html'] });
   app.use((req, res, next) => {
-    if ((req.hostname || '').toLowerCase().startsWith('contact.ignitegtm')) {
+    // Railway's proxy delivers the original host via X-Forwarded-Host;
+    // req.hostname alone misses it without a global trust-proxy change.
+    const forwarded = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const host = (forwarded || req.hostname || '').toLowerCase();
+    if (host.startsWith('contact.ignitegtm')) {
       return igniteContactStatic(req, res, next);
     }
     next();
