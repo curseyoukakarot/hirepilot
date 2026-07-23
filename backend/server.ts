@@ -259,9 +259,9 @@ app.get('/health', (_, res) => {
 // contact.ignitegtm.com. Mounted before the "/" health probe so the
 // contact host gets index.html instead of "ok"; other hosts fall through.
 const igniteContactDir = [
-  path.join(__dirname, '../../ignite-contact'), // compiled: backend/dist/server.js
-  path.join(__dirname, '../ignite-contact'),    // ts-node dev: backend/server.ts
-  path.join(process.cwd(), 'ignite-contact'),   // cwd = repo root (docker WORKDIR /app)
+  path.join(__dirname, 'ignite-contact'),       // Railway: ts-node from /app (= backend/)
+  path.join(__dirname, '../ignite-contact'),    // compiled: backend/dist/server.js
+  path.join(process.cwd(), 'ignite-contact'),   // fallback: cwd
 ].find((p) => fs.existsSync(p));
 console.log('[IgniteContact] static dir:', igniteContactDir || 'NOT FOUND — pages disabled');
 if (igniteContactDir) {

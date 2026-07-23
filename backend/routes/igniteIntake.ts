@@ -16,7 +16,7 @@ router.use(express.urlencoded({ extended: true }));
 // temporary diagnostics for the contact.ignitegtm.com static serving
 router.get('/diag', (req: Request, res: Response) => {
   const candidates = [
-    path.join(__dirname, '../../../ignite-contact'),
+    path.join(__dirname, '../ignite-contact'),
     path.join(__dirname, '../../ignite-contact'),
     path.join(process.cwd(), 'ignite-contact'),
   ];

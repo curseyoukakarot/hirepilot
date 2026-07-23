@@ -7,9 +7,8 @@
 !shared/
 !shared/**
 
-# IgniteGTM contact form pages (served at contact.ignitegtm.com)
-!ignite-contact/
-!ignite-contact/**
+# IgniteGTM contact form pages live in backend/ignite-contact/ (already
+# included above) — Railway builds with backend/ as the service root.
 
 # Include root-level files that might be required
 !package.json
