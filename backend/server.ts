@@ -16,6 +16,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import igniteIntakeRouter from './routes/igniteIntake';
+import igniteBotRouter from './src/routes/igniteBot';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import rexWidgetRouter from './src/routes/rexWidget';
@@ -426,6 +427,9 @@ app.use('/api/public-checkout', publicCheckoutRouter);
 // IgniteGTM contact forms — public intake API (static pages are
 // host-gated further up, before the "/" health probe).
 app.use('/api/ignite', igniteIntakeRouter);
+// ignite-bot — public website assistant for www.ignitegtm.com (AI chat,
+// lead capture, Slack-bridged live chat). Public routes; mounted before auth.
+app.use('/api', igniteBotRouter);
 // Attempt unified authentication early (API key first, then session); safe no-op if unauthenticated
 app.use(async (req, _res, next) => {
   try {

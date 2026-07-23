@@ -1,6 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import { WebClient } from '@slack/web-api';
 import { supabaseDb } from '../lib/supabase';
 
 /**
@@ -34,8 +35,50 @@ router.get('/diag', (req: Request, res: Response) => {
   });
 });
 
-const FORMS = new Set(['general', 'studio', 'advisory', 'events']);
+const FORMS = new Set(['general', 'studio', 'advisory', 'events', 'chatbot']);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Per-form Slack routing in the IgniteGTM workspace (events + chatbot → general)
+const IGNITE_SLACK_CHANNELS: Record<string, string> = {
+  general: process.env.IGNITE_SLACK_CHANNEL_GENERAL || '#ignite-leads-general',
+  advisory: process.env.IGNITE_SLACK_CHANNEL_ADVISORY || '#ignite-leads-advisory',
+  studio: process.env.IGNITE_SLACK_CHANNEL_STUDIO || '#ignite-leads-studio',
+  events: process.env.IGNITE_SLACK_CHANNEL_GENERAL || '#ignite-leads-general',
+  chatbot: process.env.IGNITE_SLACK_CHANNEL_GENERAL || '#ignite-leads-general',
+};
+
+export async function notifyIgniteLeadSlack(form: string, lead: {
+  first_name: string; last_name?: string | null; email: string;
+  company?: string | null; interests?: string[]; source?: string | null; notes?: string | null;
+}) {
+  const token = process.env.IGNITE_SLACK_BOT_TOKEN || '';
+  const channel = IGNITE_SLACK_CHANNELS[form] || IGNITE_SLACK_CHANNELS.general;
+  if (!token || !channel) return;
+  const label = form === 'chatbot' ? 'ignite-bot lead' : `${form} form`;
+  const text = [
+    `:zap: New IgniteGTM lead — ${label}`,
+    `Name: ${[lead.first_name, lead.last_name].filter(Boolean).join(' ')} <${lead.email}>`,
+    lead.company ? `Company: ${lead.company}` : null,
+    lead.interests?.length ? `Interested in: ${lead.interests.join(', ')}` : null,
+    lead.notes ? `Notes: ${lead.notes}` : null,
+    lead.source ? `Source: ${lead.source}` : null,
+  ].filter(Boolean).join('\n');
+  try {
+    const slack = new WebClient(token);
+    try {
+      await slack.chat.postMessage({ channel, text, unfurl_links: false, unfurl_media: false });
+    } catch (err: any) {
+      if (err?.data?.error === 'not_in_channel') {
+        await slack.conversations.join({ channel });
+        await slack.chat.postMessage({ channel, text, unfurl_links: false, unfurl_media: false });
+      } else {
+        throw err;
+      }
+    }
+  } catch (err: any) {
+    console.error('[igniteIntake] slack notify failed:', err?.data?.error || err?.message || err);
+  }
+}
 
 router.post('/intake', async (req: Request, res: Response) => {
   try {
@@ -73,6 +116,16 @@ router.post('/intake', async (req: Request, res: Response) => {
       user_agent: String(req.headers['user-agent'] || '').slice(0, 300) || null,
     });
     if (error) throw error;
+
+    // fire-and-forget: never let Slack slow down or fail the submission
+    void notifyIgniteLeadSlack(form, {
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      company,
+      interests,
+      source: String(b.source || '') || null,
+    });
 
     // no-JS form posts get redirected back to the page with a success flag
     const isFormPost = (req.headers['content-type'] || '').includes('application/x-www-form-urlencoded');

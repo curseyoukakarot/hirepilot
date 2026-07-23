@@ -94,6 +94,14 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         const thread = event.thread_ts as string;
         const text = String(event.text || '');
 
+        // Skip any bot-authored message (covers offr-bot, ignite-bot, and other
+        // apps regardless of which workspace the event came from) — only human
+        // replies should bridge back to the widget.
+        if (event.bot_id || event.subtype === 'bot_message') {
+          console.log('[slack-events] skipping bot-authored message');
+          return;
+        }
+
         // Skip bot self-messages
         try {
           const botToken = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
