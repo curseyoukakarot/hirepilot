@@ -74,23 +74,30 @@ async function saveWidgetMessage(sessionId: string, role: 'user' | 'assistant', 
 }
 
 async function postToChatChannel(text: string, threadTs?: string | null): Promise<string | null> {
-  const token = BOT_TOKEN();
-  if (!token || !CHAT_CHANNEL) {
-    console.error('[ignite-bot] slack not configured (IGNITE_SLACK_BOT_TOKEN missing)');
-    return null;
-  }
-  const slack = new WebClient(token);
-  const args: any = { channel: CHAT_CHANNEL, text, unfurl_links: false, unfurl_media: false };
-  if (threadTs) args.thread_ts = threadTs;
+  // Never throws — a Slack hiccup must not break the visitor's chat.
   try {
-    const posted = await slack.chat.postMessage(args);
-    return (posted as any)?.ts || null;
-  } catch (err: any) {
-    if (err?.data?.error === 'not_in_channel') {
-      await slack.conversations.join({ channel: CHAT_CHANNEL });
+    const token = BOT_TOKEN();
+    if (!token || !CHAT_CHANNEL) {
+      console.error('[ignite-bot] slack not configured (IGNITE_SLACK_BOT_TOKEN missing)');
+      return null;
+    }
+    const slack = new WebClient(token);
+    const args: any = { channel: CHAT_CHANNEL, text, unfurl_links: false, unfurl_media: false };
+    if (threadTs) args.thread_ts = threadTs;
+    try {
       const posted = await slack.chat.postMessage(args);
       return (posted as any)?.ts || null;
+    } catch (err: any) {
+      if (err?.data?.error === 'not_in_channel') {
+        // conversations.join needs a channel ID; if CHAT_CHANNEL is a #name this
+        // throws — invite @ignite-bot to the channel instead. Non-fatal either way.
+        await slack.conversations.join({ channel: CHAT_CHANNEL });
+        const posted = await slack.chat.postMessage(args);
+        return (posted as any)?.ts || null;
+      }
+      throw err;
     }
+  } catch (err: any) {
     console.error('[ignite-bot] slack post failed', err?.data?.error || err?.message || err);
     return null;
   }
