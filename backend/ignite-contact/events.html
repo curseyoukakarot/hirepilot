@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Involved — IgniteGTM Events</title>
+  <meta name="description" content="Sponsor the stage, take the mic, or be in the room — AIS6 lands December 4, 2026 in San Jose, CA." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,72..125,100..900;1,72..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="forms.css" />
+</head>
+<body class="form-general">
+
+  <header class="bar">
+    <a class="bar__logo" href="https://www.ignitegtm.com/events.html" aria-label="IgniteGTM events">
+      <img src="assets/ignite-logo.png" alt="IGN!TE" />
+      <span>EVENTS</span>
+    </a>
+    <a class="bar__back" href="https://www.ignitegtm.com/events.html">&larr; Back to events</a>
+  </header>
+
+  <main>
+    <p class="crumb">IGNITEGTM <span class="sep">//</span> CONTACT <span class="sep">//</span> <span class="here">EVENTS</span></p>
+    <h1>GET IN <span class="h-grad">THE ROOM</span><span class="dot-red">.</span></h1>
+    <p class="lede">Sponsor the stage, take the mic, or be in the room &mdash; AIS6 lands December 4, 2026 in
+      San Jose, CA. Tell us how you want in and we&rsquo;ll follow up directly.</p>
+
+    <div class="card">
+      <form id="intakeForm" action="/api/ignite/intake" method="POST" novalidate>
+        <input type="hidden" name="form" value="events" />
+        <input type="hidden" name="source" id="srcField" value="" />
+        <div class="hp" aria-hidden="true">
+          <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fFirst">First Name</label>
+            <input id="fFirst" name="first_name" type="text" autocomplete="given-name" required placeholder="Ada" />
+          </div>
+          <div class="field">
+            <label for="fLast">Last Name</label>
+            <input id="fLast" name="last_name" type="text" autocomplete="family-name" required placeholder="Lovelace" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="fEmail">Email</label>
+            <input id="fEmail" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
+          </div>
+          <div class="field">
+            <label for="fCompany">Company</label>
+            <input id="fCompany" name="company" type="text" autocomplete="organization" placeholder="Acme Compute" />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>Interested in &mdash; select all that apply</legend>
+          <div class="chips">
+            <input type="checkbox" id="cSponsoring" name="interests" value="Sponsoring" />
+            <label for="cSponsoring">Sponsor AIS6</label>
+            <input type="checkbox" id="cSpeaking" name="interests" value="Speaking" />
+            <label for="cSpeaking">Apply to Speak</label>
+            <input type="checkbox" id="cAttending" name="interests" value="Attending" />
+            <label for="cAttending">Request an Invite</label>
+            <input type="checkbox" id="cPartnership" name="interests" value="Partnership" />
+            <label for="cPartnership">Partnership</label>
+            <input type="checkbox" id="cPress" name="interests" value="Media/Press" />
+            <label for="cPress">Media &amp; Press</label>
+          </div>
+        </fieldset>
+
+        <button class="btn" type="submit"><span>Get in Touch</span></button>
+        <p class="note note--err" id="errNote" hidden>Something broke &mdash; email us at
+          <a href="mailto:hello@ignitegtm.com" style="color:inherit">hello@ignitegtm.com</a></p>
+      </form>
+
+      <div class="success" id="successPanel" hidden>
+        <span class="bolt" aria-hidden="true"></span>
+        <h2>Got it<span class="dot-red">.</span></h2>
+        <p>You&rsquo;re in the system &mdash; the events team will be in touch shortly.</p>
+        <a class="bar__back" href="https://www.ignitegtm.com/events.html">&larr; Back to events</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <span>&copy; 2026 IgniteGTM</span>
+    <span><a href="https://www.ignitegtm.com">ignitegtm.com</a> &middot; San Jose, CA</span>
+  </footer>
+
+  <script>
+    // site CTAs deep-link as /events?interest=Sponsoring — pre-check that chip
+    (function () {
+      var v = new URLSearchParams(location.search).get("interest");
+      if (!v) return;
+      var box = document.querySelector('.chips input[value="' + v + '"]');
+      if (box) box.checked = true;
+    })();
+  </script>
+  <script src="forms.js"></script>
+</body>
+</html>

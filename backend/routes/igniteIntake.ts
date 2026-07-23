@@ -34,7 +34,7 @@ router.get('/diag', (req: Request, res: Response) => {
   });
 });
 
-const FORMS = new Set(['general', 'studio', 'advisory']);
+const FORMS = new Set(['general', 'studio', 'advisory', 'events']);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 router.post('/intake', async (req: Request, res: Response) => {
