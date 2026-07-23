@@ -1,4 +1,4 @@
-/* ignite-bot — IgniteGTM website chat widget.
+/* ignite-bot - IgniteGTM website chat widget.
    Same architecture as the Offr Group widget: AI Assistant tab + Slack-bridged
    Live Chat tab. Embed with:
    <script src="https://contact.ignitegtm.com/ignite-chat-widget.js" defer></script>
@@ -72,7 +72,7 @@
   function buildUi() {
     var root = ensureRoot();
 
-    // Launcher — dark disc, red IGN!TE slash, warm glow
+    // Launcher - dark disc, red IGN!TE slash, warm glow
     var launcher = createEl('button', 'ign-launcher ign-bubble-enter');
     launcher.setAttribute('aria-label', 'Open IgniteGTM chat');
     launcher.style.cssText = 'position:fixed;right:24px;bottom:24px;width:64px;height:64px;border-radius:50%;' +
@@ -90,7 +90,7 @@
       'box-shadow:0 20px 60px rgba(0,0,0,0.6);display:flex;flex-direction:column;z-index:2147483002;overflow:hidden;';
     root.appendChild(panel);
 
-    // Header — bolt gradient
+    // Header - bolt gradient
     var header = createEl('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:' + C.grad + ';';
     var left = createEl('div');
@@ -274,7 +274,7 @@
         addMessage({
           id: 'live_notice',
           type: 'assistant',
-          text: 'You switched to live chat — hang tight, the IgniteGTM team is being pinged.',
+          text: 'You switched to live chat - hang tight, the IgniteGTM team is being pinged.',
         });
         liveNoticeShown = true;
         if (!livePingSent) {
@@ -350,7 +350,7 @@
       addMessage({
         id: 'welcome',
         type: 'assistant',
-        text: "Hey — I'm ignite-bot. Ask me about the AI INFRA SUMMIT, NeoCloud Summit, Ignite Studio, or GTM Advisory — or tell me what you're building and I'll point you to the right room.",
+        text: "Hey - I'm ignite-bot. Ask me about the AI INFRA SUMMIT, NeoCloud Summit, Ignite Studio, or GTM Advisory - or tell me what you're building and I'll point you to the right room.",
       });
     }
 
@@ -401,7 +401,7 @@
           addMessage({
             id: 'a_' + Date.now(),
             type: activeTab === 'ai' ? 'assistant' : 'agent',
-            text: data.response || data.message || "Thanks for your message — we'll get back to you shortly.",
+            text: data.response || data.message || "Thanks for your message - we'll get back to you shortly.",
             showCalendly: !!data.calendly_link,
           });
           if (data.capture_lead) {
@@ -411,7 +411,7 @@
         })
         .catch(function () {
           renderTyping(ui.messagesWrap, false);
-          addMessage({ id: 'err_' + Date.now(), type: 'assistant', text: "Sorry — I'm having trouble connecting. Please try again, or email hello@ignitegtm.com." });
+          addMessage({ id: 'err_' + Date.now(), type: 'assistant', text: "Sorry - I'm having trouble connecting. Please try again, or email hello@ignitegtm.com." });
         });
     }
 
@@ -449,7 +449,7 @@
           addMessage({
             id: 'lead_' + Date.now(),
             type: 'assistant',
-            text: "Perfect — I've got your details. Want to grab time with Bill now?",
+            text: "Perfect - I've got your details. Want to grab time with Bill now?",
             showCalendly: true,
           });
         })

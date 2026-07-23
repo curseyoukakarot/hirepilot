@@ -1,4 +1,4 @@
-/* IgniteGTM contact forms — progressive enhancement over a plain <form> POST.
+/* IgniteGTM contact forms - progressive enhancement over a plain <form> POST.
    JS path: fetch JSON → inline success panel. JS-off: normal form POST,
    the endpoint 303-redirects back with ?sent=1 and we show success. */
 

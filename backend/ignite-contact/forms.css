@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   IGNITEGTM — contact forms (contact.ignitegtm.com)
+   IGNITEGTM - contact forms (contact.ignitegtm.com)
    Distilled from the ignitegtm.com design system: black base,
    Archivo 900 / IBM Plex Mono, bolt gradient, skewed buttons.
    Per-page accent via body class: .form-general / .form-advisory
@@ -45,7 +45,7 @@ body {
   flex-direction: column;
 }
 
-/* grain — same texture as the main site */
+/* grain - same texture as the main site */
 body::after {
   content: "";
   position: fixed; inset: 0;
@@ -162,7 +162,7 @@ form { display: flex; flex-direction: column; gap: 1.5rem; }
 .field input:focus { outline: none; border-color: var(--accent); }
 input:invalid:not(:placeholder-shown) { border-color: rgba(255, 61, 0, 0.6); }
 
-/* honeypot — visually gone, present for bots */
+/* honeypot - visually gone, present for bots */
 .hp { position: absolute; left: -9999px; opacity: 0; height: 0; overflow: hidden; }
 
 /* ── interest chips (checkboxes, JS-free) ── */
