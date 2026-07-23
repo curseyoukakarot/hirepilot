@@ -478,6 +478,7 @@ router.get('/ignite-bot/diag', async (_req: Request, res: Response) => {
       out.slack = { ok: true, team: a.team, botUser: a.user };
     }
   } catch (e: any) { out.slack = { ok: false, error: e?.data?.error || e?.message }; }
+  out.slackEvents = (global as any).__slackEventsDebug || 'NO slack events received since boot';
   res.json(out);
 });
 

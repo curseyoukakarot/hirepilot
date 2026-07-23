@@ -25,8 +25,19 @@ function verifySlackSignatureAny(req: express.Request, secrets: string[]): boole
   return false;
 }
 
+function slackEventsDebug(patch: Record<string, any>) {
+  try {
+    const g: any = global as any;
+    g.__slackEventsDebug = { ...(g.__slackEventsDebug || {}), ...patch };
+  } catch {}
+}
+
 export async function slackEventsHandler(req: express.Request, res: express.Response) {
   try {
+    slackEventsDebug({
+      lastRequestAt: new Date().toISOString(),
+      requestCount: (((global as any).__slackEventsDebug || {}).requestCount || 0) + 1,
+    });
     const rawBuf: Buffer = Buffer.isBuffer((req as any).body)
       ? (req as any).body
       : Buffer.isBuffer((req as any).rawBody)
@@ -76,6 +87,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
     }
     if (!verifySlackSignatureAny(req, secrets)) {
       console.warn('[slack-events] signature mismatch', { provided: signature });
+      slackEventsDebug({ lastSignature: 'FAIL', lastSignatureAt: new Date().toISOString() });
       res.status(400).send('bad signature');
       return;
     }
@@ -88,6 +100,14 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
       const event = payload.event;
       if (!event) { console.log('[slack-events] no event in callback'); return; }
       console.log('[slack-events] event', event);
+      slackEventsDebug({
+        lastSignature: 'ok',
+        lastEventType: event.type,
+        lastEventChannel: event.channel || null,
+        lastEventHasThread: !!event.thread_ts,
+        lastEventIsBot: !!(event.bot_id || event.subtype === 'bot_message'),
+        lastEventAt: new Date().toISOString(),
+      });
 
       if (event.type === 'message' && event.thread_ts) {
         const channel = event.channel as string;
@@ -200,6 +220,7 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         } catch {}
 
         const widgetSessionId = session?.widget_session_id || widgetIdFromParent;
+        slackEventsDebug({ lastMapping: widgetSessionId ? `ok (${widgetSessionId})` : 'NOT FOUND' });
 
         if (widgetSessionId) {
           // Fetch user name (best-effort) — try each workspace's token
