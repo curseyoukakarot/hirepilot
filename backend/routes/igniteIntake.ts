@@ -1,4 +1,6 @@
 import express, { Router, Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { supabaseDb } from '../lib/supabase';
 
 /**
@@ -10,6 +12,27 @@ const router = Router();
 
 // the no-JS fallback posts urlencoded; JSON is parsed globally upstream
 router.use(express.urlencoded({ extended: true }));
+
+// temporary diagnostics for the contact.ignitegtm.com static serving
+router.get('/diag', (req: Request, res: Response) => {
+  const candidates = [
+    path.join(__dirname, '../../../ignite-contact'),
+    path.join(__dirname, '../../ignite-contact'),
+    path.join(process.cwd(), 'ignite-contact'),
+  ];
+  res.json({
+    dirname: __dirname,
+    cwd: process.cwd(),
+    candidates: candidates.map((p) => ({
+      p,
+      exists: fs.existsSync(p),
+      files: fs.existsSync(p) ? fs.readdirSync(p).slice(0, 10) : null,
+    })),
+    hostname: req.hostname,
+    hostHeader: req.headers.host || null,
+    xForwardedHost: req.headers['x-forwarded-host'] || null,
+  });
+});
 
 const FORMS = new Set(['general', 'studio', 'advisory']);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

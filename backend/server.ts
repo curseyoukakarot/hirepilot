@@ -255,6 +255,29 @@ app.get('/health', (_, res) => {
   res.json({ ok: true });
 });
 
+// IgniteGTM contact form pages — host-gated static serving for
+// contact.ignitegtm.com. Mounted before the "/" health probe so the
+// contact host gets index.html instead of "ok"; other hosts fall through.
+const igniteContactDir = [
+  path.join(__dirname, '../../ignite-contact'), // compiled: backend/dist/server.js
+  path.join(__dirname, '../ignite-contact'),    // ts-node dev: backend/server.ts
+  path.join(process.cwd(), 'ignite-contact'),   // cwd = repo root (docker WORKDIR /app)
+].find((p) => fs.existsSync(p));
+console.log('[IgniteContact] static dir:', igniteContactDir || 'NOT FOUND — pages disabled');
+if (igniteContactDir) {
+  const igniteContactStatic = express.static(igniteContactDir, { extensions: ['html'] });
+  app.use((req, res, next) => {
+    // Railway's proxy delivers the original host via X-Forwarded-Host;
+    // req.hostname alone misses it without a global trust-proxy change.
+    const forwarded = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const host = (forwarded || String(req.headers.host || '') || req.hostname || '').toLowerCase();
+    if (host.startsWith('contact.ignitegtm')) {
+      return igniteContactStatic(req, res, next);
+    }
+    next();
+  });
+}
+
 // Some platforms probe "/" instead of "/health"
 app.get('/', (_req, res) => {
   console.log('[Root] Endpoint hit');
@@ -400,26 +423,9 @@ app.use(express.json({ limit: '25mb' }));
 // Public checkout must be reachable without auth; mount early before auth/teams.
 app.use('/api/public-checkout', publicCheckoutRouter);
 
-// IgniteGTM contact forms — public intake API + static pages for
-// contact.ignitegtm.com (host-gated so other domains are untouched).
+// IgniteGTM contact forms — public intake API (static pages are
+// host-gated further up, before the "/" health probe).
 app.use('/api/ignite', igniteIntakeRouter);
-const igniteContactDir = [
-  path.join(__dirname, '../../ignite-contact'), // compiled: backend/dist/server.js
-  path.join(__dirname, '../ignite-contact'),    // ts-node dev: backend/server.ts
-].find((p) => fs.existsSync(p));
-if (igniteContactDir) {
-  const igniteContactStatic = express.static(igniteContactDir, { extensions: ['html'] });
-  app.use((req, res, next) => {
-    // Railway's proxy delivers the original host via X-Forwarded-Host;
-    // req.hostname alone misses it without a global trust-proxy change.
-    const forwarded = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
-    const host = (forwarded || req.hostname || '').toLowerCase();
-    if (host.startsWith('contact.ignitegtm')) {
-      return igniteContactStatic(req, res, next);
-    }
-    next();
-  });
-}
 // Attempt unified authentication early (API key first, then session); safe no-op if unauthenticated
 app.use(async (req, _res, next) => {
   try {
