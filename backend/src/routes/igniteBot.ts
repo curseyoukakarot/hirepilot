@@ -186,16 +186,27 @@ async function routeLivechatMessage(input: {
   if (posted) {
     const activeThread = threadTs || posted.ts;
     try {
-      // store the resolved channel ID (Slack reply events carry the ID, not the #name)
-      await supabase.from('rex_live_sessions').upsert({
+      // store the resolved channel ID (Slack reply events carry the ID, not the
+      // #name). Manual upsert: rex_live_sessions has no unique constraint on
+      // widget_session_id, so .upsert(onConflict) errors with 42P10.
+      const row = {
         widget_session_id: sessionId,
         slack_channel_id: posted.channel,
         slack_thread_ts: activeThread,
         user_name: name || null,
         user_email: email || null,
-      }, { onConflict: 'widget_session_id' });
+      };
+      const { data: existing } = await supabase
+        .from('rex_live_sessions')
+        .select('id')
+        .eq('widget_session_id', sessionId)
+        .maybeSingle();
+      const { error: saveErr } = existing?.id
+        ? await supabase.from('rex_live_sessions').update(row).eq('id', existing.id)
+        : await supabase.from('rex_live_sessions').insert(row);
+      if (saveErr) console.error('[ignite-bot/livechat] session save failed', saveErr.message);
     } catch (insErr) {
-      console.error('[ignite-bot/livechat] upsert live session failed', insErr);
+      console.error('[ignite-bot/livechat] session save threw', insErr);
     }
   }
 
@@ -444,9 +455,13 @@ router.get('/ignite-bot/diag', async (_req: Request, res: Response) => {
     out.lcm_select = error ? `${error.code || ''} ${error.message}` : (data || []);
   } catch (e: any) { out.lcm_select = 'threw: ' + (e?.message || e); }
   try {
-    const { error } = await supabase.from('rex_live_sessions')
-      .upsert({ widget_session_id: DIAG_ID, slack_channel_id: 'DIAG', slack_thread_ts: '0.0' }, { onConflict: 'widget_session_id' });
-    out.rls_upsert = error ? `${error.code || ''} ${error.message}` : 'ok';
+    const row = { widget_session_id: DIAG_ID, slack_channel_id: 'DIAG', slack_thread_ts: '0.0' };
+    const { data: existing } = await supabase.from('rex_live_sessions')
+      .select('id').eq('widget_session_id', DIAG_ID).maybeSingle();
+    const { error } = existing?.id
+      ? await supabase.from('rex_live_sessions').update(row).eq('id', existing.id)
+      : await supabase.from('rex_live_sessions').insert(row);
+    out.rls_upsert = error ? `${error.code || ''} ${error.message}` : 'ok (manual upsert)';
   } catch (e: any) { out.rls_upsert = 'threw: ' + (e?.message || e); }
   try {
     const { data, error } = await supabase.from('rex_live_sessions')
