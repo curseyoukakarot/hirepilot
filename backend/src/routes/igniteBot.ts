@@ -73,7 +73,7 @@ async function saveWidgetMessage(sessionId: string, role: 'user' | 'assistant', 
   }
 }
 
-async function postToChatChannel(text: string, threadTs?: string | null): Promise<string | null> {
+async function postToChatChannel(text: string, threadTs?: string | null): Promise<{ ts: string; channel: string } | null> {
   // Never throws — a Slack hiccup must not break the visitor's chat.
   try {
     const token = BOT_TOKEN();
@@ -84,16 +84,16 @@ async function postToChatChannel(text: string, threadTs?: string | null): Promis
     const slack = new WebClient(token);
     const args: any = { channel: CHAT_CHANNEL, text, unfurl_links: false, unfurl_media: false };
     if (threadTs) args.thread_ts = threadTs;
+    const unpack = (posted: any) =>
+      posted?.ts ? { ts: posted.ts as string, channel: (posted.channel as string) || CHAT_CHANNEL } : null;
     try {
-      const posted = await slack.chat.postMessage(args);
-      return (posted as any)?.ts || null;
+      return unpack(await slack.chat.postMessage(args));
     } catch (err: any) {
       if (err?.data?.error === 'not_in_channel') {
         // conversations.join needs a channel ID; if CHAT_CHANNEL is a #name this
         // throws — invite @ignite-bot to the channel instead. Non-fatal either way.
         await slack.conversations.join({ channel: CHAT_CHANNEL });
-        const posted = await slack.chat.postMessage(args);
-        return (posted as any)?.ts || null;
+        return unpack(await slack.chat.postMessage(args));
       }
       throw err;
     }
@@ -182,13 +182,14 @@ async function routeLivechatMessage(input: {
     input.message_text,
   ].join('\n');
 
-  const postedTs = await postToChatChannel(textLines, threadTs);
-  if (postedTs) {
-    const activeThread = threadTs || postedTs;
+  const posted = await postToChatChannel(textLines, threadTs);
+  if (posted) {
+    const activeThread = threadTs || posted.ts;
     try {
+      // store the resolved channel ID (Slack reply events carry the ID, not the #name)
       await supabase.from('rex_live_sessions').upsert({
         widget_session_id: sessionId,
-        slack_channel_id: CHAT_CHANNEL,
+        slack_channel_id: posted.channel,
         slack_thread_ts: activeThread,
         user_name: name || null,
         user_email: email || null,
@@ -431,8 +432,8 @@ router.post('/ignite-bot/chat-open', async (req: Request, res: Response) => {
       `IgniteGTM widget opened (Session: ${sessionId})`,
       pageUrl ? `Page: ${pageUrl}` : null,
     ].filter(Boolean).join('\n');
-    const ts = await postToChatChannel(text);
-    res.json({ ok: true, delivered: !!ts });
+    const posted = await postToChatChannel(text);
+    res.json({ ok: true, delivered: !!posted });
   } catch (err: any) {
     console.error('[ignite-bot/chat-open] error', err?.message || err);
     res.status(500).json({ error: 'internal_error' });

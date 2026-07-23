@@ -125,13 +125,25 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
 
         let widgetIdFromParent: string | null = null;
 
-        // Fallback mapping by parsing parent message
-        const botTokenForHistory = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
-        if (!session && botTokenForHistory) {
+        // Fallback mapping by parsing parent message. Events can come from any
+        // connected workspace (HirePilot/Offr or IgniteGTM), so try each bot
+        // token until one can read the channel.
+        const tokenCandidates = [
+          process.env.SLACK_BOT_TOKEN,
+          process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN,
+          process.env.IGNITE_SLACK_BOT_TOKEN,
+        ].filter(Boolean) as string[];
+        if (!session && tokenCandidates.length) {
           try {
-            const slack = new WebClient(botTokenForHistory);
-            const { messages } = await slack.conversations.history({ channel, latest: thread, inclusive: true, limit: 1 });
-            const parent = (messages?.[0]?.text || '') as string;
+            let parent = '';
+            for (const tok of tokenCandidates) {
+              try {
+                const slack = new WebClient(tok);
+                const { messages } = await slack.conversations.history({ channel, latest: thread, inclusive: true, limit: 1 });
+                parent = (messages?.[0]?.text || '') as string;
+                if (parent) break;
+              } catch { /* wrong workspace token — try next */ }
+            }
             const m = parent.match(/Session:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
             const widgetId = m?.[1] || null;
             if (widgetId) {
@@ -190,16 +202,18 @@ export async function slackEventsHandler(req: express.Request, res: express.Resp
         const widgetSessionId = session?.widget_session_id || widgetIdFromParent;
 
         if (widgetSessionId) {
-          // Fetch user name (best-effort)
+          // Fetch user name (best-effort) — try each workspace's token
           let userName: string | null = null;
-          try {
-            const botToken = process.env.SLACK_BOT_TOKEN || process.env.OFFR_WEBSITE_CHAT_SLACK_BOT_TOKEN;
-            if (botToken && event.user) {
-              const slack = new WebClient(botToken);
-              const ui = await slack.users.info({ user: event.user });
-              userName = (ui.user as any)?.real_name || (ui.user as any)?.name || null;
+          if (event.user) {
+            for (const tok of tokenCandidates) {
+              try {
+                const slack = new WebClient(tok);
+                const ui = await slack.users.info({ user: event.user });
+                userName = (ui.user as any)?.real_name || (ui.user as any)?.name || null;
+                if (userName) break;
+              } catch { /* wrong workspace token — try next */ }
             }
-          } catch {}
+          }
 
           // Mark human engaged if not already
           try {
