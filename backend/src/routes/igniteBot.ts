@@ -423,6 +423,49 @@ router.get('/ignite-livechat/messages', async (req: Request, res: Response) => {
   }
 });
 
+// ── temporary diagnostics for the live-chat bridge ───────────────────────────
+router.get('/ignite-bot/diag', async (_req: Request, res: Response) => {
+  const out: any = {
+    env: {
+      igniteToken: !!process.env.IGNITE_SLACK_BOT_TOKEN,
+      chatChannel: CHAT_CHANNEL,
+      signingSecretsCount: (process.env.SLACK_SIGNING_SECRETS || '').split(',').map(s => s.trim()).filter(Boolean).length,
+    },
+  };
+  const DIAG_ID = '00000000-0000-4000-8000-00000000d1a6';
+  try {
+    const { error } = await supabase.from('live_chat_messages')
+      .insert({ session_id: DIAG_ID, sender: 'visitor', text: 'diag', name: 'diag', email: null });
+    out.lcm_insert = error ? `${error.code || ''} ${error.message}` : 'ok';
+  } catch (e: any) { out.lcm_insert = 'threw: ' + (e?.message || e); }
+  try {
+    const { data, error } = await supabase.from('live_chat_messages')
+      .select('id,sender,text').eq('session_id', DIAG_ID).limit(3);
+    out.lcm_select = error ? `${error.code || ''} ${error.message}` : (data || []);
+  } catch (e: any) { out.lcm_select = 'threw: ' + (e?.message || e); }
+  try {
+    const { error } = await supabase.from('rex_live_sessions')
+      .upsert({ widget_session_id: DIAG_ID, slack_channel_id: 'DIAG', slack_thread_ts: '0.0' }, { onConflict: 'widget_session_id' });
+    out.rls_upsert = error ? `${error.code || ''} ${error.message}` : 'ok';
+  } catch (e: any) { out.rls_upsert = 'threw: ' + (e?.message || e); }
+  try {
+    const { data, error } = await supabase.from('rex_live_sessions')
+      .select('widget_session_id,slack_channel_id,slack_thread_ts')
+      .eq('widget_session_id', '33333333-3333-4333-8333-333333333333').maybeSingle();
+    out.session_e2e = error ? `${error.code || ''} ${error.message}` : (data || 'no row');
+  } catch (e: any) { out.session_e2e = 'threw: ' + (e?.message || e); }
+  try {
+    const token = BOT_TOKEN();
+    if (!token) { out.slack = { ok: false, reason: 'IGNITE_SLACK_BOT_TOKEN not set' }; }
+    else {
+      const slack = new WebClient(token);
+      const a: any = await slack.auth.test();
+      out.slack = { ok: true, team: a.team, botUser: a.user };
+    }
+  } catch (e: any) { out.slack = { ok: false, error: e?.data?.error || e?.message }; }
+  res.json(out);
+});
+
 // ── open-widget ping (no DB writes) ──────────────────────────────────────────
 router.post('/ignite-bot/chat-open', async (req: Request, res: Response) => {
   try {
