@@ -1,6 +1,9 @@
 {
   "name": "hirepilot-root",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build:production": "tsc -p tsconfig.json",
     "start": "node -r ts-node/register server.ts"
@@ -9,5 +12,8 @@
     "@xyflow/react": "^12.10.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "ts-morph": "^21.0.1"
   }
 }
