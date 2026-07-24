@@ -50,7 +50,7 @@ HirePilot is an AI-powered recruiting platform that helps companies hire better,
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js v18 (`nvm use` picks it up from `.nvmrc`; matches the production runtime)
 - npm (v6 or higher)
 
 ### Installation
